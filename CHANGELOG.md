@@ -3,6 +3,12 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.5.2 — 2026-10-22
+
+### Fixed
+- Compact tracker lines match the game's info lines exactly: item icons sit on the same left edge as the
+  watch and depth meter icons, and a long line is squeezed like the game's own instead of cut with "...".
+
 ## 1.5.1 — 2026-10-22
 
 ### Fixed
