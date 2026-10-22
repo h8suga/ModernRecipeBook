@@ -3103,15 +3103,27 @@ public sealed class RecipeBookSystem : ModSystem
 		return false;
 	}
 
-	// The window is dragged by any empty part of its header; tabs and the close button keep their clicks.
+	// The window is dragged by its frame (an 8 px band on every side, free of controls) or by any empty
+	// part of the header; tabs and the close button keep their clicks.
 	private static bool HeaderGrab()
 	{
+		if (!BookGeometry.Frame.Contains(Mouse.X, Mouse.Y))
+		{
+			return false;
+		}
+		if (Mouse.X < BookGeometry.FrameGrip || Mouse.X >= BookGeometry.Frame.Width - BookGeometry.FrameGrip || Mouse.Y < BookGeometry.FrameGrip || Mouse.Y >= BookGeometry.Frame.Height - BookGeometry.FrameGrip)
+		{
+			return true;
+		}
 		if (!BookGeometry.Header.Contains(Mouse.X, Mouse.Y) || BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y))
 		{
 			return false;
 		}
 		return !VisibleTabs().Any((int tab) => TabRect(tab).Contains(Mouse.X, Mouse.Y));
 	}
+
+	// Grab zones light the frame in Accent while hovered or dragged.
+	private static bool GrabHint => DraggingWindow || (!MenuOpen && !HelpOpen && HeaderGrab());
 
 	private static void MoveWindowWithPointer()
 	{
@@ -3394,7 +3406,8 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		foreach (Item item in ContentSamples.ItemsByType.Values.OrderBy((Item item4) => item4.type))
 		{
-			if (item != null && !item.IsAir && item.type > 0)
+			// Nameless internal items (e.g. ManaCloakStar, an effect sprite) are not catalogue entries.
+			if (item != null && !item.IsAir && item.type > 0 && !string.IsNullOrWhiteSpace(item.Name))
 			{
 				AllItems.Add(item.type);
 				sources.Add(item.ModItem?.Mod.Name ?? "Terraria");
@@ -4665,7 +4678,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawTextPair(SpriteBatch sb, string name, string subtitle, float x, float y, float width, float height, Color titleColor, Color subColor)
 	{
 		BookTypography.Line title = BookTypography.Layout(BookRules.PlainText(name), width, 24f, 1f, TextScale, MeasureInk);
-		BookTypography.Line sub = BookTypography.Layout(BookRules.PlainText(subtitle), width, 20f, 0.78f, TextScale, MeasureInk);
+		BookTypography.Line sub = BookTypography.Layout(BookRules.PlainText(subtitle), width, 20f, 0.8f, TextScale, MeasureInk);
 		BookGlyphLayout.Bounds titleInk = Ink(title.Value);
 		BookGlyphLayout.Bounds subInk = Ink(sub.Value);
 		float titleHeight = titleInk.Height * title.Scale;
@@ -5378,7 +5391,8 @@ public sealed class RecipeBookSystem : ModSystem
 			Main.LocalPlayer.cursorItemIconEnabled = false;
 		}
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
-		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f);
+		bool grabHint = !AcquisitionOpen && GrabHint;
+		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f, grabHint ? Accent : Border, grabHint ? 2f : 1f);
 		if (AcquisitionOpen)
 		{
 			DrawAcquisition(sb);
@@ -5459,7 +5473,7 @@ public sealed class RecipeBookSystem : ModSystem
 		BookRect title = new BookRect(16f, 16f, TitleRight() - 16f, 32f);
 		for (int dot = 0; dot < 6; dot++)
 		{
-			Box(sb, 20 + dot % 2 * 5, 25 + dot / 2 * 6, 2f, 2f, Muted * 0.8f, border: false, 0f);
+			Box(sb, 20 + dot % 2 * 5, 25 + dot / 2 * 6, 2f, 2f, GrabHint ? Accent : (Muted * 0.8f), border: false, 0f);
 		}
 		CenterLabel(sb, TitleText, 34f, 16f, 260f, 32f, TextColor, 1.1f, rightAligned: false, leftAligned: true);
 		if (!MenuOpen && title.Contains(Mouse.X, Mouse.Y))

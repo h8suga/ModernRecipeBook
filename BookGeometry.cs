@@ -114,6 +114,11 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect Header => new BookRect(0f, 0f, 1120f, 64f);
 
+	internal static BookRect Frame => new BookRect(0f, 0f, 1120f, 696f);
+
+	// Width of the draggable band along every edge of the frame; no control sits in it.
+	internal const float FrameGrip = 8f;
+
 	internal static BookRect WindowSizeDecrease => new BookRect(24f, 660f, 24f, 24f);
 
 	internal static BookRect WindowSizeIncrease => new BookRect(100f, 660f, 24f, 24f);
