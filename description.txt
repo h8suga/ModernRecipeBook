@@ -1,4 +1,4 @@
-Modern Recipe Book 1.5.1
+Modern Recipe Book 1.5.2
 
 A recipe book for every item in the game and its mods, in English and Russian. Open it with Mouse3 (rebindable in Controls).
 
