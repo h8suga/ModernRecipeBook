@@ -18,7 +18,7 @@ internal static class BookCategories
 		return true;
 	}
 
-	private static bool Weapon(Item i)
+	internal static bool Weapon(Item i)
 	{
 		if (i.damage > 0 && i.ammo == 0)
 		{
