@@ -171,7 +171,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const int SectionGap = 24;
 
-	internal const int VisibleCategoryRows = 16;
+	internal const int VisibleCategoryRows = 14;
 
 	internal const int TabCount = 5;
 
@@ -319,17 +319,17 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	// Sidebar: CLASS label, the class buttons, CATEGORIES label, then the rows; same 22-pixel label-to-content step.
 	internal const float ClassLabelTop = 86f;
 
-	internal const float CategoryLabelTop = 144f;
+	internal const float CategoryLabelTop = 192f;
 
 	internal static BookRect CategoryCell(int visibleIndex)
 	{
-		return new BookRect(12f, 166 + visibleIndex * 28, 172f, 28f);
+		return new BookRect(12f, 214 + visibleIndex * 28, 172f, 28f);
 	}
 
-	// Equal 24-pixel squares spread over the width of a category row.
-	internal static BookRect ClassButton(int index, int count)
+	// Two rows of three 52×32 buttons with 8-pixel gaps, as wide as a category row (five buttons: 3 + 2).
+	internal static BookRect ClassButton(int index)
 	{
-		return new BookRect(12f + (float)index * (172f - 24f) / (float)Math.Max(1, count - 1), 108f, 24f, 24f);
+		return new BookRect(12 + index % 3 * 60, 108 + index / 3 * 40, 52f, 32f);
 	}
 
 	internal static BookRect TrackingRow(int index)

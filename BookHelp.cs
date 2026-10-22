@@ -47,11 +47,12 @@ internal static class BookHelp
 			new Entry("Alt+ЛКМ", "Alt+LMB", "Избранное из сетки", "Favorite in the grid"),
 			new Entry("Mouse3", "Mouse3", "Найти предмет", "Look up an item")
 		}),
-		new Section(2, "ПОИСК И ФИЛЬТРЫ", "FINDING THINGS", new Entry[4]
+		new Section(2, "ПОИСК И ФИЛЬТРЫ", "FINDING THINGS", new Entry[5]
 		{
 			new Entry("Ctrl+F", "Ctrl+F", "Поиск", "Search"),
 			new Entry("Ctrl+Backspace", "Ctrl+Backspace", "Сбросить фильтры", "Reset filters"),
 			new Entry("Alt+1…4", "Alt+1…4", "Этап", "Stage"),
+			new Entry("Кнопки класса", "Class buttons", "Фильтр по классу", "Filter by class"),
 			new Entry("F5", "F5", "Обновить", "Refresh")
 		}),
 		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]

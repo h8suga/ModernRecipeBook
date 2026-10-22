@@ -1413,9 +1413,9 @@ public sealed class RecipeBookSystem : ModSystem
 		UsedInMode = usedIn;
 	}
 
-	// Everything Back/Forward restores: the tab and its filters, the stage, the selection and the card, and the
+	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, int Selected, int Variant, int ArmorFocus, int FocusType, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, string EnemyVariants, int EnemyVariant, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage, int EnemyPage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, string EnemyVariants, int EnemyVariant, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage, int EnemyPage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1430,7 +1430,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.SortMode, filters.SortDescending, StageFilter, Selected, Variant, ArmorFocus, FocusType, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, EnemyOpen ? string.Join(",", EnemyVariants) : "", EnemyVariant, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage, EnemyPage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.SortMode, filters.SortDescending, StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, EnemyOpen ? string.Join(",", EnemyVariants) : "", EnemyVariant, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage, EnemyPage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1455,6 +1455,7 @@ public sealed class RecipeBookSystem : ModSystem
 			SortDescending = state.SortDescending
 		});
 		StageFilter = state.Stage;
+		ClassFilter = state.Class;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		SetTyping(value: false);
 		ModMenu = (SortMenu = (StageMenu = (HelpOpen = false)));
@@ -3842,7 +3843,7 @@ public sealed class RecipeBookSystem : ModSystem
 		HashSet<int> usedStations = new HashSet<int>(from tile in All.SelectMany((int index) => Main.recipe[index].requiredTile)
 			where tile >= 0
 			select tile);
-		Categories = BookCategories.Create(list2, usedStations);
+		Categories = BookCategories.Create(usedStations);
 		Category = Math.Max(0, Categories.FindIndex((BookCategory bookCategory) => bookCategory.Key == selectedCategory));
 		ItemCategories.Clear();
 		foreach (Item item3 in list2)
@@ -5888,7 +5889,7 @@ public sealed class RecipeBookSystem : ModSystem
 		BookClass[] buttons = BookItemClasses.Buttons;
 		for (int i = 0; i < buttons.Length; i++)
 		{
-			BookRect rect = BookGeometry.ClassButton(i, buttons.Length);
+			BookRect rect = BookGeometry.ClassButton(i);
 			bool active = ClassFilter == buttons[i];
 			bool hover = IconButtonFrame(sb, rect, active);
 			if (buttons[i] == BookClass.None)
@@ -5896,12 +5897,12 @@ public sealed class RecipeBookSystem : ModSystem
 				// "All" is a plain 2×2 grid: no item reads as every class at once.
 				for (int cell = 0; cell < 4; cell++)
 				{
-					Box(sb, rect.X + 6f + (float)(cell % 2 * 7), rect.Y + 6f + (float)(cell / 2 * 7), 5f, 5f, active ? Accent : TextColor, border: false, 1f);
+					Box(sb, rect.X + rect.Width / 2f - 7f + (float)(cell % 2 * 8), rect.Y + rect.Height / 2f - 7f + (float)(cell / 2 * 8), 6f, 6f, active ? Accent : TextColor, border: false, 1f);
 				}
 			}
 			else if (ContentSamples.ItemsByType.TryGetValue(BookItemClasses.IconType(buttons[i]), out var icon))
 			{
-				Icon(sb, icon, rect.X + 2f, rect.Y + 2f, 20f, tooltip: false);
+				Icon(sb, icon, rect.X + rect.Width / 2f - 12f, rect.Y + 4f, 24f, tooltip: false);
 			}
 			if (hover)
 			{
@@ -5915,7 +5916,7 @@ public sealed class RecipeBookSystem : ModSystem
 		BookClass[] buttons = BookItemClasses.Buttons;
 		for (int i = 0; i < buttons.Length; i++)
 		{
-			if (BookGeometry.ClassButton(i, buttons.Length).Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.ClassButton(i).Contains(Mouse.X, Mouse.Y))
 			{
 				ClassFilter = ((ClassFilter != buttons[i]) ? buttons[i] : BookClass.None);
 				Page = (DetailsPage = 0);
