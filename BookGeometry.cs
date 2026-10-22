@@ -404,18 +404,24 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const float RecipeTop = 204f;
 
-	internal const float ArmorRecipeTop = 280f;
+	// The armor header has a set bonus line under the defense; tiles and lines sit tighter, and the unpaged recipe
+	// list reaches 4 lower, so three ingredients and a station still fit on one page as before.
+	internal const float ArmorRecipeTop = 284f;
+
+	internal const float ArmorDetailListBottom = 556f;
 
 	internal static BookRect ArmorTile(int slot)
 	{
-		return new BookRect(812 + slot * 98, 128f, 88f, 56f);
+		return new BookRect(812 + slot * 98, 128f, 88f, 52f);
 	}
 
-	internal static BookRect ArmorTitle => new BookRect(812f, 194f, 284f, 24f);
+	internal static BookRect ArmorTitle => new BookRect(812f, 184f, 284f, 24f);
 
-	internal static BookRect ArmorSubtitle => new BookRect(812f, 220f, 284f, 20f);
+	internal static BookRect ArmorSubtitle => new BookRect(812f, 208f, 284f, 20f);
 
-	internal static BookRect ArmorStats => new BookRect(812f, 242f, 284f, 20f);
+	internal static BookRect ArmorStats => new BookRect(812f, 228f, 284f, 20f);
+
+	internal static BookRect ArmorBonus => new BookRect(812f, 248f, 284f, 20f);
 
 	internal static BookRect RecipeLine(float top)
 	{

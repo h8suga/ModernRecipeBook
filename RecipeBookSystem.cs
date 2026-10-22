@@ -1228,6 +1228,26 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// The set bonus of the shown combination in the game's own words ("Set bonus: 16% reduced mana costs"); long
+	// or multi-line bonuses read in full in the tooltip. "Сет" as on the defense line, not the game's "комплект".
+	private static void DrawArmorBonus(SpriteBatch sb, Item chosen)
+	{
+		BookArmorSets.Set set = BookArmorSets.Get(chosen.type);
+		string bonus = (set == null) ? "" : BookItemClasses.SetBonus(ArmorChoices(set, chosen));
+		if (bonus.Length == 0)
+		{
+			return;
+		}
+		string label = T("Бонус сета:", "Set bonus:");
+		BookRect rect = BookGeometry.ArmorBonus;
+		string line = label + " " + bonus;
+		FixedLabel(sb, line, rect.X, rect.Y, TextColor, 0.8f, rect.Width, rect.Height);
+		if (!MenuOpen && rect.Contains(Mouse.X, Mouse.Y) && (bonus.Contains('\n') || TextWidth(line, 0.8f) > rect.Width))
+		{
+			MouseTip(label + "\n" + bonus);
+		}
+	}
+
 	private static int[] ArmorChoices(BookArmorSets.Set set, Item chosen)
 	{
 		return BookArmorSetRules.Choices(set.Parts, set.Combinations, chosen.type);
@@ -1248,8 +1268,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 			Box(sb, rect, active ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
 			Item part = ContentSamples.ItemsByType[choices[slot]];
-			Icon(sb, part, rect.X + (rect.Width - 28f) / 2f, rect.Y + 6f, 28f, tooltip: false);
-			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 36f, part.defense, active ? Accent : Muted);
+			Icon(sb, part, rect.X + (rect.Width - 28f) / 2f, rect.Y + 4f, 28f, tooltip: false);
+			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 32f, part.defense, active ? Accent : Muted);
 			if (hover)
 			{
 				string action = active ? ((set.Parts[slot].Length > 1) ? T("Клик: следующий вариант", "Click: next variant") : "") : T("Клик: показать эту часть", "Click: show this piece");
@@ -4790,7 +4810,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int materials = r.requiredItem.Count((Item i) => !i.IsAir);
 		int realStations = r.requiredTile.Count((int t) => t >= 0);
 		int stations = Math.Max(1, realStations);
-		List<List<DetailSlot>> pages = Place(BookGeometry.DetailListBottom);
+		List<List<DetailSlot>> pages = Place((top >= BookGeometry.ArmorRecipeTop) ? BookGeometry.ArmorDetailListBottom : BookGeometry.DetailListBottom);
 		if (pages.Count > 1)
 		{
 			pages = Place(BookGeometry.DetailListPagedBottom);
@@ -6284,6 +6304,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				MouseTip(StageExplanation(chosen, stageRecipe));
 			}
 			DrawArmorDefense(sb, chosen);
+			DrawArmorBonus(sb, chosen);
 			return;
 		}
 		BookRect tile = BookGeometry.DetailHeaderIcon;
