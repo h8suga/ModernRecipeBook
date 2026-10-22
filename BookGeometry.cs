@@ -8,7 +8,6 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect CategoryPanel => new BookRect(8f, 76f, 188f, 564f);
 
-	internal static BookRect StageFilter => new BookRect(212f, 120f, 568f, 32f);
 
 	internal static BookRect ArmorDefense => new BookRect(812f, 224f, 284f, 20f);
 
@@ -171,11 +170,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect SortMenuPanel => new BookRect(604f, 116f, 176f, 200f);
 
-	internal static BookRect SamplePanel => new BookRect(212f, 164f, 568f, 68f);
+	// Optional context row under the filter bar: Storage toolbar, the chain's item, the Recipes item chip.
+	internal const float ContextTop = 124f;
 
-	internal static BookRect SampleSlot => new BookRect(212f, 164f, 48f, 48f);
+	internal static BookRect SamplePanel => new BookRect(212f, ContextTop, 568f, 68f);
 
-	internal static BookRect SampleClear => new BookRect(248f, 158f, 18f, 18f);
+	internal static BookRect SampleSlot => new BookRect(212f, ContextTop, 48f, 48f);
+
+	internal static BookRect SampleClear => new BookRect(248f, ContextTop - 6f, 18f, 18f);
 
 	internal const int Width = 1120;
 
@@ -373,9 +375,15 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(TrackingPanel.X + 16f, TrackingPanel.Y + 56f + (float)(index * 64), TrackingPanel.Width - 32f, 56f);
 	}
 
+	internal const float ChainCrumbTop = 184f;
+
+	internal const float ChainListLabelTop = 228f;
+
+	internal const float ChainListTop = 252f;
+
 	internal static BookRect ChainCell(int index)
 	{
-		return new BookRect(212 + index % 2 * 292, 288 + index / 2 * 52, 276f, 44f);
+		return new BookRect(212 + index % 2 * 292, ChainListTop + index / 2 * 52, 276f, 44f);
 	}
 
 	internal static BookRect ChainDrill(int index)
@@ -386,7 +394,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect ChainCrumb(int visible)
 	{
-		return new BookRect(212 + visible * 144, 220f, 136f, 32f);
+		return new BookRect(212 + visible * 144, ChainCrumbTop, 136f, 32f);
 	}
 
 	internal static BookRect RecipeCell(int index)
@@ -394,10 +402,12 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return GridCell(index, GridTop);
 	}
 
-	// Storage keeps its toolbar band (SamplePanel) above the grid, so its grid starts lower.
-	internal const float GridTop = 164f;
+	// The grid starts under the filter bar; a context row (Recipes item chip, Storage toolbar) pushes it down.
+	internal const float GridTop = ContextTop;
 
-	internal const float StorageGridTop = 244f;
+	internal const float ChipGridTop = 168f;
+
+	internal const float StorageGridTop = 204f;
 
 	internal static BookRect GridCell(int index, float top)
 	{

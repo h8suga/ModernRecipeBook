@@ -271,6 +271,8 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool SortMenu;
 
+	private static bool StageMenu;
+
 	private static bool Dirty = true;
 
 	private static bool LastLeft;
@@ -348,7 +350,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			if (Open)
 			{
-				if (!HelpOpen && !AcquisitionOpen && !ModMenu && !SortMenu)
+				if (!HelpOpen && !AcquisitionOpen && !MenuOpen)
 				{
 					return !DraggingWindow;
 				}
@@ -659,14 +661,10 @@ public sealed class RecipeBookSystem : ModSystem
 			int type = Main.recipe[index].createItem.type;
 			CloseAcquisition();
 			SampleType = type;
-			Query = (ModFilter = "");
-			StageFilter = BookStageFilter.All;
-			Category = (CategoryRow = 0);
-			FavoritesOnly = false;
 			SwitchTab(1);
 			Selected = index;
 			int position = Filtered.IndexOf(index);
-			Page = ((position >= 0) ? (position / 40) : 0);
+			Page = ((position >= 0) ? (position / ActivePageSize) : 0);
 			DetailsPage = 0;
 		}
 	}
@@ -2331,13 +2329,39 @@ public sealed class RecipeBookSystem : ModSystem
 		Main.instance.MouseText(wrapped, 0, 0);
 	}
 
-	private static void DrawStageFilter(SpriteBatch sb)
+	// The stage filter is global, so it sits in the header next to the title, not in a tab's filter bar.
+	// Its width fits the longest option, so picking another stage never moves the tabs.
+	private static BookRect StageDropdownRect()
 	{
-		BookRect[] rects = StageRects();
-		Segmented(sb, rects, StageLabels(), (int)StageFilter, 0.85f);
-		if (!MenuOpen && SegmentAt(rects) >= 0)
+		float width = StageLabels().Max((string label) => TextWidth(label, 0.85f)) + 52f;
+		return new BookRect(TitleRight() + 16f, BookGeometry.TabTop + 2f, width, BookGeometry.TabHeight - 4f);
+	}
+
+	private static BookRect StageOption(int option)
+	{
+		BookRect anchor = StageDropdownRect();
+		return new BookRect(anchor.X + 4f, anchor.Y + anchor.Height + 8f + option * 32, Math.Max(anchor.Width, 200f) - 8f, 32f);
+	}
+
+	private static void DrawStageMenu(SpriteBatch sb)
+	{
+		BookRect anchor = StageDropdownRect();
+		Box(sb, anchor.X, anchor.Y + anchor.Height + 4f, Math.Max(anchor.Width, 200f), 136f, new Color(17, 25, 20), border: true, 10f, Accent);
+		string[] labels = StageLabels();
+		for (int option = 0; option < 4; option++)
 		{
-			MouseTip(T("Самый ранний этап, когда предмет можно получить", "The earliest stage you can get an item") + "\n" + T("Учитывается сложность мира", "The world's difficulty counts"));
+			BookRect rect = StageOption(option);
+			bool active = option == (int)StageFilter;
+			bool hover = rect.Contains(Mouse.X, Mouse.Y);
+			if (active)
+			{
+				Box(sb, rect, SelectedFill, border: false, 6f);
+			}
+			else if (hover)
+			{
+				Box(sb, rect, HoverFill, border: false, 6f);
+			}
+			CenterLabel(sb, labels[option], rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
 		}
 	}
 
@@ -2352,10 +2376,6 @@ public sealed class RecipeBookSystem : ModSystem
 		};
 	}
 
-	private static BookRect[] StageRects()
-	{
-		return SegmentRects(BookGeometry.StageFilter, StageLabels(), 0.85f, natural: true);
-	}
 
 	private static string StageExplanation(Item item, Recipe recipe)
 	{
@@ -2936,7 +2956,17 @@ public sealed class RecipeBookSystem : ModSystem
 		BookUiState state = (source ?? new BookUiState()).Sanitize();
 		return new TagCompound
 		{
-			["Version"] = 3,
+			["Version"] = BookUiState.CurrentVersion,
+			["Tabs"] = state.Tabs.Select((KeyValuePair<string, BookUiState.TabFilters> tab) => new TagCompound
+			{
+				["Tab"] = tab.Key,
+				["Query"] = tab.Value.Query,
+				["ModFilter"] = tab.Value.ModFilter,
+				["CategoryKey"] = tab.Value.CategoryKey,
+				["FavoritesOnly"] = tab.Value.FavoritesOnly,
+				["SortMode"] = tab.Value.SortMode.ToString(),
+				["SortDescending"] = tab.Value.SortDescending
+			}).ToList(),
 			["LastTab"] = state.LastTab,
 			["Query"] = state.Query,
 			["ModFilter"] = state.ModFilter,
@@ -3035,6 +3065,25 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				state.TrackerY = tag.GetFloat("TrackerY");
 			}
+			if (tag.ContainsKey("Tabs"))
+			{
+				foreach (TagCompound tab in tag.GetList<TagCompound>("Tabs"))
+				{
+					BookUiState.TabFilters filters = new BookUiState.TabFilters
+					{
+						Query = tab.GetString("Query"),
+						ModFilter = tab.GetString("ModFilter"),
+						CategoryKey = tab.GetString("CategoryKey"),
+						FavoritesOnly = tab.GetBool("FavoritesOnly"),
+						SortDescending = tab.GetBool("SortDescending")
+					};
+					if (Enum.TryParse<BookSortMode>(tab.GetString("SortMode"), ignoreCase: true, out var tabSort))
+					{
+						filters.SortMode = tabSort;
+					}
+					state.Tabs[tab.GetString("Tab")] = filters;
+				}
+			}
 			return state.Sanitize();
 		}
 		catch
@@ -3064,8 +3113,13 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		string categoryKey = ((Category >= 0 && Category < Categories.Count) ? Categories[Category].Key : "all");
 		string sampleKey = ((SampleType > 0 && ContentSamples.ItemsByType.TryGetValue(SampleType, out var sample)) ? ItemKey(sample) : "");
+		if (CurrentTab < BookUiState.FilterTabs.Length)
+		{
+			TabFilterSlots[CurrentTab] = LiveTabFilters();
+		}
 		return new BookUiState
 		{
+			Tabs = TabFilterSlots.Where((KeyValuePair<int, BookUiState.TabFilters> slot) => slot.Key < BookUiState.FilterTabs.Length).ToDictionary((KeyValuePair<int, BookUiState.TabFilters> slot) => BookUiState.FilterTabs[slot.Key], (KeyValuePair<int, BookUiState.TabFilters> slot) => slot.Value),
 			LastTab = (TrackingView ? "tracking" : (RecentView ? "recent" : (StorageView ? "storage" : (Chains ? "chains" : (Catalogue ? "items" : "recipes"))))),
 			Query = Query,
 			ModFilter = ModFilter,
@@ -3103,15 +3157,35 @@ public sealed class RecipeBookSystem : ModSystem
 			StorageView = false;
 			Catalogue = true;
 		}
-		Query = state.Query;
-		ModFilter = (Mods.Contains(state.ModFilter, StringComparer.Ordinal) ? state.ModFilter : "");
+		// Version 3 saves had one filter set shared by all tabs: the tab that was open keeps it, the others
+		// keep only its sort order.
+		BookUiState.TabFilters shared = new BookUiState.TabFilters
+		{
+			Query = state.Query,
+			ModFilter = state.ModFilter,
+			CategoryKey = state.CategoryKey,
+			FavoritesOnly = state.FavoritesOnly,
+			SortMode = state.SortMode,
+			SortDescending = state.SortDescending
+		};
+		TabFilterSlots.Clear();
+		for (int tab = 0; tab < BookUiState.FilterTabs.Length; tab++)
+		{
+			if (state.Tabs.TryGetValue(BookUiState.FilterTabs[tab], out var filters))
+			{
+				TabFilterSlots[tab] = filters;
+			}
+			else if (state.Tabs.Count == 0)
+			{
+				TabFilterSlots[tab] = ((BookUiState.FilterTabs[tab] == state.LastTab) ? shared : new BookUiState.TabFilters
+				{
+					SortMode = shared.SortMode,
+					SortDescending = shared.SortDescending
+				});
+			}
+		}
 		StageFilter = (BookStageFilter)state.StageFilter;
-		FavoritesOnly = state.FavoritesOnly;
-		int category = Categories.FindIndex((BookCategory value) => value.Key == state.CategoryKey);
-		Category = ((category >= 0) ? category : 0);
 		ChainCraftableOnly = state.ChainCraftableOnly;
-		SortMode = state.SortMode;
-		SortDescending = state.SortDescending;
 		WindowScalePercent = state.WindowScalePercent;
 		HasCustomWindowPosition = state.HasCustomPosition;
 		WindowPositionX = state.WindowX;
@@ -3126,6 +3200,7 @@ public sealed class RecipeBookSystem : ModSystem
 			Chains = false;
 			StorageView = false;
 		}
+		LoadTabFilters(TabFilterSlots.GetValueOrDefault(CurrentTab));
 		SetTyping(value: false);
 		ModMenu = (HelpOpen = false);
 		ArmorFocus = 0;
@@ -3139,6 +3214,48 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		RefreshSampleRecipes();
 		ApplyFilters();
+	}
+
+	// Each tab keeps its own search, mod, category, favorites and sort; the live fields hold the open tab's.
+	// Nothing resets them except the player (the search's clear button, Ctrl+Backspace, picking a value).
+	private static readonly Dictionary<int, BookUiState.TabFilters> TabFilterSlots = new Dictionary<int, BookUiState.TabFilters>();
+
+	private static BookUiState.TabFilters LiveTabFilters()
+	{
+		return new BookUiState.TabFilters
+		{
+			Query = Query,
+			ModFilter = ModFilter,
+			CategoryKey = ((Category >= 0 && Category < Categories.Count) ? Categories[Category].Key : "all"),
+			FavoritesOnly = FavoritesOnly,
+			SortMode = SortMode,
+			SortDescending = SortDescending
+		};
+	}
+
+	private static void LoadTabFilters(BookUiState.TabFilters filters)
+	{
+		BookUiState.TabFilters source = (filters ?? new BookUiState.TabFilters()).Sanitize();
+		Query = source.Query;
+		ModFilter = (Mods.Contains(source.ModFilter, StringComparer.Ordinal) ? source.ModFilter : "");
+		Category = Math.Max(0, Categories.FindIndex((BookCategory value) => value.Key == source.CategoryKey));
+		if (Category < CategoryRow || Category >= CategoryRow + BookGeometry.VisibleCategoryRows)
+		{
+			CategoryRow = Math.Clamp(Category - BookGeometry.VisibleCategoryRows / 2, 0, MaxCategoryRow);
+		}
+		FavoritesOnly = source.FavoritesOnly;
+		SortMode = source.SortMode;
+		SortDescending = source.SortDescending;
+	}
+
+	private static void ChangeFilterTab(int from, int to)
+	{
+		if (from == to)
+		{
+			return;
+		}
+		TabFilterSlots[from] = LiveTabFilters();
+		LoadTabFilters(TabFilterSlots.GetValueOrDefault(to));
 	}
 
 	private static int ResolveItemType(string key)
@@ -3206,7 +3323,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return true;
 		}
-		if (!BookGeometry.Header.Contains(Mouse.X, Mouse.Y) || BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y))
+		if (!BookGeometry.Header.Contains(Mouse.X, Mouse.Y) || BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y) || StageDropdownRect().Contains(Mouse.X, Mouse.Y))
 		{
 			return false;
 		}
@@ -3385,6 +3502,7 @@ public sealed class RecipeBookSystem : ModSystem
 		InvalidateBatchEstimate();
 		Query = (ModFilter = "");
 		StageFilter = BookStageFilter.All;
+		TabFilterSlots.Clear();
 		Page = (DetailsPage = (Category = (CategoryRow = 0)));
 		ArmorFocus = 0;
 		Selected = -1;
@@ -3709,11 +3827,13 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void SwitchTab(int index)
 	{
+		int from = CurrentTab;
 		Catalogue = index == 0;
 		Chains = index == 2;
 		StorageView = index == 3;
 		RecentView = index == 4;
 		TrackingView = index == 5;
+		ChangeFilterTab(from, index);
 		if (StorageView)
 		{
 			BookStorage.Tick();
@@ -3731,6 +3851,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void SetSample(int type, bool append = false)
 	{
+		int from = CurrentTab;
 		StorageView = (RecentView = (TrackingView = false));
 		SampleType = Math.Max(0, type);
 		if (!append)
@@ -3743,12 +3864,9 @@ public sealed class RecipeBookSystem : ModSystem
 			Catalogue = false;
 			Chains = true;
 		}
+		ChangeFilterTab(from, CurrentTab);
 		SetTyping(value: false);
 		ModMenu = false;
-		Query = (ModFilter = "");
-		StageFilter = BookStageFilter.All;
-		Category = 0;
-		FavoritesOnly = false;
 		Page = (DetailsPage = (Variant = 0));
 		ArmorFocus = 0;
 		Selected = -1;
@@ -3810,9 +3928,6 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				Query = next;
 				Page = (DetailsPage = (Variant = 0));
-				Category = 0;
-				ModFilter = "";
-				FavoritesOnly = false;
 				ApplyFilters();
 			}
 			if (Main.inputTextEnter || Main.inputTextEscape)
@@ -3934,6 +4049,10 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				SortMenu = false;
 			}
+			else if (StageMenu)
+			{
+				StageMenu = false;
+			}
 			else
 			{
 				Open = false;
@@ -3976,15 +4095,15 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				ModOffset = Math.Clamp(ModOffset + step, 0, Math.Max(0, Mods.Count + 1 - 9));
 			}
-			else if (!SortMenu && BookGeometry.CategoryPanel.Contains(Mouse.X, Mouse.Y))
+			else if (!SortMenu && !StageMenu && BookGeometry.CategoryPanel.Contains(Mouse.X, Mouse.Y))
 			{
 				CategoryRow = Math.Clamp(CategoryRow + step * 3, 0, MaxCategoryRow);
 			}
-			else if (!SortMenu && BookGeometry.DetailsPanel.Contains(Mouse.X, Mouse.Y))
+			else if (!SortMenu && !StageMenu && BookGeometry.DetailsPanel.Contains(Mouse.X, Mouse.Y))
 			{
 				DetailsPage = Math.Clamp(DetailsPage + step, 0, MaxDetailsPage());
 			}
-			else if (!SortMenu && Hit(196f, 76f, 600f, 564f))
+			else if (!SortMenu && !StageMenu && Hit(196f, 76f, 600f, 564f))
 			{
 				Page = Math.Clamp(Page + step, 0, Pages - 1);
 			}
@@ -4016,6 +4135,28 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (!click)
 		{
+			return;
+		}
+		if (StageMenu)
+		{
+			for (int option = 0; option < 4; option++)
+			{
+				if (StageOption(option).Contains(Mouse.X, Mouse.Y))
+				{
+					StageFilter = (BookStageFilter)option;
+					Page = (DetailsPage = (Variant = 0));
+					ApplyFilters();
+					break;
+				}
+			}
+			StageMenu = false;
+			return;
+		}
+		if (StageDropdownRect().Contains(Mouse.X, Mouse.Y))
+		{
+			SetTyping(value: false);
+			ModMenu = (SortMenu = false);
+			StageMenu = true;
 			return;
 		}
 		if (SortMenu)
@@ -4052,18 +4193,7 @@ public sealed class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
-		int stage = (TrackingView || ModMenu) ? (-1) : SegmentAt(StageRects());
-		if (stage >= 0)
-		{
-			StageFilter = (BookStageFilter)stage;
-			Page = (DetailsPage = (Variant = 0));
-			ApplyFilters();
-			if (Chains)
-			{
-				ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Chain stage audit: sample={SampleType}, stage={StageFilter}, visible={Filtered.Count}, uncertain={ChainUnknownVisibleCount}, excludedByStage={ChainStageExcludedCount}, craftableOnly={ChainCraftableOnly}");
-			}
-			return;
-		}
+
 		int source = StorageTabVisible ? SegmentAt(CraftSourceRects()) : (-1);
 		if (source >= 0)
 		{
@@ -4371,7 +4501,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : BookGeometry.GridTop;
+	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : (RecipeSampleFilter ? BookGeometry.ChipGridTop : BookGeometry.GridTop);
 
 	// Clearing the chain item only drops the sample; search and the other filters stay as they are.
 	private static void ClearSample()
@@ -4418,13 +4548,13 @@ public sealed class RecipeBookSystem : ModSystem
 			return false;
 		case BookHotkeys.Action.Help:
 			SetTyping(value: false);
-			ModMenu = (SortMenu = false);
+			ModMenu = (SortMenu = (StageMenu = false));
 			HelpOpen = !HelpOpen;
 			break;
 		case BookHotkeys.Action.Search:
 			if (!TrackingView)
 			{
-				ModMenu = (SortMenu = false);
+				ModMenu = (SortMenu = (StageMenu = false));
 				SetTyping(value: true);
 			}
 			break;
@@ -4459,7 +4589,6 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		case BookHotkeys.Action.ResetFilters:
 			Query = (ModFilter = "");
-			StageFilter = BookStageFilter.All;
 			FavoritesOnly = false;
 			Category = (CategoryRow = (Page = 0));
 			ApplyFilters();
@@ -4814,7 +4943,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly Color Caution = new Color(223, 185, 139);
 
-	private static bool MenuOpen => ModMenu || SortMenu;
+	private static bool MenuOpen => ModMenu || SortMenu || StageMenu;
 
 	private static bool StorageTabVisible => BookStorage.Installed;
 
@@ -5003,11 +5132,12 @@ public sealed class RecipeBookSystem : ModSystem
 	}
 
 	// Dropdown (closed state): current value and a chevron; the list opens inside the book.
-	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true)
+	// highlight marks a filter that is narrowing the list: its value is drawn in Accent.
+	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false)
 	{
 		bool hover = enabled && !open && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 		Box(sb, rect, hover ? HoverFill : (enabled ? Raised : Surface), border: true, 8f, open ? new Color?(Accent) : null, (!open) ? 1 : 2);
-		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, enabled ? TextColor : Muted, 0.85f, rightAligned: false, leftAligned: true);
+		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, (!enabled) ? Muted : (highlight ? Accent : TextColor), 0.85f, rightAligned: false, leftAligned: true);
 		if (enabled)
 		{
 			Chevron(sb, rect.X + rect.Width - 18f, rect.Y + rect.Height / 2f, 4f, open ? 1 : 0, Muted);
@@ -5258,7 +5388,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static BookRect[] ChainFilterRects()
 	{
-		return SegmentRects(new BookRect(212f, 172f, 568f, 32f), ChainFilterLabels(), 0.85f, natural: true, alignRight: true);
+		return SegmentRects(new BookRect(212f, BookGeometry.ContextTop + 8f, 568f, 32f), ChainFilterLabels(), 0.85f, natural: true, alignRight: true);
 	}
 
 	private static ChainMaterialPreview PreviewChainMaterials(Recipe recipe, Item output)
@@ -5298,7 +5428,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (SampleType <= 0)
 		{
-			EmptyState(sb, new BookRect(212f, 220f, 568f, 368f), T("Начните с предмета", "Start with an item"), T("Положите его в ячейку или Shift+клик в «Предметах»", "Drop it in the slot, or Shift+Click one in Items"));
+			EmptyState(sb, new BookRect(212f, BookGeometry.ChainCrumbTop, 568f, 596f - BookGeometry.ChainCrumbTop), T("Начните с предмета", "Start with an item"), T("Положите его в ячейку или Shift+клик в «Предметах»", "Drop it in the slot, or Shift+Click one in Items"));
 			return;
 		}
 		int first = Math.Max(0, ChainHistory.Count - 4);
@@ -5322,7 +5452,7 @@ public sealed class RecipeBookSystem : ModSystem
 				Chevron(sb, crumb.X + crumb.Width + 4f, crumb.Y + crumb.Height / 2f, 2.5f, 3, Muted);
 			}
 		}
-		SectionLabel(sb, T("Используется в", "Used in"), 212f, 264f, 400f);
+		SectionLabel(sb, T("Используется в", "Used in"), 212f, BookGeometry.ChainListLabelTop, 400f);
 		if (Filtered.Count == 0)
 		{
 			bool terminal = SampleRecipes.Count == 0;
@@ -5350,7 +5480,7 @@ public sealed class RecipeBookSystem : ModSystem
 				title = T("Скрыто фильтрами", "Hidden by filters");
 				hint = T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters");
 			}
-			EmptyState(sb, new BookRect(212f, 288f, 568f, 300f), title, hint);
+			EmptyState(sb, new BookRect(212f, BookGeometry.ChainListTop, 568f, 596f - BookGeometry.ChainListTop), title, hint);
 			return;
 		}
 		int onPage = Math.Min(12, Filtered.Count - Page * 12);
@@ -5624,6 +5754,10 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			DrawSortMenu(sb);
 		}
+		if (StageMenu)
+		{
+			DrawStageMenu(sb);
+		}
 		if (HelpOpen)
 		{
 			Main.HoverItem = new Item();
@@ -5643,6 +5777,12 @@ public sealed class RecipeBookSystem : ModSystem
 		if (!MenuOpen && title.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(T("Перетащите заголовок, чтобы переместить окно", "Drag the header to move the window"));
+		}
+		BookRect stage = StageDropdownRect();
+		Dropdown(sb, stage, StageLabels()[(int)StageFilter], StageMenu, enabled: true, highlight: StageFilter != BookStageFilter.All);
+		if (!MenuOpen && stage.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Этап для всех вкладок", "Stage for every tab") + "\n" + T("Самый ранний этап получения; учитывается сложность мира", "Earliest stage you can get an item; world difficulty counts"));
 		}
 		List<int> tabs = VisibleTabs();
 		BookRect firstTab = TabRect(tabs[0]);
@@ -5739,7 +5879,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			MouseTip(T("Поиск · Ctrl+F", "Search · Ctrl+F"));
 		}
-		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? T("Все моды", "All mods") : ModName(ModFilter), ModMenu);
+		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? T("Все моды", "All mods") : ModName(ModFilter), ModMenu, enabled: true, highlight: ModFilter.Length > 0);
 		if (!MenuOpen && BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + T("Фильтр по моду", "Filter by mod"));
@@ -5756,7 +5896,6 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			MouseTip(T("Только избранное", "Favorites only") + "\n" + T("Alt+клик по предмету добавляет", "Alt+Click an item to add it"));
 		}
-		DrawStageFilter(sb);
 		if (RecipeSampleFilter)
 		{
 			DrawSampleChip(sb);
@@ -5766,17 +5905,17 @@ public sealed class RecipeBookSystem : ModSystem
 	// On Recipes a chain item narrows the list to the recipes that make it; the chip shows and clears it.
 	private static bool RecipeSampleFilter => !Catalogue && !Chains && !StorageView && !RecentView && !TrackingView && SampleType > 0 && ContentSamples.ItemsByType.ContainsKey(SampleType);
 
+	// The chip opens the context row under the filter bar: "Recipes for: <item>  x".
 	private static BookRect SampleChipRect()
 	{
-		BookRect[] stages = StageRects();
-		float left = stages[^1].X + stages[^1].Width + 12f;
 		Item sample = ContentSamples.ItemsByType[SampleType];
-		float width = Math.Min(780f - left, 72f + TextWidth(sample.Name, 0.8f));
-		if (width < 100f)
-		{
-			width = 56f;
-		}
-		return new BookRect(780f - width, BookGeometry.StageFilter.Y, width, BookGeometry.StageFilter.Height);
+		float width = Math.Min(568f, 72f + TextWidth(SampleChipLabel(sample), 0.8f));
+		return new BookRect(212f, BookGeometry.ContextTop, width, 32f);
+	}
+
+	private static string SampleChipLabel(Item sample)
+	{
+		return T("Рецепты для: ", "Recipes for: ") + sample.Name;
 	}
 
 	private static void DrawSampleChip(SpriteBatch sb)
@@ -5786,10 +5925,7 @@ public sealed class RecipeBookSystem : ModSystem
 		bool hover = !MenuOpen && chip.Contains(Mouse.X, Mouse.Y);
 		Box(sb, chip, hover ? HoverFill : Raised, border: true, 8f, Accent);
 		Icon(sb, sample, chip.X + 8f, chip.Y + 6f, 20f, tooltip: false);
-		if (chip.Width > 56f)
-		{
-			CenterLabel(sb, sample.Name, chip.X + 34f, chip.Y + 4f, chip.Width - 62f, chip.Height - 8f, TextColor, 0.8f, rightAligned: false, leftAligned: true);
-		}
+		CenterLabel(sb, SampleChipLabel(sample), chip.X + 34f, chip.Y + 4f, chip.Width - 62f, chip.Height - 8f, TextColor, 0.8f, rightAligned: false, leftAligned: true);
 		Cross(sb, chip.X + chip.Width - 16f, chip.Y + chip.Height / 2f, 4f, hover ? TextColor : Muted);
 		if (hover)
 		{
@@ -6220,9 +6356,11 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return default(BookRect);
 		}
-		float[] widths = tabs.Select((int t) => TextWidth(TabLabel(t), TabTextSize) + 32f).ToArray();
-		float equal = Math.Max(96f, widths.Max());
-		bool same = equal * tabs.Count + 8f * (tabs.Count - 1) <= BookGeometry.TabRight - TitleRight() - 24f;
+		// Equal tabs keep 16 px of air each side; when they do not fit (long Russian labels), each tab hugs its
+		// label with 12 px.
+		float[] widths = tabs.Select((int t) => TextWidth(TabLabel(t), TabTextSize) + 24f).ToArray();
+		float equal = Math.Max(96f, widths.Max() + 8f);
+		bool same = equal * tabs.Count + 8f * (tabs.Count - 1) <= BookGeometry.TabRight - StageDropdownRect().X - StageDropdownRect().Width - 24f;
 		float x = BookGeometry.TabRight;
 		for (int i = tabs.Count - 1; i > slot; i--)
 		{
