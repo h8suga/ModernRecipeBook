@@ -850,7 +850,9 @@ public sealed class RecipeBookSystem : ModSystem
 			int frames = Math.Max(1, Main.npcFrameCount[npc.type]);
 			Rectangle frame = new Rectangle(0, 0, texture.Width, Math.Max(1, texture.Height / frames));
 			float scale = Math.Min(rect.Width / (float)frame.Width, rect.Height / (float)frame.Height);
-			sb.Draw(texture, Origin + new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f) * Scale, frame, Color.White, 0f, frame.Size() / 2f, scale * Scale, SpriteEffects.None, 0f);
+			// Slimes and other tinted mobs have a grey texture coloured by npc.color, as the game draws them.
+			Color tint = (npc.color == default(Color)) ? Color.White : npc.GetColor(Color.White);
+			sb.Draw(texture, Origin + new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f) * Scale, frame, tint, 0f, frame.Size() / 2f, scale * Scale, SpriteEffects.None, 0f);
 		}
 		else
 		{
@@ -5690,6 +5692,9 @@ public sealed class RecipeBookSystem : ModSystem
 			Main.HoverItem = new Item();
 			Main.hoverItemName = "";
 			Main.LocalPlayer.cursorItemIconEnabled = false;
+			// The game names what is under the cursor in a later layer ("Zombie: 45/45" over the book) unless
+			// the mouse is taken by an interface.
+			Main.LocalPlayer.mouseInterface = true;
 		}
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
 		bool grabHint = !AcquisitionOpen && GrabHint;
