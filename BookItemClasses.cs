@@ -8,6 +8,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.UI;
+using Terraria.Utilities;
 
 namespace ModernRecipeBook;
 
@@ -410,6 +411,27 @@ internal static class BookItemClasses
 
 	private sealed class Probe
 	{
+		private static readonly UnifiedRandom Steady = new SteadyRandom();
+
+		// The outcome a roll usually has: "1 in n" fails, ranges give their top.
+		private sealed class SteadyRandom : UnifiedRandom
+		{
+			public override int Next(int maxValue)
+			{
+				return Math.Max(0, maxValue - 1);
+			}
+
+			public override int Next(int minValue, int maxValue)
+			{
+				return Math.Max(minValue, maxValue - 1);
+			}
+
+			public override double NextDouble()
+			{
+				return 0.999;
+			}
+		}
+
 		private static readonly Item Air = new Item();
 
 		private readonly Player player = new Player();
@@ -483,7 +505,18 @@ internal static class BookItemClasses
 			// Twice: the first pass clears flags the previous item left that ResetEffects itself reads.
 			p.ResetEffects();
 			p.ResetEffects();
-			equip?.Invoke(p);
+			// Equip effects that roll (the Spore Sac spawns spores one time in 15, around the probe at 0,0 off the
+			// map) take their common outcome, so the probe only ever reads stats and every run classifies alike.
+			UnifiedRandom rand = Main.rand;
+			Main.rand = Steady;
+			try
+			{
+				equip?.Invoke(p);
+			}
+			finally
+			{
+				Main.rand = rand;
+			}
 			float[] values = new float[stats.Count];
 			for (int j = 0; j < values.Length; j++)
 			{

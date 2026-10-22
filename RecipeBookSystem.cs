@@ -628,67 +628,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 				Add(new BookAcquisitionEntry((stations.Count == 0) ? T("Вручную", "By hand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText));
 			}
 		}
-		try
-		{
-			HashSet<IItemDropRule> own = new HashSet<IItemDropRule>(Main.ItemDropsDB.GetRulesForNPCID(0, includeGlobalDrops: false), ReferenceEqualityComparer.Instance);
-			Drops(from rule in Main.ItemDropsDB.GetRulesForNPCID(0)
-				where !own.Contains(rule)
-				select rule, T("Любые враги", "Any enemy"), BookAcquisitionKind.Drop, 0, 0, "<global>");
-			foreach (KeyValuePair<int, NPC> npc in ContentSamples.NpcsByNetId.OrderBy((KeyValuePair<int, NPC> x) => x.Key))
-			{
-				if (npc.Key != 0)
-				{
-					try
-					{
-						Drops(Main.ItemDropsDB.GetRulesForNPCID(npc.Key, includeGlobalDrops: false), npc.Value.FullName, BookAcquisitionKind.Drop, 0, npc.Key, npc.Value.ModNPC?.Mod.Name ?? "Terraria");
-					}
-					catch (Exception)
-					{
-						AcquisitionReadErrors++;
-					}
-				}
-			}
-			foreach (KeyValuePair<int, Item> item in ContentSamples.ItemsByType.OrderBy((KeyValuePair<int, Item> x) => x.Key))
-			{
-				if (!item.Value.IsAir)
-				{
-					try
-					{
-						Drops(Main.ItemDropsDB.GetRulesForItemID(item.Key), item.Value.Name, BookAcquisitionKind.Container, item.Key, 0, item.Value.ModItem?.Mod.Name ?? "Terraria");
-					}
-					catch (Exception)
-					{
-						AcquisitionReadErrors++;
-					}
-				}
-			}
-		}
-		catch (Exception)
-		{
-			AcquisitionReadErrors++;
-		}
-		foreach (NPCShop shop in NPCShopDatabase.AllShops.OfType<NPCShop>())
-		{
-			foreach (NPCShop.Entry entry in shop.Entries)
-			{
-				if (entry.Disabled || entry.Item.type != type)
-				{
-					continue;
-				}
-				try
-				{
-					string[] conditions = entry.Conditions.Select((Condition c) => c.Description.Value).ToArray();
-					Add(new BookAcquisitionEntry(Lang.GetNPCNameValue(shop.NpcType), string.Join("; ", conditions), BookAcquisitionKind.Shop, "", "", 0, shop.NpcType, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), shop.Name));
-				}
-				catch (Exception)
-				{
-					AcquisitionReadErrors++;
-				}
-			}
-		}
+		// Everything else comes from the shared source model, the same one the stages are computed from. What the
+		// world itself gives (plants, ores, trees, fishing) leads: for raw materials it is the main way to get them.
+		List<BookAcquisitionEntry> sources = SourceEntries(type);
+		reports.InsertRange(0, sources.Where((BookAcquisitionEntry e) => IsNatural(e.Kind)));
+		reports.AddRange(sources.Where((BookAcquisitionEntry e) => !IsNatural(e.Kind)));
+		AcquisitionReadErrors += BookItemSources.ReadErrors;
 		if (reports.Count == 0)
 		{
-			Add(new BookAcquisitionEntry(T("Источники не найдены", "No known sources"), "", BookAcquisitionKind.Unknown));
+			Add(new BookAcquisitionEntry(T("Нет обычного источника", "No regular source"), "", BookAcquisitionKind.Unknown));
 		}
 		AcquisitionSources = BookAcquisitionGrouping.Build(reports);
 		if (AcquisitionReadErrors > 0)
@@ -698,47 +646,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		void Add(BookAcquisitionEntry source)
 		{
 			reports.Add(source);
-		}
-		void Drops(IEnumerable<IItemDropRule> rules, string name, BookAcquisitionKind kind, int itemType = 0, int npcNetId = 0, string owner = "Terraria")
-		{
-			foreach (IItemDropRule rule in rules)
-			{
-				List<DropRateInfo> rates = new List<DropRateInfo>();
-				try
-				{
-					rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
-				}
-				catch (Exception)
-				{
-					AcquisitionReadErrors++;
-					continue;
-				}
-				foreach (DropRateInfo rate in rates.Where((DropRateInfo r) => r.itemId == type))
-				{
-					List<string> conditions2 = new List<string>();
-					List<string> conditionKeys = new List<string>();
-					List<string> shortConditions = new List<string>();
-					foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
-					{
-						conditionKeys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
-						try
-						{
-							string description = condition.GetConditionDescription();
-							string full = (string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description);
-							conditions2.Add(full);
-							shortConditions.Add(DropConditionLabel(condition, full));
-						}
-						catch (Exception)
-						{
-							string unavailable = T("Неизвестное условие", "Unknown condition");
-							conditions2.Add(unavailable);
-							shortConditions.Add(unavailable);
-							AcquisitionReadErrors++;
-						}
-					}
-					Add(new BookAcquisitionEntry(name, string.Join("; ", conditions2.Distinct()), kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), itemType, npcNetId, conditions2.Count > 0, -1, owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal)))));
-				}
-			}
 		}
 	}
 
@@ -889,6 +796,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionKind.Drop => T("Добыча", "Drop"),
 			BookAcquisitionKind.Container => T("Контейнер", "Container"),
 			BookAcquisitionKind.Shop => T("Магазин", "Shop"),
+			BookAcquisitionKind.Trade => T("Обмен", "Trade"),
+			BookAcquisitionKind.Banner => T("Знамя", "Banner"),
+			BookAcquisitionKind.Catch => T("Сачок", "Bug Net"),
+			BookAcquisitionKind.Shimmer => T("Мерцание", "Shimmer"),
+			BookAcquisitionKind.Use => T("Использование", "Use"),
+			BookAcquisitionKind.Record => T("Запись", "Recording"),
+			BookAcquisitionKind.Plant => T("Растение", "Plant"),
+			BookAcquisitionKind.Tree => T("Дерево", "Tree"),
+			BookAcquisitionKind.Mining => T("Копание", "Mining"),
+			BookAcquisitionKind.Fishing => T("Рыбалка", "Fishing"),
+			BookAcquisitionKind.Chest => T("Сундук", "Chest"),
+			BookAcquisitionKind.World => T("Мир", "World"),
 			_ => T("Нет данных", "No data"),
 		};
 	}
@@ -902,6 +821,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		else if (source.NpcNetId != 0)
 		{
 			DrawNpcIcon(sb, source.NpcNetId, rect);
+		}
+		else if (source.TileType >= 0)
+		{
+			DrawTileIcon(sb, source.TileType, source.FrameX, source.FrameY, rect, (AcquisitionVariants.Length > 0) ? AcquisitionVariants[AcquisitionVariant] : 0);
 		}
 		else
 		{
@@ -978,7 +901,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
 		if (unknown)
 		{
-			DrawCardEmpty(sb, BookGeometry.AcquisitionList, T("Источники не найдены", "No known sources"), T("Попробуйте добычу блоков, сундуки или рыбалку", "Try mining, chests or fishing"));
+			DrawCardEmpty(sb, BookGeometry.AcquisitionList, T("Нет обычного источника", "No regular source"), T("Нет в рецептах, добыче, магазинах и мире", "Not in recipes, drops, shops or the world"));
 		}
 		for (int row = 0; row < 6 && !unknown; row++)
 		{
@@ -1018,6 +941,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 				{
 					MouseTip(report);
 				}
+			}
+			else if (hover && source.Kind != BookAcquisitionKind.Craft && source.Body.Length > 0 && source.Body != source.ConditionLabel)
+			{
+				// Rows that open nothing show what the row leaves out: every place, what it grows on.
+				MouseTip(source.Body);
 			}
 		}
 		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? T("Часть источников не прочитана", "Some sources could not be read") : "");
@@ -2276,7 +2204,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static bool CanOpenEnemy(BookAcquisitionGroup group)
 	{
-		if (group.Source.Kind == BookAcquisitionKind.Drop && group.Source.NpcNetId != 0)
+		if (group.Source.Kind is BookAcquisitionKind.Drop or BookAcquisitionKind.Banner or BookAcquisitionKind.Catch && group.Source.NpcNetId != 0)
 		{
 			return ContentSamples.NpcsByNetId.ContainsKey(group.Source.NpcNetId);
 		}
@@ -3511,12 +3439,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 	public override void OnWorldUnload()
 	{
 		ResetView();
+		// Tile drops read a little of the world (seed flags, time of day for herb seeds): read them again next world.
+		BookWorldSources.Clear();
 	}
 
 	public override void Unload()
 	{
 		BookSkin.Unload();
 		BookProgression.Clear();
+		BookItemSources.Clear();
 		BookArmorSets.Clear();
 		BookItemClasses.Clear();
 		ResetView();

@@ -273,18 +273,19 @@ internal static class BookProgression
 		bool raised = false;
 		foreach (Item item in all)
 		{
-			if (item.createTile < TileID.Count || TileLoader.GetTile(item.createTile) is not ModTile tile || tile.MinPick <= 0)
+			int minPick = item.createTile >= TileID.Count ? BookWorldSources.PickPower(item.createTile) : 0;
+			if (minPick <= 0)
 			{
 				continue;
 			}
-			BookStage pick = picks.Where(p => p.Power >= tile.MinPick).Select(p => p.Stage).DefaultIfEmpty(BookStage.Unknown).Min();
+			BookStage pick = picks.Where(p => p.Power >= minPick).Select(p => p.Stage).DefaultIfEmpty(BookStage.Unknown).Min();
 			if (pick > floors.GetValueOrDefault(item.type, BookStage.PreHardmode))
 			{
 				floors[item.type] = pick;
 				if (seeds.TryGetValue(item.type, out var mined) && mined < pick)
 				{
 					seeds[item.type] = pick;
-					why[item.type] = "pickaxe:" + tile.MinPick;
+					why[item.type] = "pickaxe:" + minPick;
 				}
 				raised = true;
 			}
@@ -386,13 +387,14 @@ internal static class BookProgression
 	{
 		HashSet<int> sourced = new HashSet<int>();
 		int sourceKey = -1;
+		BookItemSources.EnsureBuilt();
 		try
 		{
-			foreach (KeyValuePair<int, NPC> pair in ContentSamples.NpcsByNetId)
+			foreach (BookItemSources.NpcSource mob in BookItemSources.Npcs)
 			{
-				NPC npc = pair.Value;
-				string npcName = npc.ModNPC?.Name ?? (NPCID.Search.TryGetName(npc.type, out var name) ? name : npc.type.ToString());
-				var drops = (from rate in Reports(Main.ItemDropsDB.GetRulesForNPCID(pair.Key, includeGlobalDrops: false))
+				NPC npc = mob.Npc;
+				string npcName = mob.Name;
+				var drops = (from rate in mob.Reports
 					where ContentSamples.ItemsByType.ContainsKey(rate.itemId)
 					let drop = ContentSamples.ItemsByType[rate.itemId]
 					let floor = DropFloor(rate, drop, modeItems)
@@ -407,7 +409,7 @@ internal static class BookProgression
 					stage = InferEnemyStage(drops.Where(d => Unconditional(d.Rate)).Select(d => d.Drop));
 					source = "enemy:" + npcName;
 				}
-				npcs[pair.Key] = stage;
+				npcs[mob.NetId] = stage;
 				foreach (var (rate, drop, floor) in drops)
 				{
 					if (stage != BookStage.Unknown)
@@ -422,26 +424,23 @@ internal static class BookProgression
 						seed(rate.itemId, Max(tier, floor), "rarity");
 					}
 				}
-				// A banner follows its own NPC, not helpers sharing it (Vile Spit for the Corruptor's banner).
-				int banner = Item.NPCtoBanner(npc.BannerID());
-				int bannerItem = banner > 0 && Item.BannerToNPC(banner) == npc.type ? Item.BannerToItem(banner) : 0;
-				if (stage != BookStage.Unknown && bannerItem > 0)
+				if (stage != BookStage.Unknown && mob.Banner > 0)
 				{
-					sourced.Add(bannerItem);
-					seed(bannerItem, stage, "banner:" + npcName);
+					sourced.Add(mob.Banner);
+					seed(mob.Banner, stage, "banner:" + npcName);
 				}
 				// Critters caught with a bug net. Without a better clue a critter is about from the start
 				// (Draedon lab Nanodroids carry the tier-less DarkOrange rarity).
-				if (npc.catchItem > 0 && ContentSamples.ItemsByType.TryGetValue(npc.catchItem, out var critter))
+				if (mob.Critter > 0)
 				{
+					Item critter = ContentSamples.ItemsByType[mob.Critter];
 					BookStage tier4 = BookProgressionSources.RarityStage(critter);
 					sourced.Add(critter.type);
 					seed(critter.type, stage != BookStage.Unknown ? stage : (tier4 != BookStage.Unknown ? tier4 : BookStage.PreHardmode), "catch:" + npcName);
 				}
 			}
 			// Global loot (biome essences and the like) applies to every NPC, so it is never boss-staged.
-			List<IItemDropRule> specific = Main.ItemDropsDB.GetRulesForNPCID(NPCID.BlueSlime, includeGlobalDrops: false);
-			foreach (DropRateInfo rate3 in Reports(Main.ItemDropsDB.GetRulesForNPCID(NPCID.BlueSlime, includeGlobalDrops: true).Except(specific)))
+			foreach (DropRateInfo rate3 in BookItemSources.GlobalReports)
 			{
 				if (ContentSamples.ItemsByType.TryGetValue(rate3.itemId, out var drop3))
 				{
@@ -453,13 +452,10 @@ internal static class BookProgression
 					}
 				}
 			}
-			foreach (KeyValuePair<int, Item> pair2 in ContentSamples.ItemsByType)
+			foreach (BookItemSources.ItemRoutes own in BookItemSources.Items)
 			{
-				if (pair2.Value == null || pair2.Value.IsAir)
-				{
-					continue;
-				}
-				foreach (DropRateInfo rate2 in Reports(Main.ItemDropsDB.GetRulesForItemID(pair2.Key)))
+				KeyValuePair<int, Item> pair2 = new KeyValuePair<int, Item>(own.Item, ContentSamples.ItemsByType[own.Item]);
+				foreach (DropRateInfo rate2 in own.Reports)
 				{
 					if (!ContentSamples.ItemsByType.TryGetValue(rate2.itemId, out var drop2))
 					{
@@ -481,40 +477,31 @@ internal static class BookProgression
 					}
 				}
 				// Shimmer (the Aether exists from world generation; late transmutations are curated floors).
-				int shimmered = ItemID.Sets.ShimmerTransformToItem[pair2.Key];
+				int shimmered = own.Shimmer;
 				if (shimmered > 0)
 				{
 					sourced.Add(shimmered);
 					routes.Add(new BookProgressionRules.Route(sourceKey--, shimmered, BookStage.PreHardmode, new int[1][] { new int[1] { pair2.Key } }, Source: "shimmer:" + ItemName(pair2.Value)));
 				}
 			}
-			foreach (var (from, to) in BookProgressionSources.CalamityConversions)
+			foreach (var (from, to) in BookItemSources.Conversions)
 			{
-				if (ModContent.TryFind("CalamityMod", from, out ModItem fromItem) && ModContent.TryFind("CalamityMod", to, out ModItem toItem))
-				{
-					sourced.Add(toItem.Type);
-					routes.Add(new BookProgressionRules.Route(sourceKey--, toItem.Type, BookStage.PreHardmode, new int[1][] { new int[1] { fromItem.Type } }, Source: "use:" + from));
-				}
+				sourced.Add(to);
+				routes.Add(new BookProgressionRules.Route(sourceKey--, to, BookStage.PreHardmode, new int[1][] { new int[1] { from } }, Source: "use:" + ItemName(ContentSamples.ItemsByType[from])));
 			}
-			// Recorded music boxes come from a blank Music Box worn while the track plays (vanilla boxes place
-			// the MusicBoxes tile; modded ones are registered with MusicLoader).
-			var modBoxes = typeof(MusicLoader).GetField("itemToMusic", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) as Dictionary<int, int>;
-			IEnumerable<int> recorded = (from i in ContentSamples.ItemsByType.Values
-				where i != null && i.ModItem == null && i.createTile == TileID.MusicBoxes && i.type != ItemID.MusicBox
-				select i.type).Concat(modBoxes?.Keys ?? Enumerable.Empty<int>());
-			foreach (int box in recorded.Distinct().Where(ContentSamples.ItemsByType.ContainsKey))
+			// Recorded music boxes come from a blank Music Box worn while the track plays.
+			foreach (int box in BookItemSources.RecordedBoxes)
 			{
 				sourced.Add(box);
 				routes.Add(new BookProgressionRules.Route(sourceKey--, box, BookProgressionSources.TrackStage(ContentSamples.ItemsByType[box]), new int[1][] { new int[1] { ItemID.MusicBox } }, Source: "record:MusicBox"));
 			}
 			// Strange Plants traded to the Dye Trader.
-			int[] plants = { ItemID.StrangePlant1, ItemID.StrangePlant2, ItemID.StrangePlant3, ItemID.StrangePlant4 };
-			foreach (var (gate, dyes) in BookProgressionSources.DyeTraderRewards)
+			foreach (BookItemSources.DyeTrade trade in BookItemSources.DyeTraderRewards)
 			{
-				foreach (int dye in dyes)
+				foreach (int dye in trade.Dyes)
 				{
 					sourced.Add(dye);
-					routes.Add(new BookProgressionRules.Route(sourceKey--, dye, gate, new int[1][] { plants }, Source: "trade:DyeTrader"));
+					routes.Add(new BookProgressionRules.Route(sourceKey--, dye, trade.Gate, new int[1][] { BookItemSources.StrangePlants }, Source: "trade:DyeTrader"));
 				}
 			}
 		}
@@ -526,17 +513,14 @@ internal static class BookProgression
 		// same CalamityConditions keys as its drops).
 		try
 		{
-			foreach (AbstractNPCShop shop in NPCShopDatabase.AllShops)
+			foreach (BookItemSources.ShopSource stock in BookItemSources.Shops)
 			{
+				AbstractNPCShop shop = stock.Shop;
 				BookStage townStage = BookProgressionSources.TownNpcStage(shop.NpcType);
 				string source = "shop:" + (NPCLoader.GetNPC(shop.NpcType)?.Name ?? (NPCID.Search.TryGetName(shop.NpcType, out var townName) ? townName : shop.NpcType.ToString()));
-				foreach (AbstractNPCShop.Entry entry in shop.ActiveEntries)
+				foreach (AbstractNPCShop.Entry entry in stock.Entries)
 				{
 					Item item = entry.Item;
-					if (item == null || item.IsAir)
-					{
-						continue;
-					}
 					BookStage stage2 = townStage;
 					List<int[]> carried = new List<int[]>();
 					foreach (Condition condition in entry.Conditions)
@@ -598,37 +582,6 @@ internal static class BookProgression
 				orderby s descending
 				select s).ToList();
 			return Max(curated, gear.Count >= 2 ? gear[1] : BookStage.Unknown);
-		}
-		static IEnumerable<DropRateInfo> Reports(IEnumerable<IItemDropRule> rules)
-		{
-			List<DropRateInfo> rates = new List<DropRateInfo>();
-			foreach (IItemDropRule rule in rules)
-			{
-				try
-				{
-					Report(rule, rates);
-				}
-				catch (Exception)
-				{
-				}
-			}
-			return rates.Where((DropRateInfo r) => r.itemId > 0 && r.dropRate > 0f);
-		}
-		// Sequential rules report each entry as a failed roll of the previous one, so a condition on an early
-		// entry (the Present's hardmode-only Snow Globe) leaks onto everything after it. Report entries alone.
-		static void Report(IItemDropRule rule, List<DropRateInfo> rates)
-		{
-			IItemDropRule[] sequence = (rule as SequentialRulesNotScalingWithLuckRule)?.rules ?? (rule as SequentialRulesRule)?.rules;
-			if (sequence == null)
-			{
-				rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
-				return;
-			}
-			foreach (IItemDropRule entry in sequence)
-			{
-				Report(entry, rates);
-			}
-			Chains.ReportDroprates(rule.ChainedRules, 1f, rates, new DropRateInfoChainFeed(1f));
 		}
 	}
 

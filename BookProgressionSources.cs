@@ -18,11 +18,6 @@ internal static class BookProgressionSources
 	// items carry Calamity's DarkOrange rarity, which is used for every arsenal tier.
 	private static readonly HashSet<string> PreItems = Set("DubiousPlating MysteriousCircuitry DraedonPowerCell");
 
-	// Loot Calamity 2.2.4 puts into chests and structures at world generation (Draedon labs, underground
-	// shrines, Brimstone Crag, Vernal Pass; not the Astral shrine, which comes with the hardmode meteor) plus lab machines that drop themselves when mined. All of it can
-	// be picked up before hardmode.
-	private static readonly HashSet<string> WorldgenItems = Set("BloodyMary CoastalDemonfish CorruptionEffigy CrimsonEffigy CyanSeekingMechanism DraedonsLogHell DraedonsLogJungle DraedonsLogPlanetoid DraedonsLogSnowBiome DraedonsLogSunkenSea DubiousPlating EncryptedSchematicHell EncryptedSchematicIce EncryptedSchematicJungle EncryptedSchematicPlanetoid EncryptedSchematicSunkenSea FellerofEvergreens FrozenCube FungalSymbiote GladiatorsLocket GreenSeekingMechanism HadalStew LabSeekingMechanism LuxorsGift MysteriousCircuitry OddMushroom PlasmaDriveCore PrismShard RedSeekingMechanism SlagfireDouser SlurperPole SpelunkersAmulet SulphurskinPotion SuspiciousScrap Terminus TrinketofChi UnstableGraniteCore VoidTorch WhiteSeekingMechanism YellowSeekingMechanism PowerCellFactoryItem ChargingStationItem");
-
 	// A recorded music box is made by wearing a blank one while its track plays, so it is as late as the
 	// track: hardmode biomes and bosses (vanilla Boss 4 is Golem/Lunatic Cultist; the other Boss tracks also
 	// play for pre-hardmode bosses), post-Moon Lord bosses and the credits. Matched on the name after
@@ -41,17 +36,6 @@ internal static class BookProgressionSources
 		return HardmodeTracks.Any((string t) => track.StartsWith(t, StringComparison.Ordinal)) ? BookStage.Hardmode : BookStage.PreHardmode;
 	}
 
-	// Player.GetDyeTraderReward: what the Dye Trader gives for a Strange Plant, by the gate in that method.
-	internal static readonly (BookStage Stage, int[] Dyes)[] DyeTraderRewards =
-	{
-		(BookStage.PreHardmode, new[] { 3560, 3028, 3041, 3040, 3025, 3190, 3027, 3026, 3554, 3553, 3555, 2872, 3534, 2871 }),
-		(BookStage.Hardmode, new[] { 3039, 3038, 3598, 3597, 3600, 3042, 3533, 3561, 2883, 2869, 2873, 2870, 2878, 2879, 2884, 2885, 2864, 3556 }),
-		(BookStage.PostHardmode, new[] { 3024 })
-	};
-
-	// Items another item turns into when used (from → to), outside recipes and shimmer.
-	internal static readonly (string From, string To)[] CalamityConversions = { ("XyksBlessingBlue", "XyksBlessingOrange") };
-
 	// The Astral Infection lands with the hardmode meteor (WorldgenManagementSystem.ModifyHardmodeTasks), so
 	// its blocks, fish, fruit and crates are hardmode despite White/Green rarity; same for a few other biome
 	// catches and fruit the wiki marks hardmode-only.
@@ -59,8 +43,6 @@ internal static class BookProgressionSources
 
 	// Calamity's own rarities that only appear after Moon Lord (DarkOrange is excluded, see PreItems).
 	private static readonly HashSet<string> PostRarities = Set("Turquoise PureGreen CosmicPurple BurnishedAuric ExoticRainbow HotPink CalamityRed");
-
-	private static readonly HashSet<string> PreWorldItems = Set("Wood BorealWood RichMahogany Ebonwood Shadewood PalmWood AshWood Bamboo StoneBlock DirtBlock ClayBlock SandBlock EbonsandBlock CrimsandBlock MudBlock SnowBlock IceBlock SiltBlock SlushBlock DesertFossil Cobweb Gel FallenStar Acorn CopperOre TinOre IronOre LeadOre SilverOre TungstenOre GoldOre PlatinumOre DemoniteOre CrimtaneOre Meteorite Hellstone Obsidian SturdyFossil Amethyst Topaz Sapphire Emerald Ruby Diamond Amber Mushroom GlowingMushroom Daybloom Moonglow Blinkroot Deathweed Waterleaf Fireblossom Shiverthorn GrassSeeds JungleGrassSeeds MushroomGrassSeeds CorruptSeeds CrimsonSeeds AshGrassSeeds VileMushroom ViciousMushroom Bone RottenChunk Vertebrae JungleSpores Stinger Vine Lens BlackLens AntlionMandible SharkFin Feather");
 
 	// Vanilla items whose rarity overstates when they can be obtained.
 	private static readonly HashSet<string> PreRarityExceptions = Set("RedPotion SlimeStaff DogWhistle CompanionCube CelestialWand");
@@ -119,9 +101,10 @@ internal static class BookProgressionSources
 	// hardmode. Every other vanilla condition (difficulty, world evil, seeds, statues, seasons) adds nothing.
 	private static readonly HashSet<string> HardmodeDropConditions = Set("IsHardmode DownedAllMechBosses DownedPlantera FirstTimeKillingPlantera MechanicalBossesDummyCondition BeatAnyMechBoss MechdusaKill PirateMap SoulOfLight SoulOfNight LivingFlames HallowKeyCondition JungleKeyCondition CorruptKeyCondition CrimsonKeyCondition FrozenKeyCondition DesertKeyCondition YoyosAmarok YoyosYelets YoyosKraken YoyosHelFire IsPumpkinMoon FrostMoonDropGatingChance PumpkinMoonDropGatingChance FrostMoonDropGateForTrophies PumpkinMoonDropGateForTrophies FromCertainWaveAndAbove RemixSeedHardmode EmpressOfLightIsGenuinelyEnraged");
 
+	// Curated world items (BookItemSources) are there from the start.
 	internal static BookStage VanillaNaturalStage(string name)
 	{
-		if (name == null || !PreWorldItems.Contains(name))
+		if (name == null || !BookItemSources.VanillaWorldItems.Contains(name))
 		{
 			return BookStage.Unknown;
 		}
@@ -152,7 +135,7 @@ internal static class BookProgressionSources
 
 	internal static BookStage WorldgenStage(Item item)
 	{
-		return item.ModItem?.Mod.Name == "CalamityMod" && WorldgenItems.Contains(item.ModItem.Name) ? BookStage.PreHardmode : BookStage.Unknown;
+		return BookItemSources.IsCalamityWorldgen(item) ? BookStage.PreHardmode : BookStage.Unknown;
 	}
 
 	// Stage an NPC appears at. Bosses first (their loot follows the boss's own progression), then the wiki
