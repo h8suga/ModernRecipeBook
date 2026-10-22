@@ -3447,7 +3447,8 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 			return ContentSamples.ItemsByType[index];
 		}
-		return BookStorage.Items[index];
+		// Disconnect or a refresh can shrink the stored list before the grid re-filters on the next update.
+		return (index >= 0 && index < BookStorage.Items.Count) ? BookStorage.Items[index] : new Item();
 	}
 
 	private static void ApplyFilters(bool clearMessage = true)
