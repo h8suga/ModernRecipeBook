@@ -26,18 +26,18 @@ Mods: {
 				}
 
 				TrackerOpacityPercent: {
-					Label: Craft tracker opacity, %
-					Tooltip: Affects only backgrounds and borders. Icons, text and outlines stay opaque, even during dismissal. Resources-only style has no background panel.
+					Label: Tracking panel opacity, %
+					Tooltip: Background of the cards panel. Text and icons stay opaque.
 				}
 
 				TrackerScalePercent: {
-					Label: Craft tracker size, %
-					Tooltip: 100% is a compact 300-pixel-wide panel. Range: 60–150%. Independent of Terraria UI zoom; shrinks to fit the screen. Hover for full names; use arrows for long ingredient lists.
+					Label: Tracking panel size, %
+					Tooltip: Cards panel only. The compact lines use the game's text size.
 				}
 
 				ResourceOnlyTracker: {
-					Label: Tracker style: resources only
-					Tooltip: Off: up to 5 objective cards. On: resource HUD with no goal count cap. Needs are summed; one sound only for the complete list. Remove individual goals in Tracking (Ctrl+6). With more than five goals, resource style remains active until excess goals are removed, even if this option is turned off.
+					Label: Compact tracking
+					Tooltip: Material lines under the minimap, like an info accessory. Off: cards, up to 5 goals; more stay compact.
 				}
 			}
 		}
