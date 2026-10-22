@@ -5630,7 +5630,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		else if (nearby.HasValue && BookStorage.Paused && !BookStorage.Manual)
 		{
-			hint = T("Закройте сундук или диалог", "Close the chest or dialog to connect");
+			hint = BookStorage.InventoryClosed ? T("Откройте инвентарь", "Open the inventory to connect") : T("Закройте сундук или диалог", "Close the chest or dialog to connect");
 		}
 		if (hint.Length > 0)
 		{

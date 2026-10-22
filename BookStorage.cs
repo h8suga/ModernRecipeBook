@@ -1047,8 +1047,12 @@ public sealed class BookStorage : ModSystem
 	// The player turned automatic connection off in the config: the Storage tab shows Connect / Disconnect.
 	internal static bool Manual => !(ModContent.GetInstance<BookStorageConfig>()?.AutoConnect ?? true);
 
-	// Automatic connection waits while a chest, sign or NPC dialog is open (opening MS would close it).
+	// Automatic connection waits while a chest, sign or NPC dialog is open (opening MS would close it), and after the
+	// player closed the inventory (MS ends its session then; reopening it would force the inventory open again)
+	// until the inventory or the book is opened again.
 	internal static bool Paused { get; private set; }
+
+	internal static bool InventoryClosed { get; private set; }
 
 	// The only access point in reach belongs to a network that wants a password.
 	internal static bool NeedsPassword
@@ -1216,7 +1220,7 @@ public sealed class BookStorage : ModSystem
 
 	internal static void OnBookOpened()
 	{
-		PreferInventory = false;
+		PreferInventory = (InventoryClosed = false);
 		AutoDelay = (SwitchTicks = 0);
 		UpdateBookConnection();
 	}
@@ -1265,13 +1269,14 @@ public sealed class BookStorage : ModSystem
 		{
 			Point16 viewing = (Point16)Call("access", Player);
 			bool lost = Connected && viewing.X < 0;
+			InventoryClosed = !Main.playerInventory && (InventoryClosed || Connected || BookOpened.X >= 0);
 			if (--AutoDelay > 0 && !lost)
 			{
 				return;
 			}
 			AutoDelay = ScanEvery;
 			Player player = Main.LocalPlayer;
-			Paused = player.chest != -1 || player.sign >= 0 || player.talkNPC >= 0;
+			Paused = player.chest != -1 || player.sign >= 0 || player.talkNPC >= 0 || InventoryClosed;
 			ScanNetworks();
 			if (PickedHeart != null && !NetworkList.Any((NetworkChoice n) => n.Heart == PickedHeart))
 			{
