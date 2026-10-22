@@ -5341,27 +5341,6 @@ public sealed class RecipeBookSystem : ModSystem
 		return ingredient.Name;
 	}
 
-	private static int Owned(Item item, RecipeGroup group)
-	{
-		if (BookStorage.UseForCrafting)
-		{
-			if (!BookStorage.CraftingConnected)
-			{
-				return -1;
-			}
-			return BookStorage.Quantity(item, group);
-		}
-		long total = 0L;
-		foreach (Item inv in BookCrafting.Materials())
-		{
-			if (inv != null && !inv.IsAir && (group?.ValidItems.Contains(inv.type) ?? (inv.type == item.type)))
-			{
-				total += inv.stack;
-			}
-		}
-		return (int)Math.Min(total, 2147483647L);
-	}
-
 	private static int Owned(HashSet<int> acceptedTypes)
 	{
 		if (BookStorage.UseForCrafting)
@@ -5382,15 +5361,6 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 		}
 		return (int)total;
-	}
-
-	private static bool Infinite(Item item, RecipeGroup group)
-	{
-		if (BookStorage.UseForCrafting)
-		{
-			return BookStorage.IsInfinite(item, group);
-		}
-		return false;
 	}
 
 	private static string Count(long value)

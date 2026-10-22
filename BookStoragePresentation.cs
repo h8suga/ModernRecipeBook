@@ -2,7 +2,7 @@ namespace ModernRecipeBook;
 
 internal static class BookStoragePresentation
 {
-	internal static string Connection(bool installed, bool supported, bool connected, bool ru)
+	internal static string Connection(bool installed, bool supported, bool connected, bool ru, string version = "")
 	{
 		if (installed)
 		{
@@ -24,9 +24,9 @@ internal static class BookStoragePresentation
 			}
 			if (!ru)
 			{
-				return "Needs Magic Storage 0.7.0.11";
+				return "Magic Storage " + version + " is not supported yet";
 			}
-			return "Нужен Magic Storage 0.7.0.11";
+			return "Magic Storage " + version + " пока не поддерживается";
 		}
 		if (!ru)
 		{

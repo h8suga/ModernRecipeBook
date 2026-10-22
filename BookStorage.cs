@@ -231,13 +231,14 @@ public sealed class BookStorage : ModSystem
 					}
 					return T("Рядом нет сети хранилища", "No storage network nearby");
 				}
-				return T("Нужен Magic Storage 0.7.0.11", "Needs Magic Storage 0.7.0.11");
+				return ConnectionStatus;
 			}
 			return T("Magic Storage не установлен", "Magic Storage is not installed");
 		}
 	}
 
-	internal static string ConnectionStatus => BookStoragePresentation.Connection(Installed, Supported, Connected, Ru);
+	// Support off after it had worked (an error mid-game) reads differently from a version whose members don't bind.
+	internal static string ConnectionStatus => (Installed && !Supported && Hooked) ? T("Связь с хранилищем отключена (client.log)", "Storage support is off (see client.log)") : BookStoragePresentation.Connection(Installed, Supported, Connected, Ru, OwnerMod?.Version.ToString() ?? "");
 
 	// A busy cue for waits that last (half a second or more), never for MS's routine refreshes.
 	internal static bool Updating
@@ -386,10 +387,6 @@ public sealed class BookStorage : ModSystem
 		OwnerMod = mod;
 		try
 		{
-			if (mod.Version != new Version(0, 7, 0, 11))
-			{
-				throw new NotSupportedException($"MagicStorage {mod.Version}; adapter was checked against 0.7.0.11");
-			}
 			PlayerType = Get("StoragePlayer");
 			UIType = Get("Common.Systems.MagicUI");
 			CraftType = Get("CraftingGUI");
@@ -411,7 +408,6 @@ public sealed class BookStorage : ModSystem
 			Bind("storageUI", UIType, "IsStorageUIOpen");
 			Bind("craftUI", UIType, "IsCraftingUIOpen");
 			Bind("refresh", UIType, "RefreshItems");
-			Bind("check", UIType, "CheckRefresh");
 			Bind("pulse", UIType, "PulseWatchdogs");
 			Bind("setRefresh", UIType, "SetRefresh", typeof(bool));
 			Bind("available", CraftType, "IsAvailable", typeof(Recipe), typeof(bool));
@@ -434,7 +430,6 @@ public sealed class BookStorage : ModSystem
 			Bind("enumerate", inventoryType, "EnumerateInventory");
 			InfiniteField = Field(inventoryType, "isItemInfinite", Instance);
 			CreativeField = Field(inventoryType, "creativeUnitPresent", Instance);
-			Bind("quantity", Get("Common.Systems.RecurrentRecipes.AvailableRecipeObjects"), "GetIngredientQuantity", typeof(int));
 			StorageNameField = Field(Get("Components.TEStorageHeart"), "storageName", Instance);
 			CraftAmountField = Field(CraftType, "craftAmountTarget", Static);
 			InterfaceField = Field(UIType, "uiInterface", Static);
@@ -449,7 +444,16 @@ public sealed class BookStorage : ModSystem
 			On_ItemSlot.LeftClick_ItemArray_int_int += BlockLeftClick;
 			On_ItemSlot.RightClick_ItemArray_int_int += BlockRightClick;
 			Hooked = (Supported = true);
-			Mod.Logger.Info("Magic Storage adapter enabled for supplied version 0.7.0.11.");
+			// Any version whose members all bind is accepted (a missing member throws above and turns support off);
+			// only 0.7.0.11 has been checked by hand.
+			if (mod.Version == new Version(0, 7, 0, 11))
+			{
+				Mod.Logger.Info("Magic Storage adapter enabled for Magic Storage 0.7.0.11.");
+			}
+			else
+			{
+				Mod.Logger.Warn($"Magic Storage adapter enabled for unverified Magic Storage version {mod.Version} (checked against 0.7.0.11).");
+			}
 		}
 		catch (Exception error)
 		{
@@ -665,27 +669,6 @@ public sealed class BookStorage : ModSystem
 		}
 	}
 
-	internal static int Quantity(Item item, RecipeGroup group)
-	{
-		if (!CraftingConnected)
-		{
-			return 0;
-		}
-		BookStorageSnapshot displayMaterials = DisplayMaterials;
-		IEnumerable<int> types;
-		if (group != null)
-		{
-			IEnumerable<int> validItems = group.ValidItems;
-			types = validItems;
-		}
-		else
-		{
-			IEnumerable<int> validItems = new int[1] { item.type };
-			types = validItems;
-		}
-		return displayMaterials.Quantity(types);
-	}
-
 	internal static int Quantity(IEnumerable<int> itemTypes)
 	{
 		if (!CraftingConnected)
@@ -702,27 +685,6 @@ public sealed class BookStorage : ModSystem
 			return DisplayMaterials.IsInfinite(itemTypes);
 		}
 		return false;
-	}
-
-	internal static bool IsInfinite(Item item, RecipeGroup group)
-	{
-		if (!CraftingConnected || item == null || item.IsAir)
-		{
-			return false;
-		}
-		BookStorageSnapshot displayMaterials = DisplayMaterials;
-		IEnumerable<int> types;
-		if (group != null)
-		{
-			IEnumerable<int> validItems = group.ValidItems;
-			types = validItems;
-		}
-		else
-		{
-			IEnumerable<int> validItems = new int[1] { item.type };
-			types = validItems;
-		}
-		return displayMaterials.IsInfinite(types);
 	}
 
 	internal static Dictionary<int, int> PreviewCounts(IEnumerable<int> itemTypes)
