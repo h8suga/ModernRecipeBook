@@ -8,4 +8,6 @@ Pre-hardmode/hardmode/post-Moon-Lord filter: the earliest point each item can be
 
 Russian/English recipe book: items, recipes, chains, optional Magic Storage, recent crafts, favorites, batch selection and material have/need counts. Armor set selector uses a stable title baseline. Native crafting APIs own consumption and outputs. Opening remains deferred to UpdateUI, outside gravity/draw hooks; duplicate-name crash fix preserved.
 
+Optional Double-Tap Dash (Calamity): with Calamity's Dash Double Tap Override key bound, double-tapping left/right dashes again, and the key keeps working. Off by default.
+
 Terraria 1.4.4.9 / tModLoader 2026.8.3.0. Optional Magic Storage 0.7.0.11 support.

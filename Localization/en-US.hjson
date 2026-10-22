@@ -39,6 +39,13 @@ Mods: {
 					Label: Tracker style: resources only
 					Tooltip: Off: up to 5 objective cards. On: resource HUD with no goal count cap. Needs are summed; one sound only for the complete list. Remove individual goals in Tracking (Ctrl+6). With more than five goals, resource style remains active until excess goals are removed, even if this option is turned off.
 				}
+
+				Headers.Movement: Movement
+
+				DoubleTapDash: {
+					Label: Double-Tap Dash (Calamity)
+					Tooltip: Double-tap left or right to dash; Calamity's dash key keeps working.
+				}
 			}
 		}
 	}
