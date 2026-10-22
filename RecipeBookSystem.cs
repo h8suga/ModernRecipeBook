@@ -261,7 +261,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly Dictionary<int, Item> StationItems = new Dictionary<int, Item>();
 
-	private static readonly Dictionary<int, string> StationNames = new Dictionary<int, string>();
+	// Read live: Item.Name follows the game's language, a name cached at index time would not.
+	private static string StationName(int tile)
+	{
+		return StationItems.TryGetValue(tile, out var station) ? station.Name : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile));
+	}
 
 	private static int Selected = -1;
 
@@ -554,23 +558,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				IEnumerable<string> materials = from i in recipe.requiredItem
 					where !i.IsAir
 					select GroupName(recipe, i, out var _) + " ×" + i.stack;
-				List<string> stations = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) =>
-				{
-					string text;
-					if (!StationNames.TryGetValue(t, out var value))
-					{
-						text = TileLoader.GetTile(t)?.Name;
-						if (text == null)
-						{
-							return "Tile " + t;
-						}
-					}
-					else
-					{
-						text = value;
-					}
-					return text;
-				}).ToList();
+				List<string> stations = recipe.requiredTile.Where((int t) => t >= 0).Select(StationName).ToList();
 				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
 				string conditionText = string.Join("; ", recipe.Conditions.Select((Condition c) => c.Description.Value));
 				int stationItem = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) => StationItems.TryGetValue(t, out var station) ? station.type : 0).FirstOrDefault((int t) => t > 0);
@@ -907,7 +895,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static void DrawAcquisition(SpriteBatch sb)
 	{
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		Box(sb, BookGeometry.AcquisitionPanel, Surface, border: true, 12f);
 		bool expanded = AcquisitionGroup >= 0;
 		BookAcquisitionGroup current = (expanded ? AcquisitionSources[AcquisitionGroup] : null);
@@ -992,7 +979,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}, centered: true);
 		BookGlyphLayout.Bounds ink = Ink(line.Value);
 		Vector2 pos = Origin + new Vector2(rect.X + 6f + line.X - ink.X * line.Scale, rect.Y + 4f + line.Y - ink.Y * line.Scale) * Scale;
-		sb.DrawString(FontAssets.MouseText.Value, line.Value, pos, Panel, 0f, Vector2.Zero, line.Scale * Scale, SpriteEffects.None, 0f);
+		sb.DrawString(FontAssets.MouseText.Value, line.Value, pos, Panel * ModalOpacity, 0f, Vector2.Zero, line.Scale * Scale, SpriteEffects.None, 0f);
 	}
 
 	// Shared header of the How to Get and enemy cards: [back] [icon] title / subtitle ... [variants] [X].
@@ -2928,7 +2915,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		foreach (int tile in tiles)
 		{
 			StationItems.TryGetValue(tile, out var station);
-			string stationName = ((station != null && !station.IsAir) ? station.Name : (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile))));
+			string stationName = StationName(tile);
 			lines.Add(new TrackingLine(station, stationName, "", TextColor, Muted));
 		}
 		if (tiles.Length == 0)
@@ -3489,7 +3476,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Filtered.Clear();
 		ItemMods.Clear();
 		StationItems.Clear();
-		StationNames.Clear();
 		ItemCategoryList.Clear();
 		ItemCategories.Clear();
 		ClearBestiary();
@@ -3610,7 +3596,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		RecipesByItem.Clear();
 		ItemMods.Clear();
 		StationItems.Clear();
-		StationNames.Clear();
 		RegisteredRecipes = (DisabledRecipes = 0);
 		BookRecent.RefreshIndex();
 		HashSet<string> sources = new HashSet<string>(StringComparer.Ordinal);
@@ -3655,7 +3640,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (item2 != null && !item2.IsAir && item2.createTile >= 0 && !StationItems.ContainsKey(item2.createTile))
 			{
 				StationItems[item2.createTile] = item2;
-				StationNames[item2.createTile] = item2.Name;
 			}
 		}
 		List<Item> list2 = AllItems.Select((int type) => ContentSamples.ItemsByType[type]).ToList();
@@ -4983,9 +4967,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 		foreach (Vector2 offset in array)
 		{
-			sb.DrawString(font, value, pos + offset, Color.Black, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+			sb.DrawString(font, value, pos + offset, Color.Black * ModalOpacity, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
 		}
-		sb.DrawString(font, value, pos, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+		sb.DrawString(font, value, pos, color * ModalOpacity, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
 	}
 
 	private static void DrawTextPair(SpriteBatch sb, string name, string subtitle, float x, float y, float width, float height, Color titleColor, Color subColor)
@@ -5253,7 +5237,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Texture2D texture = TextureAssets.Item[item.type].Value;
 			Rectangle frame = Main.itemAnimations[item.type]?.GetFrame(texture) ?? texture.Bounds;
 			float s = Math.Min(size / (float)Math.Max(1, frame.Width), size / (float)Math.Max(1, frame.Height));
-			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, Color.White, 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
+			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, Color.White * ModalOpacity, 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
 			if (Hit(x, y, size, size))
 			{
 				BookInventoryShortcut.TryOpenIcon(item);
@@ -5382,7 +5366,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		foreach (int tile in r.requiredTile.Where((int t) => t >= 0))
 		{
 			StationItems.TryGetValue(tile, out var station);
-			string name = (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile)));
+			string name = StationName(tile);
 			list.Add(new Detail(station, name, T("Станция", "Station"), Muted, Muted, ""));
 		}
 		if (!r.requiredTile.Any((int t) => t >= 0))
@@ -5780,11 +5764,27 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
 		bool grabHint = !AcquisitionOpen && GrabHint;
 		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f, grabHint ? Accent : Border, grabHint ? 2f : 1f);
+		// Under a modal the book stays as it was, blurred and dimmed, and ignores the mouse.
+		float backdrop = BookBackdrop.Advance(ModalOpen);
+		if (!BookBackdrop.Covers(backdrop))
+		{
+			DrawBookContent(sb, ModalOpen);
+		}
+		DrawBackdrop(sb, backdrop);
 		if (AcquisitionOpen)
 		{
-			DrawAcquisition(sb);
-			return;
+			DrawModal(sb, backdrop, DrawAcquisition);
 		}
+		else if (HelpOpen)
+		{
+			Main.HoverItem = new Item();
+			Main.hoverItemName = "";
+			DrawModal(sb, backdrop, DrawHelp);
+		}
+	}
+
+	private static void DrawBookContent(SpriteBatch sb)
+	{
 		DrawHeader(sb);
 		if (TrackingView)
 		{
@@ -5835,12 +5835,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (NetworkMenu)
 		{
 			DrawNetworkMenu(sb);
-		}
-		if (HelpOpen)
-		{
-			Main.HoverItem = new Item();
-			Main.hoverItemName = "";
-			DrawHelp(sb);
 		}
 	}
 
@@ -6747,7 +6741,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static void DrawHelp(SpriteBatch sb)
 	{
 		PendingTip = null;
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		BookRect modal = BookGeometry.HelpPanel;
 		Box(sb, modal, Surface, border: true, 12f);
 		Text(sb, T("Горячие клавиши", "Shortcuts"), modal.X + 24f, modal.Y + 24f, TextColor, 1.1f, modal.Width - 112f, 32f);
