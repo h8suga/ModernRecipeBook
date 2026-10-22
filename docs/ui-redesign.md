@@ -71,7 +71,7 @@ the shared helpers (`Button`, `Box`, `Label`, `Text`, `CenterLabel`, `Icon`, `Mo
 - Categories: left sidebar as a vertical list of `icon + name` rows, wheel-scrollable, "All" first, selected
   row highlighted. No paged, unlabeled 3-column icon grid.
 - Chain sample slot ("Place an item here") only on the Chains tab.
-- Detail panel hierarchy: big icon + name; subtitle `Mod · Stage`; "Ingredients" rows (icon, name, `have/need`
+- Detail panel hierarchy: big icon + name; subtitle `<item's own mod> · Stage` (a vanilla item says Terraria even when Calamity changed its recipe — owner asked about Flying Carpet showing "Calamity Mod"); when the shown recipe comes from another mod than the item, say so in the recipe section (`Recipe: Calamity`); "Ingredients" rows (icon, name, `have/need`
   green when enough, red when not, "?" opens How to Get); "Station" rows; variant pager only when more than one
   recipe; batch chips ×1 ×5 ×10 Max; actions: primary Craft, secondary Track, Favorite as a star icon button.
 - Footer: one short contextual hint + version. Window size controls stay but compact; drag the window by its
@@ -127,6 +127,8 @@ $s = '<stand>\stand.ps1'; $p = '<worktree>\ModernRecipeBook.csproj'
 ```
 Coordinates are screenshot pixels (1920×1080, UI scale 1.1). Escape closes the book; Enter opens chat —
 avoid both while scripting. The window opens behind other windows and does not take focus.
+
+Worktrees: A `ModSources\.wt\book\ModernRecipeBook`, B `ModSources\.wt\overlays\ModernRecipeBook`, C `ModSources\.wt\secondary\ModernRecipeBook` (the folder must be named ModernRecipeBook — tModLoader takes the mod name from it). First build of an instance takes ~90 s.
 
 Verify every screen you touched in EN and RU with screenshots, and check that nothing overlaps, clips or
 shrinks to unreadable size. Build must have 0 errors. Report: what changed, screenshots (paths), open issues.
