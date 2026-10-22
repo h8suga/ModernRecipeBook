@@ -139,6 +139,11 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static BookStageFilter StageFilter;
 
+	// Global like the stage filter (the sidebar's class row); ClassHidden counts what it alone hid last time.
+	private static BookClass ClassFilter;
+
+	private static int ClassHidden;
+
 	private static bool? LastResourceTrackerStyle;
 
 	private static readonly BookTrackerSignal ResourceTrackerSignal = new BookTrackerSignal();
@@ -1411,9 +1416,9 @@ public sealed class RecipeBookSystem : ModSystem
 		UsedInMode = usedIn;
 	}
 
-	// Everything Back/Forward restores: the tab and its filters, the stage, the selection and the card, and the
+	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, int Selected, int Variant, int ArmorFocus, int FocusType, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, string EnemyVariants, int EnemyVariant, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage, int EnemyPage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, string EnemyVariants, int EnemyVariant, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage, int EnemyPage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1428,7 +1433,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.SortMode, filters.SortDescending, StageFilter, Selected, Variant, ArmorFocus, FocusType, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, EnemyOpen ? string.Join(",", EnemyVariants) : "", EnemyVariant, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage, EnemyPage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.SortMode, filters.SortDescending, StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, EnemyOpen ? string.Join(",", EnemyVariants) : "", EnemyVariant, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage, EnemyPage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1453,6 +1458,7 @@ public sealed class RecipeBookSystem : ModSystem
 			SortDescending = state.SortDescending
 		});
 		StageFilter = state.Stage;
+		ClassFilter = state.Class;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		SetTyping(value: false);
 		ModMenu = (SortMenu = (StageMenu = (HelpOpen = false)));
@@ -3184,6 +3190,7 @@ public sealed class RecipeBookSystem : ModSystem
 			["Query"] = state.Query,
 			["ModFilter"] = state.ModFilter,
 			["StageFilter"] = state.StageFilter,
+			["ClassFilter"] = state.ClassFilter,
 			["CategoryKey"] = state.CategoryKey,
 
 			["FavoritesOnly"] = state.FavoritesOnly,
@@ -3222,6 +3229,11 @@ public sealed class RecipeBookSystem : ModSystem
 			if (tag.ContainsKey("StageFilter"))
 			{
 				state.StageFilter = tag.GetInt("StageFilter");
+			}
+			// Saves before version 5 have no class filter: all classes.
+			if (tag.ContainsKey("ClassFilter"))
+			{
+				state.ClassFilter = tag.GetInt("ClassFilter");
 			}
 			if (tag.ContainsKey("ModFilter"))
 			{
@@ -3340,6 +3352,7 @@ public sealed class RecipeBookSystem : ModSystem
 			Query = Query,
 			ModFilter = ModFilter,
 			StageFilter = (int)StageFilter,
+			ClassFilter = (int)ClassFilter,
 			CategoryKey = categoryKey,
 			FavoritesOnly = FavoritesOnly,
 			UsedInMode = UsedInMode,
@@ -3400,6 +3413,7 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 		}
 		StageFilter = (BookStageFilter)state.StageFilter;
+		ClassFilter = (BookClass)state.ClassFilter;
 		UsedInMode = state.UsedInMode;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		WindowScalePercent = state.WindowScalePercent;
@@ -3653,6 +3667,7 @@ public sealed class RecipeBookSystem : ModSystem
 		BookSkin.Unload();
 		BookProgression.Clear();
 		BookArmorSets.Clear();
+		BookItemClasses.Clear();
 		ResetView();
 		AllItems.Clear();
 		RecipesByItem.Clear();
@@ -3692,6 +3707,7 @@ public sealed class RecipeBookSystem : ModSystem
 		InvalidateBatchEstimate();
 		Query = (ModFilter = "");
 		StageFilter = BookStageFilter.All;
+		ClassFilter = BookClass.None;
 		TabFilterSlots.Clear();
 		Page = (DetailsPage = (Category = (CategoryRow = 0)));
 		ArmorFocus = 0;
@@ -3830,7 +3846,7 @@ public sealed class RecipeBookSystem : ModSystem
 		HashSet<int> usedStations = new HashSet<int>(from tile in All.SelectMany((int index) => Main.recipe[index].requiredTile)
 			where tile >= 0
 			select tile);
-		Categories = BookCategories.Create(list2, usedStations);
+		Categories = BookCategories.Create(usedStations);
 		Category = Math.Max(0, Categories.FindIndex((BookCategory bookCategory) => bookCategory.Key == selectedCategory));
 		ItemCategories.Clear();
 		foreach (Item item3 in list2)
@@ -3864,6 +3880,15 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			BookArmorSets.Clear();
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB armor index failed; using individual items.", exception2);
+		}
+		try
+		{
+			BookItemClasses.Build();
+		}
+		catch (Exception exception3)
+		{
+			ClassFilter = BookClass.None;
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB class index failed; the class filter shows everything.", exception3);
 		}
 		UsedInCache.Clear();
 		Dirty = false;
@@ -3900,6 +3925,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void ApplyFilters(bool clearMessage = true)
 	{
 		Filtered.Clear();
+		ClassHidden = 0;
 
 		AppliedAvailabilityVersion = BookCrafting.AvailabilityVersion;
 		if (clearMessage)
@@ -3947,6 +3973,11 @@ public sealed class RecipeBookSystem : ModSystem
 			BookStage stage = ((r != null) ? BookProgression.RecipeStage(index) : BookProgression.ItemStage(item.type));
 			if (!BookProgressionRules.Matches(StageFilter, stage))
 			{
+				continue;
+			}
+			if (ClassFilter != BookClass.None && (BookItemClasses.Get(item.type) & ClassFilter) == 0)
+			{
+				ClassHidden++;
 				continue;
 			}
 			Filtered.Add(index);
@@ -4450,6 +4481,10 @@ public sealed class RecipeBookSystem : ModSystem
 			FavoritesOnly = !FavoritesOnly;
 			Page = 0;
 			ApplyFilters();
+			return;
+		}
+		if (HandleClassClick())
+		{
 			return;
 		}
 		for (int visible = 0; visible < BookGeometry.VisibleCategoryRows; visible++)
@@ -5982,7 +6017,8 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawCategories(SpriteBatch sb)
 	{
 		Box(sb, BookGeometry.CategoryPanel, new Color(23, 30, 26), border: false, 12f);
-		SectionLabel(sb, T("Категории", "Categories"), 20f, 86f, 164f);
+		DrawClassRow(sb);
+		SectionLabel(sb, T("Категории", "Categories"), 20f, BookGeometry.CategoryLabelTop, 164f);
 		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
 		int rows = BookGeometry.VisibleCategoryRows;
 		for (int visible = 0; visible < rows; visible++)
@@ -6014,9 +6050,55 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			float track = rows * 28;
 			float thumb = Math.Max(28f, track * rows / Categories.Count);
-			Box(sb, 188f, 108f, 3f, track, Raised, border: false, 1f);
-			Box(sb, 188f, 108f + (track - thumb) * CategoryRow / MaxCategoryRow, 3f, thumb, Muted, border: false, 1f);
+			float top = BookGeometry.CategoryCell(0).Y;
+			Box(sb, 188f, top, 3f, track, Raised, border: false, 1f);
+			Box(sb, 188f, top + (track - thumb) * CategoryRow / MaxCategoryRow, 3f, thumb, Muted, border: false, 1f);
 		}
+	}
+
+	// One click narrows every tab to a class; it combines with the category (Armor + Magic = magic armor).
+	private static void DrawClassRow(SpriteBatch sb)
+	{
+		SectionLabel(sb, T("Класс", "Class"), 20f, BookGeometry.ClassLabelTop, 164f);
+		BookClass[] buttons = BookItemClasses.Buttons;
+		for (int i = 0; i < buttons.Length; i++)
+		{
+			BookRect rect = BookGeometry.ClassButton(i);
+			bool active = ClassFilter == buttons[i];
+			bool hover = IconButtonFrame(sb, rect, active);
+			if (buttons[i] == BookClass.None)
+			{
+				// "All" is a plain 2×2 grid: no item reads as every class at once.
+				for (int cell = 0; cell < 4; cell++)
+				{
+					Box(sb, rect.X + rect.Width / 2f - 7f + (float)(cell % 2 * 8), rect.Y + rect.Height / 2f - 7f + (float)(cell / 2 * 8), 6f, 6f, active ? Accent : TextColor, border: false, 1f);
+				}
+			}
+			else if (ContentSamples.ItemsByType.TryGetValue(BookItemClasses.IconType(buttons[i]), out var icon))
+			{
+				Icon(sb, icon, rect.X + rect.Width / 2f - 12f, rect.Y + 4f, 24f, tooltip: false);
+			}
+			if (hover)
+			{
+				MouseTip(BookItemClasses.Label(buttons[i], Ru) + ((active && buttons[i] != BookClass.None) ? ("\n" + T("Клик ещё раз — все классы", "Click again for all classes")) : ""));
+			}
+		}
+	}
+
+	private static bool HandleClassClick()
+	{
+		BookClass[] buttons = BookItemClasses.Buttons;
+		for (int i = 0; i < buttons.Length; i++)
+		{
+			if (BookGeometry.ClassButton(i).Contains(Mouse.X, Mouse.Y))
+			{
+				ClassFilter = ((ClassFilter != buttons[i]) ? buttons[i] : BookClass.None);
+				Page = (DetailsPage = 0);
+				ApplyFilters();
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static void DrawFilterBar(SpriteBatch sb)
@@ -6098,7 +6180,11 @@ public sealed class RecipeBookSystem : ModSystem
 			return;
 		}
 		BookRect area = new BookRect(212f, top, 568f, 596f - top);
-		if (StorageView)
+		if (ClassHidden > 0)
+		{
+			EmptyState(sb, area, T("Скрыто фильтром класса", "Hidden by the class filter"), T("Нажмите «Все классы» над категориями", "Pick All classes above the categories"));
+		}
+		else if (StorageView)
 		{
 			// The status itself lives in the details panel; the empty grid only says what to do.
 			if (!BookStorage.Connected)

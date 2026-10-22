@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -18,7 +17,7 @@ internal static class BookCategories
 		return true;
 	}
 
-	private static bool Weapon(Item i)
+	internal static bool Weapon(Item i)
 	{
 		if (i.damage > 0 && i.ammo == 0)
 		{
@@ -148,23 +147,21 @@ internal static class BookCategories
 		return flag;
 	}
 
-	internal static List<BookCategory> Create(IEnumerable<Item> outputs, HashSet<int> stations)
+	// Item types only: the class (melee, ranged, magic, summoner, rogue) is picked with the class buttons above
+	// the list, so there are no per-class or per-damage-type categories. A saved key that is gone falls back to All.
+	internal static List<BookCategory> Create(HashSet<int> stations)
 	{
 		List<BookCategory> categories = new List<BookCategory>();
 		Add("all", "Все предметы", "All items", 149, (Item i) => true);
 		Add("weapons", "Всё оружие", "All weapons", 273, Weapon);
-		Add("melee", "Ближний бой", "Melee", 757, (Item i) => Weapon(i) && i.CountsAsClass(DamageClass.Melee));
 		Add("swords", "Мечи", "Swords", 4, (Item i) => Weapon(i) && i.CountsAsClass(DamageClass.Melee) && !i.noMelee && i.useStyle == 1);
 		Add("yoyos", "Йо-йо", "Yoyos", 3278, (Item i) => Flag(ItemID.Sets.Yoyo, i.type));
-		Add("ranged", "Дальний бой", "Ranged", 98, (Item i) => Weapon(i) && i.CountsAsClass(DamageClass.Ranged));
 		Add("bows", "Луки", "Bows", 39, (Item i) => Weapon(i) && i.useAmmo == AmmoID.Arrow);
 		Add("guns", "Огнестрельное", "Guns", 96, (Item i) => Weapon(i) && i.useAmmo == AmmoID.Bullet);
 		Add("launchers", "Ракетницы", "Rocket launchers", 759, (Item i) => Weapon(i) && i.useAmmo == AmmoID.Rocket);
-		Add("magic", "Магия", "Magic", 165, (Item i) => Weapon(i) && i.CountsAsClass(DamageClass.Magic));
 		Add("summon", "Миньоны", "Minions", 2365, (Item i) => Weapon(i) && i.CountsAsClass(DamageClass.Summon) && !i.sentry && !Whip(i));
 		Add("whips", "Кнуты", "Whips", 4672, Whip);
 		Add("sentries", "Турели", "Sentries", 2366, (Item i) => i.sentry);
-		Add("thrown", "Метательное", "Thrown", 279, (Item i) => Weapon(i) && (i.CountsAsClass(DamageClass.Throwing) || i.consumable));
 		Add("tools", "Все инструменты", "All tools", 1, Tool);
 		Add("picks", "Кирки и буры", "Pickaxes", 3521, (Item i) => i.pick > 0);
 		Add("axes", "Топоры", "Axes", 10, (Item i) => i.axe > 0);
@@ -202,7 +199,7 @@ internal static class BookCategories
 		Add("buffs", "Зелья усилений", "Buff potions", 292, BuffPotion);
 		Add("food", "Еда и напитки", "Food and drinks", 2425, Food);
 		Add("pets", "Питомцы", "Pets", 2420, (Item i) => i.buffType > 0 && Flag(Main.vanityPet, i.buffType));
-		Add("lightpets", "Светящиеся питомцы", "Light pets", 115, (Item i) => i.buffType > 0 && Flag(Main.lightPet, i.buffType));
+		Add("lightpets", "Световые питомцы", "Light pets", 115, (Item i) => i.buffType > 0 && Flag(Main.lightPet, i.buffType));
 		Add("mounts", "Ездовые питомцы", "Mounts", 2430, (Item i) => i.mountType >= 0);
 		Add("carts", "Вагонетки", "Minecarts", 2343, (Item i) => i.mountType >= 0 && Flag(MountID.Sets.Cart, i.mountType));
 		Add("dyes", "Красители", "Dyes", 1007, (Item i) => i.dye > 0);
@@ -219,22 +216,6 @@ internal static class BookCategories
 		Add("expert", "Эксперт", "Expert", 3335, (Item i) => i.expert);
 		Add("master", "Мастер", "Master", 4929, (Item i) => i.master);
 		Add("consumables", "Расходуемое", "Consumables", 166, (Item i) => i.consumable && i.createTile < 0 && i.createWall <= 0 && i.ammo == 0);
-		IOrderedEnumerable<IGrouping<int, Item>> orderedEnumerable = (from i in outputs.Where(Weapon)
-			where i.DamageType?.Mod != null
-			group i by i.DamageType.Type).OrderBy((IGrouping<int, Item> g) => g.First().DamageType.FullName, StringComparer.Ordinal);
-		int customIndex = categories.FindIndex((BookCategory c) => c.Key == "thrown") + 1;
-		foreach (IGrouping<int, Item> item in orderedEnumerable)
-		{
-			Item sample = item.First();
-			DamageClass damage = sample.DamageType;
-			string label = damage.DisplayName.Value;
-			if (string.IsNullOrWhiteSpace(label))
-			{
-				label = damage.Name;
-			}
-			label = char.ToUpper(label[0]) + label.Substring(1);
-			categories.Insert(customIndex++, new BookCategory("class:" + damage.FullName, label, label, sample.type, (Item i) => Weapon(i) && i.CountsAsClass(damage)));
-		}
 		return categories;
 		void Add(string key, string ru, string en, int icon, Func<Item, bool> match)
 		{
