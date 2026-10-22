@@ -35,5 +35,9 @@ public sealed class BookConfig : ModConfig
 	[DefaultValue(true)]
 	public bool InventoryAltRightClick = true;
 
+	[Header("Movement")]
+	[DefaultValue(false)]
+	public bool DoubleTapDash;
+
 	public override ConfigScope Mode => ConfigScope.ClientSide;
 }

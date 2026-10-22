@@ -48,6 +48,13 @@ Mods: {
 					Label: Auto-connect Magic Storage
 					Tooltip: The open book joins the nearest storage in reach. Off: connect with a button.
 				}
+
+				Headers.Movement: Movement
+
+				DoubleTapDash: {
+					Label: Double-Tap Dash (Calamity)
+					Tooltip: Double-tap left or right to dash; Calamity's dash key keeps working.
+				}
 			}
 		}
 	}
