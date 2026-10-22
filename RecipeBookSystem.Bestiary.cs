@@ -158,13 +158,39 @@ public sealed partial class RecipeBookSystem
 		return MobUnlockState(netId) > BestiaryEntryUnlockState.NotKnownAtAll_0;
 	}
 
+	private static BookRecentMobs SeenMobs => Main.LocalPlayer.GetModPlayer<BookPlayer>().SeenMobs;
+
+	private static int AppliedSeenMobsVersion = -1;
+
+	// The "Recently seen" category lists the player's last mobs newest first; the sort menu does not apply there.
+	private static bool MobRecentCategory => BestiaryView && Category > 0 && Category < MobCategories.Count && MobCategories[Category].Key == BookBestiary.RecentKey;
+
+	// Bestiary entry index -> (position in the recent list, when it was seen).
+	private static Dictionary<int, (int Rank, long SeenUtc)> RecentMobRanks()
+	{
+		Dictionary<int, (int, long)> ranks = new Dictionary<int, (int, long)>();
+		IReadOnlyList<(string Credit, long SeenUtc)> newest = SeenMobs.Newest;
+		for (int i = 0; i < newest.Count; i++)
+		{
+			int index = BookBestiary.IndexOfCredit(newest[i].Credit);
+			if (index >= 0 && !ranks.ContainsKey(index))
+			{
+				ranks[index] = (i, newest[i].SeenUtc);
+			}
+		}
+		return ranks;
+	}
+
 	private static void ApplyMobFilters()
 	{
 		EnsureBestiary();
 		BookBestiary.Tag tag = (Category > 0 && Category < MobCategories.Count) ? BookBestiary.FindTag(MobCategories[Category].Key) : null;
+		bool recent = tag != null && tag.Key == BookBestiary.RecentKey;
+		Dictionary<int, (int Rank, long SeenUtc)> ranks = recent ? RecentMobRanks() : null;
+		AppliedSeenMobsVersion = SeenMobs.Version;
 		foreach (BookMob mob in BookBestiary.Mobs)
 		{
-			if ((tag != null && !tag.Members.Contains(mob.Index)) || (FavoritesOnly && !Favorites.Contains(mob.Key)) || (ModFilter.Length > 0 && mob.Mod != ModFilter) || (MetOnly && !MobMet(mob.NetId)))
+			if ((tag != null && (recent ? !ranks.ContainsKey(mob.Index) : !tag.Members.Contains(mob.Index))) || (FavoritesOnly && !Favorites.Contains(mob.Key)) || (ModFilter.Length > 0 && mob.Mod != ModFilter) || (MetOnly && !MobMet(mob.NetId)))
 			{
 				continue;
 			}
@@ -175,7 +201,14 @@ public sealed partial class RecipeBookSystem
 			}
 			Filtered.Add(mob.Index);
 		}
-		Filtered.Sort(CompareMobs);
+		if (recent)
+		{
+			Filtered.Sort((int a, int b) => ranks[a].Rank.CompareTo(ranks[b].Rank));
+		}
+		else
+		{
+			Filtered.Sort(CompareMobs);
+		}
 		Page = Math.Clamp(Page, 0, Math.Max(0, (Filtered.Count - 1) / ActivePageSize));
 		if (!Filtered.Contains(Selected))
 		{
@@ -253,12 +286,28 @@ public sealed partial class RecipeBookSystem
 			}
 			if (hovered)
 			{
-				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : T("Ещё не встречен", "Not encountered yet")));
+				string seen = "";
+				if (MobRecentCategory)
+				{
+					var ranks = RecentMobRanks();
+					if (ranks.TryGetValue(mob.Index, out var entry))
+					{
+						seen = "\n" + T("Видели ", "Seen ") + BookRecentMobs.Ago(entry.SeenUtc, Ru);
+					}
+				}
+				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : T("Ещё не открыт в бестиарии", "Not in the Bestiary yet")) + seen);
 			}
 		}
 		if (Filtered.Count == 0)
 		{
-			EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			if (MobRecentCategory && SeenMobs.Newest.Count == 0)
+			{
+				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Пока никого не видели", "No mobs seen yet"), T("Здесь появятся мобы, которых вы встретите", "Mobs you come across will show up here"));
+			}
+			else
+			{
+				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			}
 		}
 	}
 

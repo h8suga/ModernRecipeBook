@@ -32,6 +32,12 @@ internal static class BookMobTarget
 		return false;
 	}
 
+	// What the game would name under the cursor: not a hidden mimic, not shimmered out of sight, not the dummy.
+	internal static bool Recognizable(NPC npc)
+	{
+		return npc.ShowNameOnHover && (npc.shimmerTransparency == 0f || npc.CanApplyHunterPotionEffects()) && npc.type != NPCID.TargetDummy && ((npc.type != NPCID.Mimic && npc.type != NPCID.PresentMimic && npc.type != NPCID.IceMimic && npc.aiStyle != NPCAIStyleID.BiomeMimic) || npc.ai[0] != 0f);
+	}
+
 	internal static NPC UnderMouse()
 	{
 		Player player = Main.LocalPlayer;
@@ -47,7 +53,7 @@ internal static class BookMobTarget
 		for (int i = 0; i < Main.maxNPCs; i++)
 		{
 			NPC npc = Main.npc[i];
-			if (!npc.active || npc.life <= 0 || !npc.ShowNameOnHover || (npc.shimmerTransparency != 0f && !npc.CanApplyHunterPotionEffects()) || npc.type == NPCID.TargetDummy || ((npc.type == NPCID.Mimic || npc.type == NPCID.PresentMimic || npc.type == NPCID.IceMimic || npc.aiStyle == NPCAIStyleID.BiomeMimic) && npc.ai[0] == 0f))
+			if (!npc.active || npc.life <= 0 || !Recognizable(npc))
 			{
 				continue;
 			}

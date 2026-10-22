@@ -4036,6 +4036,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Rebuild();
 			ApplyFilters();
 		}
+		if (MobRecentCategory && AppliedSeenMobsVersion != SeenMobs.Version)
+		{
+			ApplyFilters(clearMessage: false);
+		}
 		if (RecentView && AppliedRecentVersion != BookRecent.Version)
 		{
 			AppliedRecentVersion = BookRecent.Version;
@@ -4362,7 +4366,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
 		{
-			SortMenu = !RecentView;
+			SortMenu = !RecentView && !MobRecentCategory;
 			return;
 		}
 		if (BookGeometry.FavoritesFilter.Contains(Mouse.X, Mouse.Y))
@@ -6063,10 +6067,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + T("Фильтр по моду", "Filter by mod"));
 		}
-		Dropdown(sb, BookGeometry.Sort, RecentView ? T("Новые", "Newest") : SortLabel(), SortMenu, !RecentView);
+		bool newest = RecentView || MobRecentCategory;
+		Dropdown(sb, BookGeometry.Sort, newest ? T("Новые", "Newest") : SortLabel(), SortMenu, !newest);
 		if (!MenuOpen && BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(RecentView ? T("Недавние всегда от новых к старым", "Recent crafts are always newest first") : T("Порядок сортировки", "Sort order"));
+			MouseTip(RecentView ? T("Недавние всегда от новых к старым", "Recent crafts are always newest first") : (MobRecentCategory ? T("Недавние мобы всегда от новых к старым", "Recently seen mobs are always newest first") : T("Порядок сортировки", "Sort order")));
 		}
 		BookRect favorites = BookGeometry.FavoritesFilter;
 		IconButtonFrame(sb, favorites, FavoritesOnly);
