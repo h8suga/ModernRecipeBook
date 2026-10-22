@@ -21,7 +21,7 @@ using Terraria.UI;
 
 namespace ModernRecipeBook;
 
-public sealed class RecipeBookSystem : ModSystem
+public sealed partial class RecipeBookSystem : ModSystem
 {
 	private readonly record struct BatchEstimate(int Count, ulong Tick, int AvailabilityVersion, int StorageVersion, bool Storage);
 
@@ -502,6 +502,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void CloseAcquisition()
 	{
 		CloseEnemyCard();
+		EnemyOpenedBook = false;
 		AcquisitionOpen = false;
 		AcquisitionVariants = Array.Empty<int>();
 		AcquisitionSources.Clear();
@@ -1470,10 +1471,18 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		if (state.AcquisitionVariants.Length == 0)
 		{
-			CloseAcquisition();
-			return;
+			// An enemy card without How to Get below it was opened from the world (Mouse3 on a mob).
+			if (state.EnemyVariants.Length == 0 || AcquisitionVariants.Length > 0)
+			{
+				CloseAcquisition();
+			}
+			if (state.EnemyVariants.Length == 0)
+			{
+				return;
+			}
+			AcquisitionOpen = true;
 		}
-		if (!AcquisitionOpen || string.Join(",", AcquisitionVariants) != state.AcquisitionVariants || AcquisitionVariant != state.AcquisitionVariant)
+		else if (!AcquisitionOpen || string.Join(",", AcquisitionVariants) != state.AcquisitionVariants || AcquisitionVariant != state.AcquisitionVariant)
 		{
 			CloseEnemyCard();
 			AcquisitionVariants = state.AcquisitionVariants.Split(',').Select(int.Parse).ToArray();
@@ -1553,6 +1562,11 @@ public sealed class RecipeBookSystem : ModSystem
 	// What Back returns to, for the back button's tooltip.
 	private static string HistoryLabel(NavState state)
 	{
+		string[] enemies = state.EnemyVariants.Split(',', StringSplitOptions.RemoveEmptyEntries);
+		if (enemies.Length > 0 && ContentSamples.NpcsByNetId.TryGetValue(int.Parse(enemies[Math.Clamp(state.EnemyVariant, 0, enemies.Length - 1)]), out var enemy))
+		{
+			return enemy.FullName + " · " + TabLabel(state.Tab);
+		}
 		int type = (state.EnemyVariants.Length == 0 && state.AcquisitionVariants.Length > 0) ? int.Parse(state.AcquisitionVariants.Split(',')[Math.Clamp(state.AcquisitionVariant, 0, state.AcquisitionVariants.Split(',').Length - 1)]) : ((state.ArmorFocus > 0) ? state.ArmorFocus : ((state.FocusType > 0) ? state.FocusType : 0));
 		if (type <= 0 && state.Selected >= 0 && (state.Tab == 0 || state.Tab == 1 || state.Tab == 3))
 		{
@@ -2367,26 +2381,28 @@ public sealed class RecipeBookSystem : ModSystem
 			EnemyReadErrors++;
 		}
 		EnemyLoot = BookEnemyRules.Group(drops).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		ReadEnemyStats(id);
 		if (EnemyReadErrors > 0)
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Enemy card for NPC net ID {id}: {EnemyReadErrors} reports/tags could not be read.");
 		}
 	}
 
-	// Esc and the back button return to How to Get; X and a click outside close the whole card.
+	// Esc and the back button return to How to Get; X and a click outside close the whole card. A card opened from
+	// the world has nothing below it: Esc closes it too.
 	private static void HandleEnemyInput(bool click, KeyboardState keys)
 	{
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int delta = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
-		if (Press(Keys.Escape) || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y)))
+		if (!EnemyStandalone && (Press(Keys.Escape) || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y))))
 		{
 			CloseEnemyCard();
 			return;
 		}
-		if (click && (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)))
+		if (Press(Keys.Escape) || (click && (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y))))
 		{
-			CloseAcquisition();
+			CloseCardLayer();
 			return;
 		}
 		int step = ((EnemyVariants.Length > 1) ? ((click && BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y)) ? (-1) : ((click && BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y)) ? 1 : 0)) : 0);
@@ -2431,9 +2447,9 @@ public sealed class RecipeBookSystem : ModSystem
 		BookRect panel = BookGeometry.AcquisitionPanel;
 		Box(sb, panel, Surface, border: true, 12f);
 		NPC npc = ContentSamples.NpcsByNetId[EnemyVariants[EnemyVariant]];
-		DrawAcquisitionIcon(sb, new BookAcquisitionEntry(npc.FullName, "", BookAcquisitionKind.Drop, "", "", 0, EnemyVariants[EnemyVariant]), BookGeometry.EnemyPortrait);
-		string kind = (npc.friendly ? T("Существо", "Creature") : (npc.boss ? T("Босс", "Boss") : T("Враг", "Enemy")));
-		DrawCardHeader(sb, back: true, npc.FullName, kind + " · " + ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), EnemyVariant, EnemyVariants.Length, T("Варианты этого врага", "Variants of this enemy"));
+		DrawAcquisitionIcon(sb, new BookAcquisitionEntry(npc.FullName, "", BookAcquisitionKind.Drop, "", "", 0, EnemyVariants[EnemyVariant]), BookGeometry.AcquisitionIcon(!EnemyStandalone));
+		string kind = (npc.townNPC ? T("Житель", "Town NPC") : (npc.friendly ? T("Существо", "Creature") : (npc.boss ? T("Босс", "Boss") : T("Враг", "Enemy"))));
+		DrawCardHeader(sb, !EnemyStandalone, npc.FullName, kind + " · " + ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), EnemyVariant, EnemyVariants.Length, T("Варианты этого врага", "Variants of this enemy"));
 		BookRect tags = BookGeometry.EnemyTags;
 		Box(sb, tags, Raised, border: false, 8f);
 		Text(sb, T("Биом", "Biome"), tags.X + 12f, tags.Y + 8f, Muted, 0.8f, 96f, 22f);
@@ -2483,6 +2499,7 @@ public sealed class RecipeBookSystem : ModSystem
 				MouseTip(item.Name + "\n" + EnemyLootTooltip(loot));
 			}
 		}
+		DrawEnemyStats(sb, EnemyVariants[EnemyVariant]);
 		DrawCardFooter(sb, EnemyPage, BookEnemyRules.PageCount(EnemyLoot.Count), (EnemyReadErrors > 0) ? T("Часть данных не прочитана", "Some data could not be read") : "");
 	}
 
@@ -3681,6 +3698,7 @@ public sealed class RecipeBookSystem : ModSystem
 		Variant = 0;
 		ResetCard();
 		History.Clear();
+		LiveMobStats.Clear();
 		UsedInCache.Clear();
 		BatchChoice = 0;
 		InvalidateBatchEstimate();
@@ -3715,6 +3733,11 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				Open = (MouseOver = false);
 				BookStorage.CancelCraft();
+				// A mob's card that opened the book closes with it.
+				if (EnemyOpenedBook)
+				{
+					CloseAcquisition();
+				}
 			}
 			LastMiddle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
 			LastLeft = Main.mouseLeft;

@@ -34,11 +34,15 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect AcquisitionList => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 376f);
 
-	internal static BookRect EnemyPortrait => AcquisitionIcon(back: true);
-
 	internal static BookRect EnemyTags => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 64f);
 
-	internal static BookRect EnemyLootLabel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 168f, AcquisitionPanel.Width - 48f, 20f);
+	// Below the tags the loot list takes the left, the stats column the right: 504 + 16 + 232 = 752.
+	internal static BookRect EnemyLootLabel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 168f, 504f, 20f);
+
+	internal static BookRect EnemyStatsLabel => new BookRect(AcquisitionPanel.X + 544f, AcquisitionPanel.Y + 168f, 232f, 20f);
+
+	// Eight 32-pixel rows with 8 pixels above and below, level with the five loot rows.
+	internal static BookRect EnemyStats => new BookRect(AcquisitionPanel.X + 544f, AcquisitionPanel.Y + 196f, 232f, 272f);
 
 	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 164f, 28f);
 
@@ -239,7 +243,12 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect EnemyLootRow(int index)
 	{
-		return new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 196f + (float)(index * 56), AcquisitionPanel.Width - 48f, 48f);
+		return new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 196f + (float)(index * 56), EnemyLootLabel.Width, 48f);
+	}
+
+	internal static BookRect EnemyStatRow(int index)
+	{
+		return new BookRect(EnemyStats.X + 12f, EnemyStats.Y + 8f + (float)(index * 32), EnemyStats.Width - 24f, 32f);
 	}
 
 	internal static BookRect EnemyLootAmount(int index)
