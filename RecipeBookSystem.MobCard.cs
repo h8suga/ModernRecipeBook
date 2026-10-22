@@ -152,13 +152,23 @@ public sealed partial class RecipeBookSystem
 		{
 			return true;
 		}
-		IBestiaryUICollectionInfoProvider provider = Main.BestiaryDB.FindEntryByNPCID(netId).UIInfoProvider;
-		// Variants without an entry of their own (zombie skins) use the entry they are credited to.
-		if (provider == null && ContentSamples.NpcNetIdsByPersistentIds.TryGetValue(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[netId], out int credited))
+		return MobUnlockState(netId) >= BestiaryEntryUnlockState.CanShowStats_2;
+	}
+
+	// The mob's Bestiary entry; variants without an entry of their own (zombie skins) use the one they are credited to.
+	private static BestiaryEntry MobEntry(int netId)
+	{
+		BestiaryEntry entry = Main.BestiaryDB.FindEntryByNPCID(netId);
+		if (entry.UIInfoProvider == null && ContentSamples.NpcNetIdsByPersistentIds.TryGetValue(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[netId], out int credited))
 		{
-			provider = Main.BestiaryDB.FindEntryByNPCID(credited).UIInfoProvider;
+			entry = Main.BestiaryDB.FindEntryByNPCID(credited);
 		}
-		return provider != null && provider.GetEntryUICollectionInfo().UnlockState >= BestiaryEntryUnlockState.CanShowStats_2;
+		return entry;
+	}
+
+	private static BestiaryEntryUnlockState MobUnlockState(int netId)
+	{
+		return MobEntry(netId).UIInfoProvider?.GetEntryUICollectionInfo().UnlockState ?? BestiaryEntryUnlockState.NotKnownAtAll_0;
 	}
 
 	// Right column of the enemy card. The unlock and the banner are read every frame, so a kill, a chat or a sighting

@@ -34,7 +34,18 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect AcquisitionList => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 376f);
 
-	internal static BookRect EnemyTags => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 64f);
+	// The Bestiary's portrait box (189×108) at 11/9 size, from the buttons' top to the tags' bottom; after the back
+	// button when there is one. Title, subtitle and the tags sit to its right.
+	internal static BookRect EnemyPortrait(bool back)
+	{
+		return new BookRect(AcquisitionPanel.X + (back ? 72f : 24f), AcquisitionPanel.Y + 24f, 231f, 132f);
+	}
+
+	internal static BookRect EnemyTags(bool back)
+	{
+		float left = EnemyPortrait(back).X + 231f + 16f;
+		return new BookRect(left, AcquisitionPanel.Y + 92f, AcquisitionPanel.X + AcquisitionPanel.Width - 24f - left, 64f);
+	}
 
 	// Below the tags the loot list takes the left, the stats column the right: 504 + 16 + 232 = 752.
 	internal static BookRect EnemyLootLabel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 168f, 504f, 20f);

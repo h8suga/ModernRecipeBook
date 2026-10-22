@@ -1004,7 +1004,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// Shared header of the How to Get and enemy cards: [back] [icon] title / subtitle ... [variants] [X].
-	private static void DrawCardHeader(SpriteBatch sb, bool back, string title, string subtitle, int variant, int variants, string variantTip)
+	private static void DrawCardHeader(SpriteBatch sb, bool back, string title, string subtitle, int variant, int variants, string variantTip, float dividerLeft = 0f)
 	{
 		bool pager = variants > 1;
 		if (back)
@@ -1042,7 +1042,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			MouseTip(back ? T("Закрыть", "Close") : T("Закрыть · Esc", "Close · Esc"));
 		}
-		Box(sb, BookGeometry.AcquisitionDivider, Border);
+		BookRect divider = BookGeometry.AcquisitionDivider;
+		float left = Math.Max(divider.X, dividerLeft);
+		Box(sb, left, divider.Y, divider.X + divider.Width - left, divider.Height, Border);
 	}
 
 	private static void DrawCardFooter(SpriteBatch sb, int page, int pages, string status)
@@ -2382,6 +2384,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		EnemyLoot = BookEnemyRules.Group(drops).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		ReadEnemyStats(id);
+		ReadEnemyPortrait(id);
 		if (EnemyReadErrors > 0)
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Enemy card for NPC net ID {id}: {EnemyReadErrors} reports/tags could not be read.");
@@ -2392,6 +2395,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// the world has nothing below it: Esc closes it too.
 	private static void HandleEnemyInput(bool click, KeyboardState keys)
 	{
+		UpdateEnemyPortrait();
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int delta = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
@@ -2447,10 +2451,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 		BookRect panel = BookGeometry.AcquisitionPanel;
 		Box(sb, panel, Surface, border: true, 12f);
 		NPC npc = ContentSamples.NpcsByNetId[EnemyVariants[EnemyVariant]];
-		DrawAcquisitionIcon(sb, new BookAcquisitionEntry(npc.FullName, "", BookAcquisitionKind.Drop, "", "", 0, EnemyVariants[EnemyVariant]), BookGeometry.AcquisitionIcon(!EnemyStandalone));
 		string kind = (npc.townNPC ? T("Житель", "Town NPC") : (npc.friendly ? T("Существо", "Creature") : (npc.boss ? T("Босс", "Boss") : T("Враг", "Enemy"))));
-		DrawCardHeader(sb, !EnemyStandalone, npc.FullName, kind + " · " + ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), EnemyVariant, EnemyVariants.Length, T("Варианты этого врага", "Variants of this enemy"));
-		BookRect tags = BookGeometry.EnemyTags;
+		// The animated portrait replaces the header icon, so the title and subtitle move to its right.
+		BookRect tags = BookGeometry.EnemyTags(!EnemyStandalone);
+		DrawCardHeader(sb, !EnemyStandalone, "", "", EnemyVariant, EnemyVariants.Length, T("Варианты этого врага", "Variants of this enemy"), tags.X);
+		DrawEnemyPortrait(sb, BookGeometry.EnemyPortrait(!EnemyStandalone), EnemyVariants[EnemyVariant]);
+		float titleWidth = ((EnemyVariants.Length > 1) ? BookGeometry.AcquisitionVariantPrevious.X : BookGeometry.AcquisitionClose.X) - 16f - tags.X;
+		Text(sb, npc.FullName, tags.X, panel.Y + 16f, TextColor, 1.08f, titleWidth, 26f);
+		Text(sb, kind + " · " + ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), tags.X, panel.Y + 46f, Muted, 0.85f, titleWidth, 20f);
 		Box(sb, tags, Raised, border: false, 8f);
 		Text(sb, T("Биом", "Biome"), tags.X + 12f, tags.Y + 8f, Muted, 0.8f, 96f, 22f);
 		Text(sb, (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"), tags.X + 116f, tags.Y + 8f, TextColor, 0.85f, tags.Width - 128f, 22f);
