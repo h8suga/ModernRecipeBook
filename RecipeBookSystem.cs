@@ -4959,90 +4959,170 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Bulk inventory actions: four equal buttons, disabled until a network is connected.
 	private static void DrawStorageToolbar(SpriteBatch sb)
 	{
-		BookRect panel = BookGeometry.SamplePanel;
-		Box(sb, panel.X, panel.Y, panel.Width, panel.Height, Surface, border: true, 10f);
-		Button(sb, BookGeometry.StorageQuickStack, T("Быстрый стак", "Quick stack"), BookStorage.Connected);
-		Button(sb, BookGeometry.StorageDeposit, T("Положить с курсора", "Deposit cursor"), BookStorage.Connected && !Main.mouseItem.IsAir);
-		Button(sb, BookGeometry.StorageRestock, T("Пополнить", "Restock"), BookStorage.Connected);
+		Box(sb, BookGeometry.SamplePanel, Surface, border: true, 10f);
+		bool ready = BookStorage.Connected;
+		CardButton(sb, BookGeometry.StorageQuickStack, T("Быстрый стак", "Quick Stack"), ready);
+		CardButton(sb, BookGeometry.StorageDepositAll, T("Сложить всё", "Deposit All"), ready);
+		CardButton(sb, BookGeometry.StorageRestock, T("Пополнить", "Restock"), ready);
+		CardButton(sb, BookGeometry.StorageDeposit, T("Положить", "Deposit Held"), ready && !Main.mouseItem.IsAir);
+		if (ModMenu)
+		{
+			return;
+		}
 		if (BookGeometry.StorageQuickStack.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Ctrl+Q · Сложить из инвентаря только предметы, уже лежащие в сети. Панель быстрого доступа и избранное не трогаются.", "Ctrl+Q · Deposit matching inventory items already present in storage. Hotbar and favorites are kept."));
-		}
-		if (BookGeometry.StorageRestock.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Ctrl+R · Пополнить неполные стопки в инвентаре из сети. Используется штатное действие Magic Storage.", "Ctrl+R · Refill partial inventory stacks from storage using the native Magic Storage action."));
-		}
-		if (BookGeometry.StorageDeposit.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Ctrl+D · Передать реальный предмет с курсора в подключённую сеть. Непоместившийся остаток остаётся на курсоре.", "Ctrl+D · Deposit the actual held item into the connected network. Any remainder stays on the cursor."));
-		}
-	}
-
-	private static void DrawStorageDetails(SpriteBatch sb)
-	{
-		Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
-		Text(sb, T("MAGIC STORAGE", "MAGIC STORAGE"), 812f, 108f, Muted, 0.82f, 264f, 24f);
-		SpriteBatch sb2 = sb;
-		Color color;
-		if (BookStorage.Connected)
-		{
-			color = (BookStorage.Updating ? new Color(219, 184, 112) : Accent);
-		}
-		else
-		{
-			color = Muted;
-		}
-		Box(sb2, 1084f, 116f, 8f, 8f, color, border: false, 4f);
-		if (Hit(1076f, 102f, 24f, 30f))
-		{
-			MouseTip(BookStorage.ConnectionDetails);
-		}
-		Item selected = SelectedItem;
-		if (selected != null)
-		{
-			Icon(sb, selected, 926f, 136f, 56f);
-			Text(sb, selected.Name, 812f, 200f, TextColor, 1.1f, 284f, 32f);
-			Text(sb, T("В этой стопке: ", "In this stack: ") + selected.stack, 812f, 240f, Muted, 0.95f, 284f, 28f);
-			Text(sb, ModName(selected.ModItem?.Mod.Name ?? "Terraria"), 812f, 276f, Muted, 0.84f, 284f, 24f);
-		}
-		else
-		{
-			Text(sb, T("Выберите предмет слева", "Select a stored item"), 812f, 185f, Muted, 1f, 284f, 30f);
-		}
-		Text(sb, T("Shift+ЛКМ — стопка в инвентарь", "Shift+left-click: stack to inventory"), 812f, 324f, Muted, 0.84f, 284f, 28f);
-		Text(sb, T("ПКМ — 1 предмет в инвентарь", "Right-click: 1 item to inventory"), 812f, 360f, Muted, 0.84f, 284f, 28f);
-		Text(sb, T("Alt+ЛКМ — избранное", "Alt+left-click: favorite"), 812f, 396f, Muted, 0.84f, 284f, 28f);
-		Button(sb, BookGeometry.StorageDepositAll, T("Сложить всё", "Deposit all"), BookStorage.Connected);
-		Button(sb, BookGeometry.StorageConnect, T("Подключить", "Reconnect"), BookStorage.Connected);
-		Button(sb, BookGeometry.StorageNative, T("Окно MS", "MS window"));
-		Button(sb, BookGeometry.StorageDisconnect, T("Отключить сеть", "Disconnect network"), BookStorage.Connected);
-		Text(sb, BookStorage.ConnectionStatus, 812f, 576f, BookStorage.Connected ? Accent : Muted, 0.76f, 284f, 16f);
-		if (BookStorage.Connected)
-		{
-			Text(sb, BookStorage.AccessName, 812f, 596f, Muted, 0.76f, 284f, 16f);
-			Text(sb, BookStorage.AccessCoordinates, 812f, 616f, Muted, 0.72f, 284f, 16f);
-		}
-		if (Hit(812f, 576f, 284f, 64f))
-		{
-			MouseTip(BookStorage.ConnectionDetails);
+			MouseTip(T("Сложить то, что уже есть в хранилище · Ctrl+Q", "Store items already in storage · Ctrl+Q"));
 		}
 		if (BookGeometry.StorageDepositAll.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Ctrl+Shift+D · Сложить весь обычный инвентарь. Панель быстрого доступа (слоты 1–10) и избранные предметы сохраняются. Курсор должен быть пустым.", "Ctrl+Shift+D · Deposit the main inventory. Hotbar (slots 1–10) and favorited items are kept. Clear the cursor first."));
+			MouseTip(T("Сложить инвентарь, кроме панели и избранного · Ctrl+Shift+D", "Store inventory except hotbar and favorites · Ctrl+Shift+D"));
+		}
+		if (BookGeometry.StorageRestock.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Дополнить стопки инвентаря из хранилища · Ctrl+R", "Top up inventory stacks from storage · Ctrl+R"));
+		}
+		if (BookGeometry.StorageDeposit.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Положить предмет с курсора · Ctrl+D", "Store the item on your cursor · Ctrl+D"));
+		}
+	}
+
+	// Details panel: status, selected stack, withdraw shortcuts, last action; network block pinned to the bottom.
+	private static void DrawStorageDetails(SpriteBatch sb)
+	{
+		Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
+		BookRect content = BookGeometry.StorageContent;
+		string state;
+		Color stateColor;
+		if (BookStorage.Connected)
+		{
+			state = (BookStorage.Updating ? T("Синхронизация", "Syncing") : T("Подключено", "Connected"));
+			stateColor = (BookStorage.Updating ? new Color(219, 184, 112) : Accent);
+		}
+		else
+		{
+			state = BookStorage.ConnectionStatus;
+			stateColor = Muted;
+		}
+		BookRect status = BookGeometry.StorageStatus;
+		CenterLabel(sb, state, status.X, status.Y, status.Width, status.Height, stateColor, 0.8f, rightAligned: true);
+		float stateWidth = Math.Min(status.Width, Ink(state).Width * 0.8f * TextScale);
+		Box(sb, status.X + status.Width - stateWidth - 14f, status.Y + 6f, 8f, 8f, stateColor, border: false, 4f);
+		Text(sb, "MAGIC STORAGE", content.X, content.Y, Muted, 0.8f, content.Width - stateWidth - 28f, 20f);
+		if (status.Contains(Mouse.X, Mouse.Y) && !ModMenu)
+		{
+			MouseTip(BookStorage.ConnectionDetails);
+		}
+		BookRect icon = BookGeometry.StorageItemIcon;
+		Item selected = SelectedItem;
+		if (selected != null)
+		{
+			Box(sb, icon, Raised, border: false, 8f);
+			Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
+			Text(sb, selected.Name, icon.X + 60f, icon.Y, TextColor, 1f, content.Width - 60f, 26f);
+			Text(sb, "×" + selected.stack + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria"), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
+		}
+		else
+		{
+			Text(sb, BookStorage.Connected ? T("Предмет не выбран", "No item selected") : T("Нет предметов", "No items"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
+			Text(sb, BookStorage.Connected ? T("Нажмите на предмет в сетке", "Click an item in the grid") : T("Подойдите к точке доступа", "Stand near a storage access point"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+		}
+		Box(sb, content.X, icon.Y + icon.Height + 16f, content.Width, 1f, Border);
+		BookRect keys = BookGeometry.StorageShortcuts;
+		Text(sb, T("УПРАВЛЕНИЕ", "SHORTCUTS"), keys.X, keys.Y, Muted, 0.8f, keys.Width, 20f);
+		StorageKeyRow(sb, keys.Y + 28f, T("Shift+ЛКМ", "Shift+LMB"), T("Взять стопку", "Take stack"));
+		StorageKeyRow(sb, keys.Y + 56f, T("ПКМ", "RMB"), T("Взять одну", "Take one"));
+		StorageKeyRow(sb, keys.Y + 84f, T("Alt+ЛКМ", "Alt+LMB"), T("В избранное", "Favorite"));
+		if (BookStorage.Message.Length > 0)
+		{
+			BookRect message = BookGeometry.StorageMessage;
+			Text(sb, BookStorage.Message, message.X, message.Y, TextColor, 0.85f, message.Width, message.Height);
+		}
+		BookRect network = BookGeometry.StorageNetwork;
+		Box(sb, content.X, network.Y - 16f, content.Width, 1f, Border);
+		Text(sb, T("СЕТЬ", "NETWORK"), network.X, network.Y, Muted, 0.8f, network.Width, 20f);
+		if (BookStorage.Connected)
+		{
+			Text(sb, BookStorage.AccessName, network.X, network.Y + 26f, TextColor, 0.85f, network.Width, 20f);
+			Text(sb, BookStorage.AccessCoordinates, network.X, network.Y + 48f, Muted, 0.8f, network.Width, 20f);
+		}
+		else
+		{
+			Text(sb, T("Подключается сама у точки доступа", "Connects by itself near an access point"), network.X, network.Y + 26f, Muted, 0.85f, network.Width, 20f);
+		}
+		CardButton(sb, BookGeometry.StorageConnect, BookStorage.Connected ? T("Обновить", "Refresh") : T("Подключить", "Connect"), enabled: true, !BookStorage.Connected);
+		CardButton(sb, BookGeometry.StorageDisconnect, T("Отключить", "Disconnect"), BookStorage.Connected);
+		CardButton(sb, BookGeometry.StorageNative, T("Открыть Magic Storage", "Open Magic Storage"));
+		if (ModMenu)
+		{
+			return;
 		}
 		if (BookGeometry.StorageConnect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Подключение рядом выполняется автоматически. Эта кнопка — повторная попытка; защищённые сети требуют штатного доступа.", "Nearby connection is automatic. Retry here; protected networks still need native authorization."));
+			MouseTip(BookStorage.Connected ? T("Перечитать хранилище · F5", "Reload storage · F5") : T("Подключиться к ближайшей точке доступа", "Connect to the nearest access point"));
+		}
+		if (BookGeometry.StorageDisconnect.Contains(Mouse.X, Mouse.Y) && BookStorage.Connected)
+		{
+			MouseTip(T("Не подключаться до следующего открытия книги", "Stay offline until the book is reopened"));
 		}
 		if (BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Открыть родное окно Magic Storage: станции, модули, безопасность и особые режимы. Книга закроется.", "Return to native Magic Storage for stations, modules, security and special modes. Closes the book."));
+			MouseTip(T("Окно Magic Storage; книга закроется", "Magic Storage window; closes the book"));
 		}
-		if (BookGeometry.StorageDisconnect.Contains(Mouse.X, Mouse.Y))
+	}
+
+	private static void StorageKeyRow(SpriteBatch sb, float y, string key, string action)
+	{
+		BookRect content = BookGeometry.StorageContent;
+		HelpKeycap(sb, new BookRect(content.X, y, 112f, 22f), key);
+		Text(sb, action, content.X + 124f, y, TextColor, 0.85f, content.Width - 124f, 22f);
+	}
+
+	// Mod filter list: drops down under its button, rows are plain list items (hover, selected = Accent bar).
+	private static void DrawModMenu(SpriteBatch sb)
+	{
+		BookRect panel = BookGeometry.ModMenuPanel;
+		if (panel.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Отключиться до следующего открытия книги. Автоподключение в этот раз не будет повторяться.", "Disconnect until the book is opened again. Automatic reconnect is suspended for this opening."));
+			PendingTip = null;
+			Main.HoverItem = new Item();
+			Main.hoverItemName = "";
+		}
+		float height = 16f + 32f * (float)Math.Min(9, Mods.Count + 1 - ModOffset);
+		Box(sb, panel.X, panel.Y + 4f, panel.Width, height, new Color(0, 0, 0, 110), border: false, 12f);
+		Box(sb, panel.X, panel.Y, panel.Width, height, Panel, border: true, 12f);
+		for (int k = 0; k < 9; k++)
+		{
+			int j = ModOffset + k;
+			if (j > Mods.Count)
+			{
+				break;
+			}
+			string mod = ((j == 0) ? "" : Mods[j - 1]);
+			BookRect row = BookGeometry.ModOption(k);
+			bool selected = ModFilter == mod;
+			bool hover = row.Contains(Mouse.X, Mouse.Y);
+			if (selected || hover)
+			{
+				Box(sb, row, selected ? new Color(50, 76, 59) : HoverFill, border: false, 6f);
+			}
+			if (selected)
+			{
+				Box(sb, row.X, row.Y + 8f, 3f, row.Height - 16f, Accent, border: false, 1f);
+			}
+			CenterLabel(sb, (j == 0) ? T("Все источники", "All sources") : ModName(mod), row.X + 12f, row.Y + 4f, row.Width - 20f, row.Height - 8f, selected ? Accent : TextColor, 0.95f, rightAligned: false, leftAligned: true);
+		}
+		int rows = Mods.Count + 1;
+		if (rows > 9)
+		{
+			float track = 9f * 32f;
+			float thumb = Math.Max(24f, track * 9f / (float)rows);
+			float x = panel.X + panel.Width - 10f;
+			Box(sb, x, panel.Y + 8f, 3f, track, Raised, border: false, 1f);
+			Box(sb, x, panel.Y + 8f + (track - thumb) * (float)ModOffset / (float)(rows - 9), 3f, thumb, Accent, border: false, 1f);
 		}
 	}
 
@@ -5435,23 +5515,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (ModMenu)
 		{
-			Box(sb, BookGeometry.ModMenuPanel, new Color(17, 25, 20), border: true, 14f);
-			for (int k = 0; k < 9; k++)
-			{
-				int j2 = ModOffset + k;
-				if (j2 > Mods.Count)
-				{
-					break;
-				}
-				string mod = ((j2 == 0) ? "" : Mods[j2 - 1]);
-				string label2 = ((j2 == 0) ? T("Все источники", "All sources") : ModName(mod));
-				Button(sb, BookGeometry.ModOption(k), label2, ModFilter == mod);
-				if (BookGeometry.ModOption(k).Contains(Mouse.X, Mouse.Y))
-				{
-					MouseTip(BookRules.PlainText(label2));
-				}
-			}
-			Text(sb, T("Прокрутите список колёсиком", "Scroll to see more mods"), 196f, 552f, Muted, 0.8f, 530f, 24f);
+			DrawModMenu(sb);
 		}
 		if (HelpOpen)
 		{
@@ -5461,45 +5525,49 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// A key the way keyboards draw it: quiet fill, hairline border, the label centered.
 	private static void HelpKeycap(SpriteBatch sb, BookRect rect, string label)
 	{
-		Box(sb, rect.X, rect.Y, rect.Width, rect.Height, new Color(50, 76, 59), border: true, 7f, Accent, 2f);
-		CenterLabel(sb, label, rect.X + 6f, rect.Y + 3f, rect.Width - 12f, rect.Height - 6f, Color.White, 0.82f);
+		Box(sb, rect, Raised, border: true, 6f, new Color(78, 99, 84));
+		CenterLabel(sb, label, rect.X + 6f, rect.Y, rect.Width - 12f, rect.Height, TextColor, 0.8f);
 	}
 
+	// F1 cheat sheet: two columns of sections, each row a keycap and what it does. Modal: nothing under it hints.
 	private static void DrawHelp(SpriteBatch sb)
 	{
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 12f);
+		PendingTip = null;
+		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		BookRect modal = BookGeometry.HelpPanel;
-		Box(sb, modal.X, modal.Y, modal.Width, modal.Height, Surface, border: true, 14f);
-		Text(sb, T("БЫСТРЫЕ ДЕЙСТВИЯ", "QUICK ACTIONS"), modal.X + 24f, modal.Y + 16f, Accent, 1f, 720f, 32f);
-		HelpKeycap(sb, new BookRect(modal.X + modal.Width - 132f, modal.Y + 16f, 54f, 32f), "F1");
-		Button(sb, BookGeometry.HelpClose, "X");
-		BookHelp.Section[] sections = BookHelp.Sections;
-		for (int i = 0; i < sections.Length; i++)
+		Box(sb, modal, Surface, border: true, 12f);
+		Text(sb, T("Горячие клавиши", "Shortcuts"), modal.X + 24f, modal.Y + 24f, TextColor, 1.1f, modal.Width - 112f, 32f);
+		CardButton(sb, BookGeometry.HelpClose, "X");
+		if (BookGeometry.HelpClose.Contains(Mouse.X, Mouse.Y))
 		{
-			BookHelp.Section section = sections[i];
-			BookRect bounds = section.Bounds;
-			Box(sb, bounds.X, bounds.Y, bounds.Width, bounds.Height, Panel, border: true, 10f);
-			Text(sb, T(section.Ru, section.En), bounds.X + 16f, bounds.Y + 8f, Accent, 0.78f, bounds.Width - 32f, 24f);
-			for (int j = 0; j < section.Rows.Length; j++)
-			{
-				BookHelp.Entry row = section.Rows[j];
-				HelpKeycap(sb, BookHelp.KeyRect(section, j), T(row.KeyRu, row.KeyEn));
-				BookRect label = BookHelp.LabelRect(section, j);
-				Text(sb, T(row.Ru, row.En), label.X, label.Y, TextColor, 0.78f, label.Width, label.Height);
-			}
+			MouseTip(T("Закрыть · Esc или F1", "Close · Esc or F1"));
 		}
-		BookRect storage = BookHelp.Sections[2].Bounds;
-		float nx = storage.X + 16f;
-		float ny = storage.Y + 314f;
-		float nw = storage.Width - 32f;
-		Box(sb, nx, ny - 8f, nw, 1f, Border, border: false, 0f);
-		Text(sb, T("Получение: ячейки слева, курсор пустой.", "Withdraw: use left-side cells, cursor empty."), nx, ny + 4f, Muted, 0.78f, nw, 24f);
-		Text(sb, T("Быстрый стак и «Сложить всё» сохраняют", "Quick stack and Deposit all preserve"), nx, ny + 44f, Muted, 0.78f, nw, 24f);
-		Text(sb, T("панель быстрого доступа и избранное.", "your hotbar and favorited items."), nx, ny + 68f, Muted, 0.78f, nw, 24f);
-		Text(sb, T("* Сброс — вне поля поиска.", "* Reset — outside the search box."), modal.X + 24f, modal.Y + 548f, Muted, 0.76f, 610f, 24f);
-		HelpKeycap(sb, new BookRect(modal.X + 24f, modal.Y + 580f, 54f, 28f), "Esc");
-		Text(sb, T("Закрыть текущее окно", "Close the current window"), modal.X + 90f, modal.Y + 580f, Muted, 0.8f, 500f, 28f);
+		Box(sb, modal.X + 24f, modal.Y + 80f, modal.Width - 48f, 1f, Border);
+		float[] top = new float[2]
+		{
+			BookHelp.Column(0).Y,
+			BookHelp.Column(1).Y
+		};
+		foreach (BookHelp.Section section in BookHelp.Sections)
+		{
+			if (section.StorageOnly && !BookStorage.Installed)
+			{
+				continue;
+			}
+			BookRect column = BookHelp.Column(section.Column);
+			float y = top[section.Column];
+			Text(sb, T(section.Ru, section.En), column.X, y, Muted, 0.8f, column.Width, 20f);
+			y += BookHelp.HeaderStep;
+			foreach (BookHelp.Entry row in section.Rows)
+			{
+				HelpKeycap(sb, new BookRect(column.X, y, BookHelp.KeyWidth, BookHelp.KeyHeight), T(row.KeyRu, row.KeyEn));
+				Text(sb, T(row.Ru, row.En), column.X + BookHelp.KeyWidth + 12f, y, TextColor, 0.85f, column.Width - BookHelp.KeyWidth - 12f, BookHelp.KeyHeight);
+				y += BookHelp.RowStep;
+			}
+			top[section.Column] = y + BookHelp.SectionGap;
+		}
 	}
 }

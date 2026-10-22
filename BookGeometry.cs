@@ -87,7 +87,19 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect PageLabel => new BookRect(280f, 612f, 428f, 28f);
 
-	internal static BookRect ModMenuPanel => new BookRect(184f, 200f, 576f, 384f);
+	// The mod list drops down from the mod filter button, wide enough for long mod names.
+	internal static BookRect ModMenuPanel
+	{
+		get
+		{
+			BookRect anchor = ModFilter;
+			float width = Math.Max(anchor.Width, 288f);
+			float height = 16f + 9f * 32f;
+			float x = Math.Clamp(anchor.X, 16f, Width - 16f - width);
+			float y = Math.Clamp(anchor.Y + anchor.Height + 4f, 16f, Height - 16f - height);
+			return new BookRect(x, y, width, height);
+		}
+	}
 
 	internal static BookRect TrackingPanel => new BookRect(12f, 92f, 768f, 548f);
 
@@ -107,25 +119,39 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect CraftSource => new BookRect(558f, 660f, 360f, 24f);
 
-	internal static BookRect StorageConnect => new BookRect(812f, 480f, 138f, 40f);
+	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons); the details
+	// panel holds the selected stack, the withdraw shortcuts and the network block at its bottom.
+	internal static BookRect StorageQuickStack => StorageToolbarButton(0);
 
-	internal static BookRect StorageDeposit => new BookRect(388f, 180f, 184f, 40f);
+	internal static BookRect StorageDepositAll => StorageToolbarButton(1);
 
-	internal static BookRect StorageNative => new BookRect(958f, 480f, 138f, 40f);
+	internal static BookRect StorageRestock => StorageToolbarButton(2);
 
-	internal static BookRect StorageQuickStack => new BookRect(196f, 180f, 184f, 40f);
+	internal static BookRect StorageDeposit => StorageToolbarButton(3);
 
-	internal static BookRect StorageRestock => new BookRect(580f, 180f, 168f, 40f);
+	internal static BookRect StorageContent => new BookRect(DetailsPanel.X + 16f, DetailsPanel.Y + 16f, DetailsPanel.Width - 32f, DetailsPanel.Height - 32f);
 
-	internal static BookRect StorageDepositAll => new BookRect(812f, 432f, 284f, 40f);
+	internal static BookRect StorageStatus => new BookRect(StorageContent.X + StorageContent.Width - 160f, StorageContent.Y, 160f, 20f);
 
-	internal static BookRect StorageDisconnect => new BookRect(812f, 528f, 284f, 40f);
+	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 36f, 48f, 48f);
+
+	internal static BookRect StorageShortcuts => new BookRect(StorageContent.X, StorageContent.Y + 116f, StorageContent.Width, 116f);
+
+	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + 248f, StorageContent.Width, 20f);
+
+	internal static BookRect StorageNetwork => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 156f, StorageContent.Width, 72f);
+
+	internal static BookRect StorageConnect => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 72f, (StorageContent.Width - 8f) / 2f, 32f);
+
+	internal static BookRect StorageDisconnect => new BookRect(StorageContent.X + (StorageContent.Width + 8f) / 2f, StorageContent.Y + StorageContent.Height - 72f, (StorageContent.Width - 8f) / 2f, 32f);
+
+	internal static BookRect StorageNative => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 32f, StorageContent.Width, 32f);
 
 	internal static BookRect Help => new BookRect(934f, 660f, 40f, 24f);
 
-	internal static BookRect HelpPanel => new BookRect(60f, 36f, 1000f, 624f);
+	internal static BookRect HelpPanel => new BookRect(132f, 98f, 856f, 500f);
 
-	internal static BookRect HelpClose => new BookRect(HelpPanel.X + HelpPanel.Width - 62f, HelpPanel.Y + 16f, 38f, 32f);
+	internal static BookRect HelpClose => new BookRect(HelpPanel.X + HelpPanel.Width - 56f, HelpPanel.Y + 24f, 32f, 32f);
 
 	internal static BookRect HeaderClose => new BookRect(1060f, 24f, 40f, 40f);
 
@@ -310,7 +336,8 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect ModOption(int index)
 	{
-		return new BookRect(196f, 212 + index * 36, 552f, 32f);
+		BookRect panel = ModMenuPanel;
+		return new BookRect(panel.X + 8f, panel.Y + 8f + (float)(index * 32), panel.Width - 24f, 32f);
 	}
 
 	internal static BookGeometry Create(float uiWidth, float uiHeight, float uiScale, int percent)
