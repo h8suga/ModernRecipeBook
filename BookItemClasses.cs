@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Reflection;
 using Terraria;
 using Terraria.ID;
+using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI;
 using Terraria.Utilities;
@@ -94,6 +95,8 @@ internal static class BookItemClasses
 	{
 		classes.Clear();
 		built = false;
+		bonuses.Clear();
+		bonusPlayer = null;
 	}
 
 	internal static void Build()
@@ -209,7 +212,13 @@ internal static class BookItemClasses
 				}
 			}
 		}
-		// Code that ignores the whoAmI guard may still have spawned something for the throwaway player.
+		RemoveNewProjectiles(wasActive);
+		Audit(timer.ElapsedMilliseconds, weapons, equipment, potions, tooltipOnly, failures);
+	}
+
+	// Code that ignores the whoAmI guard may still have spawned something for the throwaway player.
+	private static void RemoveNewProjectiles(bool[] wasActive)
+	{
 		for (int i = 0; i < wasActive.Length; i++)
 		{
 			if (Main.projectile[i].active && !wasActive[i])
@@ -217,7 +226,50 @@ internal static class BookItemClasses
 				Main.projectile[i].active = false;
 			}
 		}
-		Audit(timer.ElapsedMilliseconds, weapons, equipment, potions, tooltipOnly, failures);
+	}
+
+	private static Player bonusPlayer;
+
+	// Per language and combination, read once: the card asks every frame.
+	private static readonly Dictionary<string, string> bonuses = new Dictionary<string, string>(StringComparer.Ordinal);
+
+	// The set bonus the game gives these three pieces, read from Player.setBonus after vanilla's UpdateArmorSets
+	// (which runs the mods' IsArmorSet / UpdateArmorSet too) on a throwaway player, in the current language.
+	// "" when the set has none or its code failed.
+	internal static string SetBonus(int[] combination)
+	{
+		string key = Language.ActiveCulture.Name + ":" + string.Join(",", combination);
+		if (bonuses.TryGetValue(key, out var text))
+		{
+			return text;
+		}
+		text = "";
+		bool[] wasActive = Main.projectile.Select((Projectile p) => p.active).ToArray();
+		try
+		{
+			if (bonusPlayer == null)
+			{
+				bonusPlayer = new Player();
+				Probe.Prepare(bonusPlayer);
+			}
+			Probe.Undress(bonusPlayer);
+			foreach (int type in combination)
+			{
+				Wear(bonusPlayer, Copy(ContentSamples.ItemsByType[type]));
+			}
+			bonusPlayer.UpdateArmorSets(bonusPlayer.whoAmI);
+			text = bonusPlayer.setBonus?.Trim() ?? "";
+		}
+		catch (Exception error)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn("MRB set bonus of " + string.Join(" + ", combination.Select(Lang.GetItemNameValue)) + " failed: " + error.Message);
+		}
+		finally
+		{
+			RemoveNewProjectiles(wasActive);
+		}
+		bonuses[key] = text;
+		return text;
 	}
 
 	// Mod accessories and potions whose whole effect is a flag their own player code reads later (Calamity's
@@ -442,6 +494,13 @@ internal static class BookItemClasses
 
 		internal Probe(BookClass[] byDamage)
 		{
+			Prepare(player);
+			stats = Stats(byDamage);
+			baseline = Read(null);
+		}
+
+		internal static void Prepare(Player player)
+		{
 			// Nobody's index: code guarded by whoAmI == Main.myPlayer (projectiles, sync, sounds) leaves it alone.
 			player.whoAmI = Main.maxPlayers;
 			// Buffs granted by set bonuses would be synced in multiplayer; the probe only needs the stats.
@@ -450,8 +509,21 @@ internal static class BookItemClasses
 			Array.Fill(player.ownedProjectileCounts, 1);
 			// Scopes only zoom while a gun is held.
 			player.inventory[player.selectedItem] = new Item(ItemID.Minishark);
-			stats = Stats(byDamage);
-			baseline = Read(null);
+		}
+
+		// Bare: no armor, no buffs, effects reset.
+		internal static void Undress(Player p)
+		{
+			for (int i = 0; i < p.armor.Length; i++)
+			{
+				p.armor[i] = Air;
+			}
+			Array.Clear(p.buffType);
+			Array.Clear(p.buffTime);
+			p.head = (p.body = (p.legs = -1));
+			// Twice: the first pass clears flags the previous item left that ResetEffects itself reads.
+			p.ResetEffects();
+			p.ResetEffects();
 		}
 
 		// Whether the last item raised a bonus for every class (then it is generic, not unknown).
@@ -495,16 +567,7 @@ internal static class BookItemClasses
 		private float[] Read(Action<Player> equip)
 		{
 			Player p = player;
-			for (int i = 0; i < p.armor.Length; i++)
-			{
-				p.armor[i] = Air;
-			}
-			Array.Clear(p.buffType);
-			Array.Clear(p.buffTime);
-			p.head = (p.body = (p.legs = -1));
-			// Twice: the first pass clears flags the previous item left that ResetEffects itself reads.
-			p.ResetEffects();
-			p.ResetEffects();
+			Undress(p);
 			// Equip effects that roll (the Spore Sac spawns spores one time in 15, around the probe at 0,0 off the
 			// map) take their common outcome, so the probe only ever reads stats and every run classifies alike.
 			UnifiedRandom rand = Main.rand;

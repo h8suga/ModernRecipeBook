@@ -61,9 +61,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		internal bool IsSet => Parts.Length == 3;
 	}
 
-	private sealed record MaterialRequirement(Item Ingredient, RecipeGroup Group, string Name, HashSet<int> ItemTypes, bool Overlapping);
+	// Alternatives: the item types of a merged recipe's "A or B" row (BookRecipeVariants), Ingredient's first.
+	private sealed record MaterialRequirement(Item Ingredient, RecipeGroup Group, string Name, HashSet<int> ItemTypes, bool Overlapping, int[] Alternatives = null);
 
-	private sealed record Detail(Item Icon, string Name, string Sub, Color Color, Color SubColor, string Tooltip, int[] SourceTypes = null);
+	// Alternatives: an "A or B" row of a merged recipe; SourceTypes then lists them, Icon's first.
+	private sealed record Detail(Item Icon, string Name, string Sub, Color Color, Color SubColor, string Tooltip, int[] SourceTypes = null, bool Alternatives = false);
 
 	private sealed record MaterialPreview(string Summary, Color Color, string Materials);
 
@@ -536,14 +538,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 			int type = CardItemType;
 			if (type <= 0)
 			{
-				return (Selected >= 0) ? Main.recipe[Selected] : null;
+				return (Selected >= 0) ? ActiveMember(Selected) : null;
 			}
-			if (!RecipesByItem.TryGetValue(type, out var variants) || variants.Count == 0)
+			List<BookRecipeVariants.Variant> variants = BookRecipeVariants.For(type);
+			if (variants.Count == 0)
 			{
 				return null;
 			}
 			Variant = Math.Clamp(Variant, 0, variants.Count - 1);
-			return Main.recipe[variants[Variant]];
+			return ActiveMember(variants[Variant].Representative);
 		}
 	}
 
@@ -556,11 +559,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				return (Selected >= 0 && !StorageView && !TrackingView && !BestiaryView) ? 1 : 0;
 			}
-			if (!RecipesByItem.TryGetValue(type, out var variants))
-			{
-				return 0;
-			}
-			return variants.Count;
+			return BookRecipeVariants.For(type).Count;
 		}
 	}
 
@@ -611,16 +610,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 		List<BookAcquisitionEntry> reports = new List<BookAcquisitionEntry>();
 		if (RecipesByItem.TryGetValue(type, out var recipes))
 		{
+			HashSet<int> shownVariants = new HashSet<int>();
 			foreach (int index in recipes)
 			{
 				Recipe recipe = Main.recipe[index];
-				if (recipe.Disabled)
+				// Recipes that differ in one ingredient are one row, as in the card: "A or B ×10".
+				if (recipe.Disabled || !shownVariants.Add(BookRecipeVariants.Representative(index)))
 				{
 					continue;
 				}
-				IEnumerable<string> materials = from i in recipe.requiredItem
-					where !i.IsAir
-					select GroupName(recipe, i, out var _) + " ×" + i.stack;
+				int[] alternatives = BookRecipeVariants.Alternatives(index, out int alternativeSlot);
+				IEnumerable<string> materials = recipe.requiredItem.Select((Item i, int slot) => (i, slot)).Where(((Item i, int slot) x) => !x.i.IsAir).Select(((Item i, int slot) x) => ((alternatives != null && x.slot == alternativeSlot) ? AlternativesName(alternatives, x.i.type) : GroupName(recipe, x.i, out var _)) + " ×" + x.i.stack);
 				List<string> stations = recipe.requiredTile.Where((int t) => t >= 0).Select(StationName).ToList();
 				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
 				string conditionText = string.Join("; ", recipe.Conditions.Select((Condition c) => c.Description.Value));
@@ -660,7 +660,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				SwitchTab(0);
 			}
 			StepCard(type, usedIn: false);
-			Variant = Math.Max(0, RecipesByItem.GetValueOrDefault(type)?.IndexOf(index) ?? 0);
+			Variant = Math.Max(0, BookRecipeVariants.For(type).IndexOf(BookRecipeVariants.Of(index)));
 		}
 	}
 
@@ -1156,6 +1156,25 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// The set bonus of the shown combination in the game's own words ("Set bonus: 16% reduced mana costs"); long
+	// or multi-line bonuses read in full in the tooltip.
+	private static void DrawArmorBonus(SpriteBatch sb, Item chosen)
+	{
+		BookArmorSets.Set set = BookArmorSets.Get(chosen.type);
+		string bonus = (set == null) ? "" : BookItemClasses.SetBonus(ArmorChoices(set, chosen));
+		if (bonus.Length == 0)
+		{
+			return;
+		}
+		// The bonus takes the whole line in Accent (the line above already says "Set: 17"); the tooltip names it.
+		BookRect rect = BookGeometry.ArmorBonus;
+		FixedLabel(sb, bonus, rect.X, rect.Y, Accent, 0.8f, rect.Width, rect.Height);
+		if (!MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Бонус сета", "Set bonus") + "\n" + bonus);
+		}
+	}
+
 	private static int[] ArmorChoices(BookArmorSets.Set set, Item chosen)
 	{
 		return BookArmorSetRules.Choices(set.Parts, set.Combinations, chosen.type);
@@ -1176,8 +1195,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 			Box(sb, rect, active ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
 			Item part = ContentSamples.ItemsByType[choices[slot]];
-			Icon(sb, part, rect.X + (rect.Width - 28f) / 2f, rect.Y + 6f, 28f, tooltip: false);
-			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 36f, part.defense, active ? Accent : Muted);
+			Icon(sb, part, rect.X + (rect.Width - 28f) / 2f, rect.Y + 4f, 28f, tooltip: false);
+			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 32f, part.defense, active ? Accent : Muted);
 			if (hover)
 			{
 				string action = active ? ((set.Parts[slot].Length > 1) ? T("Клик: следующий вариант", "Click: next variant") : "") : T("Клик: показать эту часть", "Click: show this piece");
@@ -1559,7 +1578,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return false;
 		}
-		return AddTrackerGoal(new Recipe[1] { recipe }, new Item[1] { recipe.createItem }, "recipe:" + recipe.RecipeIndex, MaterialRequirements(recipe), PreviewBatchCount(recipe));
+		return AddTrackerGoal(new Recipe[1] { recipe }, new Item[1] { recipe.createItem }, TrackKey(recipe), TrackedMaterials(recipe), PreviewBatchCount(recipe));
 	}
 
 	private static bool AddTrackerGoal(Recipe[] recipes, Item[] parts, string key, List<MaterialRequirement> materials, int batches)
@@ -1642,7 +1661,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			recipes.Add(recipe);
 		}
-		List<MaterialRequirement> raw = recipes.SelectMany(MaterialRequirements).ToList();
+		List<MaterialRequirement> raw = recipes.SelectMany(TrackedMaterials).ToList();
 		BookBatchNeed[] merged;
 		try
 		{
@@ -1661,7 +1680,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			MaterialRequirement first = raw.First((MaterialRequirement m) => BookTrackerRules.MaterialKey(m.ItemTypes) == BookTrackerRules.MaterialKey(need.AcceptedTypes));
 			Item item = first.Ingredient.Clone();
 			item.stack = need.Quantity;
-			materials.Add(new MaterialRequirement(item, first.Group, first.Name, need.AcceptedTypes.ToHashSet(), Overlapping: false));
+			materials.Add(new MaterialRequirement(item, first.Group, first.Name, need.AcceptedTypes.ToHashSet(), Overlapping: false, first.Alternatives));
 		}
 		bool[] overlap = BookMaterialRules.FindOverlappingRequirements(materials.Select((MaterialRequirement m) => m.ItemTypes).ToList());
 		for (int i2 = 0; i2 < materials.Count; i2++)
@@ -1729,10 +1748,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			BookStorage.Tick(manageFocus: false);
 		}
-		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
-		int[] types = needs.SelectMany((BookBatchNeed n) => n.AcceptedTypes).Distinct().ToArray();
+		int[] types = goal.Materials.SelectMany((MaterialRequirement m) => m.Alternatives ?? (IEnumerable<int>)m.ItemTypes).Distinct().ToArray();
 		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || BookStorage.CraftInitializing);
 		goal.Counts = (goal.Storage ? BookStorage.PreviewCounts(types) : CountPlayerMaterials(types));
+		goal.Materials = NarrowAlternatives(goal.Materials, goal.Counts);
+		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
 		if (goal.Storage && !goal.Unknown)
 		{
 			int[] array = types;
@@ -1764,7 +1784,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		Item[] parts = SelectedSetParts();
 		bool hasSet = parts != null;
-		bool tracked = recipe != null && TrackedGoals.Any((TrackedGoal g) => g.Key == "recipe:" + recipe.RecipeIndex);
+		bool tracked = recipe != null && TrackedGoals.Any((TrackedGoal g) => g.Key == TrackKey(recipe));
 		bool full = !ResourceTrackerStyle && TrackedGoals.Count >= BookTrackerRules.MaxGoals;
 		BookRect single = (hasSet ? BookGeometry.TrackSingleAction : BookGeometry.TrackAction);
 		string fullTip = T("В карточках до 5 целей · Ctrl+" + TrackingTabNumber + " — список", "Up to 5 goals in cards style · Ctrl+" + TrackingTabNumber + " opens the list");
@@ -1849,7 +1869,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else
 		{
-			key = ((recipe == null) ? "" : ("recipe:" + recipe.RecipeIndex));
+			key = ((recipe == null) ? "" : TrackKey(recipe));
 		}
 		TrackedGoal existing = TrackedGoals.FirstOrDefault((TrackedGoal g) => g.Key == key);
 		if (existing != null)
@@ -2152,6 +2172,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Live name, so a language switch also renames the materials of goals tracked before it.
 	private static string MaterialName(MaterialRequirement material)
 	{
+		if (material.Alternatives != null)
+		{
+			return AlternativesName(material.Alternatives, material.Ingredient.type);
+		}
 		return material.Group?.GetText() ?? material.Ingredient.Name;
 	}
 
@@ -3453,6 +3477,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ResetView();
 		AllItems.Clear();
 		RecipesByItem.Clear();
+		BookRecipeVariants.Clear();
 		All.Clear();
 		Filtered.Clear();
 		ItemMods.Clear();
@@ -3654,6 +3679,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ItemCategories[item3.type] = matches;
 		}
 		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
+		BookRecipeVariants.Build(RecipesByItem);
 		try
 		{
 			BookProgression.Rebuild(All, RecipesByItem);
@@ -3750,7 +3776,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			else
 			{
-				enumerable = (RecentView ? BookRecent.ResolveRecipeIndexes() : All);
+				// One cell per merged recipe; a recent craft of any member shows as that recipe.
+				enumerable = (RecentView ? BookRecent.ResolveRecipeIndexes().Select(BookRecipeVariants.Representative).Distinct() : All.Where((int index) => BookRecipeVariants.Representative(index) == index));
+				if (Selected >= 0)
+				{
+					Selected = BookRecipeVariants.Representative(Selected);
+				}
 			}
 			enumerable2 = enumerable;
 		}
@@ -4721,7 +4752,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int materials = r.requiredItem.Count((Item i) => !i.IsAir);
 		int realStations = r.requiredTile.Count((int t) => t >= 0);
 		int stations = Math.Max(1, realStations);
-		List<List<DetailSlot>> pages = Place(BookGeometry.DetailListBottom);
+		// An "A or B" row of a merged recipe takes two lines: the shown alternative, then "or B" below it.
+		List<MaterialRequirement> requirements = MaterialRequirements(r);
+		List<List<DetailSlot>> pages = Place((top >= BookGeometry.ArmorRecipeTop) ? BookGeometry.ArmorDetailListBottom : BookGeometry.DetailListBottom);
 		if (pages.Count > 1)
 		{
 			pages = Place(BookGeometry.DetailListPagedBottom);
@@ -4750,7 +4783,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		List<List<DetailSlot>> Place(float bottom)
 		{
-			float listTop = top + 80f;
+			// The armor view sits lower, so its list starts 4 px closer to the batch row to keep one page.
+			float listTop = top + ((top >= BookGeometry.ArmorRecipeTop) ? 76f : 80f);
 			List<List<DetailSlot>> result = new List<List<DetailSlot>>
 			{
 				new List<DetailSlot>()
@@ -4761,7 +4795,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				int kind = Kind(i);
 				bool header = kind != lastKind;
-				float need = (header ? (((y > listTop) ? 8f : 0f) + 22f) : 0f) + 32f;
+				float height = (i < requirements.Count && requirements[i].Alternatives != null) ? BookGeometry.DetailRowTallHeight : 32f;
+				float need = (header ? (((y > listTop) ? 8f : 0f) + 22f) : 0f) + height;
 				if (y + need > bottom && result[^1].Count > 0)
 				{
 					result.Add(new List<DetailSlot>());
@@ -4777,8 +4812,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 					result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, 18f), -1, Header(kind)));
 					y += 22f;
 				}
-				result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, 32f), i, null));
-				y += 36f;
+				result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, height), i, null));
+				y += height + 4f;
 				lastKind = kind;
 			}
 			return result;
@@ -5290,13 +5325,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static List<MaterialRequirement> MaterialRequirements(Recipe recipe)
 	{
 		List<(Item, RecipeGroup, string, HashSet<int>)> raw = new List<(Item, RecipeGroup, string, HashSet<int>)>();
-		foreach (Item ingredient in recipe.requiredItem)
+		int[] alternatives = BookRecipeVariants.Alternatives(recipe.RecipeIndex, out int alternativeSlot);
+		int alternativeRow = -1;
+		for (int slot = 0; slot < recipe.requiredItem.Count; slot++)
 		{
+			Item ingredient = recipe.requiredItem[slot];
 			if (ingredient.IsAir)
 			{
 				continue;
 			}
 			string name = GroupName(recipe, ingredient, out var group);
+			if (slot == alternativeSlot)
+			{
+				alternativeRow = raw.Count;
+				name = AlternativesName(alternatives, ingredient.type);
+			}
 			HashSet<int> accepted = new HashSet<int> { ingredient.type };
 			foreach (int groupId in recipe.acceptedGroups)
 			{
@@ -5311,7 +5354,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		List<MaterialRequirement> result = new List<MaterialRequirement>(raw.Count);
 		for (int i = 0; i < raw.Count; i++)
 		{
-			result.Add(new MaterialRequirement(raw[i].Item1, raw[i].Item2, raw[i].Item3, raw[i].Item4, overlap[i]));
+			result.Add(new MaterialRequirement(raw[i].Item1, raw[i].Item2, raw[i].Item3, raw[i].Item4, overlap[i], (i == alternativeRow) ? Ordered(alternatives, raw[i].Item1.type) : null));
 		}
 		return result;
 	}
@@ -5356,6 +5399,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 			else
 			{
 				color = (assessment.Overlapping ? Caution : Good);
+			}
+			if (requirement.Alternatives != null)
+			{
+				// "A or B": the counts are the shown alternative's (the one you have most of); the tooltip lists each.
+				list.Add(new Detail(requirement.Ingredient, requirement.Name, MaterialSub(assessment), color, color, AlternativesTooltip(requirement, batches), requirement.Alternatives, Alternatives: true));
+				continue;
 			}
 			list.Add(new Detail(requirement.Ingredient, requirement.Name, MaterialSub(assessment), color, color, MaterialTooltip(requirement, assessment, batches), requirement.ItemTypes.OrderBy((int x) => x).ToArray()));
 		}
@@ -6215,6 +6264,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				MouseTip(StageExplanation(chosen, stageRecipe));
 			}
 			DrawArmorDefense(sb, chosen);
+			DrawArmorBonus(sb, chosen);
 			return;
 		}
 		BookRect tile = BookGeometry.DetailHeaderIcon;
@@ -6369,6 +6419,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 					select item.type, Main.recipe[index].AcceptedByItemGroups))
 				.OrderBy((int index) => (BookProgression.RecipeStage(index) == BookStage.Unknown) ? 3 : (int)BookProgression.RecipeStage(index))
 				.ThenBy((int index) => Main.recipe[index].createItem.Name, StringComparer.CurrentCultureIgnoreCase)
+				.DistinctBy(BookRecipeVariants.Representative)
 				.ToList();
 			UsedInCache[type] = list;
 		}
@@ -6387,7 +6438,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				stageHidden++;
 			}
-			else if (!BookRules.ChainRecipeVisible(UsedInCraftableOnly, BookCrafting.IsAvailable(Main.recipe[index])))
+			else if (!BookRules.ChainRecipeVisible(UsedInCraftableOnly, BookCrafting.IsAvailable(ActiveMember(index))))
 			{
 				notCraftable++;
 			}
@@ -6467,7 +6518,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				break;
 			}
-			Recipe recipe = Main.recipe[view.Rows[n]];
+			Recipe recipe = ActiveMember(view.Rows[n]);
 			Item output = recipe.createItem;
 			MaterialPreview preview = PreviewMaterials(recipe);
 			BookRect row = UsedInRow(top, slot);
@@ -6553,7 +6604,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		float textX = row.X + 10f;
 		if (d.Icon != null)
 		{
-			Icon(sb, d.Icon, row.X + 6f, row.Y + 4f, 24f, tooltip: false);
+			Icon(sb, d.Icon, row.X + 6f, row.Y + (row.Height - 24f) / 2f, 24f, tooltip: false);
 			textX = row.X + 38f;
 		}
 		BookRect obtain = BookGeometry.DetailListObtain(row);
@@ -6564,7 +6615,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CenterLabel(sb, d.Sub, right - valueWidth, row.Y + 4f, valueWidth, row.Height - 8f, d.Color, 0.85f, rightAligned: true);
 			right -= valueWidth + 10f;
 		}
-		CenterLabel(sb, d.Name, textX, row.Y + 4f, right - textX, row.Height - 8f, (kind == 2) ? Caution : ((d.Icon == null) ? Muted : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		if (d.Alternatives && row.Height > 32f)
+		{
+			CenterLabel(sb, d.Icon.Name, textX, row.Y + 2f, right - textX, 19f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, OthersLabel(d.SourceTypes, d.Icon.type, right - textX), textX, row.Y + 20f, right - textX, 16f, Muted, 0.8f, rightAligned: false, leftAligned: true);
+		}
+		else
+		{
+			string name = d.Alternatives ? AlternativesLabel(d.SourceTypes, d.Icon.type, right - textX) : d.Name;
+			CenterLabel(sb, name, textX, row.Y + 4f, right - textX, row.Height - 8f, (kind == 2) ? Caution : ((d.Icon == null) ? Muted : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		}
 		if (hasItem)
 		{
 			bool hover = IconButtonFrame(sb, obtain);
@@ -6577,9 +6637,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (!MenuOpen && row.Contains(Mouse.X, Mouse.Y))
 		{
-			string action = hasItem ? T("Клик: открыть этот предмет", "Click: open this item") : "";
+			// An "A or B" row opens the alternative it shows.
+			string action = hasItem ? (d.Alternatives ? T("Клик: открыть «" + d.Icon.Name + "»", "Click: open " + d.Icon.Name) : T("Клик: открыть этот предмет", "Click: open this item")) : "";
 			string detail = (kind == 0) ? d.Tooltip : "";
-			MouseTip(d.Name + "\n" + string.Join(" · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)));
+			MouseTip(d.Name + "\n" + string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)));
 		}
 	}
 
