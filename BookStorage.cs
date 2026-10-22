@@ -190,19 +190,19 @@ public sealed class BookStorage : ModSystem
 							{
 								if (!CraftingConnected)
 								{
-									return T("Сеть подключена · для крафта нужен интерфейс", "Network connected · Crafting Interface required");
+									return T("Для крафта нужен интерфейс крафта", "Needs a Crafting Interface to craft");
 								}
-								return T("Сеть подключена · крафт доступен", "Network connected · crafting access");
+								return T("Хранилище готово к крафту", "Storage ready for crafting");
 							}
-							return T("Обновление Magic Storage…", "Refreshing Magic Storage…");
+							return T("Обновление хранилища…", "Updating storage…");
 						}
-						return T("Ожидание синхронизации…", "Waiting for synchronization…");
+						return T("Синхронизация…", "Syncing…");
 					}
-					return T("Нет доступной сети: откройте точку доступа", "No accessible network: open an access point");
+					return T("Рядом нет сети хранилища", "No storage network nearby");
 				}
-				return T("Поддерживается Magic Storage 0.7.0.11; см. журнал", "Requires Magic Storage 0.7.0.11; see log");
+				return T("Нужен Magic Storage 0.7.0.11", "Needs Magic Storage 0.7.0.11");
 			}
-			return T("Нужен мод Magic Storage", "Magic Storage is not installed");
+			return T("Magic Storage не установлен", "Magic Storage is not installed");
 		}
 	}
 
@@ -273,10 +273,8 @@ public sealed class BookStorage : ModSystem
 			string network = LastHeart?.GetType().GetField("storageName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(LastHeart) as string;
 			if (!string.IsNullOrWhiteSpace(network))
 			{
-				text = text + "\n" + T("Имя хранилища: ", "Storage name: ") + network;
+				text = text + "\n" + T("Сеть: ", "Network: ") + network;
 			}
-			text = text + "\n" + T("Подключение через точку доступа к сети.", "Connected through a network access point.");
-			text = text + "\n" + T("Фоновая работа показана индикатором у заголовка.", "Background activity is shown by the indicator beside the title.");
 			if (Message.Length > 0)
 			{
 				text = text + "\n" + Message;
@@ -443,7 +441,7 @@ public sealed class BookStorage : ModSystem
 		ItemsVersion++;
 		DisplayMaterials.Clear();
 		Invalidate();
-		Message = T("Интеграция отключена: подробности в client.log", "Integration disabled: see client.log");
+		Message = T("Связь с хранилищем отключена (client.log)", "Storage support is off (see client.log)");
 	}
 
 	private static void BlockLeftClick(On_ItemSlot.orig_LeftClick_ItemArray_int_int orig, Item[] inv, int context, int slot)
@@ -564,7 +562,7 @@ public sealed class BookStorage : ModSystem
 				{
 					PendingCraft = null;
 					PendingBatches = 1;
-					BookCrafting.LastMessage = T("Обновление не завершено; повторите крафт", "Refresh timed out; retry crafting");
+					BookCrafting.LastMessage = T("Хранилище не ответило; повторите", "Storage did not respond; try again");
 				}
 				else if (CraftReady && RefreshRevision > PendingRevision)
 				{
@@ -699,7 +697,7 @@ public sealed class BookStorage : ModSystem
 			PendingAge = 0;
 			PendingRevision = RefreshRevision;
 			CraftCacheReady = false;
-			BookCrafting.LastMessage = (ru ? "Проверка материалов в хранилище…" : "Checking stored materials…");
+			BookCrafting.LastMessage = (ru ? "Проверка материалов…" : "Checking materials…");
 			RecipeCache.Clear();
 			Call("setRefresh", null, true);
 			Call("refresh", null);
@@ -729,7 +727,7 @@ public sealed class BookStorage : ModSystem
 		if (!(bool)Call("selectedAvailable", null))
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Info("Magic Storage rejected recipe " + recipe.RecipeIndex + ": " + CacheDiagnostic());
-			BookCrafting.LastMessage = (ru ? "Не хватает материалов, станций или условий Magic Storage" : "Missing Magic Storage materials, stations or conditions");
+			BookCrafting.LastMessage = (ru ? "В хранилище не хватает материалов или станций" : "Storage lacks materials or stations");
 			return;
 		}
 		int outputCount = (int)Math.Min(2147483647L, (long)recipe.createItem.stack * (long)batches);
@@ -750,11 +748,11 @@ public sealed class BookStorage : ModSystem
 		string lastMessage;
 		if (Main.netMode != 1)
 		{
-			lastMessage = (ru ? $"Крафт в Magic Storage запущен: до {batches} партий" : $"Magic Storage craft started: up to {batches} batches");
+			lastMessage = (ru ? $"Крафт ×{batches} в хранилище" : $"Crafting ×{batches} in storage");
 		}
 		else
 		{
-			lastMessage = (ru ? $"Запрос на крафт до {batches} партий отправлен серверу" : $"Request to craft up to {batches} batches sent to server");
+			lastMessage = (ru ? $"Крафт ×{batches} отправлен серверу" : $"Craft ×{batches} sent to server");
 		}
 		BookCrafting.LastMessage = lastMessage;
 		bool recipeIsSafe()
@@ -779,11 +777,11 @@ public sealed class BookStorage : ModSystem
 			string message;
 			if (Main.netMode == 1)
 			{
-				message = T("Запрос передачи отправлен серверу", "Deposit request sent to server");
+				message = T("Отправлено серверу", "Sent to server");
 			}
 			else
 			{
-				message = (changed ? T("Передано в хранилище", "Deposited into storage") : T("Нет места или передача не выполнена", "Storage full or deposit failed"));
+				message = (changed ? T("Положено в хранилище", "Stored") : T("Не положено: нет места", "Not stored: no room"));
 			}
 			Message = message;
 			Cooldown = 20;
@@ -813,22 +811,22 @@ public sealed class BookStorage : ModSystem
 				string message;
 				if (Main.netMode == 1)
 				{
-					message = T("Запрос отправлен серверу", "Request sent to server");
+					message = T("Отправлено серверу", "Sent to server");
 				}
 				else if (changed)
 				{
 					if (quickStack.HasValue)
 					{
-						message = (quickStack.Value ? T("Знакомые предметы сложены в сеть", "Matching items quick-stacked") : T("Предметы сложены; панель и избранное сохранены", "Deposited; hotbar and favorites kept"));
+						message = (quickStack.Value ? T("Похожие предметы сложены", "Matching items stored") : T("Сложено, кроме панели и избранного", "Stored all but hotbar and favorites"));
 					}
 					else
 					{
-						message = T("Стопки в инвентаре пополнены", "Inventory stacks restocked");
+						message = T("Стопки пополнены", "Stacks topped up");
 					}
 				}
 				else
 				{
-					message = T("Нет подходящих предметов или свободного места", "No matching items or free space");
+					message = T("Нечего перекладывать", "Nothing to move");
 				}
 				Message = message;
 				Cooldown = 20;
@@ -866,15 +864,15 @@ public sealed class BookStorage : ModSystem
 			string message;
 			if (Main.netMode == 1)
 			{
-				message = T("Запрос получения отправлен серверу", "Withdrawal request sent to server");
+				message = T("Отправлено серверу", "Sent to server");
 			}
 			else if (received)
 			{
-				message = (Main.mouseItem.IsAir ? T("Предмет получен в инвентарь", "Item received in inventory") : T("Нет места: остаток на курсоре", "Inventory full: remainder held on cursor"));
+				message = (Main.mouseItem.IsAir ? T("Забрано в инвентарь", "Taken to inventory") : T("Инвентарь полон: остаток на курсоре", "Inventory full: rest on cursor"));
 			}
 			else
 			{
-				message = T("Предмет уже отсутствует или недоступен", "Item no longer stored or inaccessible");
+				message = T("Предмета уже нет в хранилище", "Item is no longer stored");
 			}
 			Message = message;
 			Cooldown = 4;
@@ -988,7 +986,7 @@ public sealed class BookStorage : ModSystem
 				{
 					return false;
 				}
-				Message = T("Рядом нет точки доступа Magic Storage", "No nearby Magic Storage access point");
+				Message = T("Рядом нет точки доступа", "No access point nearby");
 				return false;
 			}
 			if ((Point16)Call("access", Player) == new Point16(choice.Item2, choice.Item3))
@@ -997,7 +995,7 @@ public sealed class BookStorage : ModSystem
 				return false;
 			}
 			choice.Item1.RightClick(choice.Item2, choice.Item3);
-			Message = T("Подключение: при запросе доступа откройте родное окно", "Connecting: use the native UI if access approval is required");
+			Message = T("Подключение… подтвердите в Magic Storage", "Connecting… approve in Magic Storage");
 			if (!automatic)
 			{
 				AutoSuppressed = false;

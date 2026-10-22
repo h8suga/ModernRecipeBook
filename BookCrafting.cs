@@ -111,23 +111,23 @@ internal static class BookCrafting
 		{
 			if (!ru)
 			{
-				return "No ordinary crafting recipe";
+				return "No crafting recipe";
 			}
-			return "У предмета нет обычного рецепта";
+			return "Нет рецепта крафта";
 		}
 		if (!Main.guideItem.IsAir)
 		{
 			if (!ru)
 			{
-				return "Close the Guide crafting window first";
+				return "Empty the Guide slot first";
 			}
-			return "Сначала закройте окно гида";
+			return "Сначала освободите слот гида";
 		}
 		if (!Main.mouseItem.IsAir)
 		{
 			if (!ru)
 			{
-				return "Put away the item held on the cursor";
+				return "Clear the cursor first";
 			}
 			return "Сначала уберите предмет с курсора";
 		}
@@ -135,31 +135,31 @@ internal static class BookCrafting
 		{
 			if (!ru)
 			{
-				return "The player cannot craft right now";
+				return "Can't craft right now";
 			}
-			return "Крафт сейчас недоступен персонажу";
+			return "Сейчас крафт недоступен";
 		}
 		if (!IsAvailable(recipe))
 		{
 			if (!ru)
 			{
-				return "Requires materials, stations and conditions";
+				return "Missing materials, station or condition";
 			}
-			return "Нужны материалы, станция и условия";
+			return "Не хватает материалов, станции или условия";
 		}
 		if (BookStorage.UseForCrafting)
 		{
 			if (!ru)
 			{
-				return "Ready in Magic Storage; result goes into the network";
+				return "Ready · result goes to storage";
 			}
-			return "Доступно в Magic Storage; результат — в сеть";
+			return "Можно создать · результат в хранилище";
 		}
 		if (!ru)
 		{
-			return "Ready: stations and conditions checked";
+			return "Ready to craft";
 		}
-		return "Доступно: станция и условия учтены";
+		return "Можно создать";
 	}
 
 	internal static void TryCraft(Recipe recipe, bool ru, int batches = 1)
@@ -194,7 +194,7 @@ internal static class BookCrafting
 					LastMessage = Reason(recipe, ru);
 					return;
 				}
-				stopReason = (ru ? "Состояние изменилось; крафт остановлен" : "State changed; crafting stopped");
+				stopReason = (ru ? "Крафт остановлен: что-то изменилось" : "Crafting stopped: something changed");
 				break;
 			}
 			Refresh(force: true);
@@ -205,13 +205,13 @@ internal static class BookCrafting
 					LastMessage = Reason(recipe, ru);
 					return;
 				}
-				stopReason = (ru ? "Дальше не хватает материалов или условий" : "Materials or conditions no longer allow another batch");
+				stopReason = (ru ? "Остановлено: кончились материалы" : "Stopped: out of materials");
 				break;
 			}
 			Main.CraftItem(recipe);
 			if (Main.mouseItem.IsAir || Main.mouseItem.type != recipe.createItem.type)
 			{
-				stopReason = (ru ? "Нативный крафт не выдал ожидаемый результат" : "Native crafting did not produce the expected result");
+				stopReason = (ru ? "Крафт не удался" : "Crafting failed");
 				break;
 			}
 			crafted++;
@@ -225,7 +225,7 @@ internal static class BookCrafting
 				}
 				if (flag)
 				{
-					stopReason = (ru ? "Нет места: результат на курсоре; крафт остановлен" : "Inventory full: output on cursor; crafting stopped");
+					stopReason = (ru ? "Инвентарь полон: результат на курсоре" : "Inventory full: result on cursor");
 					break;
 				}
 			}
@@ -237,8 +237,8 @@ internal static class BookCrafting
 			LastMessage = ((stopReason.Length > 0) ? stopReason : Reason(recipe, ru));
 			return;
 		}
-		string completion = ((crafted == 1 && batches == 1) ? ((ru ? "Создано: " : "Crafted: ") + recipe.createItem.Name) : ((ru ? $"Создано партий: {crafted}/{batches} · " : $"Crafted batches: {crafted}/{batches} · ") + recipe.createItem.Name));
-		LastMessage = ((stopReason.Length > 0) ? (completion + " — " + stopReason) : completion);
+		string completion = ((crafted == 1 && batches == 1) ? ((ru ? "Создано: " : "Crafted: ") + recipe.createItem.Name) : ((ru ? $"Создано {crafted}/{batches} · " : $"Crafted {crafted}/{batches} · ") + recipe.createItem.Name));
+		LastMessage = ((stopReason.Length > 0) ? (completion + " · " + stopReason) : completion);
 	}
 
 	private static bool SafeForNextBatch(Recipe recipe, Player player)
