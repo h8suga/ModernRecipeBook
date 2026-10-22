@@ -6,22 +6,6 @@ namespace ModernRecipeBook;
 
 internal static class BookEnemyRules
 {
-	internal const int PageSize = 5;
-
-	internal static int PageCount(int count)
-	{
-		if (count > 0)
-		{
-			return 1 + (count - 1) / 5;
-		}
-		return 1;
-	}
-
-	internal static int ClampPage(int page, int count)
-	{
-		return Math.Clamp(page, 0, PageCount(count) - 1);
-	}
-
 	internal static int[] Variants(int primary, IEnumerable<int> alternatives)
 	{
 		return (from x in new int[1] { primary }.Concat(alternatives ?? Array.Empty<int>())

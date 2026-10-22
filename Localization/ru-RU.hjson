@@ -39,6 +39,22 @@ Mods: {
 					Label: Отслеживание: компактные строки
 					Tooltip: Строки материалов под миникартой, как у аксессуара. Выкл.: карточки, до 5 целей.
 				}
+
+				Headers.Movement: Движение
+
+				DoubleTapDash: {
+					Label: Рывок двойным нажатием (Calamity)
+					Tooltip: Двойное нажатие влево или вправо делает рывок, клавиша рывка Calamity тоже работает.
+				}
+			}
+
+			BookStorageConfig: {
+				DisplayName: Книга рецептов: Magic Storage
+
+				AutoConnect: {
+					Label: Автоподключение Magic Storage
+					Tooltip: Открытая книга сама подключается к ближайшему хранилищу. Выкл.: кнопкой.
+				}
 			}
 		}
 	}

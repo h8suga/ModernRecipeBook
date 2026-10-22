@@ -33,19 +33,27 @@ internal static class BookArmorSetRules
 				return "Mining";
 			}
 		}
+		// One head per class, named <Set>Head<Class> (Calamity's AerospecHeadMagic, ReaverHeadTank).
+		int head = name.IndexOf("Head", StringComparison.Ordinal);
+		if (slot == 0 && head > 0 && name.Length > head + 4 && char.IsUpper(name[head + 4]))
+		{
+			return name.Substring(0, head);
+		}
+		// Longer suffixes first where a shorter one would also match (Greathelm/Helm, Shelleggings/Leggings).
 		array = slot switch
 		{
-			0 => new string[15]
+			0 => new string[20]
 			{
-				"Headgear", "Headpiece", "Headdress", "Helmet", "Mask", "Hood", "Hat", "Helm", "Crown", "Visor",
-				"Skull", "Cap", "Casque", "Brows", "Head"
-			}, 
-			1 => new string[17]
+				"Greathelm", "Shellmet", "Headgear", "Headpiece", "Headdress", "Helmet", "Mask", "Hood", "Hat", "Helm",
+				"Crown", "Visor", "Visage", "Skull", "Cap", "Casque", "Brows", "Cowl", "Wig", "Head"
+			},
+			1 => new string[27]
 			{
-				"Breastplate", "Chestplate", "Chainmail", "Scalemail", "Platemail", "ScaleMail", "ChainMail", "PlateMail", "Shirt", "Robe",
-				"Coat", "Jacket", "Suit", "Body", "Tunic", "Jerkin", "Vest"
-			}, 
-			_ => new string[7] { "Leggings", "Greaves", "Trousers", "Pants", "Boots", "Cuisses", "Legs" }, 
+				"Breastplate", "Chestplate", "Chainmail", "Scalemail", "Platemail", "ScaleMail", "ChainMail", "PlateMail", "Shellplate", "Shirt",
+				"Robes", "Robe", "Coat", "Jacket", "Suit", "BodyArmor", "Body", "Tunic", "Jerkin", "Vest",
+				"Plating", "Regalia", "Mantle", "Cloak", "Carapace", "Toga", "Armor"
+			},
+			_ => new string[14] { "Shelleggings", "Leggings", "Greaves", "Trousers", "Pants", "Boots", "Cuisses", "Legs", "Subligar", "Schynbaulds", "Tentacles", "Striders", "Pistons", "Overalls" },
 		};
 		foreach (string suffix in array)
 		{

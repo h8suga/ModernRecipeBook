@@ -34,12 +34,6 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect AcquisitionList => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 376f);
 
-	internal static BookRect EnemyPortrait => AcquisitionIcon(back: true);
-
-	internal static BookRect EnemyTags => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 64f);
-
-	internal static BookRect EnemyLootLabel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 168f, AcquisitionPanel.Width - 48f, 20f);
-
 	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 164f, 28f);
 
 	internal static BookRect TrackSetAction => new BookRect(984f, 604f, 112f, 28f);
@@ -89,10 +83,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect TrackingDetailPager => new BookRect(TrackingDetailPrevious.X + 48f, TrackingDetailPrevious.Y, TrackingDetailNext.X - TrackingDetailPrevious.X - 96f, 28f);
 
-	internal static BookRect CraftSource => new BookRect(712f, 660f, 208f, 24f);
+	// With Magic Storage the craft row is [star][source chip][Craft]; without it, [star][Craft].
+	internal static BookRect CraftSourceChip => new BookRect(852f, 564f, 120f, 32f);
 
-	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons); the details
-	// panel holds the selected stack, the withdraw shortcuts and the network block at its bottom.
+	internal static BookRect CraftActionBesideSource => new BookRect(980f, 564f, 116f, 32f);
+
+	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons). The details panel, top to
+	// bottom: label + status pill; what the book is (or could be) connected to; one hint line; the Connect /
+	// Disconnect toggle; the selected stack; the last action; "Open Magic Storage" pinned to the bottom.
 	internal static BookRect StorageQuickStack => StorageToolbarButton(0);
 
 	internal static BookRect StorageDepositAll => StorageToolbarButton(1);
@@ -105,17 +103,15 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect StorageStatus => new BookRect(StorageContent.X + StorageContent.Width - 160f, StorageContent.Y, 160f, 20f);
 
-	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 36f, 48f, 48f);
+	internal static BookRect StorageSource => new BookRect(StorageContent.X, StorageContent.Y + 32f, StorageContent.Width, 24f);
 
-	internal static BookRect StorageShortcuts => new BookRect(StorageContent.X, StorageContent.Y + 116f, StorageContent.Width, 116f);
+	internal static BookRect StorageHint => new BookRect(StorageContent.X, StorageContent.Y + 60f, StorageContent.Width, 20f);
 
-	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + 248f, StorageContent.Width, 20f);
+	internal static BookRect StorageConnect => new BookRect(StorageContent.X, StorageContent.Y + 88f, StorageContent.Width, 32f);
 
-	internal static BookRect StorageNetwork => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 156f, StorageContent.Width, 72f);
+	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 152f, 48f, 48f);
 
-	internal static BookRect StorageConnect => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 72f, (StorageContent.Width - 8f) / 2f, 32f);
-
-	internal static BookRect StorageDisconnect => new BookRect(StorageContent.X + (StorageContent.Width + 8f) / 2f, StorageContent.Y + StorageContent.Height - 72f, (StorageContent.Width - 8f) / 2f, 32f);
+	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + 216f, StorageContent.Width, 20f);
 
 	internal static BookRect StorageNative => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 32f, StorageContent.Width, 32f);
 
@@ -140,19 +136,25 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect WindowSizeLabel => new BookRect(52f, 660f, 44f, 24f);
 
-	internal static BookRect Search => new BookRect(212f, 76f, 240f, 36f);
+	// The search narrows and the dropdowns shift left by this much where the bar has one more toggle (the
+	// Bestiary tab's Met filter); set by the book's layout.
+	internal static float FilterInset;
 
-	internal static BookRect SearchText => new BookRect(246f, 80f, 168f, 28f);
+	internal static BookRect Search => new BookRect(212f, 76f, 240f - FilterInset, 36f);
 
-	internal static BookRect SearchClear => new BookRect(420f, 80f, 28f, 28f);
+	internal static BookRect SearchText => new BookRect(246f, 80f, 168f - FilterInset, 28f);
 
-	internal static BookRect ModFilter => new BookRect(460f, 76f, 152f, 36f);
+	internal static BookRect SearchClear => new BookRect(420f - FilterInset, 80f, 28f, 28f);
+
+	internal static BookRect ModFilter => new BookRect(460f - FilterInset, 76f, 152f, 36f);
 
 	internal static BookRect FavoritesFilter => new BookRect(744f, 76f, 36f, 36f);
 
-	internal static BookRect Sort => new BookRect(620f, 76f, 116f, 36f);
+	internal static BookRect MetFilter => new BookRect(700f, 76f, 36f, 36f);
 
-	internal static BookRect SortMenuPanel => new BookRect(604f, 116f, 176f, 200f);
+	internal static BookRect Sort => new BookRect(620f - FilterInset, 76f, 116f, 36f);
+
+	internal static BookRect SortMenuPanel => new BookRect(604f - FilterInset, 116f, 176f, 200f);
 
 	// Storage keeps a toolbar between the filter bar and its grid.
 	internal static BookRect StorageToolbar => new BookRect(212f, GridTop, 568f, 68f);
@@ -171,9 +173,11 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const int SectionGap = 24;
 
-	internal const int VisibleCategoryRows = 18;
+	internal const int VisibleCategoryRows = 14;
 
-	internal const int TabCount = 5;
+	internal const int VisibleCategoryRowsWithoutClass = 18;
+
+	internal const int TabCount = 6;
 
 	internal const int TrackingPageSize = 7;
 
@@ -237,23 +241,47 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(name.X, name.Y + 24f, name.Width, 20f);
 	}
 
-	internal static BookRect EnemyLootRow(int index)
+	// The Bestiary tab's mob card in the right panel (812..1096): the nav row (back, Loot | Stats), the Bestiary's
+	// 189×108 portrait at 4/3 size, name with the variants pager, kind · mod, Stage/Biome/Spawns, then four loot
+	// rows or eight stat rows, and the bottom row: favorite star and the loot pager.
+	internal static BookRect MobPortrait => new BookRect(828f, 124f, 252f, 144f);
+
+	internal static BookRect MobName(bool pager)
 	{
-		return new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 196f + (float)(index * 56), AcquisitionPanel.Width - 48f, 48f);
+		return new BookRect(812f, 276f, pager ? 176f : 284f, 24f);
 	}
 
-	internal static BookRect EnemyLootAmount(int index)
+	internal static BookRect MobSubtitle => new BookRect(812f, 302f, 284f, 20f);
+
+	internal static BookRect MobVariantPrevious => new BookRect(996f, 274f, 28f, 28f);
+
+	internal static BookRect MobVariantLabel => new BookRect(1024f, 274f, 44f, 28f);
+
+	internal static BookRect MobVariantNext => new BookRect(1068f, 274f, 28f, 28f);
+
+	internal static BookRect MobTags => new BookRect(812f, 328f, 284f, 68f);
+
+	internal static BookRect MobBody => new BookRect(812f, 404f, 284f, 184f);
+
+	internal const int MobLootRows = 4;
+
+	internal static BookRect MobLootRow(int index)
 	{
-		BookRect r = EnemyLootRow(index);
-		return new BookRect(r.X + r.Width - 12f - 68f, r.Y + 8f, 68f, 32f);
+		return new BookRect(812f, 404f + (float)(index * 46), 284f, 42f);
 	}
 
-	internal static BookRect EnemyLootChance(int index)
+	internal static BookRect MobStatRow(int index)
 	{
-		BookRect r = EnemyLootAmount(index);
-		return new BookRect(r.X - 84f, r.Y, 76f, 32f);
+		return new BookRect(820f, 404f + (float)(index * 23), 268f, 23f);
 	}
 
+	internal static BookRect MobFavorite => new BookRect(812f, 598f, 32f, 32f);
+
+	internal static BookRect MobPagePrevious => new BookRect(996f, 600f, 28f, 28f);
+
+	internal static BookRect MobPageLabel => new BookRect(1024f, 600f, 44f, 28f);
+
+	internal static BookRect MobPageNext => new BookRect(1068f, 600f, 28f, 28f);
 	// Quick Stack gets the widest slot (its Russian label is the longest), Restock the narrowest; gaps stay 8.
 	private static readonly float[] StorageToolbarExtra = new float[4] { 16f, 0f, -16f, 0f };
 
@@ -316,9 +344,21 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return (X: (uiX - Left) / Scale, Y: (uiY - Top) / Scale);
 	}
 
-	internal static BookRect CategoryCell(int visibleIndex)
+	// Sidebar: CLASS label, the class buttons, CATEGORIES label, then the rows; same 22-pixel label-to-content step.
+	internal const float ClassLabelTop = 86f;
+
+	internal const float CategoryLabelTop = 192f;
+
+	// Without the class row (the Bestiary tab) the list starts where the class row would.
+	internal static BookRect CategoryCell(int visibleIndex, bool classRow)
 	{
-		return new BookRect(12f, 108 + visibleIndex * 28, 172f, 28f);
+		return new BookRect(12f, (classRow ? 214 : 108) + visibleIndex * 28, 172f, 28f);
+	}
+
+	// Two rows of three 52×32 buttons with 8-pixel gaps, as wide as a category row (five buttons: 3 + 2).
+	internal static BookRect ClassButton(int index)
+	{
+		return new BookRect(12 + index % 3 * 60, 108 + index / 3 * 40, 52f, 32f);
 	}
 
 	internal static BookRect TrackingRow(int index)

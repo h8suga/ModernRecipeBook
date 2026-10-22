@@ -1,12 +1,18 @@
-Modern Recipe Book 1.5.2
+Modern Recipe Book 1.6.0
 
-A recipe book for every item in the game and its mods, in English and Russian. Open it with Mouse3 (rebindable in Controls).
+A recipe book and bestiary for every item and mob in the game and its mods, in English and Russian. Open it with Mouse3 (rebindable in Controls).
 
-Tabs: Items, Recipes, Storage (with Magic Storage), Recent crafts and Tracking. Every tab has search, a mod filter, sorting, favorites and categories, and keeps them until you change them. One stage filter in the header — Pre-Hardmode, Hardmode, Post-Moon Lord — shows the earliest point each item can be obtained: through recipe chains, vanilla and Calamity bosses and bags, shops, crates, enemy drops, banners and world generation, for your world's difficulty (Classic, Expert, Master, Calamity Revengeance and Death).
+Tabs: Items, Recipes, Bestiary, Storage (with Magic Storage), Recent crafts and Tracking. Every tab has search, a mod filter, sorting, favorites and categories, and keeps them until you change them. One stage filter in the header (Pre-Hardmode, Hardmode, Post-Moon Lord) shows the earliest point each item or mob can be met: through recipe chains, vanilla and Calamity bosses and bags, shops, crates, enemy drops, banners and world generation, for your world's difficulty (Classic, Expert, Master, Calamity Revengeance and Death). Class buttons (Melee, Ranged, Magic, Summoner, Rogue) narrow weapons, armor and accessories to one class; armor and accessories are classified by what they actually boost.
 
-The item card shows the recipe with have/need counts, batches (×1, ×5, ×10, Max), Craft, Track and Favorite, or switches to Used in: everything the item is crafted into. Click an ingredient to open it; Back and Forward (Mouse4/Mouse5, Alt+Left/Right) walk through everything you opened. How to Get lists every source of an item, and enemy cards show what a mob drops.
+The item card shows the recipe with have/need counts, batches (x1, x5, x10, Max), Craft, Track and Favorite, or switches to Used in: everything the item is crafted into. Click an ingredient to open it; Back and Forward (Mouse4/Mouse5, Alt+Left/Right) walk through everything you opened. How to Get lists every source of an item.
+
+Bestiary: every mob by kind, event and biome (Calamity's biomes included), with an animated portrait over its biome, its own drops and, once you have met it like the vanilla Bestiary requires, its life, defense, damage, coins, kills and banner progress. Press Mouse3 on a mob in the world to open its entry.
+
+Magic Storage: the book connects to the nearest network by itself, lets you pick one when several are in reach, counts and crafts from it when a Crafting Interface is connected, and shows where each count comes from.
 
 Tracking: follow up to five goals (or full armor sets) on screen, as compact lines under the minimap or as cards with progress bars. The tracker never crafts or reserves items.
+
+Optional Double-Tap Dash (Calamity): with Calamity's Dash Double Tap Override key bound, double-tapping left/right dashes again, and the key keeps working. Off by default.
 
 Press F1 in the book for all shortcuts.
 

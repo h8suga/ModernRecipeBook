@@ -5,7 +5,8 @@ namespace ModernRecipeBook;
 
 internal sealed class BookUiState
 {
-	internal const int CurrentVersion = 4;
+	// 5: the global class filter.
+	internal const int CurrentVersion = 5;
 
 	// Search, mod, category, favorites and sort belong to one tab and stay until the player changes them;
 	// the stage filter is shared by every tab.
@@ -18,6 +19,9 @@ internal sealed class BookUiState
 		internal string CategoryKey = "all";
 
 		internal bool FavoritesOnly;
+
+		// Bestiary tab: only the mobs the player has met.
+		internal bool MetOnly;
 
 		internal BookSortMode SortMode;
 
@@ -32,13 +36,15 @@ internal sealed class BookUiState
 				ModFilter = Clean(ModFilter, 128),
 				CategoryKey = ((key.Length > 0) ? key : "all"),
 				FavoritesOnly = FavoritesOnly,
+				MetOnly = MetOnly,
 				SortMode = (Enum.IsDefined(typeof(BookSortMode), SortMode) ? SortMode : BookSortMode.Name),
 				SortDescending = SortDescending
 			};
 		}
 	}
 
-	internal static readonly string[] FilterTabs = new string[4] { "items", "recipes", "storage", "recent" };
+	// Indexed by tab number (Tracking, the last tab, has no filters).
+	internal static readonly string[] FilterTabs = new string[5] { "items", "recipes", "bestiary", "storage", "recent" };
 
 	// Filters of every tab; the top-level Query..SortDescending below are the open tab's (and the only set
 	// version 3 saves had).
@@ -54,6 +60,9 @@ internal sealed class BookUiState
 
 
 	internal int StageFilter;
+
+	// Global like the stage filter: one BookClass value, 0 = all classes.
+	internal int ClassFilter;
 
 	internal bool FavoritesOnly;
 
@@ -88,6 +97,7 @@ internal sealed class BookUiState
 		{
 		case "items":
 		case "recipes":
+		case "bestiary":
 		case "storage":
 		case "recent":
 		case "tracking":
@@ -104,6 +114,7 @@ internal sealed class BookUiState
 		bookUiState.CategoryKey = ((key != null && key.Length > 0) ? key : "all");
 
 		bookUiState.StageFilter = Math.Clamp(StageFilter, 0, 3);
+		bookUiState.ClassFilter = ((Array.IndexOf(BookItemClasses.Buttons, (BookClass)ClassFilter) >= 0) ? ClassFilter : 0);
 		bookUiState.FavoritesOnly = FavoritesOnly;
 		bookUiState.UsedInMode = UsedInMode;
 		bookUiState.UsedInCraftableOnly = UsedInCraftableOnly;
