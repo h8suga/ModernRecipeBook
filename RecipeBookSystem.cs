@@ -2272,52 +2272,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		EnemyBiomes = string.Join(" · ", biomes.Distinct(StringComparer.Ordinal));
 		EnemySpawn = string.Join(" · ", spawn.Distinct(StringComparer.Ordinal));
-		List<BookEnemyDrop> drops = new List<BookEnemyDrop>();
-		try
-		{
-			foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(id))
-			{
-				List<DropRateInfo> rates = new List<DropRateInfo>();
-				try
-				{
-					rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
-				}
-				catch (Exception)
-				{
-					EnemyReadErrors++;
-					continue;
-				}
-				foreach (DropRateInfo rate in rates)
-				{
-					if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir)
-					{
-						continue;
-					}
-					List<string> conditions = new List<string>();
-					List<string> keys = new List<string>();
-					foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
-					{
-						keys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
-						try
-						{
-							string description = condition.GetConditionDescription();
-							conditions.Add(DropConditionLabel(condition, string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description));
-						}
-						catch (Exception)
-						{
-							conditions.Add(T("Неизвестное условие", "Unknown condition"));
-							EnemyReadErrors++;
-						}
-					}
-					drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal))));
-				}
-			}
-		}
-		catch (Exception)
-		{
-			EnemyReadErrors++;
-		}
-		EnemyLoot = BookEnemyRules.Group(drops).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		ReadMobLoot(id);
 		ReadEnemyStats(id);
 		ReadEnemyPortrait(id);
 		if (EnemyReadErrors > 0)

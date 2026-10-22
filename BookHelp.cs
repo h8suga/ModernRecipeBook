@@ -34,7 +34,7 @@ internal static class BookHelp
 			new Entry("Esc", "Esc", "Закрыть верхнее окно", "Close the top window"),
 			new Entry("F1", "F1", "Эта справка", "This help")
 		}),
-		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[11]
+		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[12]
 		{
 			new Entry("Ctrl+Enter", "Ctrl+Enter", "Создать", "Craft"),
 			new Entry("Ctrl+Shift+Enter", "Ctrl+Shift+Enter", "Создать максимум", "Craft the most"),
@@ -42,6 +42,7 @@ internal static class BookHelp
 			new Entry("Alt+F", "Alt+F", "В избранное", "Favorite"),
 			new Entry("Alt+G", "Alt+G", "Где взять", "How to Get"),
 			new Entry("Alt+U", "Alt+U", "Рецепт · применение", "Recipe · Used in"),
+			new Entry("Alt+U", "Alt+U", "Добыча · параметры", "Mob: Loot · Stats"),
 			new Entry("ЛКМ", "LMB", "Открыть материал", "Open an ingredient"),
 			new Entry("Shift+ЛКМ", "Shift+LMB", "Где используется", "Where it's used"),
 			new Entry("Alt+ЛКМ", "Alt+LMB", "Избранное из сетки", "Favorite in the grid"),

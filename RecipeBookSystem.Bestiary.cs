@@ -8,6 +8,7 @@ using ReLogic.Content;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.GameContent.Bestiary;
+using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -29,6 +30,26 @@ public sealed partial class RecipeBookSystem
 	private static int LiveMob;
 
 	private static bool MobStatsMode;
+
+	// The drops every enemy can have (keys, souls, Halloween and Christmas loot) fold into one row under the
+	// mob's own drops, as the Bestiary leaves them out; open or folded for every mob until the player changes it.
+	private static bool MobGlobalOpen;
+
+	private static List<BookEnemyLoot> EnemyGlobalLoot = new List<BookEnemyLoot>();
+
+	private enum LootLineKind
+	{
+		Own,
+		NoOwn,
+		Global,
+		GlobalRow
+	}
+
+	private readonly record struct LootLine(LootLineKind Kind, BookEnemyLoot Loot);
+
+	// What the Loot view lists, in order: own drops (or the "no drops of its own" line), the "Any enemy" row,
+	// and the global drops when that row is open. Rebuilt with the card and when the row is toggled.
+	private static readonly List<LootLine> MobLootLines = new List<LootLine>();
 
 	// What the card's caches (loot, tags, stats, portrait) were read for.
 	private static (int NetId, bool Live, string Culture) MobCardKey;
@@ -387,7 +408,88 @@ public sealed partial class RecipeBookSystem
 		{
 			return 0;
 		}
-		return Math.Max(0, (EnemyLoot.Count - 1) / BookGeometry.MobLootRows);
+		return Math.Max(0, (MobLootLines.Count - 1) / BookGeometry.MobLootRows);
+	}
+
+	// The mob's own rules, as the Bestiary reads them (no global drops), most likely first; then the global ones.
+	private static void ReadMobLoot(int id)
+	{
+		List<IItemDropRule> own = new List<IItemDropRule>();
+		List<IItemDropRule> global = new List<IItemDropRule>();
+		try
+		{
+			own = Main.ItemDropsDB.GetRulesForNPCID(id, includeGlobalDrops: false);
+			HashSet<IItemDropRule> ownSet = new HashSet<IItemDropRule>(own, ReferenceEqualityComparer.Instance);
+			global = Main.ItemDropsDB.GetRulesForNPCID(id).Where((IItemDropRule rule) => !ownSet.Contains(rule)).ToList();
+		}
+		catch (Exception)
+		{
+			EnemyReadErrors++;
+		}
+		EnemyLoot = ReadLoot(own).OrderByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		EnemyGlobalLoot = ReadLoot(global).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		RebuildMobLootLines();
+	}
+
+	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules)
+	{
+		List<BookEnemyDrop> drops = new List<BookEnemyDrop>();
+		foreach (IItemDropRule rule in rules)
+		{
+			List<DropRateInfo> rates = new List<DropRateInfo>();
+			try
+			{
+				rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+			}
+			catch (Exception)
+			{
+				EnemyReadErrors++;
+				continue;
+			}
+			foreach (DropRateInfo rate in rates)
+			{
+				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir)
+				{
+					continue;
+				}
+				List<string> conditions = new List<string>();
+				List<string> keys = new List<string>();
+				foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
+				{
+					keys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
+					try
+					{
+						string description = condition.GetConditionDescription();
+						conditions.Add(DropConditionLabel(condition, string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description));
+					}
+					catch (Exception)
+					{
+						conditions.Add(T("Неизвестное условие", "Unknown condition"));
+						EnemyReadErrors++;
+					}
+				}
+				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal))));
+			}
+		}
+		return BookEnemyRules.Group(drops);
+	}
+
+	private static void RebuildMobLootLines()
+	{
+		MobLootLines.Clear();
+		MobLootLines.AddRange(EnemyLoot.Select((BookEnemyLoot loot) => new LootLine(LootLineKind.Own, loot)));
+		if (EnemyLoot.Count == 0 && EnemyGlobalLoot.Count > 0)
+		{
+			MobLootLines.Add(new LootLine(LootLineKind.NoOwn, null));
+		}
+		if (EnemyGlobalLoot.Count > 0)
+		{
+			MobLootLines.Add(new LootLine(LootLineKind.GlobalRow, null));
+			if (MobGlobalOpen)
+			{
+				MobLootLines.AddRange(EnemyGlobalLoot.Select((BookEnemyLoot loot) => new LootLine(LootLineKind.Global, loot)));
+			}
+		}
 	}
 
 	private static string[] MobModeLabels()
@@ -395,7 +497,7 @@ public sealed partial class RecipeBookSystem
 		return new string[2]
 		{
 			T("Добыча", "Loot"),
-			T("Характеристики", "Stats")
+			T("Параметры", "Stats")
 		};
 	}
 
@@ -478,37 +580,56 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
-	// Loot rows: name and chance on the first line, amount and conditions below; a click opens the item.
+	// Loot rows: name and chance on the first line, amount and conditions below; a click opens the item. The
+	// "Any enemy" row folds the global drops, shown dimmed when open.
 	private static void DrawMobLoot(SpriteBatch sb)
 	{
 		BookRect body = BookGeometry.MobBody;
-		if (EnemyLoot.Count == 0)
+		if (MobLootLines.Count == 0)
 		{
 			DrawCardEmpty(sb, body, T("Добыча не указана", "No loot listed"), T("С него ничего не падает", "It drops nothing"));
 			return;
 		}
-		int pages = Math.Max(1, (EnemyLoot.Count + BookGeometry.MobLootRows - 1) / BookGeometry.MobLootRows);
+		int pages = Math.Max(1, (MobLootLines.Count + BookGeometry.MobLootRows - 1) / BookGeometry.MobLootRows);
 		DetailsPage = Math.Clamp(DetailsPage, 0, pages - 1);
 		for (int row = 0; row < BookGeometry.MobLootRows; row++)
 		{
 			int index = DetailsPage * BookGeometry.MobLootRows + row;
-			if (index >= EnemyLoot.Count)
+			if (index >= MobLootLines.Count)
 			{
 				break;
 			}
-			BookEnemyLoot loot = EnemyLoot[index];
-			Item item = ContentSamples.ItemsByType[loot.ItemType];
+			LootLine line = MobLootLines[index];
 			BookRect rect = BookGeometry.MobLootRow(row);
 			bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
-			Box(sb, rect, hover ? HoverFill : Raised, border: true, 8f);
+			if (line.Kind == LootLineKind.NoOwn)
+			{
+				CenterLabel(sb, T("Своей добычи нет", "No drops of its own"), rect.X, rect.Y, rect.Width, rect.Height, Muted, 0.85f);
+				continue;
+			}
+			if (line.Kind == LootLineKind.GlobalRow)
+			{
+				Box(sb, rect, hover ? HoverFill : Panel, border: true, 8f);
+				Chevron(sb, rect.X + 18f, rect.Y + rect.Height / 2f, 4f, MobGlobalOpen ? 0 : 3, Muted);
+				FixedLabel(sb, T("Любые враги", "Any enemy") + " · " + EnemyGlobalLoot.Count, rect.X + 36f, rect.Y + 11f, TextColor, 0.85f, rect.Width - 44f, 20f);
+				if (hover)
+				{
+					MouseTip(T("Добыча, которая падает с любых врагов", "Drops any enemy can have") + "\n" + (MobGlobalOpen ? T("Клик: свернуть", "Click: fold") : T("Клик: показать", "Click: show")));
+				}
+				continue;
+			}
+			BookEnemyLoot loot = line.Loot;
+			bool dim = line.Kind == LootLineKind.Global;
+			Item item = ContentSamples.ItemsByType[loot.ItemType];
+			Box(sb, rect, hover ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
 			Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
 			bool varies = loot.Rules.Length > 1;
 			string chance = varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance);
 			float chanceWidth = (chance.Length > 0) ? (TextWidth(chance, 0.85f) + 4f) : 0f;
-			FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
+			FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, dim ? Muted : TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
 			if (chance.Length > 0)
 			{
-				CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, TextColor, 0.85f, rightAligned: true);
+				CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
 			}
 			string detail = varies ? T("Зависит от условий", "Varies by condition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
 			FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
@@ -588,13 +709,23 @@ public sealed partial class RecipeBookSystem
 		for (int row = 0; row < BookGeometry.MobLootRows; row++)
 		{
 			int index = DetailsPage * BookGeometry.MobLootRows + row;
-			if (index < EnemyLoot.Count && BookGeometry.MobLootRow(row).Contains(Mouse.X, Mouse.Y))
+			if (index >= MobLootLines.Count || !BookGeometry.MobLootRow(row).Contains(Mouse.X, Mouse.Y))
+			{
+				continue;
+			}
+			LootLine line = MobLootLines[index];
+			if (line.Kind == LootLineKind.GlobalRow)
+			{
+				MobGlobalOpen = !MobGlobalOpen;
+				RebuildMobLootLines();
+			}
+			else if (line.Loot != null)
 			{
 				// The item opens on Items; Back returns to this mob.
 				SwitchTab(0);
-				StepCard(EnemyLoot[index].ItemType, usedIn: false);
-				return;
+				StepCard(line.Loot.ItemType, usedIn: false);
 			}
+			return;
 		}
 	}
 
