@@ -1,4 +1,4 @@
-Modern Recipe Book 1.4.8
+Modern Recipe Book 1.4.9
 
 Mouse3 searches hovered items in native inventory/container/equipment/accessory/vanity/shop/guide/reforge/material slots. Mod-window tooltip fallback and book/tracker item icons are supported. No items are moved. Mouse4/Mouse5 navigate chain history; bindings can be changed in Controls.
 

@@ -1756,9 +1756,11 @@ public sealed class RecipeBookSystem : ModSystem
 		try
 		{
 			DrawTracker(sb);
+			FlushTip();
 		}
 		catch (Exception exception)
 		{
+			PendingTip = null;
 			StopTracker();
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB tracker draw failed; tracker cleared safely.", exception);
 		}
@@ -2197,6 +2199,14 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// An Unknown stage is either a source the current difficulty rules out or no regular source at all.
+	private static string StageName(Item item, Recipe recipe)
+	{
+		BookStage stage = (recipe != null) ? BookProgression.RecipeStage(recipe.RecipeIndex) : BookProgression.ItemStage(item.type);
+		bool modeExcluded = (recipe != null) ? BookProgression.RecipeModeExcluded(recipe.RecipeIndex) : BookProgression.ItemModeExcluded(item.type);
+		return (stage == BookStage.Unknown && modeExcluded) ? T("Недоступно в этом режиме", "Not available at this difficulty") : StageName(stage);
+	}
+
 	private static string StageName(BookStage stage)
 	{
 		return stage switch
@@ -2204,15 +2214,37 @@ public sealed class RecipeBookSystem : ModSystem
 			BookStage.PreHardmode => T("Пре-хардмод", "Pre-hardmode"), 
 			BookStage.Hardmode => T("Хардмод", "Hardmode"), 
 			BookStage.PostHardmode => T("Постхардмод", "Post-hardmode"), 
-			_ => T("Этап неизвестен", "Unknown stage"), 
+			_ => T("Нет обычного способа получения", "No regular source"), 
 		};
 	}
 
-	// Vanilla MouseText draws every line as is, so long hints ran off the screen; wrap them to a readable width.
+	private static string PendingTip;
+
+	// Hover hints are drawn when their layer ends (FlushTip), so panels drawn later cannot cover them.
 	private static void MouseTip(string text)
 	{
+		PendingTip = text;
+	}
+
+	// Vanilla MouseText draws every line as is and without a backdrop, so long hints ran off the screen and
+	// were hard to read over the book. Wrap them, and draw a panel exactly where MouseTextInner puts the text.
+	private static void FlushTip()
+	{
+		string text = PendingTip;
+		PendingTip = null;
+		if (text == null)
+		{
+			return;
+		}
 		string[] lines = Utils.WordwrapString(text, FontAssets.MouseText.Value, 560, 60, out int last);
-		Main.instance.MouseText(string.Join("\n", lines.Take(last + 1).Select((string line) => line?.TrimEnd('\n'))), 0, 0);
+		string wrapped = string.Join("\n", lines.Take(last + 1).Select((string line) => line?.TrimEnd('\n')));
+		Vector2 size = FontAssets.MouseText.Value.MeasureString(wrapped);
+		int x = Main.mouseX + 14 + (Main.ThickMouse ? 6 : 0);
+		int y = Main.mouseY + 14 + (Main.ThickMouse ? 6 : 0);
+		x = Math.Min(x, (int)(Main.screenWidth - size.X - 4f));
+		y = Math.Min(y, (int)(Main.screenHeight - size.Y - 4f));
+		BookSkin.Panel(Main.spriteBatch, new Rectangle(x - 8, y - 6, (int)size.X + 16, (int)size.Y + 8), Panel * 0.96f, 8f, Border);
+		Main.instance.MouseText(wrapped, 0, 0);
 	}
 
 	private static void DrawStageFilter(SpriteBatch sb)
@@ -2220,13 +2252,13 @@ public sealed class RecipeBookSystem : ModSystem
 		Button(sb, BookGeometry.StageFilter, (StageFilter == BookStageFilter.All) ? T("Этап: Все", "Stage: All") : StageName((BookStage)(StageFilter - 1)), StageFilter != BookStageFilter.All);
 		if (BookGeometry.StageFilter.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Нажмите: Все → Пре-хардмод → Хардмод → Постхардмод.\nПостхардмод — после Лунного лорда. Этап — самый ранний момент, когда предмет можно получить: рецепт по цепочке материалов, станций и условий, лут боссов и мешков, магазины жителей, ящики и враги, включая Calamity.\nРежим мира учитывается: Classic, Expert, Master и Revengeance. То, что в этом режиме не выпадает, видно только в «Все». Если источник неизвестен, этап оценивается по редкости. В цепочках неопределённые рецепты помечены ?.", "Click: All → Pre-hardmode → Hardmode → Post-hardmode.\nPost-hardmode means after Moon Lord. The stage is the earliest point an item can be obtained: a recipe through its materials, stations and conditions, boss and bag loot, town shops, crates and enemies, Calamity included.\nThe world's difficulty counts: Classic, Expert, Master and Revengeance. What does not drop in this mode stays visible only in All. Without a known source the stage is estimated from rarity. Uncertain chain recipes carry a ? marker."));
+			MouseTip(T("Нажмите: Все → Пре-хардмод → Хардмод → Постхардмод.\nПостхардмод — после Лунного лорда. Этап — самый ранний момент, когда предмет можно получить: рецепт по цепочке материалов, станций и условий, лут боссов и мешков, магазины жителей, ящики и враги, включая Calamity.\nРежим мира учитывается: Classic, Expert, Master и Revengeance. То, что в этом режиме не выпадает, подписано «Недоступно в этом режиме», а то, что нельзя получить обычным путём, — «Нет обычного способа получения»; они видны только в «Все». Если источник не найден, этап оценивается по редкости. В цепочках неопределённые рецепты помечены ?.", "Click: All → Pre-hardmode → Hardmode → Post-hardmode.\nPost-hardmode means after Moon Lord. The stage is the earliest point an item can be obtained: a recipe through its materials, stations and conditions, boss and bag loot, town shops, crates and enemies, Calamity included.\nThe world's difficulty counts: Classic, Expert, Master and Revengeance. What does not drop in this mode is marked “Not available at this difficulty”, what cannot be obtained the regular way “No regular source”; both stay visible only in All. Without a known source the stage is estimated from rarity. Uncertain chain recipes carry a ? marker."));
 		}
 	}
 
 	private static string StageExplanation(Item item, Recipe recipe)
 	{
-		return StageName((recipe != null) ? BookProgression.RecipeStage(recipe.RecipeIndex) : BookProgression.ItemStage(item.type)) + T("\nСамый ранний способ получить предмет. Постхардмод = после Лунного лорда.\nДля каталога — лучший из рецептов, лута, магазинов и ящиков; для рецепта — его материалы, станция и условия. Режим мира учитывается.\nНестандартные источники других модов могут быть неизвестны, тогда этап оценивается по редкости.", "\nEarliest way to obtain the item. Post-hardmode = after Moon Lord.\nCatalogue: the best of recipes, loot, shops and crates; recipe: its own materials, station and conditions. The world's difficulty counts.\nUnusual sources from other mods may be unknown; the stage is then estimated from rarity.");
+		return StageName(item, recipe) + T("\nСамый ранний способ получить предмет. Постхардмод = после Лунного лорда.\nДля каталога — лучший из рецептов, лута, магазинов и ящиков; для рецепта — его материалы, станция и условия. Режим мира учитывается.\nНестандартные источники других модов могут быть неизвестны, тогда этап оценивается по редкости.", "\nEarliest way to obtain the item. Post-hardmode = after Moon Lord.\nCatalogue: the best of recipes, loot, shops and crates; recipe: its own materials, station and conditions. The world's difficulty counts.\nUnusual sources from other mods may be unknown; the stage is then estimated from rarity.");
 	}
 
 	private static void ResetResourceTracker()
@@ -2633,7 +2665,7 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 		}
 		BookRect source = (armor ? BookGeometry.ArmorSource : new BookRect(812f, 240f, 284f, 20f));
-		string origin = (goal.IsSet ? string.Join(" / ", goal.Recipes.Select((Recipe r) => ModName(Owner(r))).Distinct()) : (ModName(Owner(goal.Recipe)) + " · " + StageName(BookProgression.RecipeStage(goal.Recipe.RecipeIndex))));
+		string origin = (goal.IsSet ? string.Join(" / ", goal.Recipes.Select((Recipe r) => ModName(Owner(r))).Distinct()) : (ModName(Owner(goal.Recipe)) + " · " + StageName(null, goal.Recipe)));
 		FixedLabel(sb, origin, source.X, source.Y, Muted, 0.78f, source.Width, source.Height);
 		BookRect quantity = BookGeometry.TrackingQuantity;
 		FixedLabel(sb, T("Партий: ×", "Batches: ×") + goal.Batches + " · " + TrackingSource(goal), quantity.X, quantity.Y, Muted, 0.78f, quantity.Width, quantity.Height);
@@ -2773,9 +2805,11 @@ public sealed class RecipeBookSystem : ModSystem
 		try
 		{
 			Draw(sb);
+			FlushTip();
 		}
 		catch (Exception error)
 		{
+			PendingTip = null;
 			ReportUiFailure("book/draw", error);
 		}
 	}
@@ -5286,7 +5320,7 @@ public sealed class RecipeBookSystem : ModSystem
 					{
 						DrawArmorDefense(sb, chosen);
 					}
-					string itemStage = StageName((r != null) ? BookProgression.RecipeStage(r.RecipeIndex) : BookProgression.ItemStage(chosen.type));
+					string itemStage = StageName(chosen, r);
 					BookRect sourceRect = (armorStats ? BookGeometry.ArmorSource : new BookRect(812f, 240f, 284f, 20f));
 					FixedLabel(sb, ModName((r != null) ? Owner(r) : (chosen.ModItem?.Mod.Name ?? "Terraria")) + " · " + itemStage, sourceRect.X, sourceRect.Y, Muted, 0.78f, sourceRect.Width, sourceRect.Height);
 					if (sourceRect.Contains(Mouse.X, Mouse.Y))
