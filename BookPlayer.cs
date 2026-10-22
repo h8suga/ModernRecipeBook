@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Xna.Framework.Input;
 using Terraria;
 using Terraria.GameInput;
 using Terraria.ModLoader;
@@ -40,7 +41,17 @@ public sealed class BookPlayer : ModPlayer
 		}
 		if (!RecipeBookSystem.Open)
 		{
+			DigitFromCtrl = false;
 			return;
+		}
+		// Ctrl+1..6 switches book tabs. Vanilla picks a hotbar slot while a digit is held, so a digit pressed
+		// with Ctrl stays blocked until it is released, even when Ctrl is let go first.
+		KeyboardState keys = Keyboard.GetState();
+		bool digit = HotbarDigits.Any(keys.IsKeyDown);
+		DigitFromCtrl = digit && (DigitFromCtrl || keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl));
+		if (DigitFromCtrl)
+		{
+			BlockHotbarTriggers();
 		}
 		Player.controlInv = false;
 		if (RecipeBookSystem.MouseOver || RecipeBookSystem.Typing)
@@ -72,6 +83,18 @@ public sealed class BookPlayer : ModPlayer
 					triggers.KeyStatus[name] = false;
 				}
 			}
+		}
+		BlockHotbarTriggers();
+	}
+
+	private static readonly Keys[] HotbarDigits = new Keys[10] { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.D0 };
+
+	private static bool DigitFromCtrl;
+
+	private static void BlockHotbarTriggers()
+	{
+		foreach (TriggersSet triggers in new TriggersSet[2] { PlayerInput.Triggers.Current, PlayerInput.Triggers.JustPressed })
+		{
 			for (int slot = 1; slot <= 10; slot++)
 			{
 				if (triggers.KeyStatus.ContainsKey("Hotbar" + slot))

@@ -1693,10 +1693,10 @@ public sealed class RecipeBookSystem : ModSystem
 			BookCrafting.LastMessage = T("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
 			return true;
 		}
+		// Track is a toggle like Untrack: the book stays open so several goals can be added in a row.
 		if (wholeSet ? StartSetTracker(parts) : StartTracker(recipe))
 		{
-			BlockTrackerPress = true;
-			CloseForStorage();
+			BookCrafting.LastMessage = wholeSet ? T("Сет отслеживается", "Tracking the set") : (T("Отслеживается: ", "Tracking: ") + recipe.createItem.Name);
 		}
 		return true;
 	}
@@ -4710,6 +4710,9 @@ public sealed class RecipeBookSystem : ModSystem
 		});
 	}
 
+	// Tallest accent to deepest descender in both alphabets: the line box every label is centered in.
+	private const string ReferenceGlyphs = "АБВЁЙДЦЩруфgjpqy0123456789";
+
 	private static void CenterLabel(SpriteBatch sb, string label, float x, float y, float width, float height, Color color, float size = 1f, bool rightAligned = false, bool leftAligned = false, bool fitWidth = false)
 	{
 		label = BookRules.PlainText(label).Replace("\n", " ").Replace("\r", " ");
@@ -4717,13 +4720,18 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			size = Math.Min(size, width / (Ink(label).Width * TextScale));
 		}
-		BookTypography.Line line = BookTypography.Layout(label, width, height, size, TextScale, (string value) =>
+		// Vertical placement and size come from shared reference glyphs, so labels in one row share a baseline
+		// whatever letters they contain ("Items" and "Recipes" used to sit at different heights).
+		BookGlyphLayout.Bounds reference = Ink(ReferenceGlyphs);
+		BookTypography.Line line = BookTypography.FixedLine(label, width, height, size, TextScale, (string value) =>
 		{
 			BookGlyphLayout.Bounds bounds = Ink(value);
 			return (Width: bounds.Width, Height: bounds.Height);
-		}, centered: true);
+		}, reference.Y, reference.Height);
 		BookGlyphLayout.Bounds ink = Ink(line.Value);
-		Vector2 pos = Origin + new Vector2(x + (rightAligned ? (width - ink.Width * line.Scale) : (leftAligned ? 0f : line.X)) - ink.X * line.Scale, y + line.Y - ink.Y * line.Scale) * Scale;
+		float inkWidth = ink.Width * line.Scale;
+		float left = rightAligned ? (width - inkWidth) : (leftAligned ? 0f : Math.Max(0f, (width - inkWidth) / 2f));
+		Vector2 pos = Origin + new Vector2(x + left - ink.X * line.Scale, y + line.Y) * Scale;
 		DrawInkLine(sb, line.Value, pos, color, line.Scale);
 		if (line.Truncated && Hit(x, y, width, height))
 		{
@@ -4734,7 +4742,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void FixedLabel(SpriteBatch sb, string label, float x, float y, Color? color = null, float size = 1f, float width = 1000f, float height = 32f)
 	{
 		label = BookRules.PlainText(label).Replace("\n", " ").Replace("\r", " ");
-		BookGlyphLayout.Bounds reference = Ink("АБВЁЙДЦЩруфgjpqy0123456789");
+		BookGlyphLayout.Bounds reference = Ink(ReferenceGlyphs);
 		BookTypography.Line line = BookTypography.FixedLine(label, width, height, size, TextScale, (string value) =>
 		{
 			BookGlyphLayout.Bounds bounds = Ink(value);
