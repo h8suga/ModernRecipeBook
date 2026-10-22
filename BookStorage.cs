@@ -58,6 +58,8 @@ public sealed class BookStorage : ModSystem
 
 	private static FieldInfo StorageNameField;
 
+	private static FieldInfo CraftAmountField;
+
 	// Updates in a row the adapter has been waiting on MS; the "Syncing" cue shows only past ShowSyncAfter, so the
 	// short refreshes MS runs after every change never blink the status.
 	private static int WaitingTicks;
@@ -434,6 +436,7 @@ public sealed class BookStorage : ModSystem
 			CreativeField = Field(inventoryType, "creativeUnitPresent", Instance);
 			Bind("quantity", Get("Common.Systems.RecurrentRecipes.AvailableRecipeObjects"), "GetIngredientQuantity", typeof(int));
 			StorageNameField = Field(Get("Components.TEStorageHeart"), "storageName", Instance);
+			CraftAmountField = Field(CraftType, "craftAmountTarget", Static);
 			InterfaceField = Field(UIType, "uiInterface", Static);
 			CurrentMouseField = Field(StorageType, "curMouse", Static);
 			OldMouseField = Field(StorageType, "oldMouse", Static);
@@ -637,6 +640,8 @@ public sealed class BookStorage : ModSystem
 
 	// MS's answer is asked once per recipe after each storage change, and only while MS is ready; in between the
 	// last answer stands, so the Craft button and the craftable filters stay put while MS refreshes.
+	// Without recursion: the book's rows, Max and tracker count the direct ingredients, so "craftable" must mean
+	// the same; MS's recursive crafting (when enabled in MS's config) stays in MS's own window.
 	internal static bool IsAvailable(Recipe recipe)
 	{
 		if (!CraftingConnected || recipe == null || recipe.Disabled)
@@ -648,7 +653,7 @@ public sealed class BookStorage : ModSystem
 			int index = recipe.RecipeIndex;
 			if (CraftReady && Checked.Add(index))
 			{
-				Availability[index] = (bool)Call("available", null, recipe, true);
+				Availability[index] = (bool)Call("available", null, recipe, false);
 			}
 			bool value;
 			return Availability.TryGetValue(index, out value) && value;
@@ -770,16 +775,22 @@ public sealed class BookStorage : ModSystem
 			BookCrafting.LastMessage = (ru ? "Крафт отменён: условия изменились" : "Craft cancelled: conditions changed");
 			return;
 		}
+		int outputCount = (int)Math.Min(2147483647L, (long)recipe.createItem.stack * (long)batches);
+		// With MS's recursive crafting on, Craft makes what MS simulates for craftAmountTarget, which
+		// SetSelectedRecipe resets to 1 (x5 / x10 / Max made one batch). Set it before selecting, so the ingredient
+		// list MS builds there fits the amount, and again after; the second reset drops the cached simulation.
 		Call("reset", null);
+		CraftAmountField.SetValue(null, outputCount);
 		Call("select", null, recipe);
+		CraftAmountField.SetValue(null, outputCount);
 		Call("reset", null);
 		if (!(bool)Call("selectedAvailable", null))
 		{
+			CraftAmountField.SetValue(null, 1);
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Info("Magic Storage rejected recipe " + recipe.RecipeIndex + ": " + CacheDiagnostic());
 			BookCrafting.LastMessage = (ru ? "В хранилище не хватает материалов или станций" : "Storage lacks materials or stations");
 			return;
 		}
-		int outputCount = (int)Math.Min(2147483647L, (long)recipe.createItem.stack * (long)batches);
 		bool craftReturned = false;
 		BookRecentCraftHooks.BeginStorageCraft(recipe);
 		try
@@ -790,6 +801,7 @@ public sealed class BookStorage : ModSystem
 		finally
 		{
 			BookRecentCraftHooks.EndStorageCraft(craftReturned);
+			CraftAmountField.SetValue(null, 1);
 		}
 		Cooldown = 30;
 		Invalidate();
