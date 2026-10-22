@@ -3273,8 +3273,8 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			bool flag = !Open;
 			SetTyping(value: false);
-			ModMenu = (HelpOpen = false);
-			CloseAcquisition();
+			// Help and the How to Get / enemy cards survive closing the book; only the mod dropdown folds.
+			ModMenu = false;
 			if (!flag)
 			{
 				Open = (MouseOver = false);
