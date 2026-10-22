@@ -1,11 +1,13 @@
-Modern Recipe Book 1.4.9
+Modern Recipe Book 1.5.0
 
-Mouse3 searches hovered items in native inventory/container/equipment/accessory/vanity/shop/guide/reforge/material slots. Mod-window tooltip fallback and book/tracker item icons are supported. No items are moved. Mouse4/Mouse5 navigate chain history; bindings can be changed in Controls.
+A recipe book for every item in the game and its mods, in English and Russian. Open it with Mouse3 (rebindable in Controls).
 
-Compact draggable craft tracker: up to 5 independent goals. Click a goal to expand its materials. Configurable size (60-150%) and opacity (20-100%), per-character saved position, per-goal remove, one-shot readiness sound followed by fade-out. Full armor sets can be tracked as one goal, with aggregated material requirements. Tracker never auto-crafts or reserves items. Readiness means materials collected, not station/world-condition availability.
+Tabs: Items, Recipes, Storage (with Magic Storage), Recent crafts and Tracking. Every tab has search, a mod filter, sorting, favorites and categories, and keeps them until you change them. One stage filter in the header — Pre-Hardmode, Hardmode, Post-Moon Lord — shows the earliest point each item can be obtained: through recipe chains, vanilla and Calamity bosses and bags, shops, crates, enemy drops, banners and world generation, for your world's difficulty (Classic, Expert, Master, Calamity Revengeance and Death).
 
-Pre-hardmode/hardmode/post-Moon-Lord filter: the earliest point each item can be obtained, through recipe chains, vanilla and Calamity boss drops and bags, town shops, crates, enemy drops and banners. The world's difficulty (Classic/Expert/Master, Calamity Revengeance) decides which drops exist. Items without a known source are estimated from rarity.
+The item card shows the recipe with have/need counts, batches (×1, ×5, ×10, Max), Craft, Track and Favorite, or switches to Used in: everything the item is crafted into. Click an ingredient to open it; Back and Forward (Mouse4/Mouse5, Alt+Left/Right) walk through everything you opened. How to Get lists every source of an item, and enemy cards show what a mob drops.
 
-Russian/English recipe book: items, recipes, chains, optional Magic Storage, recent crafts, favorites, batch selection and material have/need counts. Armor set selector uses a stable title baseline. Native crafting APIs own consumption and outputs. Opening remains deferred to UpdateUI, outside gravity/draw hooks; duplicate-name crash fix preserved.
+Tracking: follow up to five goals (or full armor sets) on screen, as compact lines under the minimap or as cards with progress bars. The tracker never crafts or reserves items.
+
+Press F1 in the book for all shortcuts.
 
 Terraria 1.4.4.9 / tModLoader 2026.8.3.0. Optional Magic Storage 0.7.0.11 support.

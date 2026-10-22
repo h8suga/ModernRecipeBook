@@ -1,56 +1,74 @@
 namespace ModernRecipeBook;
 
+// F1 cheat sheet: three columns by task (moving around, the item card, finding things); every row is a keycap
+// and a short action.
 internal static class BookHelp
 {
 	internal readonly record struct Entry(string KeyRu, string KeyEn, string Ru, string En);
 
-	internal readonly record struct Section(BookRect Bounds, string Ru, string En, Entry[] Rows, int Step);
+	internal readonly record struct Section(int Column, string Ru, string En, Entry[] Rows, bool StorageOnly = false);
 
-	internal const int KeyWidth = 176;
+	internal const int Columns = 3;
 
-	internal const int KeyHeight = 24;
+	internal const float KeyWidth = 136f;
 
-	internal static readonly Section[] Sections = new Section[3]
+	internal const float KeyHeight = 22f;
+
+	internal const float RowStep = 28f;
+
+	internal const float HeaderStep = 28f;
+
+	internal const float SectionGap = 16f;
+
+	internal static readonly Section[] Sections = new Section[4]
 	{
-		new Section(new BookRect(BookGeometry.HelpPanel.X + 24f, BookGeometry.HelpPanel.Y + 64f, 468f, 288f), "НАВИГАЦИЯ И ПОИСК", "NAVIGATION & SEARCH", new Entry[9]
+		new Section(0, "НАВИГАЦИЯ", "MOVING AROUND", new Entry[9]
+		{
+			new Entry("Ctrl+1…5", "Ctrl+1…5", "Вкладка по номеру", "Go to a tab"),
+			new Entry("Ctrl+Tab", "Ctrl+Tab", "Следующая вкладка", "Next tab"),
+			new Entry("Mouse4 · Alt+←", "Mouse4 · Alt+←", "Назад", "Back"),
+			new Entry("Mouse5 · Alt+→", "Mouse5 · Alt+→", "Вперёд", "Forward"),
+			new Entry("← ↑ → ↓", "← ↑ → ↓", "Выбор в сетке", "Move the selection"),
+			new Entry("PgUp · PgDn", "PgUp · PgDn", "Листать страницы", "Turn pages"),
+			new Entry("Home · End", "Home · End", "Первая · последняя", "First · last page"),
+			new Entry("Esc", "Esc", "Закрыть верхнее окно", "Close the top window"),
+			new Entry("F1", "F1", "Эта справка", "This help")
+		}),
+		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[10]
+		{
+			new Entry("Ctrl+Enter", "Ctrl+Enter", "Создать", "Craft"),
+			new Entry("Ctrl+Shift+Enter", "Ctrl+Shift+Enter", "Создать максимум", "Craft the most"),
+			new Entry("Alt+T", "Alt+T", "Отслеживать", "Track"),
+			new Entry("Alt+F", "Alt+F", "В избранное", "Favorite"),
+			new Entry("Alt+G", "Alt+G", "Где взять", "How to Get"),
+			new Entry("Alt+U", "Alt+U", "Рецепт · применение", "Recipe · Used in"),
+			new Entry("ЛКМ", "LMB", "Открыть материал", "Open an ingredient"),
+			new Entry("Shift+ЛКМ", "Shift+LMB", "Где используется", "Where it's used"),
+			new Entry("Alt+ЛКМ", "Alt+LMB", "Избранное из сетки", "Favorite in the grid"),
+			new Entry("Mouse3", "Mouse3", "Найти предмет", "Look up an item")
+		}),
+		new Section(2, "ПОИСК И ФИЛЬТРЫ", "FINDING THINGS", new Entry[4]
 		{
 			new Entry("Ctrl+F", "Ctrl+F", "Поиск", "Search"),
-			new Entry("Ctrl+1…6", "Ctrl+1…6", "Переключить вкладку", "Switch tab"),
-			new Entry("Mouse3", "Mouse3", "Предмет → цепочки", "Item → chains"),
-			new Entry("Ctrl+Tab", "Ctrl+Tab", "Следующая вкладка", "Next tab"),
-			new Entry("PgUp / PgDn", "PgUp / PgDn", "Листать страницы", "Change page"),
-			new Entry("Home / End", "Home / End", "Первая / последняя", "First / last page"),
-			new Entry("Ctrl+Backspace", "Ctrl+Backspace", "Сброс поиска и фильтров*", "Reset search & filters*"),
-			new Entry("Alt+ЛКМ", "Alt+LMB", "Предмет в избранное", "Toggle item favorite"),
+			new Entry("Ctrl+Backspace", "Ctrl+Backspace", "Сбросить фильтры", "Reset filters"),
+			new Entry("Alt+1…4", "Alt+1…4", "Этап", "Stage"),
 			new Entry("F5", "F5", "Обновить", "Refresh")
-		}, 28),
-		new Section(new BookRect(BookGeometry.HelpPanel.X + 24f, BookGeometry.HelpPanel.Y + 360f, 468f, 176f), "РЕЦЕПТЫ И ЦЕПОЧКИ", "RECIPES & CHAINS", new Entry[5]
+		}),
+		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
 		{
-			new Entry("×1/×5/×10/Макс", "×1/×5/×10/Max", "Выбрать число партий", "Choose batch count"),
-			new Entry("Ctrl+Enter", "Ctrl+Enter", "Создать выбранные партии", "Craft chosen batches"),
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Рецепт → цепочка", "Recipe → chain"),
-			new Entry("ЛКМ", "LMB", "Материал → цепочка", "Ingredient → chain"),
-			new Entry("Mouse4 / Mouse5", "Mouse4 / Mouse5", "Назад / вперёд в цепочке", "Back / forward in chain")
-		}, 28),
-		new Section(new BookRect(BookGeometry.HelpPanel.X + 508f, BookGeometry.HelpPanel.Y + 64f, 468f, 472f), "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
-		{
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Стопка в инвентарь", "Stack to inventory"),
-			new Entry("ПКМ", "RMB", "Один предмет в инвентарь", "One item to inventory"),
-			new Entry("Ctrl+D", "Ctrl+D", "Положить с курсора", "Deposit cursor item"),
+			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack"),
+			new Entry("ПКМ", "RMB", "Взять одну", "Take one"),
+			new Entry("Ctrl+D", "Ctrl+D", "Положить с курсора", "Deposit held item"),
 			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack"),
 			new Entry("Ctrl+Shift+D", "Ctrl+Shift+D", "Сложить всё", "Deposit all"),
-			new Entry("Ctrl+R", "Ctrl+R", "Пополнить стопки", "Restock stacks")
-		}, 40)
+			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock")
+		}, StorageOnly: true)
 	};
 
-	internal static BookRect KeyRect(Section section, int row)
+	internal static BookRect Column(int column)
 	{
-		return new BookRect(section.Bounds.X + 16f, section.Bounds.Y + 36f + (float)(row * section.Step), 176f, 24f);
-	}
-
-	internal static BookRect LabelRect(Section section, int row)
-	{
-		BookRect key = KeyRect(section, row);
-		return new BookRect(key.X + key.Width + 12f, key.Y, section.Bounds.Width - 176f - 44f, 24f);
+		BookRect panel = BookGeometry.HelpPanel;
+		float width = (panel.Width - 48f - 32f * (Columns - 1)) / Columns;
+		return new BookRect(panel.X + 24f + (float)column * (width + 32f), panel.Y + 112f, width, panel.Height - 136f);
 	}
 }

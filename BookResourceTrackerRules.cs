@@ -6,8 +6,6 @@ namespace ModernRecipeBook;
 
 internal static class BookResourceTrackerRules
 {
-	internal const int PageSize = 8;
-
 	internal static string Key(bool storage, IEnumerable<int> types)
 	{
 		return (storage ? "storage:" : "inventory:") + BookTrackerRules.MaterialKey(types);
@@ -70,15 +68,5 @@ internal static class BookResourceTrackerRules
 			return rows.All((BookResourceProgress r) => r.Met);
 		}
 		return false;
-	}
-
-	internal static int PageCount(int rows)
-	{
-		return Math.Max(1, (rows + 8 - 1) / 8);
-	}
-
-	internal static int Height(int rows)
-	{
-		return 36 + Math.Min(8, Math.Max(1, rows)) * 26 + ((rows > 8) ? 24 : 0);
 	}
 }

@@ -9,29 +9,43 @@ internal static class BookHotkeys
 		None,
 		Help,
 		Search,
-		Items,
-		Recipes,
-		Chains,
-		Storage,
-		Recent,
-		Tracking,
+		Tab1,
+		Tab2,
+		Tab3,
+		Tab4,
+		Tab5,
 		NextTab,
 		PreviousTab,
 		ResetFilters,
 		Craft,
+		CraftMax,
+		ToggleTrack,
+		ToggleFavorite,
+		HowToGet,
+		ToggleUsedIn,
+		Stage1,
+		Stage2,
+		Stage3,
+		Stage4,
+		MoveLeft,
+		MoveRight,
+		MoveUp,
+		MoveDown,
 		DepositCursor,
 		DepositAll,
 		QuickStack,
 		Restock,
 		Refresh,
-		ChainBack,
+		Back,
+		Forward,
 		PagePrevious,
 		PageNext,
 		FirstPage,
 		LastPage
 	}
 
-	internal static Action Read(KeyboardState keys, KeyboardState previous, bool typing, bool blocked, bool nativeInput, bool help, bool menu, bool storage, bool chains)
+		// arrows: the arrow keys are not bound to a game control, so they can move the grid selection.
+	internal static Action Read(KeyboardState keys, KeyboardState previous, bool typing, bool blocked, bool nativeInput, bool help, bool menu, bool storage, bool arrows)
 	{
 		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
 		bool shift = keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift);
@@ -54,29 +68,26 @@ internal static class BookHotkeys
 			{
 				return Action.Search;
 			}
+			// Ctrl+N opens the N-th visible tab, the number its tooltip shows.
 			if (Press(Keys.D1))
 			{
-				return Action.Items;
+				return Action.Tab1;
 			}
 			if (Press(Keys.D2))
 			{
-				return Action.Recipes;
+				return Action.Tab2;
 			}
 			if (Press(Keys.D3))
 			{
-				return Action.Chains;
+				return Action.Tab3;
 			}
 			if (Press(Keys.D4))
 			{
-				return Action.Storage;
+				return Action.Tab4;
 			}
 			if (Press(Keys.D5))
 			{
-				return Action.Recent;
-			}
-			if (Press(Keys.D6))
-			{
-				return Action.Tracking;
+				return Action.Tab5;
 			}
 			if (Press(Keys.Tab))
 			{
@@ -99,7 +110,7 @@ internal static class BookHotkeys
 			}
 			if (!storage && Press(Keys.Enter))
 			{
-				return Action.Craft;
+				return shift ? Action.CraftMax : Action.Craft;
 			}
 			if (storage)
 			{
@@ -125,9 +136,69 @@ internal static class BookHotkeys
 		{
 			return Action.Refresh;
 		}
-		if (((alt && !ctrl) & chains) && Press(Keys.Left))
+		// Alt+letter acts on the item in the card; Alt+1..4 picks the stage. Plain letters would also reach the
+		// game (T throws the held item), Alt keeps them to the book.
+		if (alt && !ctrl && !shift)
 		{
-			return Action.ChainBack;
+			if (Press(Keys.T))
+			{
+				return Action.ToggleTrack;
+			}
+			if (Press(Keys.F))
+			{
+				return Action.ToggleFavorite;
+			}
+			if (Press(Keys.G))
+			{
+				return Action.HowToGet;
+			}
+			if (Press(Keys.U))
+			{
+				return Action.ToggleUsedIn;
+			}
+			if (Press(Keys.D1))
+			{
+				return Action.Stage1;
+			}
+			if (Press(Keys.D2))
+			{
+				return Action.Stage2;
+			}
+			if (Press(Keys.D3))
+			{
+				return Action.Stage3;
+			}
+			if (Press(Keys.D4))
+			{
+				return Action.Stage4;
+			}
+		}
+		if (arrows && !ctrl && !alt && !shift)
+		{
+			if (Press(Keys.Left))
+			{
+				return Action.MoveLeft;
+			}
+			if (Press(Keys.Right))
+			{
+				return Action.MoveRight;
+			}
+			if (Press(Keys.Up))
+			{
+				return Action.MoveUp;
+			}
+			if (Press(Keys.Down))
+			{
+				return Action.MoveDown;
+			}
+		}
+		if (alt && !ctrl && Press(Keys.Left))
+		{
+			return Action.Back;
+		}
+		if (alt && !ctrl && Press(Keys.Right))
+		{
+			return Action.Forward;
 		}
 		if (!ctrl && !alt)
 		{
