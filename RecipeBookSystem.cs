@@ -2747,8 +2747,10 @@ public sealed class RecipeBookSystem : ModSystem
 		return builtIn.Concat(ModContent.GetContent<InfoDisplay>()).Distinct().Count((InfoDisplay d) => InfoDisplayLoader.Active(d) && (d.Type >= hidden.Length || !hidden[d.Type]));
 	}
 
-	// One line as Main.DrawInfoAccs draws it: icon in the 20 px column, MouseText at scale 1 pulsing with
-	// mouseTextColor, a 2 px black shadow on four sides. A long name is shortened, the count always stays whole.
+	// One line exactly as Main.DrawInfoAccs draws it: the icon's box at (x, line top + 4), the text at x + 20 with a
+	// 2 px black shadow on four sides, in MouseText pulsing with mouseTextColor, squeezed horizontally (never cut)
+	// when wider than the column. Item sprites are not the game's 20x20 info icons: they fit the same box, left edge
+	// on the column, centred in its height.
 	private static void DrawInfoLine(SpriteBatch sb, Item icon, string name, string value, int x, int y, float maxWidth, Color tint, float fade)
 	{
 		DynamicSpriteFont font = FontAssets.MouseText.Value;
@@ -2758,18 +2760,19 @@ public sealed class RecipeBookSystem : ModSystem
 			Texture2D texture = TextureAssets.Item[icon.type].Value;
 			Rectangle frame = Main.itemAnimations[icon.type]?.GetFrame(texture) ?? texture.Bounds;
 			float scale = Math.Min(1f, 20f / (float)Math.Max(frame.Width, frame.Height));
-			sb.Draw(texture, new Vector2(x + 10, y + 14), frame, Color.White * fade, 0f, frame.Size() / 2f, scale, SpriteEffects.None, 0f);
-		}
-		float valueWidth = font.MeasureString(value).X;
-		if (font.MeasureString(name).X + valueWidth > maxWidth)
-		{
-			while (name.Length > 1 && font.MeasureString(name + "...").X + valueWidth > maxWidth)
-			{
-				name = name.Substring(0, name.Length - 1);
-			}
-			name = name.TrimEnd() + "...";
+			sb.Draw(texture, new Vector2(x, y + 14), frame, Color.White * fade, 0f, new Vector2(0f, frame.Height / 2f), scale, SpriteEffects.None, 0f);
 		}
 		string text = name + value;
+		Vector2 textScale = Vector2.One;
+		float width = font.MeasureString(text).X;
+		if (width > maxWidth)
+		{
+			textScale.X = maxWidth / width;
+		}
+		if (textScale.X < 0.58f)
+		{
+			textScale.Y = 1f - textScale.X / 3f;
+		}
 		float pulse = (float)(int)Main.mouseTextColor / 255f;
 		Color color = new Color((int)((float)(int)tint.R * pulse), (int)((float)(int)tint.G * pulse), (int)((float)(int)tint.B * pulse), (int)Main.mouseTextColor) * fade;
 		Vector2 position = new Vector2(x + 20, y);
@@ -2782,9 +2785,9 @@ public sealed class RecipeBookSystem : ModSystem
 		};
 		foreach (Vector2 offset in shadow)
 		{
-			sb.DrawString(font, text, position + offset, Color.Black * fade, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+			sb.DrawString(font, text, position + offset, Color.Black * fade, 0f, Vector2.Zero, textScale, SpriteEffects.None, 0f);
 		}
-		sb.DrawString(font, text, position, color, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+		sb.DrawString(font, text, position, color, 0f, Vector2.Zero, textScale, SpriteEffects.None, 0f);
 	}
 
 	private static TrackedGoal SelectedTrackingGoal()
