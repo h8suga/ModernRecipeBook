@@ -122,7 +122,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect Search => new BookRect(212f, 76f, 240f, 36f);
 
-	internal static BookRect SearchText => new BookRect(224f, 80f, 188f, 28f);
+	internal static BookRect SearchText => new BookRect(246f, 80f, 168f, 28f);
 
 	internal static BookRect SearchClear => new BookRect(420f, 80f, 28f, 28f);
 

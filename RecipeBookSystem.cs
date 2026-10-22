@@ -1143,11 +1143,11 @@ public sealed class RecipeBookSystem : ModSystem
 			Box(sb, rect, active ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
 			Item part = ContentSamples.ItemsByType[choices[slot]];
 			Icon(sb, part, rect.X + (rect.Width - 28f) / 2f, rect.Y + 6f, 28f, tooltip: false);
-			CenterLabel(sb, T("Защита ", "Defense ") + part.defense, rect.X + 4f, rect.Y + 36f, rect.Width - 8f, 16f, active ? Accent : Muted, 0.8f);
+			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 36f, part.defense, active ? Accent : Muted);
 			if (hover)
 			{
 				string action = active ? ((set.Parts[slot].Length > 1) ? T("Клик: следующий вариант", "Click: next variant") : "") : T("Клик: показать эту часть", "Click: show this piece");
-				MouseTip(part.Name + ((action.Length > 0) ? ("\n" + action) : ""));
+				MouseTip(part.Name + " · " + T("защита ", "defense ") + part.defense + ((action.Length > 0) ? ("\n" + action) : ""));
 			}
 		}
 		return true;
@@ -4760,6 +4760,32 @@ public sealed class RecipeBookSystem : ModSystem
 		Line(sb, cx, cy - size, cx, cy + size, color);
 	}
 
+	// Search glyph: an octagon lens and a handle.
+	private static void Magnifier(SpriteBatch sb, float cx, float cy, Color color)
+	{
+		float x = cx - 1.5f;
+		float y = cy - 1.5f;
+		for (int i = 0; i < 8; i++)
+		{
+			double a = Math.PI / 4.0 * i + Math.PI / 8.0;
+			double b = Math.PI / 4.0 * (i + 1) + Math.PI / 8.0;
+			Line(sb, x + (float)Math.Cos(a) * 5f, y + (float)Math.Sin(a) * 5f, x + (float)Math.Cos(b) * 5f, y + (float)Math.Sin(b) * 5f, color);
+		}
+		Line(sb, x + 3.5f, y + 3.5f, x + 7.5f, y + 7.5f, color);
+	}
+
+	// Vanilla's defense shield followed by the number, as in the inventory.
+	private static void DefenseBadge(SpriteBatch sb, float centerX, float y, int defense, Color color)
+	{
+		string value = defense.ToString();
+		float width = TextWidth(value, 0.8f) + 4f;
+		float left = centerX - (16f + 4f + width) / 2f;
+		Texture2D shield = TextureAssets.Extra[58].Value;
+		float scale = 16f / Math.Max(shield.Width, shield.Height);
+		sb.Draw(shield, Origin + new Vector2(left + 8f, y + 8f) * Scale, null, Color.White * GraphicsOpacity, 0f, shield.Size() / 2f, scale * Scale, SpriteEffects.None, 0f);
+		CenterLabel(sb, value, left + 20f, y, width, 16f, color, 0.8f, rightAligned: false, leftAligned: true);
+	}
+
 	// Favorite marker: the Fallen Star icon, dimmed when off.
 	private static void Star(SpriteBatch sb, float x, float y, float size, bool on)
 	{
@@ -5516,8 +5542,9 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		BookRect search = BookGeometry.Search;
 		Box(sb, search, Typing ? new Color(35, 51, 40) : FieldFill, border: true, 8f, Typing ? new Color?(Accent) : null, (!Typing) ? 1 : 2);
+		Magnifier(sb, search.X + 20f, search.Y + search.Height / 2f, (Typing || Query.Length > 0) ? TextColor : Muted);
 		BookRect searchText = BookGeometry.SearchText;
-		string shown = ((Query.Length > 0) ? (Query + ((Typing && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Название, ID или мод", "Search name, ID or mod"));
+		string shown = ((Query.Length > 0) ? (Query + ((Typing && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Имя, ID или мод", "Name, ID or mod"));
 		CenterLabel(sb, shown, searchText.X, searchText.Y, searchText.Width, searchText.Height, (Query.Length > 0) ? TextColor : Muted, 0.85f, rightAligned: false, leftAligned: true);
 		BookRect clear = BookGeometry.SearchClear;
 		bool overClear = Query.Length > 0 && !MenuOpen && clear.Contains(Mouse.X, Mouse.Y);
