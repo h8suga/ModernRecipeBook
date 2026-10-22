@@ -54,14 +54,15 @@ internal static class BookHelp
 			new Entry("Alt+1…4", "Alt+1…4", "Этап", "Stage"),
 			new Entry("F5", "F5", "Обновить", "Refresh")
 		}),
-		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
+		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[7]
 		{
 			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack"),
 			new Entry("ПКМ", "RMB", "Взять одну", "Take one"),
 			new Entry("Ctrl+D", "Ctrl+D", "Положить с курсора", "Deposit held item"),
 			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack"),
 			new Entry("Ctrl+Shift+D", "Ctrl+Shift+D", "Сложить всё", "Deposit all"),
-			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock")
+			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock"),
+			new Entry("F5", "F5", "Перечитать", "Reload storage")
 		}, StorageOnly: true)
 	};
 
