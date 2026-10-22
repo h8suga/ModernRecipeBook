@@ -804,7 +804,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionKind.Record => T("Запись", "Recording"),
 			BookAcquisitionKind.Plant => T("Растение", "Plant"),
 			BookAcquisitionKind.Tree => T("Дерево", "Tree"),
-			BookAcquisitionKind.Mining => T("Раскопки", "Mining"),
+			BookAcquisitionKind.Mining => T("Копание", "Mining"),
 			BookAcquisitionKind.Fishing => T("Рыбалка", "Fishing"),
 			BookAcquisitionKind.Chest => T("Сундук", "Chest"),
 			BookAcquisitionKind.World => T("Мир", "World"),
