@@ -2838,9 +2838,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (TrackingGoalPages > 1)
 		{
-			Button(sb, BookGeometry.TrackingPrevious, "<");
-			Button(sb, BookGeometry.TrackingNext, ">");
-			Label(sb, BookGeometry.TrackingPager, Page + 1 + " / " + TrackingGoalPages, Muted, 0.85f);
+			ChevronPager(sb, BookGeometry.TrackingPrevious, BookGeometry.TrackingNext, BookGeometry.TrackingPager, Page, TrackingGoalPages);
 		}
 		DrawSelectedTrackingGoal(sb, selected);
 	}
@@ -2901,9 +2899,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (pages.Count > 1)
 		{
-			Button(sb, BookGeometry.TrackingDetailPrevious, "<");
-			Button(sb, BookGeometry.TrackingDetailNext, ">");
-			Label(sb, BookGeometry.TrackingDetailPager, goal.ResourcePage + 1 + " / " + pages.Count, Muted, 0.85f);
+			ChevronPager(sb, BookGeometry.TrackingDetailPrevious, BookGeometry.TrackingDetailNext, BookGeometry.TrackingDetailPager, goal.ResourcePage, pages.Count);
 		}
 		DestructiveButton(sb, BookGeometry.TrackingRemove, T("Не отслеживать", "Untrack"));
 	}
@@ -5231,15 +5227,6 @@ public sealed class RecipeBookSystem : ModSystem
 		return list;
 	}
 
-	private static string[] UsedInFilterLabels()
-	{
-		return new string[2]
-		{
-			T("Все", "All"),
-			T("Можно создать", "Craftable")
-		};
-	}
-
 	private static MaterialPreview PreviewMaterials(Recipe recipe)
 	{
 		int batches = PreviewBatchCount(recipe);
@@ -5905,7 +5892,7 @@ public sealed class RecipeBookSystem : ModSystem
 		return new string[2]
 		{
 			T("Рецепт", "Recipe"),
-			T("Где используется", "Used in")
+			T("Применение", "Used in")
 		};
 	}
 
@@ -6001,9 +5988,10 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private const float UsedInRowStep = 44f;
 
-	private static BookRect[] UsedInFilterRects(float top)
+	private static BookRect UsedInCraftableToggle(float top)
 	{
-		return SegmentRects(new BookRect(812f, top, 284f, 24f), UsedInFilterLabels(), 0.8f, natural: true, alignRight: true);
+		float width = TextWidth(T("Можно создать", "Craftable"), 0.8f) + 24f;
+		return new BookRect(1096f - width, top, width, 24f);
 	}
 
 	private static BookRect UsedInRow(float top, int slot)
@@ -6025,13 +6013,14 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawUsedIn(SpriteBatch sb, Item chosen, float top)
 	{
 		UsedInView view = VisibleUsedIn(chosen.type);
-		BookRect[] filters = UsedInFilterRects(top);
-		SectionLabel(sb, T("Используется в", "Used in") + " · " + view.Rows.Count, 812f, top + 3f, filters[0].X - 820f);
-		Segmented(sb, filters, UsedInFilterLabels(), UsedInCraftableOnly ? 1 : 0, 0.8f);
-		int filterHover = MenuOpen ? (-1) : SegmentAt(filters);
-		if (filterHover >= 0)
+		BookRect toggle = UsedInCraftableToggle(top);
+		SectionLabel(sb, T("Используется в", "Used in") + " · " + view.Rows.Count, 812f, top + 3f, toggle.X - 820f);
+		bool toggleHover = !MenuOpen && toggle.Contains(Mouse.X, Mouse.Y);
+		Box(sb, toggle, UsedInCraftableOnly ? SelectedFill : (toggleHover ? HoverFill : Raised), border: true, 6f, UsedInCraftableOnly ? new Color?(Accent) : null);
+		CenterLabel(sb, T("Можно создать", "Craftable"), toggle.X + 6f, toggle.Y + 2f, toggle.Width - 12f, toggle.Height - 4f, UsedInCraftableOnly ? Accent : TextColor, 0.8f);
+		if (toggleHover)
 		{
-			MouseTip((filterHover == 0) ? T("Все рецепты с этим предметом", "Every recipe that uses this item") : T("Только то, что можно создать сейчас", "Only what you can craft right now"));
+			MouseTip(UsedInCraftableOnly ? T("Показать все рецепты", "Show every recipe") : T("Только то, что можно создать сейчас", "Only what you can craft right now"));
 		}
 		if (view.Rows.Count == 0)
 		{
@@ -6045,7 +6034,7 @@ public sealed class RecipeBookSystem : ModSystem
 			else if (view.StageHidden == 0)
 			{
 				title = T("Сейчас нечего создать", "Nothing to craft right now");
-				hint = T("«Все» покажет остальное", "All shows the rest");
+				hint = T("Снимите «Можно создать»", "Turn off Craftable");
 			}
 			else
 			{
@@ -6085,26 +6074,29 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (pages > 1)
 		{
-			BookRect previous = BookGeometry.DetailListPrevious;
-			BookRect next = BookGeometry.DetailListNext;
-			IconButtonFrame(sb, previous, active: false, DetailsPage > 0);
-			Chevron(sb, previous.X + previous.Width / 2f - 1f, previous.Y + previous.Height / 2f, 4f, 2, (DetailsPage > 0) ? TextColor : Border);
-			IconButtonFrame(sb, next, active: false, DetailsPage < pages - 1);
-			Chevron(sb, next.X + next.Width / 2f + 1f, next.Y + next.Height / 2f, 4f, 3, (DetailsPage < pages - 1) ? TextColor : Border);
-			Label(sb, BookGeometry.DetailListPager, DetailsPage + 1 + " / " + pages, Muted, 0.85f);
-			if (!MenuOpen && (previous.Contains(Mouse.X, Mouse.Y) || next.Contains(Mouse.X, Mouse.Y)))
+			ChevronPager(sb, BookGeometry.DetailListPrevious, BookGeometry.DetailListNext, BookGeometry.DetailListPager, DetailsPage, pages);
+			if (!MenuOpen && (BookGeometry.DetailListPrevious.Contains(Mouse.X, Mouse.Y) || BookGeometry.DetailListNext.Contains(Mouse.X, Mouse.Y)))
 			{
 				MouseTip(T("Ещё рецепты · колесо мыши", "More recipes · Mouse wheel"));
 			}
 		}
 	}
 
+	// Previous / next icon buttons with "n / m" between them; an end that cannot move is disabled.
+	private static void ChevronPager(SpriteBatch sb, BookRect previous, BookRect next, BookRect label, int page, int pages)
+	{
+		IconButtonFrame(sb, previous, active: false, page > 0);
+		Chevron(sb, previous.X + previous.Width / 2f - 1f, previous.Y + previous.Height / 2f, 4f, 2, (page > 0) ? TextColor : Border);
+		IconButtonFrame(sb, next, active: false, page < pages - 1);
+		Chevron(sb, next.X + next.Width / 2f + 1f, next.Y + next.Height / 2f, 4f, 3, (page < pages - 1) ? TextColor : Border);
+		Label(sb, label, page + 1 + " / " + pages, Muted, 0.85f);
+	}
+
 	private static bool HandleUsedInClick(int type, float top)
 	{
-		int filter = SegmentAt(UsedInFilterRects(top));
-		if (filter >= 0)
+		if (UsedInCraftableToggle(top).Contains(Mouse.X, Mouse.Y))
 		{
-			UsedInCraftableOnly = filter == 1;
+			UsedInCraftableOnly = !UsedInCraftableOnly;
 			if (UsedInCraftableOnly)
 			{
 				BookCrafting.Refresh(force: true);

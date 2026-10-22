@@ -70,7 +70,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		}
 	}
 
-	internal static BookRect TrackingPanel => new BookRect(12f, 92f, 768f, 548f);
+	internal static BookRect TrackingPanel => new BookRect(8f, 76f, 772f, 564f);
 
 	internal static BookRect TrackingClear => new BookRect(TrackingPanel.X + TrackingPanel.Width - 16f - 160f, TrackingPanel.Y + 12f, 160f, 32f);
 

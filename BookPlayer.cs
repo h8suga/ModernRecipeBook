@@ -44,10 +44,11 @@ public sealed class BookPlayer : ModPlayer
 			DigitFromCtrl = false;
 			return;
 		}
-		// Ctrl+1..6 switches book tabs. Vanilla picks a hotbar slot while a digit is held, so a digit pressed
-		// with Ctrl stays blocked until it is released, even when Ctrl is let go first.
+		// Ctrl+1..5 switches book tabs. Vanilla picks a hotbar slot while a digit is held, so a digit pressed
+		// with Ctrl stays blocked until it is released, even when Ctrl is let go first. The hotbar triggers can
+		// lag the live keyboard by an update, so the digit counts as held while either still shows it.
 		KeyboardState keys = Keyboard.GetState();
-		bool digit = HotbarDigits.Any(keys.IsKeyDown);
+		bool digit = HotbarDigits.Any(keys.IsKeyDown) || HotbarTriggerHeld();
 		DigitFromCtrl = digit && (DigitFromCtrl || keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl));
 		if (DigitFromCtrl)
 		{
@@ -90,6 +91,18 @@ public sealed class BookPlayer : ModPlayer
 	private static readonly Keys[] HotbarDigits = new Keys[10] { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.D0 };
 
 	private static bool DigitFromCtrl;
+
+	private static bool HotbarTriggerHeld()
+	{
+		for (int slot = 1; slot <= 10; slot++)
+		{
+			if (PlayerInput.Triggers.Current.KeyStatus.TryGetValue("Hotbar" + slot, out var held) && held)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 
 	private static void BlockHotbarTriggers()
 	{
