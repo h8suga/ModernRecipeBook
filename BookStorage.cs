@@ -80,8 +80,6 @@ public sealed class BookStorage : ModSystem
 
 	private static readonly BookStorageSnapshot DisplayMaterials = new BookStorageSnapshot();
 
-	private static bool AutoSuppressed;
-
 	private static int AutoDelay;
 
 	internal static string Message = "";
@@ -294,25 +292,16 @@ public sealed class BookStorage : ModSystem
 		}
 	}
 
-	internal static string ConnectionDetails
+	// The name the player gave the Storage Heart, if any.
+	internal static string NetworkName
 	{
 		get
 		{
-			if (!Connected)
+			if (!Connected || LastHeart == null)
 			{
-				return ConnectionStatus + ((Message.Length > 0) ? ("\n" + Message) : "");
+				return "";
 			}
-			string text = ConnectionStatus + "\n" + AccessName + "\n" + AccessCoordinates;
-			string network = ((LastHeart == null) ? null : (StorageNameField.GetValue(LastHeart) as string));
-			if (!string.IsNullOrWhiteSpace(network))
-			{
-				text = text + "\n" + T("Сеть: ", "Network: ") + network;
-			}
-			if (Message.Length > 0)
-			{
-				text = text + "\n" + Message;
-			}
-			return text;
+			return ((StorageNameField.GetValue(LastHeart) as string) ?? "").Trim();
 		}
 	}
 
@@ -555,19 +544,30 @@ public sealed class BookStorage : ModSystem
 			bool crafting = connected && (bool)Call("craftUI", null);
 			if (connected != Connected || crafting != CraftingConnected || access != LastAccess || heart != LastHeart)
 			{
+				// Another access point of the same network keeps what was read from it (no blink while walking along
+				// it); a new network or a lost connection starts over.
+				bool sameStorage = connected && Connected && heart == LastHeart;
+				bool keepCounts = sameStorage && crafting && CraftingConnected;
 				Connected = connected;
 				CraftingConnected = crafting;
 				LastAccess = access;
 				LastHeart = heart;
-				Items.Clear();
-				ItemsVersion++;
-				DisplayMaterials.Clear();
+				if (!sameStorage)
+				{
+					Items.Clear();
+					ItemsVersion++;
+					ItemsSignature = 0;
+					Message = "";
+					Availability.Clear();
+				}
+				if (!keepCounts)
+				{
+					DisplayMaterials.Clear();
+				}
 				PendingCraft = null;
 				PendingBatches = 1;
-				Message = "";
 				CraftCacheReady = false;
 				NativeUpdated = false;
-				Availability.Clear();
 				WaitingTicks = 0;
 				PreferInventory &= crafting;
 				Invalidate();
@@ -941,7 +941,6 @@ public sealed class BookStorage : ModSystem
 			{
 				Fail(error);
 			}
-			AutoSuppressed = true;
 			Connected = (CraftingConnected = false);
 			Items.Clear();
 			ItemsVersion++;
@@ -952,6 +951,231 @@ public sealed class BookStorage : ModSystem
 		}
 	}
 
+	// MS access points (Storage Access, Heart, Remote Access, Crafting Interface) linked to a heart, within radius tiles
+	// of the player. InReach is MS's own rule for keeping a session open (StoragePlayer.ResetEffects); Locked means
+	// the network wants a password from this player.
+	private static List<(ModTile Tile, int X, int Y, bool Craft, int Distance, bool InReach, bool Locked, object Heart)> AccessPoints(int radius)
+	{
+		Player player = Main.LocalPlayer;
+		int px = (int)(player.Center.X / 16f);
+		int py = (int)(player.Center.Y / 16f);
+		int rx = Math.Clamp(player.lastTileRangeX, 0, 40);
+		int ry = Math.Clamp(player.lastTileRangeY, 0, 40);
+		List<(ModTile, int, int, bool, int, bool, bool, object)> points = new List<(ModTile, int, int, bool, int, bool, bool, object)>();
+		for (int x = Math.Max(0, px - radius); x <= Math.Min(Main.maxTilesX - 1, px + radius); x++)
+		{
+			for (int y = Math.Max(0, py - radius); y <= Math.Min(Main.maxTilesY - 1, py + radius); y++)
+			{
+				Tile tile = Main.tile[x, y];
+				if (!tile.HasTile || tile.TileFrameX % 36 != 0 || tile.TileFrameY % 36 != 0)
+				{
+					continue;
+				}
+				ModTile modTile = TileLoader.GetTile(tile.TileType);
+				if (modTile?.Mod != OwnerMod || !(modTile.Name is "CraftingAccess" or "StorageAccess" or "StorageHeart" or "RemoteAccess"))
+				{
+					continue;
+				}
+				object heart = Call("accessHeart", modTile, x, y);
+				if (heart != null)
+				{
+					bool inReach = px >= x - rx && px <= x + rx + 1 && py >= y - ry && py <= y + ry + 1;
+					points.Add((modTile, x, y, modTile.Name == "CraftingAccess", (x + 1 - px) * (x + 1 - px) + (y + 1 - py) * (y + 1 - py), inReach, !(bool)Call("heartPermission", heart), heart));
+				}
+			}
+		}
+		return points;
+	}
+
+	internal readonly record struct NearbyPoint(string Name, int Tiles, bool InReach, bool Locked);
+
+	private static NearbyPoint? NearestPoint;
+
+	private static uint NearestUpdate;
+
+	// What the disconnected Storage tab names: the point Connect would use (in reach, Crafting Interface first), else
+	// the nearest one within 50 tiles. Rescanned at most twice a second, only while something asks.
+	internal static NearbyPoint? Nearest
+	{
+		get
+		{
+			if (!Supported || Main.gameMenu)
+			{
+				return null;
+			}
+			if (Main.GameUpdateCount - NearestUpdate >= 30 || Main.GameUpdateCount < NearestUpdate)
+			{
+				NearestUpdate = Main.GameUpdateCount;
+				try
+				{
+					var best = (from point in AccessPoints(50)
+						orderby point.InReach descending, point.InReach && point.Craft descending, point.Distance
+						select point).FirstOrDefault();
+					NearestPoint = ((best.Tile == null) ? null : new NearbyPoint?(new NearbyPoint(BookStoragePresentation.Access(best.Tile.Name, best.Craft, Ru), (int)Math.Round(Math.Sqrt(best.Distance)), best.InReach, best.Locked)));
+				}
+				catch (Exception error)
+				{
+					Fail(error);
+					NearestPoint = null;
+				}
+			}
+			return NearestPoint;
+		}
+	}
+
+	internal static bool CanConnect
+	{
+		get
+		{
+			if (!Connected)
+			{
+				return Nearest?.InReach ?? false;
+			}
+			return false;
+		}
+	}
+
+	internal static string NearbyText
+	{
+		get
+		{
+			NearbyPoint? point = Nearest;
+			return BookStoragePresentation.Nearby(point?.Name, point?.Tiles ?? 0, point?.InReach ?? false, point?.Locked ?? false, Ru);
+		}
+	}
+
+	// The player turned automatic connection off in the config: the Storage tab shows Connect / Disconnect.
+	internal static bool Manual => !(ModContent.GetInstance<BookStorageConfig>()?.AutoConnect ?? true);
+
+	// Automatic connection waits while a chest, sign or NPC dialog is open (opening MS would close it).
+	internal static bool Paused { get; private set; }
+
+	// The only access point in reach belongs to a network that wants a password.
+	internal static bool NeedsPassword
+	{
+		get
+		{
+			if (!Connected && (Nearest?.InReach ?? false))
+			{
+				return Nearest.Value.Locked;
+			}
+			return false;
+		}
+	}
+
+	// Tiles from the player to the connected access point.
+	internal static int ConnectedTiles
+	{
+		get
+		{
+			if (!Connected)
+			{
+				return 0;
+			}
+			// Same measure as AccessPoints: the player's tile to the access point's centre tile.
+			int dx = LastAccess.X + 1 - (int)(Main.LocalPlayer.Center.X / 16f);
+			int dy = LastAccess.Y + 1 - (int)(Main.LocalPlayer.Center.Y / 16f);
+			return (int)Math.Round(Math.Sqrt(dx * dx + dy * dy));
+		}
+	}
+
+	private const int ScanEvery = 20;
+
+	private const int SwitchAfter = 40;
+
+	private static int SwitchTicks;
+
+	// One entry per network (Storage Heart) the player can use, with its best access point in reach (a Crafting
+	// Interface first, then the nearest). Sorted the same way: the first entry is what auto-connect picks.
+	internal readonly record struct NetworkChoice(object Heart, string Name, string Access, bool Craft, int Tiles, Point16 Point);
+
+	private static readonly List<NetworkChoice> NetworkList = new List<NetworkChoice>();
+
+	internal static IReadOnlyList<NetworkChoice> Networks => NetworkList;
+
+	// The network the player picked in the Storage tab; it sticks while it stays in reach.
+	private static object PickedHeart;
+
+	internal static bool IsCurrent(NetworkChoice network)
+	{
+		if (Connected)
+		{
+			return network.Heart == LastHeart;
+		}
+		return false;
+	}
+
+	private static void ScanNetworks()
+	{
+		NetworkList.Clear();
+		Player player = Main.LocalPlayer;
+		int reach = Math.Max(Math.Clamp(player.lastTileRangeX, 0, 40), Math.Clamp(player.lastTileRangeY, 0, 40)) + 2;
+		var best = (from point in AccessPoints(reach)
+			where point.InReach && !point.Locked
+			orderby point.Craft descending, point.Distance
+			group point by point.Heart into network
+			select network.First()).ToList();
+		// Unnamed networks are numbered by where their heart is, so the numbers stay put while the player moves.
+		List<object> byPlace = (from point in best
+			orderby ((TileEntity)point.Heart).Position.X, ((TileEntity)point.Heart).Position.Y
+			select point.Heart).ToList();
+		foreach (var point in best.OrderByDescending(p => p.Craft).ThenBy(p => p.Distance))
+		{
+			string name = ((StorageNameField.GetValue(point.Heart) as string) ?? "").Trim();
+			if (name.Length == 0)
+			{
+				name = T("Сеть ", "Network ") + (byPlace.IndexOf(point.Heart) + 1);
+			}
+			NetworkList.Add(new NetworkChoice(point.Heart, name, BookStoragePresentation.Access(point.Tile.Name, point.Craft, Ru), point.Craft, (int)Math.Round(Math.Sqrt(point.Distance)), new Point16(point.X, point.Y)));
+		}
+	}
+
+	// Picking a network in the Storage tab connects to it at once; auto-connect then keeps it while it is in reach.
+	internal static void PickNetwork(NetworkChoice network)
+	{
+		if (!Supported || !NetworkList.Contains(network))
+		{
+			return;
+		}
+		PickedHeart = network.Heart;
+		SwitchTicks = 0;
+		try
+		{
+			if (network.Heart != LastHeart || !Connected)
+			{
+				Open(network.Point.X, network.Point.Y);
+				Tick();
+			}
+		}
+		catch (Exception error)
+		{
+			Fail(error);
+		}
+	}
+
+	// Best access point in reach: a Crafting Interface first (crafting from storage needs one), then the nearest.
+	private static (int X, int Y, bool Craft, int Distance, object Heart)? BestInReach(bool allowLocked)
+	{
+		Player player = Main.LocalPlayer;
+		int reach = Math.Max(Math.Clamp(player.lastTileRangeX, 0, 40), Math.Clamp(player.lastTileRangeY, 0, 40)) + 2;
+		var best = (from point in AccessPoints(reach)
+			where point.InReach && (allowLocked || !point.Locked)
+			orderby point.Craft descending, point.Distance
+			select point).FirstOrDefault();
+		if (best.Tile == null)
+		{
+			return null;
+		}
+		return (best.X, best.Y, best.Craft, best.Distance, best.Heart);
+	}
+
+	// MS's own opening path (see "open" in PostSetupContent); the book remembers it opened this session.
+	private static void Open(int x, int y)
+	{
+		Call("open", null, Main.LocalPlayer, x, y, false);
+		BookOpened = new Point16(x, y);
+	}
+
 	internal static bool ConnectNearby(bool automatic = false)
 	{
 		if (!Supported || Main.gameMenu || !Main.LocalPlayer.active || Main.LocalPlayer.dead)
@@ -960,71 +1184,24 @@ public sealed class BookStorage : ModSystem
 		}
 		try
 		{
-			Player localPlayer = Main.LocalPlayer;
-			int px = (int)(localPlayer.Center.X / 16f);
-			int py = (int)(localPlayer.Center.Y / 16f);
-			int rx = Math.Clamp(localPlayer.lastTileRangeX, 0, 40);
-			int ry = Math.Clamp(localPlayer.lastTileRangeY, 0, 40);
-			List<(ModTile, int, int, bool, int)> points = new List<(ModTile, int, int, bool, int)>();
-			for (int x = Math.Max(0, px - rx); x <= Math.Min(Main.maxTilesX - 1, px + rx); x++)
+			(int X, int Y, bool Craft, int Distance, object Heart)? choice = BestInReach(!automatic);
+			if (!choice.HasValue)
 			{
-				for (int y = Math.Max(0, py - ry); y <= Math.Min(Main.maxTilesY - 1, py + ry); y++)
+				if (!automatic)
 				{
-					Tile tile = Main.tile[x, y];
-					if (!tile.HasTile || tile.TileFrameX % 36 != 0 || tile.TileFrameY % 36 != 0)
-					{
-						continue;
-					}
-					ModTile modTile = TileLoader.GetTile(tile.TileType);
-					if (modTile?.Mod != OwnerMod)
-					{
-						continue;
-					}
-					string name = modTile.Name;
-					bool flag;
-					switch (name)
-					{
-					case "CraftingAccess":
-					case "StorageAccess":
-					case "StorageHeart":
-					case "RemoteAccess":
-						flag = true;
-						break;
-					default:
-						flag = false;
-						break;
-					}
-					if (flag && px >= x - rx && px <= x + rx + 1 && py >= y - ry && py <= y + ry + 1)
-					{
-						object candidateHeart = Call("accessHeart", modTile, x, y);
-						if (candidateHeart != null && (!automatic || (bool)Call("heartPermission", candidateHeart)))
-						{
-							points.Add((modTile, x, y, name == "CraftingAccess", (x - px) * (x - px) + (y - py) * (y - py)));
-						}
-					}
+					Message = T("Рядом нет точки доступа", "No access point nearby");
 				}
-			}
-			(ModTile, int, int, bool, int) choice = points.OrderByDescending(((ModTile Tile, int X, int Y, bool Craft, int Distance) point) => point.Craft).ThenBy(((ModTile Tile, int X, int Y, bool Craft, int Distance) point) => point.Distance).FirstOrDefault();
-			if (choice.Item1 == null)
-			{
-				if (automatic)
-				{
-					return false;
-				}
-				Message = T("Рядом нет точки доступа", "No access point nearby");
 				return false;
 			}
-			if ((Point16)Call("access", Player) == new Point16(choice.Item2, choice.Item3))
+			if ((Point16)Call("access", Player) == new Point16(choice.Value.X, choice.Value.Y))
 			{
 				RefreshStorage();
 				return false;
 			}
-			Call("open", null, Main.LocalPlayer, choice.Item2, choice.Item3, false);
-			BookOpened = new Point16(choice.Item2, choice.Item3);
-			Message = T("Подключение… подтвердите в Magic Storage", "Connecting… approve in Magic Storage");
+			Open(choice.Value.X, choice.Value.Y);
 			if (!automatic)
 			{
-				AutoSuppressed = false;
+				Message = T("Подключение… подтвердите в Magic Storage", "Connecting… approve in Magic Storage");
 				Invalidate();
 				Tick();
 			}
@@ -1039,8 +1216,8 @@ public sealed class BookStorage : ModSystem
 
 	internal static void OnBookOpened()
 	{
-		AutoSuppressed = (PreferInventory = false);
-		AutoDelay = 0;
+		PreferInventory = false;
+		AutoDelay = (SwitchTicks = 0);
 		UpdateBookConnection();
 	}
 
@@ -1052,20 +1229,77 @@ public sealed class BookStorage : ModSystem
 
 	internal static void UpdateBookConnection()
 	{
-		Tick();
-		if (!Supported || !RecipeBookSystem.Open || Main.gameMenu || !Main.LocalPlayer.active || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
+		if (Supported && RecipeBookSystem.Open && !Main.gameMenu && Main.LocalPlayer.active && !Main.LocalPlayer.dead && !Main.LocalPlayer.ghost)
 		{
-			return;
-		}
-		if (!Connected && !AutoSuppressed && --AutoDelay <= 0)
-		{
-			AutoDelay = 60;
-			Point16 point = (Point16)Call("access", Player);
-			Player player = Main.LocalPlayer;
-			if (point.X < 0 && player.chest == -1 && player.sign < 0 && player.talkNPC < 0 && ConnectNearby(automatic: true))
+			if (!Manual)
 			{
-				Tick();
+				AutoConnect();
 			}
+			else if (--AutoDelay <= 0)
+			{
+				AutoDelay = ScanEvery;
+				try
+				{
+					ScanNetworks();
+				}
+				catch (Exception error)
+				{
+					Fail(error);
+				}
+			}
+		}
+		Tick();
+	}
+
+	// While the book is open it stays on a network in reach: the player's pick while it is in reach, otherwise the
+	// first of Networks (one with a Crafting Interface in reach first, then the nearest). Access points of one
+	// network are one network: the book only moves onto its Crafting Interface, or to another of its points when
+	// MS closes the current one (out of reach). That happens in the same update, before Tick reads the state, so
+	// walking along a network never shows "Not connected". Another network replaces the current one only when it
+	// offers a Crafting Interface the current lacks or is at least 2 tiles closer, and only once that held for
+	// SwitchAfter updates, so standing between two networks never flips. A session the player opened in the world
+	// is left alone, and a chest, sign or NPC dialog pauses it all (opening MS would close them).
+	private static void AutoConnect()
+	{
+		try
+		{
+			Point16 viewing = (Point16)Call("access", Player);
+			bool lost = Connected && viewing.X < 0;
+			if (--AutoDelay > 0 && !lost)
+			{
+				return;
+			}
+			AutoDelay = ScanEvery;
+			Player player = Main.LocalPlayer;
+			Paused = player.chest != -1 || player.sign >= 0 || player.talkNPC >= 0;
+			ScanNetworks();
+			if (PickedHeart != null && !NetworkList.Any((NetworkChoice n) => n.Heart == PickedHeart))
+			{
+				PickedHeart = null;
+			}
+			NetworkChoice target = ((PickedHeart != null) ? NetworkList.First((NetworkChoice n) => n.Heart == PickedHeart) : NetworkList.FirstOrDefault());
+			if (Paused || (viewing.X >= 0 && viewing != BookOpened) || target.Heart == null || target.Point == viewing)
+			{
+				SwitchTicks = 0;
+				return;
+			}
+			if (viewing.X < 0)
+			{
+				Open(target.Point.X, target.Point.Y);
+				return;
+			}
+			bool upgrade = target.Craft && !CraftingConnected;
+			bool better = (target.Heart == LastHeart) ? upgrade : (PickedHeart != null || upgrade || (target.Craft == CraftingConnected && target.Tiles + 2 <= ConnectedTiles));
+			SwitchTicks = (better ? (SwitchTicks + ScanEvery) : 0);
+			if (SwitchTicks >= SwitchAfter)
+			{
+				SwitchTicks = 0;
+				Open(target.Point.X, target.Point.Y);
+			}
+		}
+		catch (Exception error)
+		{
+			Fail(error);
 		}
 	}
 
@@ -1112,8 +1346,10 @@ public sealed class BookStorage : ModSystem
 	{
 		PendingCraft = null;
 		PendingBatches = 1;
-		Cooldown = (WaitingTicks = (ItemsSignature = 0));
+		Cooldown = (WaitingTicks = (ItemsSignature = (SwitchTicks = 0)));
 		PreferInventory = false;
+		PickedHeart = null;
+		NetworkList.Clear();
 		CraftCacheReady = (NativeUpdated = (LogNextRefresh = false));
 		RefreshRevision = 0;
 		Availability.Clear();
@@ -1124,7 +1360,6 @@ public sealed class BookStorage : ModSystem
 		ItemsVersion++;
 		DisplayMaterials.Clear();
 		Message = "";
-		AutoSuppressed = false;
 		AutoDelay = 0;
 		Invalidate();
 	}
