@@ -4881,6 +4881,7 @@ public sealed class RecipeBookSystem : ModSystem
 		CloseAcquisition();
 		Open = (MouseOver = (ModMenu = (HelpOpen = false)));
 		BookStorage.CancelCraft();
+		BookStorage.HandOff();
 	}
 
 	public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)

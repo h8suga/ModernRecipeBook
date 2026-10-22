@@ -80,6 +80,10 @@ public sealed class BookStorage : ModSystem
 
 	private static Point16 LastAccess = Point16.NegativeOne;
 
+	// The access point the book opened by itself. Closing the book closes that session again, so MS's own window
+	// does not pop up; sessions the player opened, and "Open Magic Storage", are left alone.
+	private static Point16 BookOpened = Point16.NegativeOne;
+
 	private static Mod OwnerMod;
 
 	private static object LastHeart;
@@ -998,6 +1002,7 @@ public sealed class BookStorage : ModSystem
 				return false;
 			}
 			Call("open", null, Main.LocalPlayer, choice.Item2, choice.Item3, false);
+			BookOpened = new Point16(choice.Item2, choice.Item3);
 			Message = T("Подключение… подтвердите в Magic Storage", "Connecting… approve in Magic Storage");
 			if (!automatic)
 			{
@@ -1057,6 +1062,35 @@ public sealed class BookStorage : ModSystem
 		}
 	}
 
+	// Runs after the UI and the player's key bindings and before drawing, so the session closes in the same update
+	// the book does, whichever way it was closed.
+	public override void PostUpdateEverything()
+	{
+		if (BookOpened.X < 0 || RecipeBookSystem.Open || !Supported)
+		{
+			return;
+		}
+		try
+		{
+			if ((Point16)Call("access", Player) == BookOpened)
+			{
+				Call("close", Player);
+				Recipe.FindRecipes();
+			}
+		}
+		catch (Exception error)
+		{
+			Fail(error);
+		}
+		BookOpened = Point16.NegativeOne;
+	}
+
+	// The player asked for MS's own window: keep the session the book opened.
+	internal static void HandOff()
+	{
+		BookOpened = Point16.NegativeOne;
+	}
+
 	internal static void CancelCraft()
 	{
 		if (PendingCraft != null)
@@ -1076,7 +1110,7 @@ public sealed class BookStorage : ModSystem
 		CraftCacheReady = (NativeUpdated = (WasBusy = (LogNextRefresh = false)));
 		RefreshRevision = (PendingRevision = 0);
 		Connected = (CraftingConnected = false);
-		LastAccess = Point16.NegativeOne;
+		LastAccess = (BookOpened = Point16.NegativeOne);
 		LastHeart = null;
 		Items.Clear();
 		ItemsVersion++;
