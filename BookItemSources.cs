@@ -162,17 +162,13 @@ internal static class BookItemSources
 		EnsureBuilt();
 		List<BookItemSource> sources = new List<BookItemSource>(byItem.GetValueOrDefault(type) ?? new List<BookItemSource>());
 		sources.AddRange(BookWorldSources.For(type));
-		// The curated "found in the world" list only speaks when nothing more precise does.
-		if (!sources.Any((BookItemSource s) => IsWorld(s.Kind)) && ContentSamples.ItemsByType.TryGetValue(type, out Item item) && item.ModItem == null && VanillaWorldItems.Contains(ItemID.Search.GetName(type) ?? ""))
+		// The curated "found in the world" list only speaks when nothing else explains the item (it also holds
+		// early monster materials, whose drops say more).
+		if (sources.Count == 0 && ContentSamples.ItemsByType.TryGetValue(type, out Item item) && item.ModItem == null && VanillaWorldItems.Contains(ItemID.Search.GetName(type) ?? ""))
 		{
 			sources.Add(new BookItemSource(BookAcquisitionKind.World, type) { From = type, Note = "world" });
 		}
 		return sources;
-	}
-
-	private static bool IsWorld(BookAcquisitionKind kind)
-	{
-		return kind is BookAcquisitionKind.Plant or BookAcquisitionKind.Tree or BookAcquisitionKind.Mining or BookAcquisitionKind.World or BookAcquisitionKind.Chest or BookAcquisitionKind.Fishing;
 	}
 
 	internal static bool IsCalamityWorldgen(Item item)

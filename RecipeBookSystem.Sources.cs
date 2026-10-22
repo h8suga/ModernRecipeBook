@@ -42,11 +42,27 @@ public sealed partial class RecipeBookSystem
 			let e = p.Entry
 			orderby IsNatural(e.Kind) ? 0 : 1, p.Index
 			group e by (e.Kind, e.ConditionLabel, e.Chance, e.Amount, Key: IsNatural(e.Kind) ? -1 : p.Index) into g
-			select g.Count() == 1 ? g.First() : g.First() with
+			select Places(g.Count() == 1 ? g.First() : g.First() with
 			{
 				Name = string.Join(", ", g.SelectMany((BookAcquisitionEntry x) => x.Name.Split(", ")).Distinct()),
 				Body = string.Join("\n", g.Select((BookAcquisitionEntry x) => x.Body).Where((string b) => b.Length > 0).Distinct())
-			}).ToList();
+			})).ToList();
+	}
+
+	// A title naming more than three places keeps the first three and a count; the tooltip lists them all.
+	private static BookAcquisitionEntry Places(BookAcquisitionEntry entry)
+	{
+		string[] places = entry.Name.Split(", ");
+		if (!IsNatural(entry.Kind) || places.Length <= 3)
+		{
+			return entry;
+		}
+		string all = T("Где: ", "Where: ") + entry.Name;
+		return entry with
+		{
+			Name = string.Join(", ", places.Take(3)) + string.Format(T(" и ещё {0}", " +{0}"), places.Length - 3),
+			Body = (entry.Body.Length > 0) ? (all + "\n" + entry.Body) : all
+		};
 	}
 
 	// Dev audit for the test stand: one TSV line per catalogue item (type, internal name, recipes, drops +
@@ -194,7 +210,9 @@ public sealed partial class RecipeBookSystem
 			}
 			break;
 		}
-		if (s.Kind == BookAcquisitionKind.Plant && !s.Note.StartsWith("bloom:", StringComparison.Ordinal) && s.Grounds.Length > 0 && s.Grounds.All(IsGrass))
+		bool grass = s.Grounds.Length > 0 && s.Grounds.All(IsGrass);
+		bool herb = s.Note.StartsWith("bloom:", StringComparison.Ordinal);
+		if (s.Kind == BookAcquisitionKind.Plant && grass && !herb)
 		{
 			parts.Insert(0, T("на траве", "on grass"));
 		}
@@ -202,9 +220,10 @@ public sealed partial class RecipeBookSystem
 		{
 			parts.Add(T("кирка ", "pickaxe ") + s.NoteValue + "%");
 		}
-		if (s.Grounds.Length > 0 && s.Kind == BookAcquisitionKind.Plant)
+		// The ground goes in the tooltip, unless the detail already says "on grass".
+		if (s.Grounds.Length > 0 && s.Kind == BookAcquisitionKind.Plant && (herb || !grass))
 		{
-			body = T("Растёт на: ", "Grows on: ") + string.Join(", ", s.Grounds.Select(GroundName).Distinct());
+			body = grass ? T("Растёт на траве", "Grows on grass") : (T("Растёт на: ", "Grows on: ") + string.Join(", ", s.Grounds.Select(GroundName).Distinct()));
 		}
 		if (where.Length == 0)
 		{

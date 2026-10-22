@@ -942,11 +942,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 					MouseTip(report);
 				}
 			}
-			else if (hover && source.Kind != BookAcquisitionKind.Craft)
+			else if (hover && source.Kind != BookAcquisitionKind.Craft && source.Body.Length > 0 && source.Body != source.ConditionLabel)
 			{
-				// Rows that open nothing still show their full text: title, detail, and what grows where.
-				string full = source.Name + "\n" + AcquisitionDetailText(group) + ((source.Body.Length > 0 && source.Body != source.ConditionLabel) ? ("\n" + source.Body) : "");
-				MouseTip(full);
+				// Rows that open nothing show what the row leaves out: every place, what it grows on.
+				MouseTip(source.Body);
 			}
 		}
 		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? T("Часть источников не прочитана", "Some sources could not be read") : "");
@@ -3440,12 +3439,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 	public override void OnWorldUnload()
 	{
 		ResetView();
+		// Tile drops read a little of the world (seed flags, time of day for herb seeds): read them again next world.
+		BookWorldSources.Clear();
 	}
 
 	public override void Unload()
 	{
 		BookSkin.Unload();
 		BookProgression.Clear();
+		BookItemSources.Clear();
 		BookArmorSets.Clear();
 		BookItemClasses.Clear();
 		ResetView();
