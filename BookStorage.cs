@@ -400,6 +400,9 @@ public sealed class BookStorage : ModSystem
 			Bind("withdraw", StorageType, "DoWithdraw", typeof(Item), typeof(bool), typeof(bool));
 			Bind("stored", Get("Components.TEStorageHeart"), "GetStoredItems");
 			Bind("accessHeart", Get("Components.StorageAccess"), "GetHeart", typeof(int), typeof(int));
+			// Where every access point's right-click ends up when the player holds no Locator; calling RightClick
+			// itself would re-link (or use up) a held Locator / Portable Access instead of opening the storage.
+			Bind("open", Get("Components.StorageAccess"), "OpenStorage", typeof(Player), typeof(int), typeof(int), typeof(bool));
 			Bind("heartPermission", Get("Components.TEStorageComponent"), "CanLocalClientAccess");
 			Type inventoryType = Get("Common.Systems.RecurrentRecipes.AvailableRecipeObjects");
 			Bind("enumerate", inventoryType, "EnumerateInventory");
@@ -994,7 +997,7 @@ public sealed class BookStorage : ModSystem
 				RefreshStorage();
 				return false;
 			}
-			choice.Item1.RightClick(choice.Item2, choice.Item3);
+			Call("open", null, Main.LocalPlayer, choice.Item2, choice.Item3, false);
 			Message = T("Подключение… подтвердите в Magic Storage", "Connecting… approve in Magic Storage");
 			if (!automatic)
 			{
