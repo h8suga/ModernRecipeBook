@@ -1,43 +1,43 @@
 Mods: {
 	ModernRecipeBook: {
 		Keybinds: {
-			ToggleBook.DisplayName: Open / close recipe book
-			ChainBack.DisplayName: Chain: back
-			ChainForward.DisplayName: Chain: forward
+			ToggleBook.DisplayName: Open Recipe Book
+			ChainBack.DisplayName: Chain Back
+			ChainForward.DisplayName: Chain Forward
 		}
 
 		Configs: {
 			BookConfig: {
-				DisplayName: Recipe Book — interface
+				DisplayName: Recipe Book
 
 				WindowScalePercent: {
-					Label: Window size, %
-					Tooltip: Default: 90%. Independent of Terraria UI scale. Automatically shrinks to fit smaller screens.
+					Label: Window Size (%)
+					Tooltip: Default 90%. Shrinks to fit small screens.
 				}
 
 				TextScalePercent: {
-					Label: Text size, %
-					Tooltip: Default: 100%. Changes text only, not the window, icons or hitboxes. Tight controls cap font size to their height. Long labels use an ellipsis; hover to read the full text.
+					Label: Text Size (%)
+					Tooltip: Default 100%. Changes text only, not the window.
 				}
 
 				InventoryAltRightClick: {
-					Label: Mouse3 — quick item search
-					Tooltip: Middle-click an item in any standard slot: inventory, chest, armor, accessories, vanity, dyes, banks, shops, Guide, reforge or materials. Custom mod windows are supported through tooltips when the mod exposes the hovered item to Terraria. No items are moved. Shift/Ctrl/Alt and gamepad remain untouched. Outside an item, Mouse3 toggles the book if assigned in Controls.
+					Label: Middle-Click Item Search
+					Tooltip: Middle-click an item in any slot to open it in the book. Elsewhere Mouse3 opens the book.
 				}
 
 				TrackerOpacityPercent: {
-					Label: Tracking panel opacity, %
-					Tooltip: Background of the cards panel. Text and icons stay opaque.
+					Label: Tracking Cards Opacity (%)
+					Tooltip: Background of the cards panel; text and icons stay solid.
 				}
 
 				TrackerScalePercent: {
-					Label: Tracking panel size, %
-					Tooltip: Cards panel only. The compact lines use the game's text size.
+					Label: Tracking Cards Size (%)
+					Tooltip: Cards panel only; compact lines use the game's text size.
 				}
 
 				ResourceOnlyTracker: {
-					Label: Compact tracking
-					Tooltip: Material lines under the minimap, like an info accessory. Off: cards, up to 5 goals; more stay compact.
+					Label: Tracking Overlay: Compact Lines
+					Tooltip: Material lines under the minimap, like an info accessory. Off: cards for up to 5 goals.
 				}
 			}
 		}

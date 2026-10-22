@@ -12,27 +12,27 @@ internal static class BookStoragePresentation
 				{
 					if (!ru)
 					{
-						return "No accessible network";
+						return "Not connected";
 					}
-					return "Нет доступной сети";
+					return "Не подключено";
 				}
 				if (!ru)
 				{
-					return "Network connected";
+					return "Connected";
 				}
-				return "Сеть подключена";
+				return "Подключено";
 			}
 			if (!ru)
 			{
-				return "Requires Magic Storage 0.7.0.11; see log";
+				return "Needs Magic Storage 0.7.0.11";
 			}
-			return "Нужен Magic Storage 0.7.0.11; см. журнал";
+			return "Нужен Magic Storage 0.7.0.11";
 		}
 		if (!ru)
 		{
 			return "Magic Storage is not installed";
 		}
-		return "Нужен мод Magic Storage";
+		return "Magic Storage не установлен";
 	}
 
 	internal static string Access(string name, bool crafting, bool ru)
@@ -53,14 +53,14 @@ internal static class BookStoragePresentation
 		{
 			if (ru)
 			{
-				return $"Ячейка: X={x}, Y={y} (тайлы)";
+				return $"X {x}, Y {y}";
 			}
-			return $"Tile: X={x}, Y={y}";
+			return $"X {x}, Y {y}";
 		}
 		if (!ru)
 		{
-			return "Coordinates unavailable";
+			return "Position unknown";
 		}
-		return "Координаты недоступны";
+		return "Место неизвестно";
 	}
 }
