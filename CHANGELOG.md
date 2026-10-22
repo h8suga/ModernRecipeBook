@@ -3,6 +3,42 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.5.0 — 2026-10-22
+
+### Changed
+- The whole book is redesigned: short, consistent texts in English and Russian, one layout for every tab
+  (filter bar on top, categories on the left with icons, the item card on the right), clear hover tips with
+  their shortcuts, and labels that never shrink or get cut off.
+- Tabs are Items · Recipes · Storage · Recent · Tracking; Ctrl+1…5 open them by position. The Storage tab
+  appears only with Magic Storage.
+- The stage filter (Pre-Hardmode · Hardmode · Post-Moon Lord) is one dropdown in the header for every tab
+  and is saved with the character.
+- Search, mod, category, favorites and sort are kept per tab and never reset by themselves — not when the
+  book closes, not when you jump to another item. Ctrl+Backspace clears the open tab's filters.
+- The Chains tab is folded into the item card: switch between Recipe and Used in. Clicking an ingredient or a
+  Used in row opens that item in the card.
+- The item card shows the item's own mod (a vanilla item says Terraria even when Calamity changed its
+  recipe) and names the recipe's mod separately.
+- The window moves by its frame or the empty part of the header; the Move button is gone.
+- Track keeps the book open, so several goals can be added in a row.
+- Tracker overlays: the compact style is drawn like vanilla info-accessory lines under the minimap; the
+  cards style is a compact list with progress bars.
+- The F1 sheet lists every shortcut in three columns: moving around, the item card, finding things.
+
+### Added
+- Back / Forward for everything in the book (Mouse4 / Mouse5, Alt+← / Alt+→, the card's back button):
+  tabs, filters, selected items, card steps, How to Get and enemy cards.
+- Shortcuts: arrows move the selection, Alt+T track, Alt+F favorite, Alt+G How to Get, Alt+U Recipe / Used
+  in, Alt+1…4 stage, Ctrl+Shift+Enter crafts as many as materials allow.
+- Shift+Click in the grid and Mouse3 on an inventory item open the item's Used in list.
+
+### Fixed
+- The trackers showed counts capped at the need (2/2 with 10 in the inventory); they show what you have.
+- Ctrl+digit and Alt+digit no longer switch the hotbar slot; F1 no longer switches to Loadout 1 while the book
+  is open; quick buff no longer fires under the book's Ctrl/Alt shortcuts.
+- Item tooltips over the book use the book's colours instead of the blue box.
+- The How to Get / enemy cards and Help stay open when the book is closed and reopened.
+- How to Get → a recipe landed on the wrong page.
 ## 1.4.9 — 2026-10-22
 
 ### Fixed
