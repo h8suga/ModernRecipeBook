@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Terraria;
 using Terraria.GameContent.ItemDropRules;
@@ -9,6 +10,8 @@ using log4net;
 
 namespace ModernRecipeBook;
 
+// Earliest stage at which each item can be obtained: shortest path over recipes and drops, seeded by
+// curated lists, staged boss drops and, where nothing better is known, the item's rarity tier.
 internal static class BookProgression
 {
 	private static Dictionary<int, BookStage> items = new Dictionary<int, BookStage>();
@@ -16,6 +19,8 @@ internal static class BookProgression
 	private static Dictionary<int, BookStage> recipes = new Dictionary<int, BookStage>();
 
 	private static Dictionary<int, BookStage> recipeMinimums = new Dictionary<int, BookStage>();
+
+	private static Dictionary<int, string> reasons = new Dictionary<int, string>();
 
 	internal static BookStage ItemStage(int type)
 	{
@@ -40,72 +45,79 @@ internal static class BookProgression
 		return recipeMinimums.GetValueOrDefault(index, BookStage.PreHardmode);
 	}
 
+	// Dev audit for the test stand: one TSV line per item (type, mod, internal name, rarity, stage, reason).
+	internal static IEnumerable<string> Audit()
+	{
+		return from i in ContentSamples.ItemsByType.Values
+			where i != null && !i.IsAir
+			select string.Join('\t', i.type, i.ModItem?.Mod.Name ?? "Terraria", ItemName(i), i.rare, ItemStage(i.type), reasons.GetValueOrDefault(i.type, ""));
+	}
+
+	// Dev audit: an NPC's reported drops with their conditions and the floor each condition gives.
+	internal static IEnumerable<string> DropAudit(int npcNetId)
+	{
+		List<DropRateInfo> rates = new List<DropRateInfo>();
+		foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(npcNetId, includeGlobalDrops: false))
+		{
+			rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+		}
+		return from r in rates
+			let item = ContentSamples.ItemsByType.GetValueOrDefault(r.itemId)
+			where item != null
+			select string.Join('\t', ItemName(item), item.rare, item.maxStack, string.Join(", ", (r.conditions ?? new List<IItemDropRuleCondition>()).Select((IItemDropRuleCondition c) => c.GetType().Name + "=" + (BookProgressionSources.DropConditionFloor(c)?.ToString() ?? "opaque"))));
+	}
+
 	internal static void Clear()
 	{
 		items.Clear();
 		recipes.Clear();
 		recipeMinimums.Clear();
+		reasons.Clear();
 	}
 
 	internal static void Rebuild(List<int> indexes, Dictionary<int, List<int>> recipesByItem)
 	{
+		Stopwatch timer = Stopwatch.StartNew();
 		Dictionary<int, BookStage> floors = new Dictionary<int, BookStage>();
 		Dictionary<int, BookStage> seeds = new Dictionary<int, BookStage>();
+		Dictionary<int, string> why = new Dictionary<int, string>();
 		Dictionary<string, int[]> names = BookProgressionRules.BuildNameIndex(from i in ContentSamples.ItemsByType.Values
 			where i != null && !i.IsAir && i.ModItem == null
 			select new KeyValuePair<string, int>(ItemID.Search.GetName(i.type) ?? ("#" + i.type), i.type));
-		Mark(BookStage.Hardmode, "CrystalBall PearlstoneBlock PearlsandBlock PinkIceBlock HallowedSeeds HallowHardenedSand HallowSandstone BlueSolution PurpleSolution RedSolution DarkBlueSolution LihzahrdFurnace FleshCloningVaat ZapinatorOrange LongRainbowTrailWings DemonHeart WallOfFleshBossBag WallOfFleshGoatMountItem LizardEgg DestroyerBossBag TwinsBossBag SkeletronPrimeBossBag PlanteraBossBag GolemBossBag FishronBossBag CultistBossBag FairyQueenBossBag QueenSlimeBossBag BossBagBetsy CobaltOre PalladiumOre MythrilOre OrichalcumOre AdamantiteOre TitaniumOre ChlorophyteOre CobaltBar PalladiumBar MythrilBar OrichalcumBar AdamantiteBar TitaniumBar ChlorophyteBar HallowedBar ShroomiteBar SpectreBar SoulofLight SoulofNight SoulofFlight SoulofMight SoulofSight SoulofFright CrystalShard PixieDust UnicornHorn CrystalBullet CursedFlame Ichor Ectoplasm TruffleWorm LifeFruit FragmentSolar FragmentVortex FragmentNebula FragmentStardust SolarTablet LihzahrdPowerCell MythrilAnvil OrichalcumAnvil AdamantiteForge TitaniumForge LunarCraftingStation FairyBell MagicalHarp Harp SpellTome EmptyDropper ExplosivePowder SteampunkBoiler BlendOMatic Autohammer CursedFlames GoldenShower CrystalStorm ClingerStaff RodofDiscord DaedalusStormbow FetidBaghnakhs FlyingKnife CrystalVileShard DartPistol DartRifle ChainGuillotines PutridScent FleshKnuckles TendonHook IlluminantHook WormHook IceSickle BeamSword Frostbrand IceBow Marrow Uzi SniperRifle TacticalShotgun RifleScope ChainGun RocketLauncher GrenadeLauncher ProximityMineLauncher CoinGun PirateStaff Cutlass PirateMap Amarok HelFire FormatC Gradient Chik Yelets Kraken TheEyeOfCthulhu DeathSickle BrokenHeroSword TerraBlade FlowerofFrost FrostStaff PoisonStaff VenomStaff SpiderFang AncientBattleArmorMaterial AncientBattleArmorMaterial FrostCore LightShard DarkShard BlackFairyDust TatteredBeeWing ButterflyDust GiantHarpyFeather IceFeather FireFeather SpookyTwig SpookyWood BeetleHusk ScalyTruffle AvengerEmblem WarriorEmblem RangerEmblem SorcererEmblem SummonerEmblem Pwnhammer ClockworkAssaultRifle BreakerBlade LaserRifle HallowedKey JungleKey CorruptionKey CrimsonKey FrozenKey DungeonDesertKey VampireKnives ScourgeoftheCorruptor RainbowGun StaffoftheFrostHydra PiranhaGun StormTigerStaff FlameWings LeafWings Jetpack SteampunkWings BoneWings FrozenWings ButterflyWings BeeWings QueenSlimeBossBag QueenSlimeCrystal Smolstar GelBalloon SparkleGuitar CrystalNinjaHelmet CrystalNinjaChestplate CrystalNinjaLeggings SanguineStaff SharpTears BloodLustCluster DripplerFlail BouncingShield BouncingShield FireWhip CoolWhip SwordWhip ScytheWhip RainbowWhip MaceWhip EmpressBlade FairyQueenMagicItem FairyQueenRangedItem FairyQueenBossBag RainbowWhip Seedler TheAxe WaspGun LeafBlower GrenadeLauncher VenusMagnum NettleBurst FlowerPow GolemFist PossessedHatchet Stynger StaffofEarth HeatRay EyeoftheGolem Picksaw TempestStaff Flairon RazorbladeTyphoon BubbleGun Tsunami ShrimpyTruffle BetsyWings DD2BetsyBow DD2SquireBetsySword ApprenticeStaffT3 MonkStaffT3 Razorpine BlizzardStaff NorthPole ChristmasTreeSword SnowmanCannon CandyCornRifle JackOLanternLauncher BatScepter RavenStaff TheHorsemansBlade StakeLauncher SpookyHook SpookyWings WitchBroom RainbowRod NeptunesShell FrozenTurtleShell TurtleShell MoonStone SunStone PaladinsShield AnkhShield DiscountCard LuckyCoin GoldRing PirateShipMountItem PygmyStaff TikiMask TikiShirt TikiPants CrystalSerpent ObsidianSwordfish Toxikarp BlessedApple CorruptFishingCrateHard CrimsonFishingCrateHard DungeonFishingCrateHard FloatingIslandFishingCrateHard FrozenCrateHard HallowedFishingCrate HallowedFishingCrateHard JungleFishingCrateHard LavaCrateHard OceanCrateHard OasisCrateHard GoldenCrateHard IronCrateHard WoodenCrateHard");
+		Mark(BookStage.Hardmode, "CrystalBall PearlstoneBlock PearlsandBlock PinkIceBlock HallowedSeeds HallowHardenedSand HallowSandstone BlueSolution PurpleSolution RedSolution DarkBlueSolution LihzahrdFurnace FleshCloningVaat ZapinatorOrange LongRainbowTrailWings DemonHeart WallOfFleshBossBag WallOfFleshGoatMountItem LizardEgg DestroyerBossBag TwinsBossBag SkeletronPrimeBossBag PlanteraBossBag GolemBossBag FishronBossBag CultistBossBag FairyQueenBossBag QueenSlimeBossBag BossBagBetsy CobaltOre PalladiumOre MythrilOre OrichalcumOre AdamantiteOre TitaniumOre ChlorophyteOre CobaltBar PalladiumBar MythrilBar OrichalcumBar AdamantiteBar TitaniumBar ChlorophyteBar HallowedBar ShroomiteBar SpectreBar SoulofLight SoulofNight SoulofFlight SoulofMight SoulofSight SoulofFright CrystalShard PixieDust UnicornHorn CrystalBullet CursedFlame Ichor Ectoplasm TruffleWorm LifeFruit FragmentSolar FragmentVortex FragmentNebula FragmentStardust SolarTablet LihzahrdPowerCell MythrilAnvil OrichalcumAnvil AdamantiteForge TitaniumForge LunarCraftingStation FairyBell MagicalHarp Harp SpellTome EmptyDropper ExplosivePowder SteampunkBoiler BlendOMatic Autohammer CursedFlames GoldenShower CrystalStorm ClingerStaff RodofDiscord DaedalusStormbow FetidBaghnakhs FlyingKnife CrystalVileShard DartPistol DartRifle ChainGuillotines PutridScent FleshKnuckles TendonHook IlluminantHook WormHook IceSickle BeamSword Frostbrand IceBow Marrow Uzi SniperRifle TacticalShotgun RifleScope ChainGun RocketLauncher GrenadeLauncher ProximityMineLauncher CoinGun PirateStaff Cutlass PirateMap Amarok HelFire FormatC Gradient Chik Yelets Kraken TheEyeOfCthulhu DeathSickle BrokenHeroSword TerraBlade FlowerofFrost FrostStaff PoisonStaff VenomStaff SpiderFang AncientBattleArmorMaterial AncientBattleArmorMaterial FrostCore LightShard DarkShard BlackFairyDust TatteredBeeWing ButterflyDust IceFeather FireFeather SpookyTwig SpookyWood BeetleHusk ScalyTruffle AvengerEmblem WarriorEmblem RangerEmblem SorcererEmblem SummonerEmblem Pwnhammer ClockworkAssaultRifle BreakerBlade LaserRifle HallowedKey JungleKey CorruptionKey CrimsonKey FrozenKey DungeonDesertKey VampireKnives ScourgeoftheCorruptor RainbowGun StaffoftheFrostHydra PiranhaGun StormTigerStaff FlameWings LeafWings Jetpack SteampunkWings BoneWings FrozenWings ButterflyWings BeeWings QueenSlimeBossBag QueenSlimeCrystal Smolstar GelBalloon SparkleGuitar CrystalNinjaHelmet CrystalNinjaChestplate CrystalNinjaLeggings SanguineStaff SharpTears BloodLustCluster DripplerFlail BouncingShield BouncingShield FireWhip CoolWhip SwordWhip ScytheWhip RainbowWhip MaceWhip EmpressBlade FairyQueenMagicItem FairyQueenRangedItem FairyQueenBossBag RainbowWhip Seedler TheAxe WaspGun LeafBlower GrenadeLauncher VenusMagnum NettleBurst FlowerPow GolemFist PossessedHatchet Stynger StaffofEarth HeatRay EyeoftheGolem Picksaw TempestStaff Flairon RazorbladeTyphoon BubbleGun Tsunami ShrimpyTruffle BetsyWings DD2BetsyBow DD2SquireBetsySword ApprenticeStaffT3 MonkStaffT3 Razorpine BlizzardStaff NorthPole ChristmasTreeSword SnowmanCannon CandyCornRifle JackOLanternLauncher BatScepter RavenStaff TheHorsemansBlade StakeLauncher SpookyHook SpookyWings WitchBroom RainbowRod NeptunesShell FrozenTurtleShell TurtleShell MoonStone SunStone PaladinsShield AnkhShield DiscountCard LuckyCoin GoldRing PirateShipMountItem PygmyStaff TikiMask TikiShirt TikiPants CrystalSerpent ObsidianSwordfish Toxikarp BlessedApple CorruptFishingCrateHard CrimsonFishingCrateHard DungeonFishingCrateHard FloatingIslandFishingCrateHard FrozenCrateHard HallowedFishingCrate HallowedFishingCrateHard JungleFishingCrateHard LavaCrateHard OceanCrateHard OasisCrateHard GoldenCrateHard IronCrateHard WoodenCrateHard");
 		Mark(BookStage.PostHardmode, "TeleportationPylonVictory MoonLordPetItem MoonLordMasterTrophy LunarOre LunarBar Meowmere StarWrath Terrarian SDMG LastPrism LunarFlareBook RainbowCrystalStaff MoonlordTurretStaff Celeb2 RainbowCrystalStaff MoonLordBossBag MoonLordTrophy BossMaskMoonlord GravityGlobe SuspiciousLookingTentacle PortalGun RodOfHarmony BottomlessShimmerBucket Clentaminator2 ");
-		foreach (Item item in ContentSamples.ItemsByType.Values)
+		// Hardmode-only world tiles with White rarity: Hallow trees, the Jungle Temple, Martian probes.
+		Mark(BookStage.Hardmode, "Pearlwood LihzahrdBrick LihzahrdAltar LihzahrdWallUnsafe MartianConduitPlating");
+		List<Item> all = ContentSamples.ItemsByType.Values.Where((Item i) => i != null && !i.IsAir && i.type > 0).ToList();
+		foreach (Item item in all)
 		{
-			if (item == null || item.IsAir || item.type <= 0)
+			BookStage curated = BookProgressionSources.ItemStage(item);
+			if (curated != BookStage.Unknown)
 			{
-				continue;
-			}
-			BookStage modStage = BookProgressionSources.ItemStage(item.ModItem?.Mod.Name, item.ModItem?.Name);
-			if (modStage != BookStage.Unknown)
-			{
-				floors[item.type] = modStage;
+				floors[item.type] = Max(curated, floors.GetValueOrDefault(item.type, BookStage.PreHardmode));
 			}
 			if (floors.TryGetValue(item.type, out var stage))
 			{
-				seeds[item.type] = stage;
-				continue;
+				Seed(item.type, stage, "list");
 			}
-			if (item.ModItem == null)
+			else if (item.ModItem == null)
 			{
-				BookStage natural = BookProgressionSources.VanillaNaturalStage(ItemID.Search.GetName(item.type));
-				if (natural != BookStage.Unknown)
-				{
-					seeds[item.type] = natural;
-					continue;
-				}
+				Seed(item.type, BookProgressionSources.VanillaNaturalStage(ItemID.Search.GetName(item.type)), "list");
 			}
-			if (item.ModItem != null || recipesByItem.ContainsKey(item.type))
-			{
-				continue;
-			}
-			int type = item.type;
-			int value;
-			if (!item.vanity && item.rare >= 4)
-			{
-				int type2 = item.type;
-				if (type2 != 1309 && type2 != 678 && type2 != 1927 && type2 != 3628 && type2 != 4365)
-				{
-					value = 1;
-					goto IL_01e4;
-				}
-			}
-			value = 0;
-			goto IL_01e4;
-			IL_01e4:
-			seeds[type] = (BookStage)value;
 		}
-		Dictionary<int, int[]> stationIndex = (from i in ContentSamples.ItemsByType.Values
-			where i != null && !i.IsAir && i.createTile >= 0
-			group i by i.createTile).ToDictionary((IGrouping<int, Item> g) => g.Key, (IGrouping<int, Item> g) => g.Select((Item i) => i.type).ToArray());
 		List<BookProgressionRules.Route> routes = new List<BookProgressionRules.Route>();
-		AddRegisteredDropSources(seeds, routes);
+		HashSet<int> sourced = AddDropSources(routes, floors, Seed);
+		// Raw items: nothing crafts them and no known source drops them, so their rarity tier is the best guess.
+		foreach (Item item in all)
+		{
+			if (!recipesByItem.ContainsKey(item.type) && !sourced.Contains(item.type))
+			{
+				Seed(item.type, BookProgressionSources.RarityStage(item), "rarity");
+			}
+		}
+		Dictionary<int, int[]> stationIndex = (from i in all
+			where i.createTile >= 0
+			group i by i.createTile).ToDictionary((IGrouping<int, Item> g) => g.Key, (IGrouping<int, Item> g) => g.Select((Item i) => i.type).ToArray());
 		foreach (int index in indexes)
 		{
 			Recipe r = Main.recipe[index];
@@ -123,12 +135,12 @@ internal static class BookProgression
 				inputs.Add(types.ToArray());
 			}
 			BookStage floor = BookStage.PreHardmode;
-			bool uncertain = false;
+			bool opaque = false;
 			foreach (int tile in r.requiredTile.Where((int t) => t >= 0))
 			{
-				if (((uint)(tile - 133) <= 1u || tile == 412) ? true : false)
+				if (tile == TileID.MythrilAnvil || tile == TileID.AdamantiteForge || tile == TileID.LunarCraftingStation)
 				{
-					floor = (BookStage)Math.Max((int)floor, 1);
+					floor = Max(floor, BookStage.Hardmode);
 					continue;
 				}
 				int[] stationItems = stationIndex.GetValueOrDefault(tile) ?? Array.Empty<int>();
@@ -138,35 +150,66 @@ internal static class BookProgression
 				}
 				else if (tile >= TileID.Count)
 				{
-					uncertain = true;
+					opaque = true;
 				}
 			}
+			// Special-seed worlds and other difficulties than the current one make the recipe unavailable.
+			bool unavailable = false;
 			foreach (Condition condition in r.Conditions)
 			{
-				string key = condition?.Description?.Key;
-				BookStage hint = BookProgressionSources.ConditionStage(key);
-				if (hint != BookStage.Unknown)
+				BookStage? hint = BookProgressionSources.ConditionFloor(condition?.Description?.Key, () => condition.IsMet());
+				if (hint == BookStage.Unknown)
 				{
-					floor = (BookStage)Math.Max((int)floor, (int)hint);
+					unavailable = true;
 				}
-				else if (string.IsNullOrEmpty(key) || !key.StartsWith("Conditions.", StringComparison.Ordinal))
+				else if (hint.HasValue)
+				{
+					floor = Max(floor, hint.Value);
+				}
+				else
+				{
+					opaque = true;
+				}
+			}
+			if (unavailable)
+			{
+				continue;
+			}
+			// Another mod's custom gate or a station nothing places: trust the output's rarity tier for it.
+			bool uncertain = false;
+			if (opaque)
+			{
+				BookStage hint2 = BookProgressionSources.RarityStage(r.createItem);
+				if (hint2 == BookStage.Unknown)
 				{
 					uncertain = true;
+				}
+				else
+				{
+					floor = Max(floor, hint2);
 				}
 			}
 			routes.Add(new BookProgressionRules.Route(index, r.createItem.type, floor, inputs.ToArray(), uncertain));
 		}
-		(Dictionary<int, BookStage> Items, Dictionary<int, BookStage> Recipes) tuple = BookProgressionRules.Resolve(seeds, floors, routes);
-		items = tuple.Items;
-		recipes = tuple.Recipes;
+		(items, recipes) = BookProgressionRules.Resolve(seeds, floors, routes, why);
+		// Second pass: whatever the graph could not place gets its rarity tier, then everything made from it
+		// is placed by running the graph again.
+		int seeded = seeds.Count;
+		foreach (Item item in all.Where((Item i) => !items.ContainsKey(i.type)))
+		{
+			Seed(item.type, BookProgressionSources.RarityStage(item), "rarity");
+		}
+		if (seeds.Count > seeded)
+		{
+			(items, recipes) = BookProgressionRules.Resolve(seeds, floors, routes, why);
+		}
+		reasons = why;
 		recipeMinimums = routes.Where((BookProgressionRules.Route route) => route.Key >= 0).ToDictionary((BookProgressionRules.Route route) => route.Key, (BookProgressionRules.Route route) => BookProgressionRules.MinimumStage(route, items, floors));
 		ILog logger = ModContent.GetInstance<ModernRecipeBook>().Logger;
-		logger.Info("Progression audit items: " + Totals(from i in ContentSamples.ItemsByType.Values
-			where i != null && !i.IsAir
-			select ItemStage(i.type)));
+		logger.Info($"Progression audit ({timer.ElapsedMilliseconds} ms) items: " + Totals(all.Select((Item i) => ItemStage(i.type))));
 		logger.Info("Progression audit recipes: " + Totals(indexes.Select(RecipeStage)));
-		logger.Info("Progression audit Calamity items: " + Totals(from i in ContentSamples.ItemsByType.Values
-			where i?.ModItem?.Mod.Name == "CalamityMod"
+		logger.Info("Progression audit Calamity items: " + Totals(from i in all
+			where i.ModItem?.Mod.Name == "CalamityMod"
 			select ItemStage(i.type)));
 		void Mark(BookStage value2, string list)
 		{
@@ -183,6 +226,18 @@ internal static class BookProgression
 				}
 			}
 		}
+		void Seed(int type, BookStage stage, string reason)
+		{
+			if (stage != BookStage.Unknown && floors.TryGetValue(type, out var minimum))
+			{
+				stage = Max(stage, minimum);
+			}
+			if (stage != BookStage.Unknown && (!seeds.TryGetValue(type, out var old) || stage < old))
+			{
+				seeds[type] = stage;
+				why[type] = reason;
+			}
+		}
 		static string Totals(IEnumerable<BookStage> stages)
 		{
 			Dictionary<BookStage, int> counts = (from result in stages
@@ -197,23 +252,66 @@ internal static class BookProgression
 		}
 	}
 
-	private static void AddRegisteredDropSources(Dictionary<int, BookStage> seeds, List<BookProgressionRules.Route> routes)
+	// Drops of staged bosses seed their stage directly; drops of any other NPC get the item's rarity tier;
+	// bag, crate and present contents become routes from the container. Returns every item a staged boss
+	// or a container drops, so the raw-item pass leaves those to the graph.
+	private static HashSet<int> AddDropSources(List<BookProgressionRules.Route> routes, IReadOnlyDictionary<int, BookStage> floors, Action<int, BookStage, string> seed)
 	{
+		HashSet<int> sourced = new HashSet<int>();
 		try
 		{
 			foreach (KeyValuePair<int, NPC> pair in ContentSamples.NpcsByNetId)
 			{
 				NPC npc = pair.Value;
-				BookStage stage = BookProgressionSources.NpcStage(npc.ModNPC?.Mod.Name, npc.ModNPC?.Name);
+				string npcName = npc.ModNPC?.Name ?? (NPCID.Search.TryGetName(npc.type, out var name) ? name : npc.type.ToString());
+				var drops = (from rate in Reports(Main.ItemDropsDB.GetRulesForNPCID(pair.Key, includeGlobalDrops: false))
+					where ContentSamples.ItemsByType.ContainsKey(rate.itemId)
+					let drop = ContentSamples.ItemsByType[rate.itemId]
+					let floor = DropFloor(rate, drop)
+					where floor != BookStage.Unknown
+					select (Rate: rate, Drop: drop, Floor: floor)).ToList();
+				// Ordinary enemies have no stage of their own: they appear as early as the latest thing they always
+				// drop (Pixies drop Pixie Dust, Martians their gear), and their loot and banner share that stage.
+				BookStage stage = BookProgressionSources.NpcStage(npc);
+				string source = "drop:" + npcName;
 				if (stage == BookStage.Unknown)
 				{
-					continue;
+					stage = InferEnemyStage(drops.Where(d => Unconditional(d.Rate)).Select(d => d.Drop));
+					source = "enemy:" + npcName;
 				}
-				foreach (DropRateInfo rate in Reports(Main.ItemDropsDB.GetRulesForNPCID(pair.Key, includeGlobalDrops: false)))
+				foreach (var (rate, drop, floor) in drops)
 				{
-					if (!seeds.TryGetValue(rate.itemId, out var old) || old > stage)
+					if (stage != BookStage.Unknown)
 					{
-						seeds[rate.itemId] = stage;
+						sourced.Add(rate.itemId);
+						seed(rate.itemId, Max(stage, floor), source);
+						continue;
+					}
+					BookStage tier = BookProgressionSources.RarityStage(drop);
+					if (tier != BookStage.Unknown)
+					{
+						seed(rate.itemId, Max(tier, floor), "rarity");
+					}
+				}
+				int banner = Item.NPCtoBanner(npc.BannerID());
+				int bannerItem = banner > 0 ? Item.BannerToItem(banner) : 0;
+				if (stage != BookStage.Unknown && bannerItem > 0)
+				{
+					sourced.Add(bannerItem);
+					seed(bannerItem, stage, "banner:" + npcName);
+				}
+			}
+			// Global loot (biome essences and the like) applies to every NPC, so it is never boss-staged.
+			List<IItemDropRule> specific = Main.ItemDropsDB.GetRulesForNPCID(NPCID.BlueSlime, includeGlobalDrops: false);
+			foreach (DropRateInfo rate3 in Reports(Main.ItemDropsDB.GetRulesForNPCID(NPCID.BlueSlime, includeGlobalDrops: true).Except(specific)))
+			{
+				if (ContentSamples.ItemsByType.TryGetValue(rate3.itemId, out var drop3))
+				{
+					BookStage floor3 = DropFloor(rate3, drop3);
+					BookStage tier3 = BookProgressionSources.RarityStage(drop3);
+					if (floor3 != BookStage.Unknown && tier3 != BookStage.Unknown)
+					{
+						seed(rate3.itemId, Max(tier3, floor3), "rarity");
 					}
 				}
 			}
@@ -226,33 +324,89 @@ internal static class BookProgression
 				}
 				foreach (DropRateInfo rate2 in Reports(Main.ItemDropsDB.GetRulesForItemID(pair2.Key)))
 				{
-					BookStage floor = BookStage.PreHardmode;
-					bool uncertain = false;
-					foreach (IItemDropRuleCondition item in rate2.conditions ?? new List<IItemDropRuleCondition>())
+					if (!ContentSamples.ItemsByType.TryGetValue(rate2.itemId, out var drop2))
 					{
-						string name = item?.GetType().Name ?? "";
-						BookStage hint = BookProgressionSources.ConditionStage(name);
-						if (hint != BookStage.Unknown)
-						{
-							floor = (BookStage)Math.Max((int)floor, (int)hint);
-							continue;
-						}
-						switch (name)
-						{
-						case "IsExpert":
-						case "NotExpert":
-						case "IsMasterMode":
-						case "NotMasterMode":
-							continue;
-						}
-						uncertain = true;
+						continue;
 					}
-					routes.Add(new BookProgressionRules.Route(sourceKey--, rate2.itemId, floor, new int[1][] { new int[1] { pair2.Key } }, uncertain));
+					BookStage floor2 = DropFloor(rate2, drop2);
+					if (floor2 == BookStage.Unknown)
+					{
+						continue;
+					}
+					sourced.Add(rate2.itemId);
+					routes.Add(new BookProgressionRules.Route(sourceKey--, rate2.itemId, floor2, new int[1][] { new int[1] { pair2.Key } }, Source: "drop:" + ItemName(pair2.Value)));
+					// Crate, present and lock box loot is loot that chests, fishing and enemies give too, which no
+					// database lists. Boss bag contents are the boss's own (masks are Blue but post-boss).
+					BookStage tier2 = BookProgressionSources.RarityStage(drop2);
+					if (!ItemID.Sets.BossBag[pair2.Key] && tier2 != BookStage.Unknown)
+					{
+						seed(rate2.itemId, Max(tier2, floor2), "rarity");
+					}
 				}
 			}
 		}
-		catch (Exception)
+		catch (Exception exception)
 		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn("MRB progression drop sources failed; using recipes and rarity only.", exception);
+		}
+		// Shops: the town NPC's arrival stage plus the entry's conditions (Calamity gates its stock on the
+		// same CalamityConditions keys as its drops).
+		try
+		{
+			foreach (AbstractNPCShop shop in NPCShopDatabase.AllShops)
+			{
+				BookStage townStage = BookProgressionSources.TownNpcStage(shop.NpcType);
+				string source = "shop:" + (NPCLoader.GetNPC(shop.NpcType)?.Name ?? (NPCID.Search.TryGetName(shop.NpcType, out var townName) ? townName : shop.NpcType.ToString()));
+				foreach (AbstractNPCShop.Entry entry in shop.ActiveEntries)
+				{
+					Item item = entry.Item;
+					if (item == null || item.IsAir)
+					{
+						continue;
+					}
+					BookStage stage2 = townStage;
+					foreach (Condition condition in entry.Conditions)
+					{
+						BookStage? hint = BookProgressionSources.ConditionFloor(condition?.Description?.Key, () => condition.IsMet());
+						BookStage value = hint ?? BookProgressionSources.RarityStage(item);
+						if (hint == BookStage.Unknown)
+						{
+							stage2 = BookStage.Unknown;
+							break;
+						}
+						if (value != BookStage.Unknown)
+						{
+							stage2 = Max(stage2, value);
+						}
+					}
+					if (stage2 != BookStage.Unknown)
+					{
+						sourced.Add(item.type);
+						seed(item.type, stage2, source);
+					}
+				}
+			}
+		}
+		catch (Exception exception2)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn("MRB progression shop sources failed.", exception2);
+		}
+		return sourced;
+		// When an enemy appears, judged by what it always drops: a curated material (Pixie Dust, shards) is
+		// proof on its own; gear rarity is only trusted when two pieces agree, because Calamity moves single
+		// accessories (Adhesive Bandage, Vitamins) onto pre-hardmode enemies. Food, potions, blocks and vanity
+		// carry arbitrary rarities and say nothing.
+		BookStage InferEnemyStage(IEnumerable<Item> unconditional)
+		{
+			List<Item> items = unconditional.DistinctBy((Item i) => i.type).ToList();
+			BookStage curated = items.Where((Item i) => floors.ContainsKey(i.type)).Select((Item i) => floors[i.type]).DefaultIfEmpty(BookStage.Unknown).Max();
+			List<BookStage> gear = (from i in items
+				where !floors.ContainsKey(i.type) && i.maxStack == 1 && !i.vanity
+				select BookProgressionSources.RarityStage(i) into s
+				where s != BookStage.Unknown
+				orderby s descending
+				select s).ToList();
+			return Max(curated, gear.Count >= 2 ? gear[1] : BookStage.Unknown);
 		}
 		static IEnumerable<DropRateInfo> Reports(IEnumerable<IItemDropRule> rules)
 		{
@@ -261,7 +415,7 @@ internal static class BookProgression
 			{
 				try
 				{
-					rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+					Report(rule, rates);
 				}
 				catch (Exception)
 				{
@@ -269,5 +423,57 @@ internal static class BookProgression
 			}
 			return rates.Where((DropRateInfo r) => r.itemId > 0 && r.dropRate > 0f);
 		}
+		// Sequential rules report each entry as a failed roll of the previous one, so a condition on an early
+		// entry (the Present's hardmode-only Snow Globe) leaks onto everything after it. Report entries alone.
+		static void Report(IItemDropRule rule, List<DropRateInfo> rates)
+		{
+			IItemDropRule[] sequence = (rule as SequentialRulesNotScalingWithLuckRule)?.rules ?? (rule as SequentialRulesRule)?.rules;
+			if (sequence == null)
+			{
+				rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+				return;
+			}
+			foreach (IItemDropRule entry in sequence)
+			{
+				Report(entry, rates);
+			}
+			Chains.ReportDroprates(rule.ChainedRules, 1f, rates, new DropRateInfoChainFeed(1f));
+		}
+	}
+
+	private static bool Unconditional(DropRateInfo rate)
+	{
+		return rate.conditions == null || rate.conditions.All((IItemDropRuleCondition c) => BookProgressionSources.DropConditionFloor(c) == BookStage.PreHardmode);
+	}
+
+	// Stage the conditions on a drop add. Opaque conditions (another mod's lambdas) fall back to the
+	// dropped item's rarity tier; a NeverTrue rule makes the whole drop Unknown.
+	private static BookStage DropFloor(DropRateInfo rate, Item drop)
+	{
+		BookStage floor = BookStage.PreHardmode;
+		foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
+		{
+			BookStage? hint = BookProgressionSources.DropConditionFloor(condition);
+			if (hint == BookStage.Unknown)
+			{
+				return BookStage.Unknown;
+			}
+			BookStage value = hint ?? BookProgressionSources.RarityStage(drop);
+			if (value != BookStage.Unknown)
+			{
+				floor = Max(floor, value);
+			}
+		}
+		return floor;
+	}
+
+	private static BookStage Max(BookStage a, BookStage b)
+	{
+		return (BookStage)Math.Max((int)a, (int)b);
+	}
+
+	private static string ItemName(Item item)
+	{
+		return item.ModItem?.Name ?? ItemID.Search.GetName(item.type);
 	}
 }

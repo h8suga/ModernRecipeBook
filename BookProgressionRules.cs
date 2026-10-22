@@ -6,7 +6,8 @@ namespace ModernRecipeBook;
 
 internal static class BookProgressionRules
 {
-	internal sealed record Route(int Key, int Output, BookStage Floor, int[][] Ingredients, bool Uncertain = false);
+	// Source names where the route comes from for the audit ("drop:Bag", recipes leave it null).
+	internal sealed record Route(int Key, int Output, BookStage Floor, int[][] Ingredients, bool Uncertain = false, string Source = null);
 
 	internal static Dictionary<string, int[]> BuildNameIndex(IEnumerable<KeyValuePair<string, int>> entries)
 	{
@@ -51,7 +52,8 @@ internal static class BookProgressionRules
 		return (BookStage)result;
 	}
 
-	internal static (Dictionary<int, BookStage> Items, Dictionary<int, BookStage> Recipes) Resolve(IReadOnlyDictionary<int, BookStage> seeds, IReadOnlyDictionary<int, BookStage> floors, IReadOnlyList<Route> routes)
+	// reasons: seed reasons in, and for every item lowered by a route the route that did it.
+	internal static (Dictionary<int, BookStage> Items, Dictionary<int, BookStage> Recipes) Resolve(IReadOnlyDictionary<int, BookStage> seeds, IReadOnlyDictionary<int, BookStage> floors, IReadOnlyList<Route> routes, Dictionary<int, string> reasons = null)
 	{
 		Dictionary<int, BookStage> items = new Dictionary<int, BookStage>(seeds);
 		Dictionary<int, BookStage> recipes = new Dictionary<int, BookStage>();
@@ -66,6 +68,10 @@ internal static class BookProgressionRules
 				if (next != BookStage.Unknown && (old == BookStage.Unknown || next < old))
 				{
 					items[route.Output] = next;
+					if (reasons != null)
+					{
+						reasons[route.Output] = route.Source ?? ("recipe:" + route.Key);
+					}
 					changed = true;
 				}
 			}
