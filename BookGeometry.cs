@@ -248,18 +248,21 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect MobName(bool pager)
 	{
-		return new BookRect(812f, 276f, pager ? 176f : 284f, 24f);
+		return new BookRect(812f, 272f, pager ? 176f : 284f, 24f);
 	}
 
-	internal static BookRect MobSubtitle => new BookRect(812f, 302f, 284f, 20f);
+	internal static BookRect MobSubtitle => new BookRect(812f, 296f, 284f, 20f);
 
-	internal static BookRect MobVariantPrevious => new BookRect(996f, 274f, 28f, 28f);
+	internal static BookRect MobVariantPrevious => new BookRect(996f, 270f, 28f, 28f);
 
-	internal static BookRect MobVariantLabel => new BookRect(1024f, 274f, 44f, 28f);
+	internal static BookRect MobVariantLabel => new BookRect(1024f, 270f, 44f, 28f);
 
-	internal static BookRect MobVariantNext => new BookRect(1068f, 274f, 28f, 28f);
+	internal static BookRect MobVariantNext => new BookRect(1068f, 270f, 28f, 28f);
 
-	internal static BookRect MobTags => new BookRect(812f, 328f, 284f, 68f);
+	// Stage, Biome, Spawns and Met.
+	internal static BookRect MobTags => new BookRect(812f, 320f, 284f, 80f);
+
+	internal const float MobTagStep = 18.5f;
 
 	internal static BookRect MobBody => new BookRect(812f, 404f, 284f, 184f);
 
