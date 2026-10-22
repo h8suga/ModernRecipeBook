@@ -10,6 +10,10 @@ internal sealed class BookInventoryInputRouter
 
 	private bool pending;
 
+	// The interface was drawn since the press. Item tooltips (the crafting list, other mods' windows) are drawn
+	// after PostDrawInterface, so a press is resolved only at the next update, once the whole frame is drawn.
+	private bool drawn;
+
 	internal void Poll(bool down)
 	{
 		if (down && !previous)
@@ -41,8 +45,19 @@ internal sealed class BookInventoryInputRouter
 		return true;
 	}
 
-	internal bool EndDraw()
+	internal void EndDraw()
 	{
+		drawn = true;
+	}
+
+	// Called before Poll: true when a queued toggle reached a fully drawn frame and no item took the press.
+	internal bool ResolveFrame()
+	{
+		if (!drawn)
+		{
+			return false;
+		}
+		drawn = false;
 		bool result = pending && !consumed;
 		pending = (fresh = false);
 		return result;
@@ -50,6 +65,6 @@ internal sealed class BookInventoryInputRouter
 
 	internal void Reset()
 	{
-		previous = (fresh = (consumed = (pending = false)));
+		previous = (fresh = (consumed = (pending = (drawn = false))));
 	}
 }

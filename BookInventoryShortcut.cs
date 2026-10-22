@@ -51,6 +51,10 @@ public sealed class BookInventoryShortcut : ModSystem
 
 	public override void PostUpdateInput()
 	{
+		if (Input.ResolveFrame())
+		{
+			pendingToggle = true;
+		}
 		Input.Poll(Mouse.GetState().MiddleButton == ButtonState.Pressed);
 	}
 
@@ -69,10 +73,7 @@ public sealed class BookInventoryShortcut : ModSystem
 
 	public override void PostDrawInterface(SpriteBatch spriteBatch)
 	{
-		if (Input.EndDraw())
-		{
-			pendingToggle = true;
-		}
+		Input.EndDraw();
 	}
 
 	private static bool CanSearchItem(Item item)

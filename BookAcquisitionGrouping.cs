@@ -21,7 +21,7 @@ internal static class BookAcquisitionGrouping
 				BookAcquisitionKind.Container => (Kind: x.Kind, Owner: x.Owner, "", x.ItemType), 
 				BookAcquisitionKind.Shop => (Kind: x.Kind, Owner: x.Owner, "", x.NpcNetId), 
 				BookAcquisitionKind.Craft => (Kind: x.Kind, Owner: x.Owner, "", x.RecipeIndex), 
-				_ => (Kind: x.Kind, Owner: x.Owner, x.Name, x.ItemType), 
+				_ => (Kind: x.Kind, Owner: x.Owner, x.Name + "\n" + x.ConditionLabel, (x.ItemType != 0) ? x.ItemType : (-1 - x.TileType)), 
 			} into x
 			select new BookAcquisitionGroup(x)).ToList();
 	}
