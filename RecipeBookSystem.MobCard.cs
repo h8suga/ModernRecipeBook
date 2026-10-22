@@ -4,13 +4,14 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.GameContent.Bestiary;
 using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace ModernRecipeBook;
 
-// Own bestiary: Mouse3 on a mob opens the enemy card. Drops are always there; life and the other numbers only
-// after the first kill, counted the way the Bestiary counts (per world, by the mob's bestiary credit).
+// Own bestiary: Mouse3 on a mob opens the enemy card. Drops are always there; life and the other numbers once the
+// Bestiary would show them (per world): an enemy after its first kill, a town NPC after a chat, a critter once seen.
 public sealed partial class RecipeBookSystem
 {
 	internal readonly record struct MobStats(int Life, int Defense, int Damage, float KnockbackTaken, int Value, float? DamageReduction);
@@ -143,20 +144,40 @@ public sealed partial class RecipeBookSystem
 		return CalamityMode("revenge") ? (mode + " · " + T("месть", "Revengeance")) : mode;
 	}
 
-	// Right column of the enemy card. Kills and the banner are read every frame, so a kill unlocks it at once.
+	// The Bestiary entry's own unlock rule, so mods' NPCs follow theirs: town NPCs open with a chat, critters once
+	// seen near the player, enemies with kills. An enemy's numbers here open with its first kill, before the Bestiary's.
+	private static bool MobStatsUnlocked(int netId, NPC sample, int kills)
+	{
+		if (kills > 0 && !sample.CountsAsACritter && !sample.isLikeATownNPC)
+		{
+			return true;
+		}
+		IBestiaryUICollectionInfoProvider provider = Main.BestiaryDB.FindEntryByNPCID(netId).UIInfoProvider;
+		// Variants without an entry of their own (zombie skins) use the entry they are credited to.
+		if (provider == null && ContentSamples.NpcNetIdsByPersistentIds.TryGetValue(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[netId], out int credited))
+		{
+			provider = Main.BestiaryDB.FindEntryByNPCID(credited).UIInfoProvider;
+		}
+		return provider != null && provider.GetEntryUICollectionInfo().UnlockState >= BestiaryEntryUnlockState.CanShowStats_2;
+	}
+
+	// Right column of the enemy card. The unlock and the banner are read every frame, so a kill, a chat or a sighting
+	// opens it at once.
 	private static void DrawEnemyStats(SpriteBatch sb, int netId)
 	{
 		BookRect label = BookGeometry.EnemyStatsLabel;
 		BookRect box = BookGeometry.EnemyStats;
 		Text(sb, T("ХАРАКТЕРИСТИКИ", "STATS"), label.X, label.Y, Muted, 0.8f, label.Width, label.Height);
 		Box(sb, box, Raised, border: true, 8f);
+		NPC sample = ContentSamples.NpcsByNetId[netId];
 		int kills = Main.BestiaryTracker.Kills.GetKillCount(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[netId]);
-		if (kills <= 0)
+		if (!MobStatsUnlocked(netId, sample, kills))
 		{
-			DrawCardEmpty(sb, box, T("Скрыты", "Locked"), T("Убейте его хотя бы раз", "Kill it once to see them"));
+			string hint = sample.CountsAsACritter ? T("Увидьте его хотя бы раз", "See it once") : (sample.isLikeATownNPC ? T("Поговорите с ним хотя бы раз", "Talk to them once") : T("Убейте его хотя бы раз", "Kill it once to see them"));
+			DrawCardEmpty(sb, box, T("Скрыты", "Locked"), hint);
 			if (box.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(T("Убийства считаются как в бестиарии", "Kills count as in the Bestiary"));
+				MouseTip(T("Открываются как в бестиарии", "Unlocked as in the Bestiary"));
 			}
 			return;
 		}
@@ -165,7 +186,6 @@ public sealed partial class RecipeBookSystem
 			MouseTip((EnemyStatsLive ? T("Этот моб в мире", "This mob in the world") : T("Для этого мира", "For this world")) + " · " + WorldModeName());
 		}
 		MobStats stats = EnemyStats;
-		NPC sample = ContentSamples.NpcsByNetId[netId];
 		int banner = Item.NPCtoBanner(sample.BannerID());
 		int bannerItem = (banner > 0) ? Item.BannerToItem(banner) : 0;
 		bool hasBanner = banner < NPC.killCount.Length && bannerItem > 0 && bannerItem < ItemID.Sets.KillsToBanner.Length && !sample.ExcludedFromDeathTally();
