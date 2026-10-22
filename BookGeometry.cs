@@ -4,11 +4,11 @@ namespace ModernRecipeBook;
 
 internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 {
-	internal static BookRect DetailsPanel => new BookRect(796f, 92f, 316f, 548f);
+	internal static BookRect DetailsPanel => new BookRect(796f, 76f, 316f, 564f);
 
-	internal static BookRect CategoryPanel => new BookRect(4f, 92f, 160f, 548f);
+	internal static BookRect CategoryPanel => new BookRect(8f, 76f, 188f, 564f);
 
-	internal static BookRect StageFilter => new BookRect(312f, 24f, 148f, 40f);
+	internal static BookRect StageFilter => new BookRect(212f, 120f, 568f, 32f);
 
 	internal static BookRect ArmorDefense => new BookRect(812f, 224f, 284f, 20f);
 
@@ -19,8 +19,6 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	internal static BookRect ArmorPrevious => new BookRect(812f, 156f, 36f, 28f);
 
 	internal static BookRect ArmorNext => new BookRect(1060f, 156f, 36f, 28f);
-
-	internal static BookRect TabPanel => new BookRect(472f, 16f, 572f, 56f);
 
 	internal static BookRect AcquisitionPanel => new BookRect(160f, 80f, 800f, 536f);
 
@@ -56,33 +54,21 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect DetailPager => new BookRect(860f, 528f, 188f, 32f);
 
-	internal static BookRect VariantPrevious => new BookRect(812f, 148f, 36f, 40f);
-
-	internal static BookRect VariantNext => new BookRect(1060f, 148f, 36f, 40f);
-
-	internal static BookRect SelectedItemObtain => new BookRect(812f, 456f, 284f, 40f);
-
 	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 172f, 28f);
 
 	internal static BookRect TrackSetAction => new BookRect(992f, 604f, 104f, 28f);
 
 	internal static BookRect TrackAction => new BookRect(812f, 604f, 284f, 28f);
 
-	internal static BookRect FavoriteAction => new BookRect(812f, 568f, 128f, 28f);
+	internal static BookRect FavoriteAction => new BookRect(812f, 564f, 32f, 32f);
 
-	internal static BookRect CraftAction => new BookRect(948f, 568f, 148f, 28f);
+	internal static BookRect CraftAction => new BookRect(852f, 564f, 244f, 32f);
 
-	internal static BookRect CategoryPrevious => new BookRect(12f, 612f, 44f, 28f);
+	internal static BookRect PagePrevious => new BookRect(212f, 604f, 32f, 32f);
 
-	internal static BookRect CategoryNext => new BookRect(108f, 612f, 44f, 28f);
+	internal static BookRect PageNext => new BookRect(748f, 604f, 32f, 32f);
 
-	internal static BookRect CategoryPager => new BookRect(64f, 612f, 36f, 28f);
-
-	internal static BookRect PagePrevious => new BookRect(184f, 612f, 44f, 28f);
-
-	internal static BookRect PageNext => new BookRect(716f, 612f, 44f, 28f);
-
-	internal static BookRect PageLabel => new BookRect(280f, 612f, 428f, 28f);
+	internal static BookRect PageLabel => new BookRect(252f, 604f, 488f, 32f);
 
 	internal static BookRect ModMenuPanel => new BookRect(184f, 200f, 576f, 384f);
 
@@ -102,7 +88,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect TrackingQuantity => new BookRect(812f, 268f, 284f, 28f);
 
-	internal static BookRect CraftSource => new BookRect(558f, 660f, 360f, 24f);
+	internal static BookRect CraftSource => new BookRect(712f, 660f, 208f, 24f);
 
 	internal static BookRect StorageConnect => new BookRect(812f, 480f, 138f, 40f);
 
@@ -124,43 +110,35 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect HelpClose => new BookRect(HelpPanel.X + HelpPanel.Width - 62f, HelpPanel.Y + 16f, 38f, 32f);
 
-	internal static BookRect HeaderClose => new BookRect(1060f, 24f, 40f, 40f);
+	internal static BookRect HeaderClose => new BookRect(1056f, 12f, 40f, 40f);
 
-	internal static BookRect DragHandle => new BookRect(24f, 660f, 52f, 24f);
+	internal static BookRect Header => new BookRect(0f, 0f, 1120f, 64f);
 
-	internal static BookRect WindowSizeDecrease => new BookRect(84f, 660f, 24f, 24f);
+	internal static BookRect WindowSizeDecrease => new BookRect(24f, 660f, 24f, 24f);
 
-	internal static BookRect WindowSizeIncrease => new BookRect(164f, 660f, 24f, 24f);
+	internal static BookRect WindowSizeIncrease => new BookRect(100f, 660f, 24f, 24f);
 
-	internal static BookRect WindowSizeLabel => new BookRect(116f, 660f, 40f, 24f);
+	internal static BookRect WindowSizeLabel => new BookRect(52f, 660f, 44f, 24f);
 
-	internal static BookRect Search => new BookRect(184f, 108f, 212f, 48f);
+	internal static BookRect Search => new BookRect(212f, 76f, 240f, 36f);
 
-	internal static BookRect SearchText => new BookRect(196f, 116f, 152f, 32f);
+	internal static BookRect SearchText => new BookRect(224f, 80f, 188f, 28f);
 
-	internal static BookRect SearchClear => new BookRect(356f, 116f, 32f, 32f);
+	internal static BookRect SearchClear => new BookRect(420f, 80f, 28f, 28f);
 
-	internal static BookRect ModFilter => new BookRect(404f, 108f, 140f, 48f);
+	internal static BookRect ModFilter => new BookRect(460f, 76f, 152f, 36f);
 
-	internal static BookRect FavoritesFilter => new BookRect(552f, 108f, 44f, 48f);
+	internal static BookRect FavoritesFilter => new BookRect(744f, 76f, 36f, 36f);
 
-	internal static BookRect Refresh => new BookRect(604f, 108f, 36f, 48f);
+	internal static BookRect Sort => new BookRect(620f, 76f, 116f, 36f);
 
-	internal static BookRect Sort => new BookRect(648f, 108f, 56f, 48f);
+	internal static BookRect SortMenuPanel => new BookRect(604f, 116f, 176f, 200f);
 
-	internal static BookRect SortDirection => new BookRect(712f, 108f, 48f, 48f);
+	internal static BookRect SamplePanel => new BookRect(212f, 164f, 568f, 68f);
 
-	internal static BookRect SamplePanel => new BookRect(184f, 168f, 576f, 64f);
+	internal static BookRect SampleSlot => new BookRect(212f, 164f, 48f, 48f);
 
-	internal static BookRect SampleSlot => new BookRect(196f, 176f, 48f, 48f);
-
-	internal static BookRect SampleOpen => new BookRect(580f, 180f, 128f, 40f);
-
-	internal static BookRect SampleClear => new BookRect(716f, 184f, 32f, 32f);
-
-	internal static BookRect ChainBack => new BookRect(184f, 612f, 40f, 28f);
-
-	internal static BookRect ChainPrev => new BookRect(232f, 612f, 40f, 28f);
+	internal static BookRect SampleClear => new BookRect(248f, 158f, 18f, 18f);
 
 	internal const int Width = 1120;
 
@@ -176,9 +154,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const int SectionGap = 24;
 
-	internal const int CategoryColumns = 3;
-
-	internal const int VisibleCategoryRows = 10;
+	internal const int VisibleCategoryRows = 18;
 
 	internal const int TabCount = 6;
 
@@ -318,12 +294,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect CategoryCell(int visibleIndex)
 	{
-		return new BookRect(12 + visibleIndex % 3 * 48, 124 + visibleIndex / 3 * 48, 44f, 44f);
-	}
-
-	internal static BookRect Tab(int index)
-	{
-		return new BookRect(480 + index * 94, 24f, 86f, 40f);
+		return new BookRect(12f, 108 + visibleIndex * 28, 172f, 28f);
 	}
 
 	internal static BookRect TrackingCell(int index)
@@ -331,34 +302,108 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(40 + index % 10 * 72, 176 + index / 10 * 72, 64f, 64f);
 	}
 
-	internal static BookRect BatchChoice(int index)
-	{
-		return new BookRect(896 + index * 52, 268f, 44f, 28f);
-	}
-
-	internal static BookRect ChainFilter(int index)
-	{
-		return new BookRect(184 + index * 292, 244f, 284f, 32f);
-	}
-
 	internal static BookRect ChainCell(int index)
 	{
-		return new BookRect(188 + index % 4 * 144, 348 + index / 4 * 80, 136f, 72f);
+		return new BookRect(212 + index % 2 * 292, 288 + index / 2 * 52, 276f, 44f);
 	}
 
 	internal static BookRect ChainDrill(int index)
 	{
 		BookRect cell = ChainCell(index);
-		return new BookRect(cell.X + cell.Width - 8f - 32f, cell.Y + 8f, 32f, 32f);
+		return new BookRect(cell.X + cell.Width - 36f, cell.Y + 8f, 28f, 28f);
 	}
 
 	internal static BookRect ChainCrumb(int visible)
 	{
-		return new BookRect(188 + visible * 144, 284f, 136f, 32f);
+		return new BookRect(212 + visible * 144, 220f, 136f, 32f);
 	}
 
 	internal static BookRect RecipeCell(int index)
 	{
-		return new BookRect(188 + index % 8 * 72, 244 + index / 8 * 72, 64f, 64f);
+		return GridCell(index, GridTop);
+	}
+
+	// Storage keeps its toolbar band (SamplePanel) above the grid, so its grid starts lower.
+	internal const float GridTop = 164f;
+
+	internal const float StorageGridTop = 244f;
+
+	internal static BookRect GridCell(int index, float top)
+	{
+		return new BookRect(212 + index % 8 * 72, top + index / 8 * 72, 64f, 64f);
+	}
+
+	internal const float TabTop = 12f;
+
+	internal const float TabHeight = 40f;
+
+	internal const float TabRight = 1044f;
+
+	internal static BookRect SortOption(int index)
+	{
+		return new BookRect(SortMenuPanel.X + 4f, SortMenuPanel.Y + 4f + index * 32, SortMenuPanel.Width - 8f, 32f);
+	}
+
+	// Detail panel: header (icon, name, subtitle) and the recipe block below it, whose top depends on
+	// whether the header shows one item or an armor set.
+	internal static BookRect DetailHeaderIcon => new BookRect(812f, 92f, 56f, 56f);
+
+	internal static BookRect DetailHeaderName => new BookRect(880f, 96f, 216f, 26f);
+
+	internal static BookRect DetailHeaderSub => new BookRect(880f, 124f, 216f, 20f);
+
+	internal const float RecipeTop = 168f;
+
+	internal const float ArmorRecipeTop = 244f;
+
+	internal static BookRect ArmorTile(int slot)
+	{
+		return new BookRect(812 + slot * 98, 92f, 88f, 56f);
+	}
+
+	internal static BookRect ArmorTitle => new BookRect(812f, 158f, 284f, 24f);
+
+	internal static BookRect ArmorSubtitle => new BookRect(812f, 184f, 284f, 20f);
+
+	internal static BookRect ArmorStats => new BookRect(812f, 206f, 284f, 20f);
+
+	internal static BookRect RecipeLine(float top)
+	{
+		return new BookRect(812f, top, 216f, 28f);
+	}
+
+	internal static BookRect VariantPrevious(float top)
+	{
+		return new BookRect(1036f, top, 28f, 28f);
+	}
+
+	internal static BookRect VariantNext(float top)
+	{
+		return new BookRect(1068f, top, 28f, 28f);
+	}
+
+	internal static BookRect BatchBar(float top)
+	{
+		return new BookRect(812f, top + 36f, 284f, 28f);
+	}
+
+	internal static BookRect SelectedItemObtain(float top)
+	{
+		return new BookRect(812f, top + 72f, 284f, 36f);
+	}
+
+	internal const float DetailListBottom = 552f;
+
+	internal const float DetailListPagedBottom = 516f;
+
+	internal static BookRect DetailListPrevious => new BookRect(812f, 524f, 28f, 28f);
+
+	internal static BookRect DetailListPager => new BookRect(848f, 524f, 212f, 28f);
+
+	internal static BookRect DetailListNext => new BookRect(1068f, 524f, 28f, 28f);
+
+	internal static BookRect DetailListObtain(BookRect row)
+	{
+		return new BookRect(row.X + row.Width - 28f, row.Y + 4f, 24f, 24f);
 	}
 }
