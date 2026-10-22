@@ -41,18 +41,7 @@ public sealed class BookPlayer : ModPlayer
 		}
 		if (!RecipeBookSystem.Open)
 		{
-			DigitFromCtrl = false;
 			return;
-		}
-		// Ctrl+1..5 switches book tabs. Vanilla picks a hotbar slot while a digit is held, so a digit pressed
-		// with Ctrl stays blocked until it is released, even when Ctrl is let go first. The hotbar triggers can
-		// lag the live keyboard by an update, so the digit counts as held while either still shows it.
-		KeyboardState keys = Keyboard.GetState();
-		bool digit = HotbarDigits.Any(keys.IsKeyDown) || HotbarTriggerHeld();
-		DigitFromCtrl = digit && (DigitFromCtrl || keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl));
-		if (DigitFromCtrl)
-		{
-			BlockHotbarTriggers();
 		}
 		Player.controlInv = false;
 		if (RecipeBookSystem.MouseOver || RecipeBookSystem.Typing)
@@ -69,15 +58,63 @@ public sealed class BookPlayer : ModPlayer
 		Player.controlUp = (Player.controlDown = (Player.controlLeft = (Player.controlRight = false)));
 		Player.controlJump = (Player.controlHook = (Player.controlMount = (Player.controlThrow = false)));
 		Player.controlInv = (Player.controlQuickHeal = (Player.controlQuickMana = (Player.controlCreativeMenu = false)));
-		TriggersSet[] array = new TriggersSet[2]
+	}
+
+	// Keys the book uses come out of this update's triggers right after the game reads input: some actions
+	// (quick buff, loadout switch) run before SetControls, so clearing them there is too late.
+	internal static void GuardTriggers()
+	{
+		if (Main.gameMenu || !RecipeBookSystem.Open)
 		{
-			PlayerInput.Triggers.Current,
-			PlayerInput.Triggers.JustPressed
-		};
-		foreach (TriggersSet triggers in array)
+			DigitWithModifier = false;
+			return;
+		}
+		KeyboardState keys = Keyboard.GetState();
+		// Ctrl+1..5 (tabs) and Alt+1..4 (stage): vanilla picks a hotbar slot while a digit is held, so a digit
+		// pressed with Ctrl or Alt stays blocked until it is released, even when the modifier is let go first.
+		// The triggers can lag the live keyboard by an update, so the digit counts as held while either shows it.
+		bool digit = HotbarDigits.Any(keys.IsKeyDown) || HotbarTriggerHeld();
+		bool modifier = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl) || keys.IsKeyDown(Keys.LeftAlt) || keys.IsKeyDown(Keys.RightAlt);
+		DigitWithModifier = digit && (DigitWithModifier || modifier);
+		if (DigitWithModifier)
 		{
-			string[] array2 = new string[7] { "QuickHeal", "QuickMana", "QuickBuff", "QuickMount", "Grapple", "Throw", "Inventory" };
-			foreach (string name in array2)
+			BlockHotbarTriggers();
+		}
+		// F1 is the book's help; what the game binds to F1 (Loadout 1 by default) waits until the book is closed.
+		string[] f1 = F1Triggers();
+		if (keys.IsKeyDown(Keys.F1) || f1.Any((string name) => PlayerInput.Triggers.Current.KeyStatus.TryGetValue(name, out var held) && held))
+		{
+			BlockTriggers(f1);
+		}
+		if (RecipeBookSystem.CaptureKeyboard)
+		{
+			BlockTriggers(CapturedTriggers);
+			BlockHotbarTriggers();
+		}
+	}
+
+	private static readonly string[] CapturedTriggers = new string[7] { "QuickHeal", "QuickMana", "QuickBuff", "QuickMount", "Grapple", "Throw", "Inventory" };
+
+	private static readonly Keys[] HotbarDigits = new Keys[10] { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.D0 };
+
+	private static bool DigitWithModifier;
+
+	private static string[] F1Triggers()
+	{
+		if (!PlayerInput.CurrentProfile.InputModes.TryGetValue(InputMode.Keyboard, out var mode))
+		{
+			return Array.Empty<string>();
+		}
+		return (from pair in mode.KeyStatus
+			where pair.Value.Contains("F1")
+			select pair.Key).ToArray();
+	}
+
+	private static void BlockTriggers(string[] names)
+	{
+		foreach (TriggersSet triggers in new TriggersSet[2] { PlayerInput.Triggers.Current, PlayerInput.Triggers.JustPressed })
+		{
+			foreach (string name in names)
 			{
 				if (triggers.KeyStatus.ContainsKey(name))
 				{
@@ -85,12 +122,7 @@ public sealed class BookPlayer : ModPlayer
 				}
 			}
 		}
-		BlockHotbarTriggers();
 	}
-
-	private static readonly Keys[] HotbarDigits = new Keys[10] { Keys.D1, Keys.D2, Keys.D3, Keys.D4, Keys.D5, Keys.D6, Keys.D7, Keys.D8, Keys.D9, Keys.D0 };
-
-	private static bool DigitFromCtrl;
 
 	private static bool HotbarTriggerHeld()
 	{

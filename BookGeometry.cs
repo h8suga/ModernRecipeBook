@@ -121,7 +121,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect Help => new BookRect(934f, 660f, 40f, 24f);
 
-	internal static BookRect HelpPanel => new BookRect(132f, 98f, 856f, 500f);
+	internal static BookRect HelpPanel => new BookRect(40f, 64f, 1040f, 568f);
 
 	internal static BookRect HelpClose => new BookRect(HelpPanel.X + HelpPanel.Width - 56f, HelpPanel.Y + 24f, 32f, 32f);
 
