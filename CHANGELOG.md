@@ -3,6 +3,21 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.8.0 — 2026-10-22
+
+### Added
+- How to Get shows what the world gives: where a plant grows (Vile Mushroom: the Corruption, on grass), what
+  breaking blocks, plants and trees drops (the game's own drop code, so chances and modded tiles are right), where
+  to mine ores and gems and with which pickaxe, fishing and quest fish, shimmer, the bug net, every shop including
+  the Travelling Merchant. Items with no source on the card went from 1,624 to 600.
+- Recipes of one item that differ in a single ingredient are one recipe: the row reads "Shadow Scale / or Tissue
+  Sample", counts the alternative you have most of, and Craft, Max and Track use the one you can make. The
+  Recipes tab and How to Get list it once (386 recipes merged into 142 with Calamity).
+- Armor cards show the set bonus of the shown combination, in the game's own words.
+
+### Fixed
+- Mouse3 on an item in the crafting list or grid opened the book instead of the item.
+
 ## 1.7.0 — 2026-10-22
 
 ### Added
