@@ -2,8 +2,8 @@ Mods: {
 	ModernRecipeBook: {
 		Keybinds: {
 			ToggleBook.DisplayName: Открыть книгу рецептов
-			ChainBack.DisplayName: Цепочка: назад
-			ChainForward.DisplayName: Цепочка: вперёд
+			ChainBack.DisplayName: Назад
+			ChainForward.DisplayName: Вперёд
 		}
 
 		Configs: {

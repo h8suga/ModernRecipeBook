@@ -2,7 +2,8 @@ using System.Collections.Generic;
 
 namespace ModernRecipeBook;
 
-internal sealed class BookChainHistory
+// Back/forward list of item types, like a browser history: a new step drops everything after the cursor.
+internal sealed class BookItemHistory
 {
 	private readonly List<int> Items = new List<int>();
 

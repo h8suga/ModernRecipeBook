@@ -24,7 +24,7 @@ public sealed class BookPlayer : ModPlayer
 		{
 			BookInventoryShortcut.RequestToggle();
 		}
-		RecipeBookSystem.QueueChainNavigation(ModernRecipeBook.ChainBack?.JustPressed ?? false, ModernRecipeBook.ChainForward?.JustPressed ?? false);
+		RecipeBookSystem.QueueCardNavigation(ModernRecipeBook.ChainBack?.JustPressed ?? false, ModernRecipeBook.ChainForward?.JustPressed ?? false);
 	}
 
 	public override bool HoverSlot(Item[] inventory, int context, int slot)

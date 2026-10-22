@@ -9,12 +9,11 @@ internal static class BookHotkeys
 		None,
 		Help,
 		Search,
-		Items,
-		Recipes,
-		Chains,
-		Storage,
-		Recent,
-		Tracking,
+		Tab1,
+		Tab2,
+		Tab3,
+		Tab4,
+		Tab5,
 		NextTab,
 		PreviousTab,
 		ResetFilters,
@@ -24,14 +23,15 @@ internal static class BookHotkeys
 		QuickStack,
 		Restock,
 		Refresh,
-		ChainBack,
+		Back,
+		Forward,
 		PagePrevious,
 		PageNext,
 		FirstPage,
 		LastPage
 	}
 
-	internal static Action Read(KeyboardState keys, KeyboardState previous, bool typing, bool blocked, bool nativeInput, bool help, bool menu, bool storage, bool chains)
+	internal static Action Read(KeyboardState keys, KeyboardState previous, bool typing, bool blocked, bool nativeInput, bool help, bool menu, bool storage)
 	{
 		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
 		bool shift = keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift);
@@ -54,29 +54,26 @@ internal static class BookHotkeys
 			{
 				return Action.Search;
 			}
+			// Ctrl+N opens the N-th visible tab, the number its tooltip shows.
 			if (Press(Keys.D1))
 			{
-				return Action.Items;
+				return Action.Tab1;
 			}
 			if (Press(Keys.D2))
 			{
-				return Action.Recipes;
+				return Action.Tab2;
 			}
 			if (Press(Keys.D3))
 			{
-				return Action.Chains;
+				return Action.Tab3;
 			}
 			if (Press(Keys.D4))
 			{
-				return Action.Storage;
+				return Action.Tab4;
 			}
 			if (Press(Keys.D5))
 			{
-				return Action.Recent;
-			}
-			if (Press(Keys.D6))
-			{
-				return Action.Tracking;
+				return Action.Tab5;
 			}
 			if (Press(Keys.Tab))
 			{
@@ -125,9 +122,13 @@ internal static class BookHotkeys
 		{
 			return Action.Refresh;
 		}
-		if (((alt && !ctrl) & chains) && Press(Keys.Left))
+		if (alt && !ctrl && Press(Keys.Left))
 		{
-			return Action.ChainBack;
+			return Action.Back;
+		}
+		if (alt && !ctrl && Press(Keys.Right))
+		{
+			return Action.Forward;
 		}
 		if (!ctrl && !alt)
 		{

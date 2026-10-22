@@ -38,7 +38,7 @@ internal sealed class BookUiState
 		}
 	}
 
-	internal static readonly string[] FilterTabs = new string[5] { "items", "recipes", "chains", "storage", "recent" };
+	internal static readonly string[] FilterTabs = new string[4] { "items", "recipes", "storage", "recent" };
 
 	// Filters of every tab; the top-level Query..SortDescending below are the open tab's (and the only set
 	// version 3 saves had).
@@ -52,13 +52,14 @@ internal sealed class BookUiState
 
 	internal string CategoryKey = "all";
 
-	internal string SampleItemKey = "";
 
 	internal int StageFilter;
 
 	internal bool FavoritesOnly;
 
-	internal bool ChainCraftableOnly;
+	internal bool UsedInMode;
+
+	internal bool UsedInCraftableOnly;
 
 	internal BookSortMode SortMode;
 
@@ -87,7 +88,6 @@ internal sealed class BookUiState
 		{
 		case "items":
 		case "recipes":
-		case "chains":
 		case "storage":
 		case "recent":
 		case "tracking":
@@ -102,10 +102,11 @@ internal sealed class BookUiState
 		bookUiState.ModFilter = Clean(ModFilter, 128);
 		string key = Clean(CategoryKey, 128);
 		bookUiState.CategoryKey = ((key != null && key.Length > 0) ? key : "all");
-		bookUiState.SampleItemKey = Clean(SampleItemKey, 256);
+
 		bookUiState.StageFilter = Math.Clamp(StageFilter, 0, 3);
 		bookUiState.FavoritesOnly = FavoritesOnly;
-		bookUiState.ChainCraftableOnly = ChainCraftableOnly;
+		bookUiState.UsedInMode = UsedInMode;
+		bookUiState.UsedInCraftableOnly = UsedInCraftableOnly;
 		bookUiState.SortMode = (Enum.IsDefined(typeof(BookSortMode), SortMode) ? SortMode : BookSortMode.Name);
 		bookUiState.SortDescending = SortDescending;
 		bookUiState.WindowScalePercent = Math.Clamp(WindowScalePercent, 70, 130);

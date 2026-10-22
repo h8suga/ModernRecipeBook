@@ -9,16 +9,6 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	internal static BookRect CategoryPanel => new BookRect(8f, 76f, 188f, 564f);
 
 
-	internal static BookRect ArmorDefense => new BookRect(812f, 224f, 284f, 20f);
-
-	internal static BookRect ArmorName => new BookRect(812f, 196f, 284f, 24f);
-
-	internal static BookRect ArmorSource => new BookRect(812f, 248f, 284f, 16f);
-
-	internal static BookRect ArmorPrevious => new BookRect(812f, 156f, 36f, 28f);
-
-	internal static BookRect ArmorNext => new BookRect(1060f, 156f, 36f, 28f);
-
 	internal static BookRect AcquisitionPanel => new BookRect(160f, 80f, 800f, 536f);
 
 	// Card header: [back] [icon] title / subtitle ........ [‹ n/m ›] [X]; one divider; list; footer pager.
@@ -49,12 +39,6 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	internal static BookRect EnemyTags => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 64f);
 
 	internal static BookRect EnemyLootLabel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 168f, AcquisitionPanel.Width - 48f, 20f);
-
-	internal static BookRect DetailPrevious => new BookRect(812f, 528f, 40f, 32f);
-
-	internal static BookRect DetailNext => new BookRect(1056f, 528f, 40f, 32f);
-
-	internal static BookRect DetailPager => new BookRect(860f, 528f, 188f, 32f);
 
 	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 164f, 28f);
 
@@ -170,14 +154,8 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect SortMenuPanel => new BookRect(604f, 116f, 176f, 200f);
 
-	// Optional context row under the filter bar: Storage toolbar, the chain's item, the Recipes item chip.
-	internal const float ContextTop = 124f;
-
-	internal static BookRect SamplePanel => new BookRect(212f, ContextTop, 568f, 68f);
-
-	internal static BookRect SampleSlot => new BookRect(212f, ContextTop, 48f, 48f);
-
-	internal static BookRect SampleClear => new BookRect(248f, ContextTop - 6f, 18f, 18f);
+	// Storage keeps a toolbar between the filter bar and its grid.
+	internal static BookRect StorageToolbar => new BookRect(212f, GridTop, 568f, 68f);
 
 	internal const int Width = 1120;
 
@@ -195,31 +173,9 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const int VisibleCategoryRows = 18;
 
-	internal const int TabCount = 6;
+	internal const int TabCount = 5;
 
 	internal const int TrackingPageSize = 7;
-
-	internal static BookRect ArmorPart(int slot)
-	{
-		return new BookRect(856 + slot * 68, 140f, 60f, 52f);
-	}
-
-	internal static BookRect ArmorPartDefense(int slot)
-	{
-		BookRect part = ArmorPart(slot);
-		return new BookRect(part.X + 4f, part.Y + 34f, part.Width - 8f, 16f);
-	}
-
-	internal static BookRect DetailRow(int index)
-	{
-		return new BookRect(812f, 304 + index * 72, 284f, 64f);
-	}
-
-	internal static BookRect DetailObtain(int index)
-	{
-		BookRect row = DetailRow(index);
-		return new BookRect(row.X + row.Width - 8f - 32f, row.Y + (row.Height - 32f) / 2f, 32f, 32f);
-	}
 
 	internal static BookRect AcquisitionIcon(bool back)
 	{
@@ -303,7 +259,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect StorageToolbarButton(int index)
 	{
-		BookRect strip = SamplePanel;
+		BookRect strip = StorageToolbar;
 		float width = (strip.Width - 24f - 24f) / 4f;
 		float x = strip.X + 12f;
 		for (int i = 0; i < index; i++)
@@ -311,11 +267,6 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 			x += width + StorageToolbarExtra[i] + 8f;
 		}
 		return new BookRect(x, strip.Y + 12f, width + StorageToolbarExtra[index], strip.Height - 24f);
-	}
-
-	internal static BookRect DetailIcon(int index)
-	{
-		return DetailRow(index).InsetIcon(8f, 36f);
 	}
 
 	internal static BookRect ModOption(int index)
@@ -375,37 +326,8 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(TrackingPanel.X + 16f, TrackingPanel.Y + 56f + (float)(index * 64), TrackingPanel.Width - 32f, 56f);
 	}
 
-	internal const float ChainCrumbTop = 184f;
 
-	internal const float ChainListLabelTop = 228f;
-
-	internal const float ChainListTop = 252f;
-
-	internal static BookRect ChainCell(int index)
-	{
-		return new BookRect(212 + index % 2 * 292, ChainListTop + index / 2 * 52, 276f, 44f);
-	}
-
-	internal static BookRect ChainDrill(int index)
-	{
-		BookRect cell = ChainCell(index);
-		return new BookRect(cell.X + cell.Width - 36f, cell.Y + 8f, 28f, 28f);
-	}
-
-	internal static BookRect ChainCrumb(int visible)
-	{
-		return new BookRect(212 + visible * 144, ChainCrumbTop, 136f, 32f);
-	}
-
-	internal static BookRect RecipeCell(int index)
-	{
-		return GridCell(index, GridTop);
-	}
-
-	// The grid starts under the filter bar; a context row (Recipes item chip, Storage toolbar) pushes it down.
-	internal const float GridTop = ContextTop;
-
-	internal const float ChipGridTop = 168f;
+	internal const float GridTop = 124f;
 
 	internal const float StorageGridTop = 204f;
 
@@ -427,26 +349,30 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	// Detail panel: header (icon, name, subtitle) and the recipe block below it, whose top depends on
 	// whether the header shows one item or an armor set.
-	internal static BookRect DetailHeaderIcon => new BookRect(812f, 92f, 56f, 56f);
+	internal static BookRect CardBack => new BookRect(812f, 88f, 28f, 28f);
 
-	internal static BookRect DetailHeaderName => new BookRect(880f, 96f, 216f, 26f);
+	internal static BookRect CardMode => new BookRect(848f, 88f, 248f, 28f);
 
-	internal static BookRect DetailHeaderSub => new BookRect(880f, 124f, 216f, 20f);
+	internal static BookRect DetailHeaderIcon => new BookRect(812f, 128f, 56f, 56f);
 
-	internal const float RecipeTop = 168f;
+	internal static BookRect DetailHeaderName => new BookRect(880f, 132f, 216f, 26f);
 
-	internal const float ArmorRecipeTop = 244f;
+	internal static BookRect DetailHeaderSub => new BookRect(880f, 160f, 216f, 20f);
+
+	internal const float RecipeTop = 204f;
+
+	internal const float ArmorRecipeTop = 280f;
 
 	internal static BookRect ArmorTile(int slot)
 	{
-		return new BookRect(812 + slot * 98, 92f, 88f, 56f);
+		return new BookRect(812 + slot * 98, 128f, 88f, 56f);
 	}
 
-	internal static BookRect ArmorTitle => new BookRect(812f, 158f, 284f, 24f);
+	internal static BookRect ArmorTitle => new BookRect(812f, 194f, 284f, 24f);
 
-	internal static BookRect ArmorSubtitle => new BookRect(812f, 184f, 284f, 20f);
+	internal static BookRect ArmorSubtitle => new BookRect(812f, 220f, 284f, 20f);
 
-	internal static BookRect ArmorStats => new BookRect(812f, 206f, 284f, 20f);
+	internal static BookRect ArmorStats => new BookRect(812f, 242f, 284f, 20f);
 
 	internal static BookRect RecipeLine(float top)
 	{

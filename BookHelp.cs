@@ -22,26 +22,26 @@ internal static class BookHelp
 		new Section(0, "НАВИГАЦИЯ", "NAVIGATION", new Entry[9]
 		{
 			new Entry("Ctrl+F", "Ctrl+F", "Поиск", "Search"),
-			new Entry("Ctrl+1…6", "Ctrl+1…6", "Вкладка по номеру", "Go to tab"),
+			new Entry("Ctrl+1…5", "Ctrl+1…5", "Вкладка по номеру", "Go to tab"),
 			new Entry("Ctrl+Tab", "Ctrl+Tab", "Следующая вкладка", "Next tab"),
 			new Entry("PgUp / PgDn", "PgUp / PgDn", "Листать страницы", "Change page"),
 			new Entry("Home / End", "Home / End", "Первая / последняя", "First / last page"),
 			new Entry("Ctrl+Backspace", "Ctrl+Backspace", "Сбросить фильтры", "Reset filters"),
 			new Entry("F5", "F5", "Обновить", "Refresh"),
 			new Entry("Alt+ЛКМ", "Alt+LMB", "В избранное", "Favorite"),
-			new Entry("Mouse3", "Mouse3", "Цепочка предмета", "Item's chain")
+			new Entry("Mouse3", "Mouse3", "Где используется предмет", "Where an item is used")
 		}),
 		new Section(0, "ОБЩЕЕ", "GENERAL", new Entry[2]
 		{
 			new Entry("Esc", "Esc", "Закрыть или назад", "Close or go back"),
 			new Entry("F1", "F1", "Эта справка", "This help")
 		}),
-		new Section(1, "РЕЦЕПТЫ И ЦЕПОЧКИ", "RECIPES & CHAINS", new Entry[4]
+		new Section(1, "КАРТОЧКА ПРЕДМЕТА", "ITEM CARD", new Entry[4]
 		{
 			new Entry("Ctrl+Enter", "Ctrl+Enter", "Создать", "Craft"),
-			new Entry("ЛКМ", "LMB", "Цепочка материала", "Ingredient's chain"),
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Цепочка рецепта", "Recipe's chain"),
-			new Entry("Mouse4 / Mouse5", "Mouse4 / Mouse5", "Цепочка назад / вперёд", "Chain back / forward")
+			new Entry("ЛКМ", "LMB", "Открыть материал", "Open an ingredient"),
+			new Entry("Shift+ЛКМ", "Shift+LMB", "Где используется", "Where it's used"),
+			new Entry("Mouse4 / Mouse5", "Mouse4 / Mouse5", "Назад / вперёд", "Back / forward")
 		}),
 		new Section(1, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
 		{

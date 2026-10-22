@@ -65,7 +65,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private sealed record Detail(Item Icon, string Name, string Sub, Color Color, Color SubColor, string Tooltip, int[] SourceTypes = null);
 
-	private sealed record ChainMaterialPreview(string Summary, Color Color, string Tooltip);
+	private sealed record MaterialPreview(string Summary, Color Color, string Materials);
 
 	private static bool AcquisitionOpen;
 
@@ -91,9 +91,9 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly Dictionary<Recipe, BatchEstimate> BatchEstimates = new Dictionary<Recipe, BatchEstimate>();
 
-	private static bool PendingChainBack;
+	private static bool PendingBack;
 
-	private static bool PendingChainForward;
+	private static bool PendingForward;
 
 	private static readonly List<TrackedGoal> TrackedGoals = new List<TrackedGoal>();
 
@@ -201,9 +201,10 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool Catalogue = true;
 
-	private static bool Chains;
+	// The card's "Used in" list: recipes that take the card's item, optionally only the craftable ones.
+	private static bool UsedInMode;
 
-	private static bool ChainCraftableOnly;
+	private static bool UsedInCraftableOnly;
 
 	private static bool StorageView;
 
@@ -217,13 +218,15 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static int AppliedAvailabilityVersion = -1;
 
-	private static int ChainEligibleCount;
+	// Steps taken inside the card (an ingredient, a Used in row, a How to Get recipe) show another item without
+	// touching the grid; CardHistory walks them back and forth (Mouse4/5, Alt+Left/Right).
+	private static int FocusType;
 
-	private static int ChainStageExcludedCount;
+	private static bool CardBaseFromGrid;
 
-	private static int ChainUnknownVisibleCount;
+	private static readonly BookItemHistory CardHistory = new BookItemHistory();
 
-	private static readonly BookChainHistory ChainHistory = new BookChainHistory();
+	private static readonly Dictionary<int, List<int>> UsedInCache = new Dictionary<int, List<int>>();
 
 	private static int Variant;
 
@@ -284,10 +287,6 @@ public sealed class RecipeBookSystem : ModSystem
 	private static bool HelpOpen;
 
 	private static KeyboardState LastKeys;
-
-	private static int SampleType;
-
-	private static readonly HashSet<int> SampleRecipes = new HashSet<int>();
 
 	private static int LastWheel;
 
@@ -381,20 +380,9 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static bool SampleUses => Chains;
 
-	// Chains list 12 recipes; Storage keeps its toolbar above a 5-row grid; the other tabs show 6 rows.
-	private static int ActivePageSize
-	{
-		get
-		{
-			if (!Chains)
-			{
-				return StorageView ? 40 : 48;
-			}
-			return 12;
-		}
-	}
+	// Storage keeps its toolbar above a 5-row grid; the other tabs show 6 rows.
+	private static int ActivePageSize => StorageView ? 40 : 48;
 
 	private static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
 
@@ -402,23 +390,46 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static int MaxCategoryRow => Math.Max(0, Categories.Count - BookGeometry.VisibleCategoryRows);
 
+	// The item the card shows with all its recipes: an armor piece picked in the set view, a step taken in the
+	// card, or the selected item on Items. 0 when the card shows the grid's selected recipe.
+	private static int CardItemType
+	{
+		get
+		{
+			if (StorageView || TrackingView)
+			{
+				return 0;
+			}
+			if (ArmorFocus > 0)
+			{
+				return ArmorFocus;
+			}
+			if (FocusType > 0)
+			{
+				return FocusType;
+			}
+			return (Catalogue && Selected >= 0) ? Selected : 0;
+		}
+	}
+
 	private static Item SelectedItem
 	{
 		get
 		{
-			if (!TrackingView)
+			if (TrackingView)
 			{
-				if (ArmorFocus <= 0 || StorageView)
-				{
-					if (Selected < 0 || (StorageView && Selected >= BookStorage.Items.Count))
-					{
-						return null;
-					}
-					return Result(Selected);
-				}
-				return ContentSamples.ItemsByType[ArmorFocus];
+				return null;
 			}
-			return null;
+			int type = CardItemType;
+			if (type > 0)
+			{
+				return ContentSamples.ItemsByType[type];
+			}
+			if (Selected < 0 || (StorageView && Selected >= BookStorage.Items.Count))
+			{
+				return null;
+			}
+			return Result(Selected);
 		}
 	}
 
@@ -426,15 +437,16 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			if (Selected < 0 || StorageView || TrackingView)
+			if (StorageView || TrackingView)
 			{
 				return null;
 			}
-			if (!Catalogue && ArmorFocus <= 0)
+			int type = CardItemType;
+			if (type <= 0)
 			{
-				return Main.recipe[Selected];
+				return (Selected >= 0) ? Main.recipe[Selected] : null;
 			}
-			if (!RecipesByItem.TryGetValue((ArmorFocus > 0) ? ArmorFocus : Selected, out var variants) || variants.Count == 0)
+			if (!RecipesByItem.TryGetValue(type, out var variants) || variants.Count == 0)
 			{
 				return null;
 			}
@@ -447,11 +459,12 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			if (!Catalogue && ArmorFocus <= 0)
+			int type = CardItemType;
+			if (type <= 0)
 			{
-				return (Selected >= 0) ? 1 : 0;
+				return (Selected >= 0 && !StorageView && !TrackingView) ? 1 : 0;
 			}
-			if (Selected < 0 || !RecipesByItem.TryGetValue((ArmorFocus > 0) ? ArmorFocus : Selected, out var variants))
+			if (!RecipesByItem.TryGetValue(type, out var variants))
 			{
 				return 0;
 			}
@@ -660,12 +673,12 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			int type = Main.recipe[index].createItem.type;
 			CloseAcquisition();
-			SampleType = type;
-			SwitchTab(1);
-			Selected = index;
-			int position = Filtered.IndexOf(index);
-			Page = ((position >= 0) ? (position / ActivePageSize) : 0);
-			DetailsPage = 0;
+			if (StorageView || TrackingView)
+			{
+				SwitchTab(0);
+			}
+			StepCard(type, usedIn: false);
+			Variant = Math.Max(0, RecipesByItem.GetValueOrDefault(type)?.IndexOf(index) ?? 0);
 		}
 	}
 
@@ -1335,37 +1348,89 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	internal static void QueueChainNavigation(bool back, bool forward)
+	internal static void QueueCardNavigation(bool back, bool forward)
 	{
-		if (Open && Chains && !Main.gameMenu)
+		if (Open && !Main.gameMenu)
 		{
-			PendingChainBack |= back;
-			PendingChainForward |= forward;
+			PendingBack |= back;
+			PendingForward |= forward;
 		}
 	}
 
-	private static void ProcessChainNavigation()
+	private static void ProcessCardNavigation()
 	{
-		bool back = PendingChainBack;
-		bool forward = PendingChainForward;
-		PendingChainBack = (PendingChainForward = false);
-		if (back == forward || !Open || !Chains || Typing || HelpOpen || AcquisitionOpen || ModMenu || DraggingWindow || Main.blockInput || Main.drawingPlayerChat || Main.editSign || Main.editChest || PlayerInput.UsingGamepad)
+		bool back = PendingBack;
+		bool forward = PendingForward;
+		PendingBack = (PendingForward = false);
+		if (back == forward || !Open || Typing || HelpOpen || AcquisitionOpen || MenuOpen || DraggingWindow || Main.blockInput || Main.drawingPlayerChat || Main.editSign || Main.editChest || PlayerInput.UsingGamepad)
 		{
 			return;
 		}
 		if (back)
 		{
-			GoToChain(ChainHistory.Count - 2);
+			CardBack();
+		}
+		else
+		{
+			CardForward();
+		}
+	}
+
+	private static void ResetCard()
+	{
+		FocusType = 0;
+		CardBaseFromGrid = false;
+		CardHistory.Clear();
+	}
+
+	// Shows another item in the card and remembers the step; the first step also remembers where it started.
+	private static void StepCard(int type, bool usedIn)
+	{
+		if (type <= 0 || !ContentSamples.ItemsByType.ContainsKey(type))
+		{
 			return;
 		}
-		int type = ChainHistory.Forward();
-		if (type <= 0)
+		if (CardHistory.Count == 0 && SelectedItem != null)
 		{
-			type = SelectedItem?.type ?? 0;
+			CardHistory.Push(SelectedItem.type);
+			CardBaseFromGrid = FocusType <= 0;
 		}
-		if (type > 0 && type != SampleType)
+		CardHistory.Push(type);
+		ShowCardStep(CardHistory.Count - 1);
+		UsedInMode = usedIn;
+	}
+
+	// Opens the card on an item that has no place in the grid (Mouse3 on an inventory item).
+	private static void FocusCard(int type, bool usedIn)
+	{
+		ResetCard();
+		StepCard(type, usedIn);
+	}
+
+	private static void ShowCardStep(int index)
+	{
+		int type = CardHistory[index];
+		// The first entry of a walk that began on the grid is the grid's own selection again.
+		FocusType = ((index == 0 && CardBaseFromGrid) ? 0 : type);
+		ArmorFocus = 0;
+		Variant = 0;
+		DetailsPage = 0;
+	}
+
+	private static void CardBack()
+	{
+		if (CardHistory.Count >= 2)
 		{
-			SetSample(type, append: true);
+			CardHistory.GoTo(CardHistory.Count - 2);
+			ShowCardStep(CardHistory.Count - 1);
+		}
+	}
+
+	private static void CardForward()
+	{
+		if (CardHistory.Forward() > 0)
+		{
+			ShowCardStep(CardHistory.Count - 1);
 		}
 	}
 
@@ -1608,7 +1673,7 @@ public sealed class RecipeBookSystem : ModSystem
 		bool tracked = recipe != null && TrackedGoals.Any((TrackedGoal g) => g.Key == "recipe:" + recipe.RecipeIndex);
 		bool full = !ResourceTrackerStyle && TrackedGoals.Count >= BookTrackerRules.MaxGoals;
 		BookRect single = (hasSet ? BookGeometry.TrackSingleAction : BookGeometry.TrackAction);
-		string fullTip = T("В карточках до 5 целей · Ctrl+6 — список", "Up to 5 goals in cards style · Ctrl+6 opens the list");
+		string fullTip = T("В карточках до 5 целей · Ctrl+" + TrackingTabNumber + " — список", "Up to 5 goals in cards style · Ctrl+" + TrackingTabNumber + " opens the list");
 		if (tracked)
 		{
 			Button(sb, single, T("Не отслеживать", "Untrack"), active: true);
@@ -1916,7 +1981,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (more)
 		{
-			FixedLabel(sb, "+" + (order.Length - shown) + T(" ещё · Ctrl+6", " more · Ctrl+6"), 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
+			FixedLabel(sb, "+" + (order.Length - shown) + T(" ещё · Ctrl+", " more · Ctrl+") + TrackingTabNumber, 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
 		}
 	}
 
@@ -2972,9 +3037,10 @@ public sealed class RecipeBookSystem : ModSystem
 			["ModFilter"] = state.ModFilter,
 			["StageFilter"] = state.StageFilter,
 			["CategoryKey"] = state.CategoryKey,
-			["SampleItemKey"] = state.SampleItemKey,
+
 			["FavoritesOnly"] = state.FavoritesOnly,
-			["ChainCraftableOnly"] = state.ChainCraftableOnly,
+			["UsedInMode"] = state.UsedInMode,
+			["UsedInCraftableOnly"] = state.UsedInCraftableOnly,
 			["SortMode"] = state.SortMode.ToString(),
 			["SortDescending"] = state.SortDescending,
 			["WindowScalePercent"] = state.WindowScalePercent,
@@ -3017,17 +3083,19 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				state.CategoryKey = tag.GetString("CategoryKey");
 			}
-			if (tag.ContainsKey("SampleItemKey"))
-			{
-				state.SampleItemKey = tag.GetString("SampleItemKey");
-			}
+
 			if (tag.ContainsKey("FavoritesOnly"))
 			{
 				state.FavoritesOnly = tag.GetBool("FavoritesOnly");
 			}
-			if (tag.ContainsKey("ChainCraftableOnly"))
+			if (tag.ContainsKey("UsedInMode"))
 			{
-				state.ChainCraftableOnly = tag.GetBool("ChainCraftableOnly");
+				state.UsedInMode = tag.GetBool("UsedInMode");
+			}
+			// Version 3 called it ChainCraftableOnly (the Chains tab's "Craftable" toggle).
+			if (tag.ContainsKey("UsedInCraftableOnly") || tag.ContainsKey("ChainCraftableOnly"))
+			{
+				state.UsedInCraftableOnly = tag.GetBool(tag.ContainsKey("UsedInCraftableOnly") ? "UsedInCraftableOnly" : "ChainCraftableOnly");
 			}
 			if (tag.ContainsKey("SortMode") && Enum.TryParse<BookSortMode>(tag.GetString("SortMode"), ignoreCase: true, out var sortMode))
 			{
@@ -3112,7 +3180,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static BookUiState CaptureUiState()
 	{
 		string categoryKey = ((Category >= 0 && Category < Categories.Count) ? Categories[Category].Key : "all");
-		string sampleKey = ((SampleType > 0 && ContentSamples.ItemsByType.TryGetValue(SampleType, out var sample)) ? ItemKey(sample) : "");
+
 		if (CurrentTab < BookUiState.FilterTabs.Length)
 		{
 			TabFilterSlots[CurrentTab] = LiveTabFilters();
@@ -3120,14 +3188,14 @@ public sealed class RecipeBookSystem : ModSystem
 		return new BookUiState
 		{
 			Tabs = TabFilterSlots.Where((KeyValuePair<int, BookUiState.TabFilters> slot) => slot.Key < BookUiState.FilterTabs.Length).ToDictionary((KeyValuePair<int, BookUiState.TabFilters> slot) => BookUiState.FilterTabs[slot.Key], (KeyValuePair<int, BookUiState.TabFilters> slot) => slot.Value),
-			LastTab = (TrackingView ? "tracking" : (RecentView ? "recent" : (StorageView ? "storage" : (Chains ? "chains" : (Catalogue ? "items" : "recipes"))))),
+			LastTab = (TrackingView ? "tracking" : (RecentView ? "recent" : (StorageView ? "storage" : (Catalogue ? "items" : "recipes")))),
 			Query = Query,
 			ModFilter = ModFilter,
 			StageFilter = (int)StageFilter,
 			CategoryKey = categoryKey,
-			SampleItemKey = sampleKey,
 			FavoritesOnly = FavoritesOnly,
-			ChainCraftableOnly = ChainCraftableOnly,
+			UsedInMode = UsedInMode,
+			UsedInCraftableOnly = UsedInCraftableOnly,
 			SortMode = SortMode,
 			SortDescending = SortDescending,
 			WindowScalePercent = WindowScalePercent,
@@ -3144,7 +3212,6 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		BookUiState state = source.Sanitize();
 		Catalogue = state.LastTab == "items";
-		Chains = state.LastTab == "chains";
 		StorageView = state.LastTab == "storage";
 		RecentView = state.LastTab == "recent";
 		TrackingView = state.LastTab == "tracking";
@@ -3185,7 +3252,8 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 		}
 		StageFilter = (BookStageFilter)state.StageFilter;
-		ChainCraftableOnly = state.ChainCraftableOnly;
+		UsedInMode = state.UsedInMode;
+		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		WindowScalePercent = state.WindowScalePercent;
 		HasCustomWindowPosition = state.HasCustomPosition;
 		WindowPositionX = state.WindowX;
@@ -3193,13 +3261,6 @@ public sealed class RecipeBookSystem : ModSystem
 		TrackerCustomPosition = state.TrackerHasCustomPosition;
 		TrackerPositionX = state.TrackerX;
 		TrackerPositionY = state.TrackerY;
-		SampleType = ResolveItemType(state.SampleItemKey);
-		if (Chains && SampleType <= 0)
-		{
-			Catalogue = true;
-			Chains = false;
-			StorageView = false;
-		}
 		LoadTabFilters(TabFilterSlots.GetValueOrDefault(CurrentTab));
 		SetTyping(value: false);
 		ModMenu = (HelpOpen = false);
@@ -3207,12 +3268,7 @@ public sealed class RecipeBookSystem : ModSystem
 		Selected = -1;
 		Page = (DetailsPage = (Variant = 0));
 		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
-		ChainHistory.Clear();
-		if (Chains)
-		{
-			ChainHistory.Push(SampleType);
-		}
-		RefreshSampleRecipes();
+		ResetCard();
 		ApplyFilters();
 	}
 
@@ -3256,22 +3312,6 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		TabFilterSlots[from] = LiveTabFilters();
 		LoadTabFilters(TabFilterSlots.GetValueOrDefault(to));
-	}
-
-	private static int ResolveItemType(string key)
-	{
-		if (string.IsNullOrEmpty(key))
-		{
-			return 0;
-		}
-		foreach (Item item in ContentSamples.ItemsByType.Values)
-		{
-			if (item != null && !item.IsAir && ItemKey(item) == key)
-			{
-				return item.type;
-			}
-		}
-		return 0;
 	}
 
 	private static bool HandleUiStateInput(bool click)
@@ -3483,21 +3523,22 @@ public sealed class RecipeBookSystem : ModSystem
 		CloseAcquisition();
 		StopTracker();
 		BlockTrackerPress = false;
-		PendingChainBack = (PendingChainForward = false);
+		PendingBack = (PendingForward = false);
 		TrackerCustomPosition = false;
 		TrackerPositionX = 0f;
 		TrackerPositionY = 1f;
 		SetTyping(value: false);
 		BookCrafting.Clear();
-		ChainCraftableOnly = false;
+		UsedInMode = (UsedInCraftableOnly = false);
 		AppliedAvailabilityVersion = -1;
-		Open = (MouseOver = (ModMenu = (Chains = (StorageView = (RecentView = (TrackingView = false))))));
+		Open = (MouseOver = (ModMenu = (StorageView = (RecentView = (TrackingView = false)))));
 		Catalogue = true;
 		BookStorage.ClearView();
 		AppliedStorageVersion = -1;
 		AppliedRecentVersion = -1;
 		Variant = 0;
-		ChainHistory.Clear();
+		ResetCard();
+		UsedInCache.Clear();
 		BatchChoice = 0;
 		InvalidateBatchEstimate();
 		Query = (ModFilter = "");
@@ -3510,8 +3551,6 @@ public sealed class RecipeBookSystem : ModSystem
 		LastLeft = (LastRight = (HelpOpen = false));
 		LastEscape = false;
 		LastKeys = default;
-		SampleType = 0;
-		SampleRecipes.Clear();
 		SortMode = BookSortMode.Name;
 		SortDescending = false;
 		WindowScalePercent = 100;
@@ -3565,8 +3604,11 @@ public sealed class RecipeBookSystem : ModSystem
 		Rebuild();
 		BookCrafting.Refresh(force: true);
 		RestorePendingPlayerUiState();
-		ChainCraftableOnly = false;
-		SetSample(type);
+		if (StorageView || TrackingView)
+		{
+			SwitchTab(0);
+		}
+		FocusCard(type, usedIn: true);
 		Open = true;
 		LastLeft = Main.mouseLeft;
 		LastRight = Main.mouseRight;
@@ -3674,7 +3716,7 @@ public sealed class RecipeBookSystem : ModSystem
 			BookArmorSets.Clear();
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB armor index failed; using individual items.", exception2);
 		}
-		RefreshSampleRecipes();
+		UsedInCache.Clear();
 		Dirty = false;
 		ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Recipe index audit: scanned {Recipe.numRecipes} slots; {RegisteredRecipes} registered, {All.Count} enabled, {DisabledRecipes} disabled; {AllItems.Count} loaded items.");
 	}
@@ -3709,7 +3751,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void ApplyFilters(bool clearMessage = true)
 	{
 		Filtered.Clear();
-		ChainEligibleCount = (ChainStageExcludedCount = (ChainUnknownVisibleCount = 0));
+
 		AppliedAvailabilityVersion = BookCrafting.AvailabilityVersion;
 		if (clearMessage)
 		{
@@ -3721,13 +3763,7 @@ public sealed class RecipeBookSystem : ModSystem
 			Page = Math.Clamp(Page, 0, TrackingGoalPages - 1);
 			return;
 		}
-		if (Chains && SampleType <= 0)
-		{
-			ArmorFocus = 0;
-			Selected = -1;
-			Page = 0;
-			return;
-		}
+
 		IEnumerable<int> enumerable2;
 		if (!StorageView)
 		{
@@ -3750,7 +3786,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			Item item = Result(index);
 			Recipe r = ((Catalogue || StorageView) ? null : Main.recipe[index]);
-			if ((r != null && r.Disabled) || !MatchCategory(item) || (SampleType > 0 && !Catalogue && !StorageView && !RecentView && !SampleRecipes.Contains(index)) || (FavoritesOnly && !Favorites.Contains(ItemKey(item))) || (ModFilter.Length > 0 && (item.ModItem?.Mod.Name ?? "Terraria") != ModFilter && (r == null || Owner(r) != ModFilter)))
+			if ((r != null && r.Disabled) || !MatchCategory(item) || (FavoritesOnly && !Favorites.Contains(ItemKey(item))) || (ModFilter.Length > 0 && (item.ModItem?.Mod.Name ?? "Terraria") != ModFilter && (r == null || Owner(r) != ModFilter)))
 			{
 				continue;
 			}
@@ -3760,25 +3796,9 @@ public sealed class RecipeBookSystem : ModSystem
 				continue;
 			}
 			BookStage stage = ((r != null) ? BookProgression.RecipeStage(index) : BookProgression.ItemStage(item.type));
-			if (!(Chains ? BookProgressionRules.MatchesChain(StageFilter, stage, BookProgression.RecipeMinimumStage(index)) : BookProgressionRules.Matches(StageFilter, stage)))
+			if (!BookProgressionRules.Matches(StageFilter, stage))
 			{
-				if (Chains)
-				{
-					ChainStageExcludedCount++;
-				}
 				continue;
-			}
-			if (Chains)
-			{
-				ChainEligibleCount++;
-				if (!BookRules.ChainRecipeVisible(ChainCraftableOnly, BookCrafting.IsAvailable(r)))
-				{
-					continue;
-				}
-				if (stage == BookStage.Unknown)
-				{
-					ChainUnknownVisibleCount++;
-				}
 			}
 			Filtered.Add(index);
 		}
@@ -3786,12 +3806,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			Filtered.Sort(CompareFilteredIndexes);
 		}
-		if (Chains && StageFilter != BookStageFilter.All)
-		{
-			int[] ordered = Filtered.OrderBy((int index2) => (BookProgression.RecipeStage(index2) == BookStage.Unknown) ? 1 : 0).ToArray();
-			Filtered.Clear();
-			Filtered.AddRange(ordered);
-		}
+
 		Page = Math.Clamp(Page, 0, Math.Max(0, (Filtered.Count - 1) / ActivePageSize));
 		if (!Filtered.Contains(Selected))
 		{
@@ -3801,39 +3816,15 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void RefreshSampleRecipes()
-	{
-		SampleRecipes.Clear();
-		if (SampleType <= 0)
-		{
-			return;
-		}
-		if (!ContentSamples.ItemsByType.ContainsKey(SampleType))
-		{
-			SampleType = 0;
-			return;
-		}
-		foreach (int index in All)
-		{
-			Recipe r = Main.recipe[index];
-			if (BookRules.RecipeMatchesSample(SampleType, r.createItem.type, SampleUses, from item in r.requiredItem
-				where !item.IsAir
-				select item.type, r.AcceptedByItemGroups))
-			{
-				SampleRecipes.Add(index);
-			}
-		}
-	}
-
 	private static void SwitchTab(int index)
 	{
 		int from = CurrentTab;
 		Catalogue = index == 0;
-		Chains = index == 2;
-		StorageView = index == 3;
-		RecentView = index == 4;
-		TrackingView = index == 5;
+		StorageView = index == 2;
+		RecentView = index == 3;
+		TrackingView = index == 4;
 		ChangeFilterTab(from, index);
+		ResetCard();
 		if (StorageView)
 		{
 			BookStorage.Tick();
@@ -3844,44 +3835,10 @@ public sealed class RecipeBookSystem : ModSystem
 		ArmorFocus = 0;
 		Selected = -1;
 		Page = (DetailsPage = (Variant = 0));
-		RefreshSampleRecipes();
 		ApplyFilters();
 		AppliedRecentVersion = BookRecent.Version;
 	}
 
-	private static void SetSample(int type, bool append = false)
-	{
-		int from = CurrentTab;
-		StorageView = (RecentView = (TrackingView = false));
-		SampleType = Math.Max(0, type);
-		if (!append)
-		{
-			ChainHistory.Clear();
-		}
-		if (SampleType > 0)
-		{
-			ChainHistory.Push(SampleType);
-			Catalogue = false;
-			Chains = true;
-		}
-		ChangeFilterTab(from, CurrentTab);
-		SetTyping(value: false);
-		ModMenu = false;
-		Page = (DetailsPage = (Variant = 0));
-		ArmorFocus = 0;
-		Selected = -1;
-		RefreshSampleRecipes();
-		ApplyFilters();
-	}
-
-	private static void GoToChain(int index)
-	{
-		int type = ChainHistory.GoTo(index);
-		if (type > 0)
-		{
-			SetSample(type, append: true);
-		}
-	}
 
 	private static void SetTyping(bool value)
 	{
@@ -3962,7 +3919,7 @@ public sealed class RecipeBookSystem : ModSystem
 			return;
 		}
 		BookInventoryShortcut.ProcessRequests();
-		ProcessChainNavigation();
+		ProcessCardNavigation();
 		bool middle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
 		if (((Open && Typing) & middle) && !LastMiddle && ModernRecipeBook.ToggleBook.GetAssignedKeys().Contains("Mouse3"))
 		{
@@ -4000,10 +3957,7 @@ public sealed class RecipeBookSystem : ModSystem
 			AppliedRecentVersion = BookRecent.Version;
 			ApplyFilters(clearMessage: false);
 		}
-		if (Chains && ChainCraftableOnly && AppliedAvailabilityVersion != BookCrafting.AvailabilityVersion)
-		{
-			ApplyFilters(clearMessage: false);
-		}
+
 		Layout();
 		if (MouseOver)
 		{
@@ -4108,7 +4062,7 @@ public sealed class RecipeBookSystem : ModSystem
 				Page = Math.Clamp(Page + step, 0, Pages - 1);
 			}
 		}
-		BookRect sampleSlot = BookGeometry.SampleSlot;
+
 		if (rightClick && StorageView && !ModMenu)
 		{
 			for (int n = 0; n < ActivePageSize; n++)
@@ -4128,11 +4082,7 @@ public sealed class RecipeBookSystem : ModSystem
 				}
 			}
 		}
-		if (rightClick && Chains && !MenuOpen && sampleSlot.Contains(Mouse.X, Mouse.Y))
-		{
-			ClearSample();
-			return;
-		}
+
 		if (!click)
 		{
 			return;
@@ -4201,10 +4151,6 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				BookStorage.ChooseCraftSource(source == 1);
 				BookCrafting.Refresh(force: true);
-				if (Chains && ChainCraftableOnly)
-				{
-					ApplyFilters(clearMessage: false);
-				}
 			}
 			return;
 		}
@@ -4278,53 +4224,6 @@ public sealed class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
-		if (Chains)
-		{
-			if (SampleType > 0 && BookGeometry.SampleClear.Contains(Mouse.X, Mouse.Y))
-			{
-				ClearSample();
-				return;
-			}
-			if (sampleSlot.Contains(Mouse.X, Mouse.Y))
-			{
-				SetTyping(value: false);
-				if (!Main.mouseItem.IsAir)
-				{
-					SetSample(Main.mouseItem.type);
-				}
-				else
-				{
-					Main.playerInventory = true;
-				}
-				return;
-			}
-			int filter = SegmentAt(ChainFilterRects());
-			if (filter >= 0)
-			{
-				ChainCraftableOnly = filter == 1;
-				if (ChainCraftableOnly)
-				{
-					BookCrafting.Refresh(force: true);
-				}
-				Page = (DetailsPage = 0);
-				ApplyFilters();
-				return;
-			}
-			int first = Math.Max(0, ChainHistory.Count - 4);
-			for (int visible = 0; ChainHistory.Count > 1 && visible < Math.Min(4, ChainHistory.Count); visible++)
-			{
-				if (BookGeometry.ChainCrumb(visible).Contains(Mouse.X, Mouse.Y))
-				{
-					GoToChain(first + visible);
-					return;
-				}
-			}
-		}
-		if (RecipeSampleFilter && SampleChipRect().Contains(Mouse.X, Mouse.Y))
-		{
-			ClearSample();
-			return;
-		}
 		if (Query.Length > 0 && BookGeometry.SearchClear.Contains(Mouse.X, Mouse.Y))
 		{
 			Query = "";
@@ -4378,7 +4277,7 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				break;
 			}
-			if ((Chains ? BookGeometry.ChainCell(n3) : BookGeometry.GridCell(n3, GridTop)).Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.GridCell(n3, GridTop).Contains(Mouse.X, Mouse.Y))
 			{
 				KeyboardState keyboard = Keyboard.GetState();
 				if (keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt))
@@ -4392,18 +4291,14 @@ public sealed class RecipeBookSystem : ModSystem
 					BookStorage.Withdraw(Result(Selected), single: false);
 					return;
 				}
-				if (Chains && BookGeometry.ChainDrill(n3).Contains(Mouse.X, Mouse.Y))
-				{
-					SetSample(Result(Filtered[index3]).type, append: true);
-					return;
-				}
+				ArmorFocus = 0;
+				ResetCard();
+				Selected = Filtered[index3];
+				// Shift+Click opens the item straight on its Used in list.
 				if (!StorageView && (keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)))
 				{
-					SetSample(Result(Filtered[index3]).type);
-					return;
+					UsedInMode = true;
 				}
-				ArmorFocus = 0;
-				Selected = Filtered[index3];
 				DetailsPage = (Variant = 0);
 				BookCrafting.LastMessage = "";
 				return;
@@ -4417,14 +4312,21 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			Page = Math.Min(Pages - 1, Page + 1);
 		}
-		if (Selected < 0 || StorageView || HandleArmorSetClick() || HandleTrackButton())
+		if (StorageView || SelectedItem == null || HandleCardNavClick() || HandleArmorSetClick() || HandleTrackButton())
 		{
 			return;
 		}
 		Item chosen = SelectedItem;
 		Recipe materialRecipe = SelectedRecipe;
 		float top = RecipeBlockTop(chosen);
-		if (materialRecipe == null)
+		if (UsedInMode)
+		{
+			if (HandleUsedInClick(chosen.type, top))
+			{
+				return;
+			}
+		}
+		else if (materialRecipe == null)
 		{
 			if (chosen != null && !chosen.IsAir && BookGeometry.SelectedItemObtain(top).Contains(Mouse.X, Mouse.Y))
 			{
@@ -4434,7 +4336,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		else
 		{
-			if ((Catalogue || ArmorFocus > 0) && VariantCount > 1)
+			if (CardItemType > 0 && VariantCount > 1)
 			{
 				if (BookGeometry.VariantPrevious(top).Contains(Mouse.X, Mouse.Y))
 				{
@@ -4470,7 +4372,7 @@ public sealed class RecipeBookSystem : ModSystem
 					}
 					else
 					{
-						SetSample(material.type);
+						StepCard(material.type, usedIn: false);
 					}
 				}
 				return;
@@ -4494,26 +4396,10 @@ public sealed class RecipeBookSystem : ModSystem
 		if (materialRecipe != null && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
 		{
 			BookCrafting.TryCraft(materialRecipe, Ru, PreviewBatches(materialRecipe));
-			if (Chains && ChainCraftableOnly)
-			{
-				ApplyFilters(clearMessage: false);
-			}
 		}
 	}
 
-	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : (RecipeSampleFilter ? BookGeometry.ChipGridTop : BookGeometry.GridTop);
-
-	// Clearing the chain item only drops the sample; search and the other filters stay as they are.
-	private static void ClearSample()
-	{
-		SampleType = 0;
-		ChainHistory.Clear();
-		ArmorFocus = 0;
-		Selected = -1;
-		Page = (DetailsPage = (Variant = 0));
-		RefreshSampleRecipes();
-		ApplyFilters();
-	}
+	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : BookGeometry.GridTop;
 
 	private static void ToggleFavorite(Item item)
 	{
@@ -4541,7 +4427,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool HandleKeys(KeyboardState keys)
 	{
-		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, MenuOpen, StorageView, Chains);
+		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, MenuOpen, StorageView);
 		switch (action)
 		{
 		case BookHotkeys.Action.None:
@@ -4558,27 +4444,20 @@ public sealed class RecipeBookSystem : ModSystem
 				SetTyping(value: true);
 			}
 			break;
-		case BookHotkeys.Action.Items:
-			SwitchTab(0);
-			break;
-		case BookHotkeys.Action.Recipes:
-			SwitchTab(1);
-			break;
-		case BookHotkeys.Action.Chains:
-			SwitchTab(2);
-			break;
-		case BookHotkeys.Action.Storage:
-			if (StorageTabVisible)
+		case BookHotkeys.Action.Tab1:
+		case BookHotkeys.Action.Tab2:
+		case BookHotkeys.Action.Tab3:
+		case BookHotkeys.Action.Tab4:
+		case BookHotkeys.Action.Tab5:
+		{
+			List<int> visible = VisibleTabs();
+			int position = action - BookHotkeys.Action.Tab1;
+			if (position < visible.Count)
 			{
-				SwitchTab(3);
+				SwitchTab(visible[position]);
 			}
 			break;
-		case BookHotkeys.Action.Recent:
-			SwitchTab(4);
-			break;
-		case BookHotkeys.Action.Tracking:
-			SwitchTab(5);
-			break;
+		}
 		case BookHotkeys.Action.NextTab:
 		case BookHotkeys.Action.PreviousTab:
 		{
@@ -4614,8 +4493,11 @@ public sealed class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.Refresh:
 			RefreshView();
 			break;
-		case BookHotkeys.Action.ChainBack:
-			GoToChain(ChainHistory.Count - 2);
+		case BookHotkeys.Action.Back:
+			CardBack();
+			break;
+		case BookHotkeys.Action.Forward:
+			CardForward();
 			break;
 		case BookHotkeys.Action.PagePrevious:
 			Page = Math.Max(0, Page - 1);
@@ -4635,6 +4517,13 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static int MaxDetailsPage()
 	{
+		if (UsedInMode && SelectedItem != null)
+		{
+			float top = RecipeBlockTop(SelectedItem);
+			int count = VisibleUsedIn(SelectedItem.type).Rows.Count;
+			int size = UsedInPageSize(top, count);
+			return Math.Max(0, (count - 1) / size);
+		}
 		Recipe r = SelectedRecipe;
 		if (r == null)
 		{
@@ -5342,42 +5231,7 @@ public sealed class RecipeBookSystem : ModSystem
 		return list;
 	}
 
-	// The chain item slot sits in the top-left corner of the Chains content: the slot and one line of text.
-	private static void DrawSample(SpriteBatch sb)
-	{
-		BookRect slot = BookGeometry.SampleSlot;
-		bool hasSample = SampleType > 0 && ContentSamples.ItemsByType.ContainsKey(SampleType);
-		bool hover = !MenuOpen && slot.Contains(Mouse.X, Mouse.Y);
-		Box(sb, slot, hover ? HoverFill : new Color(36, 51, 41), border: true, 10f, Accent, (!hasSample) ? 1 : 2);
-		float labelWidth = ChainFilterRects()[0].X - 12f - (slot.X + slot.Width + 12f);
-		if (hasSample)
-		{
-			Item sample = ContentSamples.ItemsByType[SampleType];
-			Icon(sb, sample, slot.X + 8f, slot.Y + 8f, 32f, tooltip: false);
-			CenterLabel(sb, sample.Name, slot.X + slot.Width + 12f, slot.Y + 8f, labelWidth, 32f, TextColor, 1f, rightAligned: false, leftAligned: true);
-			BookRect clear = BookGeometry.SampleClear;
-			bool clearHover = !MenuOpen && clear.Contains(Mouse.X, Mouse.Y);
-			Box(sb, clear, clearHover ? Bad : Raised, border: true, 9f);
-			Cross(sb, clear.X + clear.Width / 2f, clear.Y + clear.Height / 2f, 3f, clearHover ? Panel : TextColor);
-			if (clearHover)
-			{
-				MouseTip(T("Убрать предмет", "Remove the item"));
-			}
-			else if (hover)
-			{
-				MouseTip(sample.Name + "\n" + T("Клик предметом с курсора заменяет · ПКМ: убрать", "Click with an item to replace · Right-click removes"));
-			}
-			return;
-		}
-		Plus(sb, slot.X + slot.Width / 2f, slot.Y + slot.Height / 2f, 7f, Accent);
-		CenterLabel(sb, T("Положите предмет сюда", "Place an item here"), slot.X + slot.Width + 12f, slot.Y + 8f, labelWidth, 32f, Muted, 0.9f, rightAligned: false, leftAligned: true);
-		if (hover)
-		{
-			MouseTip(T("Нажмите предметом с курсора", "Click with an item held on the cursor") + "\n" + T("Пустой клик открывает инвентарь", "An empty click opens the inventory"));
-		}
-	}
-
-	private static string[] ChainFilterLabels()
+	private static string[] UsedInFilterLabels()
 	{
 		return new string[2]
 		{
@@ -5386,12 +5240,7 @@ public sealed class RecipeBookSystem : ModSystem
 		};
 	}
 
-	private static BookRect[] ChainFilterRects()
-	{
-		return SegmentRects(new BookRect(212f, BookGeometry.ContextTop + 8f, 568f, 32f), ChainFilterLabels(), 0.85f, natural: true, alignRight: true);
-	}
-
-	private static ChainMaterialPreview PreviewChainMaterials(Recipe recipe, Item output)
+	private static MaterialPreview PreviewMaterials(Recipe recipe)
 	{
 		int batches = PreviewBatchCount(recipe);
 		List<(MaterialRequirement, BookMaterialRules.Assessment)> assessed = (from requirement in MaterialRequirements(recipe)
@@ -5412,117 +5261,13 @@ public sealed class RecipeBookSystem : ModSystem
 			color = (assessed.Any(((MaterialRequirement Requirement, BookMaterialRules.Assessment Assessment) x) => x.Assessment.Unknown || x.Assessment.Overlapping) ? Muted : Good);
 		}
 		string materials = string.Join(", ", assessed.Take(3).Select(((MaterialRequirement, BookMaterialRules.Assessment) x) => x.Item1.Name + " " + MaterialSub(x.Item2))) + ((assessed.Count > 3) ? ", ..." : "");
-		string tooltip = output.Name + ((output.stack > 1) ? (" ×" + output.stack) : "") + "\n" + ((assessed.Count == 0) ? T("Без материалов", "No materials") : materials);
-		return new ChainMaterialPreview(summary, color, tooltip);
-	}
-
-	private static void DrawChains(SpriteBatch sb)
-	{
-		DrawSample(sb);
-		BookRect[] filters = ChainFilterRects();
-		Segmented(sb, filters, ChainFilterLabels(), ChainCraftableOnly ? 1 : 0, 0.85f);
-		int filterHover = MenuOpen ? (-1) : SegmentAt(filters);
-		if (filterHover >= 0)
-		{
-			MouseTip((filterHover == 0) ? T("Все рецепты с этим предметом", "Every recipe that uses this item") : T("Только то, что можно создать сейчас", "Only what you can craft right now"));
-		}
-		if (SampleType <= 0)
-		{
-			EmptyState(sb, new BookRect(212f, BookGeometry.ChainCrumbTop, 568f, 596f - BookGeometry.ChainCrumbTop), T("Начните с предмета", "Start with an item"), T("Положите его в ячейку или Shift+клик в «Предметах»", "Drop it in the slot, or Shift+Click one in Items"));
-			return;
-		}
-		int first = Math.Max(0, ChainHistory.Count - 4);
-		int crumbs = Math.Min(4, ChainHistory.Count);
-		for (int visible = 0; ChainHistory.Count > 1 && visible < crumbs; visible++)
-		{
-			int index = first + visible;
-			Item item = ContentSamples.ItemsByType[ChainHistory[index]];
-			BookRect crumb = BookGeometry.ChainCrumb(visible);
-			bool current = index == ChainHistory.Count - 1;
-			bool hover = !current && !MenuOpen && crumb.Contains(Mouse.X, Mouse.Y);
-			Box(sb, crumb, current ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, current ? new Color?(Accent) : null);
-			Icon(sb, item, crumb.X + 8f, crumb.Y + 6f, 20f, tooltip: false);
-			CenterLabel(sb, ((visible == 0 && first > 0) ? "... " : "") + item.Name, crumb.X + 34f, crumb.Y + 4f, crumb.Width - 42f, crumb.Height - 8f, current ? Accent : TextColor, 0.8f, rightAligned: false, leftAligned: true);
-			if (hover)
-			{
-				MouseTip(item.Name + "\n" + T("Вернуться к этому шагу", "Back to this step"));
-			}
-			if (visible < crumbs - 1)
-			{
-				Chevron(sb, crumb.X + crumb.Width + 4f, crumb.Y + crumb.Height / 2f, 2.5f, 3, Muted);
-			}
-		}
-		SectionLabel(sb, T("Используется в", "Used in"), 212f, BookGeometry.ChainListLabelTop, 400f);
-		if (Filtered.Count == 0)
-		{
-			bool terminal = SampleRecipes.Count == 0;
-			bool noCraftable = !terminal && ChainCraftableOnly && ChainEligibleCount > 0;
-			bool noStage = !terminal && !noCraftable && ChainStageExcludedCount > 0;
-			string title;
-			string hint;
-			if (terminal)
-			{
-				title = T("Конец ветки", "End of this branch");
-				hint = T("Этот предмет не используется в рецептах", "No recipe uses this item");
-			}
-			else if (noCraftable)
-			{
-				title = T("Сейчас нечего создать", "Nothing to craft right now");
-				hint = T("«Все» покажет и недоступные рецепты", "All also shows recipes you can't craft yet");
-			}
-			else if (noStage)
-			{
-				title = T("Нет рецептов этого этапа", "No recipes for this stage");
-				hint = T("Выберите «Все этапы», чтобы увидеть остальные", "Choose All stages to see the rest");
-			}
-			else
-			{
-				title = T("Скрыто фильтрами", "Hidden by filters");
-				hint = T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters");
-			}
-			EmptyState(sb, new BookRect(212f, BookGeometry.ChainListTop, 568f, 596f - BookGeometry.ChainListTop), title, hint);
-			return;
-		}
-		int onPage = Math.Min(12, Filtered.Count - Page * 12);
-		for (int n = 0; n < onPage; n++)
-		{
-			int index2 = Filtered[Page * 12 + n];
-			Item item2 = Result(index2);
-			Recipe recipe = Main.recipe[index2];
-			ChainMaterialPreview materialPreview = PreviewChainMaterials(recipe, item2);
-			bool uncertain = BookProgression.RecipeStage(index2) == BookStage.Unknown;
-			BookRect cell = BookGeometry.ChainCell(n);
-			BookRect drill = BookGeometry.ChainDrill(n);
-			bool hover = !MenuOpen && cell.Contains(Mouse.X, Mouse.Y);
-			bool active = Selected == index2;
-			Box(sb, cell, active ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
-			Icon(sb, item2, cell.X + 8f, cell.Y + 6f, 32f, tooltip: false);
-			if (uncertain)
-			{
-				CenterLabel(sb, "?", cell.X + 30f, cell.Y + 24f, 14f, 16f, Caution, 0.8f);
-			}
-			float textWidth = drill.X - 8f - (cell.X + 48f);
-			CenterLabel(sb, item2.Name + ((item2.stack > 1) ? (" ×" + item2.stack) : ""), cell.X + 48f, cell.Y + 4f, textWidth, 18f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
-			CenterLabel(sb, materialPreview.Summary, cell.X + 48f, cell.Y + 24f, textWidth, 16f, materialPreview.Color, 0.8f, rightAligned: false, leftAligned: true);
-			IconButtonFrame(sb, drill);
-			Chevron(sb, drill.X + drill.Width / 2f + 1f, drill.Y + drill.Height / 2f, 4f, 3, TextColor);
-			if (!MenuOpen && drill.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Следующий шаг: ", "Next step: ") + item2.Name);
-			}
-			else if (hover)
-			{
-				Main.HoverItem = new Item();
-				Main.hoverItemName = "";
-				MouseTip(materialPreview.Tooltip + (uncertain ? (" · " + T("этап не определён", "stage uncertain")) : ""));
-			}
-		}
+		return new MaterialPreview(summary, color, (assessed.Count == 0) ? T("Без материалов", "No materials") : materials);
 	}
 
 	// Bulk inventory actions: four equal buttons, disabled until a network is connected.
 	private static void DrawStorageToolbar(SpriteBatch sb)
 	{
-		Box(sb, BookGeometry.SamplePanel, Surface, border: true, 10f);
+		Box(sb, BookGeometry.StorageToolbar, Surface, border: true, 10f);
 		bool ready = BookStorage.Connected;
 		CardButton(sb, BookGeometry.StorageQuickStack, T("Быстрый стак", "Quick Stack"), ready);
 		CardButton(sb, BookGeometry.StorageDepositAll, T("Сложить всё", "Deposit All"), ready);
@@ -5721,14 +5466,7 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				DrawStorageToolbar(sb);
 			}
-			if (Chains)
-			{
-				DrawChains(sb);
-			}
-			else
-			{
-				DrawGrid(sb);
-			}
+			DrawGrid(sb);
 			DrawPager(sb);
 			if (StorageView)
 			{
@@ -5803,7 +5541,7 @@ public sealed class RecipeBookSystem : ModSystem
 			CenterLabel(sb, TabLabel(tab), rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, active ? Accent : TextColor, TabTextSize);
 			if (hover)
 			{
-				MouseTip(TabLabel(tab) + " · Ctrl+" + (tab + 1));
+				MouseTip(TabLabel(tab) + " · Ctrl+" + (tabs.IndexOf(tab) + 1));
 			}
 		}
 		BookRect close = BookGeometry.HeaderClose;
@@ -5895,41 +5633,6 @@ public sealed class RecipeBookSystem : ModSystem
 		if (!MenuOpen && favorites.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(T("Только избранное", "Favorites only") + "\n" + T("Alt+клик по предмету добавляет", "Alt+Click an item to add it"));
-		}
-		if (RecipeSampleFilter)
-		{
-			DrawSampleChip(sb);
-		}
-	}
-
-	// On Recipes a chain item narrows the list to the recipes that make it; the chip shows and clears it.
-	private static bool RecipeSampleFilter => !Catalogue && !Chains && !StorageView && !RecentView && !TrackingView && SampleType > 0 && ContentSamples.ItemsByType.ContainsKey(SampleType);
-
-	// The chip opens the context row under the filter bar: "Recipes for: <item>  x".
-	private static BookRect SampleChipRect()
-	{
-		Item sample = ContentSamples.ItemsByType[SampleType];
-		float width = Math.Min(568f, 72f + TextWidth(SampleChipLabel(sample), 0.8f));
-		return new BookRect(212f, BookGeometry.ContextTop, width, 32f);
-	}
-
-	private static string SampleChipLabel(Item sample)
-	{
-		return T("Рецепты для: ", "Recipes for: ") + sample.Name;
-	}
-
-	private static void DrawSampleChip(SpriteBatch sb)
-	{
-		BookRect chip = SampleChipRect();
-		Item sample = ContentSamples.ItemsByType[SampleType];
-		bool hover = !MenuOpen && chip.Contains(Mouse.X, Mouse.Y);
-		Box(sb, chip, hover ? HoverFill : Raised, border: true, 8f, Accent);
-		Icon(sb, sample, chip.X + 8f, chip.Y + 6f, 20f, tooltip: false);
-		CenterLabel(sb, SampleChipLabel(sample), chip.X + 34f, chip.Y + 4f, chip.Width - 62f, chip.Height - 8f, TextColor, 0.8f, rightAligned: false, leftAligned: true);
-		Cross(sb, chip.X + chip.Width - 16f, chip.Y + chip.Height / 2f, 4f, hover ? TextColor : Muted);
-		if (hover)
-		{
-			MouseTip(T("Рецепты для: ", "Recipes for: ") + sample.Name + "\n" + T("Клик снимает фильтр", "Click to clear"));
 		}
 	}
 
@@ -6052,9 +5755,14 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		Recipe r = SelectedRecipe;
 		float top = RecipeBlockTop(chosen);
+		DrawCardNav(sb);
 		DrawDetailHeader(sb, chosen, r);
 		Box(sb, 812f, top - 12f, 284f, 1f, Border, border: false, 0f);
-		if (r != null)
+		if (UsedInMode)
+		{
+			DrawUsedIn(sb, chosen, top);
+		}
+		else if (r != null)
 		{
 			DrawRecipeBlock(sb, chosen, r, top);
 		}
@@ -6093,8 +5801,8 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		string name = chosen.Name + ((r != null && r.createItem.stack > 1) ? (" ×" + r.createItem.stack) : "");
 		string mod = ModName(chosen.ModItem?.Mod.Name ?? "Terraria");
-		string stage = StageName(chosen, (Catalogue || ArmorFocus > 0) ? null : r);
-		Recipe stageRecipe = (Catalogue || ArmorFocus > 0) ? null : r;
+		string stage = StageName(chosen, (CardItemType > 0) ? null : r);
+		Recipe stageRecipe = (CardItemType > 0) ? null : r;
 		if (DrawArmorSet(sb, chosen))
 		{
 			BookRect title = BookGeometry.ArmorTitle;
@@ -6141,7 +5849,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void DrawRecipeBlock(SpriteBatch sb, Item chosen, Recipe r, float top)
 	{
-		bool variants = (Catalogue || ArmorFocus > 0) && VariantCount > 1;
+		bool variants = CardItemType > 0 && VariantCount > 1;
 		string itemMod = chosen.ModItem?.Mod.Name ?? "Terraria";
 		string owner = Owner(r);
 		string line = T("Рецепт", "Recipe") + (variants ? (" " + (Variant + 1) + "/" + VariantCount) : "") + ((owner != itemMod) ? (": " + ModName(owner)) : "");
@@ -6192,6 +5900,247 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	private static string[] CardModeLabels()
+	{
+		return new string[2]
+		{
+			T("Рецепт", "Recipe"),
+			T("Где используется", "Used in")
+		};
+	}
+
+	private static BookRect[] CardModeRects()
+	{
+		return SegmentRects(BookGeometry.CardMode, CardModeLabels(), 0.8f, natural: false);
+	}
+
+	// Card navigation: back through the steps taken in the card, and Recipe / Used in for the shown item.
+	private static void DrawCardNav(SpriteBatch sb)
+	{
+		BookRect back = BookGeometry.CardBack;
+		bool canBack = CardHistory.Count >= 2;
+		IconButtonFrame(sb, back, active: false, canBack);
+		Chevron(sb, back.X + back.Width / 2f - 1f, back.Y + back.Height / 2f, 4f, 2, canBack ? TextColor : Border);
+		if (!MenuOpen && back.Contains(Mouse.X, Mouse.Y))
+		{
+			string previous = (canBack && ContentSamples.ItemsByType.TryGetValue(CardHistory[CardHistory.Count - 2], out var item)) ? (": " + item.Name) : "";
+			MouseTip(T("Назад", "Back") + previous + "\nMouse4 · Alt+←");
+		}
+		BookRect[] modes = CardModeRects();
+		Segmented(sb, modes, CardModeLabels(), UsedInMode ? 1 : 0, 0.8f);
+		int hover = MenuOpen ? (-1) : SegmentAt(modes);
+		if (hover >= 0)
+		{
+			MouseTip((hover == 0) ? T("Из чего сделан предмет", "What the item is made of") : T("Что можно сделать из предмета · Shift+клик", "What you can make from it · Shift+Click"));
+		}
+	}
+
+	private static bool HandleCardNavClick()
+	{
+		if (BookGeometry.CardBack.Contains(Mouse.X, Mouse.Y))
+		{
+			CardBack();
+			return true;
+		}
+		int mode = SegmentAt(CardModeRects());
+		if (mode < 0)
+		{
+			return false;
+		}
+		UsedInMode = mode == 1;
+		DetailsPage = 0;
+		if (UsedInMode && UsedInCraftableOnly)
+		{
+			BookCrafting.Refresh(force: true);
+		}
+		return true;
+	}
+
+	private readonly record struct UsedInView(List<int> Rows, int StageHidden, int NotCraftable, int Total);
+
+	// Recipes that take the item, earliest stage first. Only the global stage filter and the Craftable toggle
+	// narrow the list: the grid's search, mod and category filters do not reach the card.
+	private static List<int> UsedInRecipes(int type)
+	{
+		if (!UsedInCache.TryGetValue(type, out var list))
+		{
+			list = All.Where((int index) => BookRules.RecipeMatchesSample(type, Main.recipe[index].createItem.type, uses: true, from item in Main.recipe[index].requiredItem
+					where !item.IsAir
+					select item.type, Main.recipe[index].AcceptedByItemGroups))
+				.OrderBy((int index) => (BookProgression.RecipeStage(index) == BookStage.Unknown) ? 3 : (int)BookProgression.RecipeStage(index))
+				.ThenBy((int index) => Main.recipe[index].createItem.Name, StringComparer.CurrentCultureIgnoreCase)
+				.ToList();
+			UsedInCache[type] = list;
+		}
+		return list;
+	}
+
+	private static UsedInView VisibleUsedIn(int type)
+	{
+		List<int> all = UsedInRecipes(type);
+		List<int> rows = new List<int>();
+		int stageHidden = 0;
+		int notCraftable = 0;
+		foreach (int index in all)
+		{
+			if (!BookProgressionRules.MatchesChain(StageFilter, BookProgression.RecipeStage(index), BookProgression.RecipeMinimumStage(index)))
+			{
+				stageHidden++;
+			}
+			else if (!BookRules.ChainRecipeVisible(UsedInCraftableOnly, BookCrafting.IsAvailable(Main.recipe[index])))
+			{
+				notCraftable++;
+			}
+			else
+			{
+				rows.Add(index);
+			}
+		}
+		return new UsedInView(rows, stageHidden, notCraftable, all.Count);
+	}
+
+	private const float UsedInRowStep = 44f;
+
+	private static BookRect[] UsedInFilterRects(float top)
+	{
+		return SegmentRects(new BookRect(812f, top, 284f, 24f), UsedInFilterLabels(), 0.8f, natural: true, alignRight: true);
+	}
+
+	private static BookRect UsedInRow(float top, int slot)
+	{
+		return new BookRect(812f, top + 32f + slot * UsedInRowStep, 284f, 40f);
+	}
+
+	// Rows that fit above the actions; when the list needs pages, the pager takes the last row's place.
+	private static int UsedInPageSize(float top, int count)
+	{
+		int unpaged = Math.Max(1, (int)((BookGeometry.DetailListBottom - top - 32f + 4f) / UsedInRowStep));
+		if (count <= unpaged)
+		{
+			return unpaged;
+		}
+		return Math.Max(1, (int)((BookGeometry.DetailListPagedBottom - top - 32f + 4f) / UsedInRowStep));
+	}
+
+	private static void DrawUsedIn(SpriteBatch sb, Item chosen, float top)
+	{
+		UsedInView view = VisibleUsedIn(chosen.type);
+		BookRect[] filters = UsedInFilterRects(top);
+		SectionLabel(sb, T("Используется в", "Used in") + " · " + view.Rows.Count, 812f, top + 3f, filters[0].X - 820f);
+		Segmented(sb, filters, UsedInFilterLabels(), UsedInCraftableOnly ? 1 : 0, 0.8f);
+		int filterHover = MenuOpen ? (-1) : SegmentAt(filters);
+		if (filterHover >= 0)
+		{
+			MouseTip((filterHover == 0) ? T("Все рецепты с этим предметом", "Every recipe that uses this item") : T("Только то, что можно создать сейчас", "Only what you can craft right now"));
+		}
+		if (view.Rows.Count == 0)
+		{
+			string title;
+			string hint;
+			if (view.Total == 0)
+			{
+				title = T("Нигде не используется", "Not used in any recipe");
+				hint = "";
+			}
+			else if (view.StageHidden == 0)
+			{
+				title = T("Сейчас нечего создать", "Nothing to craft right now");
+				hint = T("«Все» покажет остальное", "All shows the rest");
+			}
+			else
+			{
+				title = T("Скрыто фильтром этапа", "Hidden by the stage filter");
+				hint = T("Этап выбирается вверху книги", "Pick the stage at the top of the book");
+			}
+			EmptyState(sb, new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f), title, hint);
+			return;
+		}
+		int size = UsedInPageSize(top, view.Rows.Count);
+		int pages = (view.Rows.Count + size - 1) / size;
+		DetailsPage = Math.Clamp(DetailsPage, 0, pages - 1);
+		for (int slot = 0; slot < size; slot++)
+		{
+			int n = DetailsPage * size + slot;
+			if (n >= view.Rows.Count)
+			{
+				break;
+			}
+			Recipe recipe = Main.recipe[view.Rows[n]];
+			Item output = recipe.createItem;
+			MaterialPreview preview = PreviewMaterials(recipe);
+			BookRect row = UsedInRow(top, slot);
+			bool hover = !MenuOpen && row.Contains(Mouse.X, Mouse.Y);
+			Box(sb, row, hover ? HoverFill : Raised, border: false, 8f);
+			Icon(sb, output, row.X + 6f, row.Y + 4f, 32f, tooltip: false);
+			float textWidth = row.Width - 46f - 24f;
+			CenterLabel(sb, output.Name + ((output.stack > 1) ? (" ×" + output.stack) : ""), row.X + 46f, row.Y + 3f, textWidth, 18f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, preview.Summary, row.X + 46f, row.Y + 21f, textWidth, 16f, preview.Color, 0.8f, rightAligned: false, leftAligned: true);
+			Chevron(sb, row.X + row.Width - 14f, row.Y + row.Height / 2f, 4f, 3, hover ? TextColor : Muted);
+			if (hover)
+			{
+				Main.HoverItem = new Item();
+				Main.hoverItemName = "";
+				MouseTip(preview.Materials + "\n" + T("Клик: открыть этот предмет", "Click: open this item"));
+			}
+		}
+		if (pages > 1)
+		{
+			BookRect previous = BookGeometry.DetailListPrevious;
+			BookRect next = BookGeometry.DetailListNext;
+			IconButtonFrame(sb, previous, active: false, DetailsPage > 0);
+			Chevron(sb, previous.X + previous.Width / 2f - 1f, previous.Y + previous.Height / 2f, 4f, 2, (DetailsPage > 0) ? TextColor : Border);
+			IconButtonFrame(sb, next, active: false, DetailsPage < pages - 1);
+			Chevron(sb, next.X + next.Width / 2f + 1f, next.Y + next.Height / 2f, 4f, 3, (DetailsPage < pages - 1) ? TextColor : Border);
+			Label(sb, BookGeometry.DetailListPager, DetailsPage + 1 + " / " + pages, Muted, 0.85f);
+			if (!MenuOpen && (previous.Contains(Mouse.X, Mouse.Y) || next.Contains(Mouse.X, Mouse.Y)))
+			{
+				MouseTip(T("Ещё рецепты · колесо мыши", "More recipes · Mouse wheel"));
+			}
+		}
+	}
+
+	private static bool HandleUsedInClick(int type, float top)
+	{
+		int filter = SegmentAt(UsedInFilterRects(top));
+		if (filter >= 0)
+		{
+			UsedInCraftableOnly = filter == 1;
+			if (UsedInCraftableOnly)
+			{
+				BookCrafting.Refresh(force: true);
+			}
+			DetailsPage = 0;
+			return true;
+		}
+		UsedInView view = VisibleUsedIn(type);
+		int size = UsedInPageSize(top, view.Rows.Count);
+		int pages = Math.Max(1, (view.Rows.Count + size - 1) / size);
+		if (pages > 1 && BookGeometry.DetailListPrevious.Contains(Mouse.X, Mouse.Y))
+		{
+			DetailsPage = Math.Max(0, DetailsPage - 1);
+			return true;
+		}
+		if (pages > 1 && BookGeometry.DetailListNext.Contains(Mouse.X, Mouse.Y))
+		{
+			DetailsPage = Math.Min(pages - 1, DetailsPage + 1);
+			return true;
+		}
+		for (int slot = 0; slot < size; slot++)
+		{
+			int n = DetailsPage * size + slot;
+			if (n >= view.Rows.Count)
+			{
+				break;
+			}
+			if (UsedInRow(top, slot).Contains(Mouse.X, Mouse.Y))
+			{
+				StepCard(Main.recipe[view.Rows[n]].createItem.type, usedIn: true);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static void DrawDetailRow(SpriteBatch sb, Detail d, BookRect row, int kind)
 	{
 		bool hasItem = d.Icon != null && !d.Icon.IsAir;
@@ -6223,7 +6172,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (!MenuOpen && row.Contains(Mouse.X, Mouse.Y))
 		{
-			string action = hasItem ? T("Клик: цепочка этого предмета", "Click: open its chain") : "";
+			string action = hasItem ? T("Клик: открыть этот предмет", "Click: open this item") : "";
 			string detail = (kind == 0) ? d.Tooltip : "";
 			MouseTip(d.Name + "\n" + string.Join(" · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)));
 		}
@@ -6265,11 +6214,10 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		return CurrentTab switch
 		{
-			0 => T("Shift+клик: цепочка предмета · F1: справка", "Shift+Click an item for its chain · F1 Help"),
+			0 => T("Shift+клик: где используется · F1: справка", "Shift+Click: where it's used · F1 Help"),
 			1 => T("Ctrl+Enter: создать · F1: справка", "Ctrl+Enter crafts · F1 Help"),
-			2 => T("Кнопка >: следующий шаг · Alt+←: назад", "> opens the next step · Alt+← goes back"),
-			3 => T("Shift+клик: стопку в инвентарь · F1: справка", "Shift+Click takes a stack · F1 Help"),
-			4 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
+			2 => T("Shift+клик: стопку в инвентарь · F1: справка", "Shift+Click takes a stack · F1 Help"),
+			3 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
 			_ => T("PgUp/PgDn: страницы · F1: справка", "PgUp/PgDn pages · F1 Help"),
 		};
 	}
@@ -6318,7 +6266,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private const float TabTextSize = 0.9f;
 
-	private static int CurrentTab => TrackingView ? 5 : (RecentView ? 4 : (StorageView ? 3 : (Chains ? 2 : ((!Catalogue) ? 1 : 0))));
+	private static int CurrentTab => TrackingView ? 4 : (RecentView ? 3 : (StorageView ? 2 : ((!Catalogue) ? 1 : 0)));
 
 	private static string TabLabel(int tab)
 	{
@@ -6326,12 +6274,13 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			0 => T("Предметы", "Items"),
 			1 => T("Рецепты", "Recipes"),
-			2 => T("Цепочки", "Chains"),
-			3 => T("Хранилище", "Storage"),
-			4 => T("Недавние", "Recent"),
+			2 => T("Хранилище", "Storage"),
+			3 => T("Недавние", "Recent"),
 			_ => T("Отслеживание", "Tracking"),
 		};
 	}
+
+	private static int TrackingTabNumber => VisibleTabs().IndexOf(4) + 1;
 
 	// The Storage tab exists only when Magic Storage is loaded.
 	private static List<int> VisibleTabs()
@@ -6339,7 +6288,7 @@ public sealed class RecipeBookSystem : ModSystem
 		List<int> tabs = new List<int>();
 		for (int tab = 0; tab < BookGeometry.TabCount; tab++)
 		{
-			if (tab != 3 || StorageTabVisible)
+			if (tab != 2 || StorageTabVisible)
 			{
 				tabs.Add(tab);
 			}

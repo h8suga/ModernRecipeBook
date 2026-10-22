@@ -31,6 +31,19 @@ agent. Read it fully before editing. Screens of the current state: `<stand>\shot
 
 Owner (2nd round): the whole current layout is ugly and unintuitive — rearrange every tab boldly and consistently (same grid, same filter bar position, aligned columns, clear hierarchy, even spacing), not small tweaks. Use the design skills: ui-ux-pro-max, emil-design-eng, frontend-design, high-end-visual-design, minimalist-ui, design-taste-frontend, apple-design; review with web-design-guidelines.
 
+Owner (3rd round, after the zones merged):
+- Filters never reset by themselves. Search, mod, category, favorites and sort are kept per tab (saved,
+  UI state v4); only the player clears them (search ✕, Ctrl+Backspace for the open tab, picking a value).
+- The stage filter is global: a dropdown in the header next to the title, applied to every tab, saved, and
+  untouched by Ctrl+Backspace or jumps.
+- No Chains tab ("зачем для цепочек отдельная вкладка?"). The item card has a Recipe | Used in switch; Used in
+  lists the recipes that take the item (earliest stage first, global stage filter + Craftable toggle only).
+  Clicking an ingredient or a Used in row shows that item in the card; ‹ / Mouse4 / Alt+← go back,
+  Mouse5 / Alt+→ forward. Shift+Click in the grid and Mouse3 on an inventory item open Used in directly;
+  How to Get → a recipe shows that recipe in the card. Tabs: Items · Recipes · Storage · Recent · Tracking,
+  Ctrl+N = the N-th visible tab.
+- Track keeps the book open (toggle, footer confirms).
+
 ## 2. Visual system
 
 - Keep the dark green skin and the existing palette (`Panel`, `Surface`, `Border`, `TextColor`, `Muted`,

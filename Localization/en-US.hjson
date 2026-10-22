@@ -2,8 +2,8 @@ Mods: {
 	ModernRecipeBook: {
 		Keybinds: {
 			ToggleBook.DisplayName: Open Recipe Book
-			ChainBack.DisplayName: Chain Back
-			ChainForward.DisplayName: Chain Forward
+			ChainBack.DisplayName: Back
+			ChainForward.DisplayName: Forward
 		}
 
 		Configs: {
