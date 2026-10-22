@@ -29,6 +29,8 @@ agent. Read it fully before editing. Screens of the current state: `<stand>\shot
   text shrink to an unreadable size ("Предметы", "Хранилище" currently collapse in the tab bar).
 - Labels never rely on truncation ("Движ." for Move). If it does not fit, change the layout or the word.
 
+Owner (2nd round): the whole current layout is ugly and unintuitive — rearrange every tab boldly and consistently (same grid, same filter bar position, aligned columns, clear hierarchy, even spacing), not small tweaks. Use the design skills: ui-ux-pro-max, emil-design-eng, frontend-design, high-end-visual-design, minimalist-ui, design-taste-frontend, apple-design; review with web-design-guidelines.
+
 ## 2. Visual system
 
 - Keep the dark green skin and the existing palette (`Panel`, `Surface`, `Border`, `TextColor`, `Muted`,
@@ -70,7 +72,7 @@ the shared helpers (`Button`, `Box`, `Label`, `Text`, `CenterLabel`, `Icon`, `Mo
   into a dropdown/toggle with a clear label, or drop it.
 - Categories: left sidebar as a vertical list of `icon + name` rows, wheel-scrollable, "All" first, selected
   row highlighted. No paged, unlabeled 3-column icon grid.
-- Chain sample slot ("Place an item here") only on the Chains tab.
+- Chain sample slot ("Place an item here") only on the Chains tab, in the top-left corner of the content area, compact (slot + one-line label). Owner: in the middle it looks "очень убого".
 - Detail panel hierarchy: big icon + name; subtitle `<item's own mod> · Stage` (a vanilla item says Terraria even when Calamity changed its recipe — owner asked about Flying Carpet showing "Calamity Mod"); when the shown recipe comes from another mod than the item, say so in the recipe section (`Recipe: Calamity`); "Ingredients" rows (icon, name, `have/need`
   green when enough, red when not, "?" opens How to Get); "Station" rows; variant pager only when more than one
   recipe; batch chips ×1 ×5 ×10 Max; actions: primary Craft, secondary Track, Favorite as a star icon button.
