@@ -3,6 +3,16 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.7.0 — 2026-10-22
+
+### Added
+- Bestiary: the book records when you first and last met each mob (it came near you; town NPCs excepted).
+  "Recently seen" lists the last 24, newest first; the sort menu gets "Met: oldest" and "Met: newest"; the mob
+  card shows a Met line with both dates in its tooltip. Saved per character.
+
+### Changed
+- A locked mob's grid tooltip reads "Not in the Bestiary yet".
+
 ## 1.6.2 — 2026-10-22
 
 ### Fixed
