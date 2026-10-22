@@ -4,5 +4,7 @@ internal enum BookSortMode
 {
 	Name,
 	ItemId,
-	Mod
+	Mod,
+	// Bestiary tab only: earliest stage first.
+	Stage
 }

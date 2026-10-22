@@ -10,14 +10,11 @@ using Terraria.ModLoader;
 
 namespace ModernRecipeBook;
 
-// Own bestiary: Mouse3 on a mob opens the enemy card. Drops are always there; life and the other numbers once the
-// Bestiary would show them (per world): an enemy after its first kill, a town NPC after a chat, a critter once seen.
+// The mob card's numbers. Drops are always there; life and the rest once the Bestiary would show them (per
+// world): an enemy after its first kill, a town NPC after a chat, a critter once seen.
 public sealed partial class RecipeBookSystem
 {
 	internal readonly record struct MobStats(int Life, int Defense, int Damage, float KnockbackTaken, int Value, float? DamageReduction);
-
-	// Mouse3 on a mob opened the book only for its card, so closing the card closes the book as well.
-	private static bool EnemyOpenedBook;
 
 	// The mobs pointed at in the world: their cards (also after Back) show that mob's numbers, not a fresh copy's.
 	private static readonly Dictionary<int, MobStats> LiveMobStats = new Dictionary<int, MobStats>();
@@ -25,52 +22,9 @@ public sealed partial class RecipeBookSystem
 	private static MobStats EnemyStats;
 
 	private static bool EnemyStatsLive;
-
-	// A card opened from the world has no How to Get below it.
-	private static bool EnemyStandalone => EnemyOpen && AcquisitionVariants.Length == 0;
-
-	internal static bool OpenForMob(NPC npc)
-	{
-		if (npc == null || Main.dedServ || Main.gameMenu || !ContentSamples.NpcsByNetId.ContainsKey(npc.netID))
-		{
-			return false;
-		}
-		bool openedBook = !Open || (EnemyOpenedBook && EnemyStandalone);
-		if (!Open)
-		{
-			Toggle();
-		}
-		CloseAcquisition();
-		SetTyping(value: false);
-		ModMenu = (SortMenu = (StageMenu = (HelpOpen = false)));
-		LiveMobStats[npc.netID] = ReadMobStats(npc);
-		// Variants are the mobs the Bestiary counts as this one (zombie skins, the Eater of Worlds' segments).
-		string credit = ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[npc.netID];
-		EnemyVariants = BookEnemyRules.Variants(npc.netID, from pair in ContentSamples.NpcBestiaryCreditIdsByNpcNetIds
-			where pair.Value == credit && ContentSamples.NpcsByNetId.ContainsKey(pair.Key)
-			orderby pair.Key
-			select pair.Key);
-		EnemyVariant = 0;
-		AcquisitionOpen = (EnemyOpen = true);
-		EnemyOpenedBook = openedBook;
-		ReadEnemyCard();
-		return true;
-	}
-
-	// X, Esc and a click outside: the book stays open, unless Mouse3 on a mob opened it only for this card.
-	private static void CloseCardLayer()
-	{
-		bool closeBook = EnemyOpenedBook;
-		CloseAcquisition();
-		if (closeBook && Open)
-		{
-			Toggle();
-		}
-	}
-
 	private static void ReadEnemyStats(int netId)
 	{
-		EnemyStatsLive = EnemyStandalone && LiveMobStats.TryGetValue(netId, out EnemyStats);
+		EnemyStatsLive = netId == LiveMob && LiveMobStats.TryGetValue(netId, out EnemyStats);
 		if (!EnemyStatsLive)
 		{
 			EnemyStats = FreshMobStats(netId);
@@ -171,14 +125,11 @@ public sealed partial class RecipeBookSystem
 		return MobEntry(netId).UIInfoProvider?.GetEntryUICollectionInfo().UnlockState ?? BestiaryEntryUnlockState.NotKnownAtAll_0;
 	}
 
-	// Right column of the enemy card. The unlock and the banner are read every frame, so a kill, a chat or a sighting
-	// opens it at once.
-	private static void DrawEnemyStats(SpriteBatch sb, int netId)
+	// The card's Stats view. The unlock and the banner are read every frame, so a kill, a chat or a sighting opens
+	// it at once.
+	private static void DrawMobStats(SpriteBatch sb, int netId)
 	{
-		BookRect label = BookGeometry.EnemyStatsLabel;
-		BookRect box = BookGeometry.EnemyStats;
-		Text(sb, T("ХАРАКТЕРИСТИКИ", "STATS"), label.X, label.Y, Muted, 0.8f, label.Width, label.Height);
-		Box(sb, box, Raised, border: true, 8f);
+		BookRect box = BookGeometry.MobBody;
 		NPC sample = ContentSamples.NpcsByNetId[netId];
 		int kills = Main.BestiaryTracker.Kills.GetKillCount(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[netId]);
 		if (!MobStatsUnlocked(netId, sample, kills))
@@ -215,7 +166,7 @@ public sealed partial class RecipeBookSystem
 		}
 		BookRect Row(string name, string value, string tip = null)
 		{
-			BookRect rect = BookGeometry.EnemyStatRow(row++);
+			BookRect rect = BookGeometry.MobStatRow(row++);
 			float valueWidth = (value.Length > 0) ? (TextWidth(value, 0.95f) + 4f) : 0f;
 			CenterLabel(sb, name, rect.X, rect.Y, rect.Width - valueWidth - 8f, rect.Height, Muted, 0.85f, rightAligned: false, leftAligned: true);
 			AcquisitionBadge(sb, rect, value);
@@ -245,7 +196,7 @@ public sealed partial class RecipeBookSystem
 		};
 		foreach ((int count, int coin) in parts.Where(((int Count, int Coin) p) => p.Count > 0))
 		{
-			Icon(sb, ContentSamples.ItemsByType[coin], right - 18f, rect.Y + 7f, 18f, tooltip: false);
+			Icon(sb, ContentSamples.ItemsByType[coin], right - 18f, rect.Y + (rect.Height - 18f) / 2f, 18f, tooltip: false);
 			string number = count.ToString();
 			float width = TextWidth(number, 0.95f) + 4f;
 			CenterLabel(sb, number, right - 20f - width, rect.Y, width, rect.Height, TextColor, 0.95f, rightAligned: true);

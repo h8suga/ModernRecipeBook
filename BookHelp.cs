@@ -24,7 +24,7 @@ internal static class BookHelp
 	{
 		new Section(0, "НАВИГАЦИЯ", "MOVING AROUND", new Entry[9]
 		{
-			new Entry("Ctrl+1…5", "Ctrl+1…5", "Вкладка по номеру", "Go to a tab"),
+			new Entry("Ctrl+1…6", "Ctrl+1…6", "Вкладка по номеру", "Go to a tab"),
 			new Entry("Ctrl+Tab", "Ctrl+Tab", "Следующая вкладка", "Next tab"),
 			new Entry("Mouse4 · Alt+←", "Mouse4 · Alt+←", "Назад", "Back"),
 			new Entry("Mouse5 · Alt+→", "Mouse5 · Alt+→", "Вперёд", "Forward"),
@@ -46,7 +46,7 @@ internal static class BookHelp
 			new Entry("Shift+ЛКМ", "Shift+LMB", "Где используется", "Where it's used"),
 			new Entry("Alt+ЛКМ", "Alt+LMB", "Избранное из сетки", "Favorite in the grid"),
 			new Entry("Mouse3", "Mouse3", "Найти предмет", "Look up an item"),
-			new Entry("Mouse3", "Mouse3", "Узнать о мобе", "Look up a mob")
+			new Entry("Mouse3", "Mouse3", "Моб в бестиарии", "Mob in the Bestiary")
 		}),
 		new Section(2, "ПОИСК И ФИЛЬТРЫ", "FINDING THINGS", new Entry[4]
 		{

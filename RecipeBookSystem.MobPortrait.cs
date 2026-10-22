@@ -96,12 +96,12 @@ public sealed partial class RecipeBookSystem
 		UpdateEnemyPortrait();
 	}
 
-	// Looking at a mob in the world shows it whatever the Bestiary knows; a card from How to Get keeps the
-	// Bestiary's own "not met yet" look for a mob the player has never met.
+	// A mob pointed at in the world shows whatever the Bestiary knows; any other card keeps the Bestiary's own
+	// "not met yet" look for a mob the player has never met.
 	private static BestiaryUICollectionInfo EnemyPortraitInfo(int netId)
 	{
 		BestiaryEntryUnlockState state = MobUnlockState(netId);
-		if (EnemyStandalone && state == BestiaryEntryUnlockState.NotKnownAtAll_0)
+		if (netId == LiveMob && state == BestiaryEntryUnlockState.NotKnownAtAll_0)
 		{
 			state = BestiaryEntryUnlockState.CanShowPortraitOnly_1;
 		}
@@ -122,13 +122,13 @@ public sealed partial class RecipeBookSystem
 	// Once per UI update, like UIBestiaryEntryIcon.Update: the animation runs at the game's pace, not the frame rate.
 	private static void UpdateEnemyPortrait()
 	{
-		if (EnemyIcon == null || !EnemyOpen)
+		if (EnemyIcon == null || MobCardNetId == 0)
 		{
 			return;
 		}
 		try
 		{
-			EnemyIcon.Update(EnemyPortraitInfo(EnemyVariants[EnemyVariant]), PortraitBox, PortraitSettings);
+			EnemyIcon.Update(EnemyPortraitInfo(MobCardNetId), PortraitBox, PortraitSettings);
 		}
 		catch (Exception error)
 		{
@@ -196,7 +196,7 @@ public sealed partial class RecipeBookSystem
 		}
 		if (rect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(known ? T("Как в бестиарии", "As in the Bestiary") : T("Ещё не встречен", "Not met yet"));
+			MouseTip(known ? T("Как в бестиарии", "As in the Bestiary") : T("Ещё не встречен", "Not encountered yet"));
 		}
 	}
 }
