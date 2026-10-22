@@ -3,6 +3,12 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.5.1 — 2026-10-22
+
+### Fixed
+- Compact tracker lines in Russian sat 50 px left of the minimap. They now stay under the minimap's edge and
+  follow the game's own info lines only when those are shown (the game moves its lines left in Russian).
+
 ## 1.5.0 — 2026-10-22
 
 ### Changed

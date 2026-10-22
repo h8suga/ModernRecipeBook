@@ -2699,11 +2699,13 @@ public sealed class RecipeBookSystem : ModSystem
 			return;
 		}
 		bool ru = GameCulture.FromCultureName(GameCulture.CultureName.Russian).IsActive;
-		int x = Main.screenWidth - 280 + (ru ? (-50) : 0);
+		int line = InfoAccessoryLines();
+		// Under the minimap's edge. In Russian the game draws its own info lines 50 px further left (room for longer
+		// text); when they are on screen ours continue their column, otherwise they stay under the minimap.
+		int x = Main.screenWidth - 280 + ((ru && line > 0) ? (-50) : 0);
 		int top = -32 + ((Main.mapStyle == 1 && Main.mapEnabled) ? 261 : 0) + 74 + 48;
 		int step = (Main.screenHeight < 650) ? 20 : 22;
 		float maxWidth = ru ? 265f : 215f;
-		int line = InfoAccessoryLines();
 		int room = Math.Max(1, (Main.screenHeight - 24 - top) / step - line);
 		float fade = 1f - ResourceTrackerDismiss.Progress;
 		bool mixed = ResourceTrackerRows.Any((BookResourceProgress r) => r.Need.Storage) && ResourceTrackerRows.Any((BookResourceProgress r) => !r.Need.Storage);
