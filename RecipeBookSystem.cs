@@ -219,12 +219,25 @@ public sealed class RecipeBookSystem : ModSystem
 	private static int AppliedAvailabilityVersion = -1;
 
 	// Steps taken inside the card (an ingredient, a Used in row, a How to Get recipe) show another item without
-	// touching the grid; CardHistory walks them back and forth (Mouse4/5, Alt+Left/Right).
+	// touching the grid.
 	private static int FocusType;
 
-	private static bool CardBaseFromGrid;
+	// Back/Forward (Mouse4/5, Alt+Left/Right, the card's back button) walk every navigation in the book.
+	private static readonly BookHistory<NavState> History = new BookHistory<NavState>(100);
 
-	private static readonly BookItemHistory CardHistory = new BookItemHistory();
+	private static bool HistoryTypingEntry;
+
+	private static bool HistoryArrowEntry;
+
+	private static bool ArrowMoved;
+
+	private static MouseState HistoryMouse;
+
+	// Updates left in which a state change still counts as the player's: the game sees a press an update or
+	// two after the device reports it.
+	private static int ActedUpdates;
+
+	private static KeyboardState HistoryKeys;
 
 	private static readonly Dictionary<int, List<int>> UsedInCache = new Dictionary<int, List<int>>();
 
@@ -1344,7 +1357,7 @@ public sealed class RecipeBookSystem : ModSystem
 		int hovered = MenuOpen ? (-1) : SegmentAt(rects);
 		if (hovered >= 0)
 		{
-			MouseTip((hovered == 3) ? T("Сколько хватит материалов, до 100 за раз", "As many as materials allow, up to 100") : T("Создать столько раз за нажатие", "Craft this many times per click"));
+			MouseTip((hovered == 3) ? T("Сколько хватит материалов, до 100 · Ctrl+Shift+Enter", "As many as materials allow, up to 100 · Ctrl+Shift+Enter") : T("Создать столько раз за нажатие", "Craft this many times per click"));
 		}
 	}
 
@@ -1357,81 +1370,194 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void ProcessCardNavigation()
+	private static void ProcessHistoryNavigation()
 	{
 		bool back = PendingBack;
 		bool forward = PendingForward;
 		PendingBack = (PendingForward = false);
-		if (back == forward || !Open || Typing || HelpOpen || AcquisitionOpen || MenuOpen || DraggingWindow || Main.blockInput || Main.drawingPlayerChat || Main.editSign || Main.editChest || PlayerInput.UsingGamepad)
+		if (back == forward || !Open || Typing || HelpOpen || MenuOpen || DraggingWindow || Main.blockInput || Main.drawingPlayerChat || Main.editSign || Main.editChest || PlayerInput.UsingGamepad)
 		{
 			return;
 		}
 		if (back)
 		{
-			CardBack();
+			HistoryBack();
 		}
 		else
 		{
-			CardForward();
+			HistoryForward();
 		}
 	}
 
 	private static void ResetCard()
 	{
 		FocusType = 0;
-		CardBaseFromGrid = false;
-		CardHistory.Clear();
 	}
 
-	// Shows another item in the card and remembers the step; the first step also remembers where it started.
+	// Shows another item in the card without touching the grid; History records the step.
 	private static void StepCard(int type, bool usedIn)
 	{
 		if (type <= 0 || !ContentSamples.ItemsByType.ContainsKey(type))
 		{
 			return;
 		}
-		if (CardHistory.Count == 0 && SelectedItem != null)
-		{
-			CardHistory.Push(SelectedItem.type);
-			CardBaseFromGrid = FocusType <= 0;
-		}
-		CardHistory.Push(type);
-		ShowCardStep(CardHistory.Count - 1);
-		UsedInMode = usedIn;
-	}
-
-	// Opens the card on an item that has no place in the grid (Mouse3 on an inventory item).
-	private static void FocusCard(int type, bool usedIn)
-	{
-		ResetCard();
-		StepCard(type, usedIn);
-	}
-
-	private static void ShowCardStep(int index)
-	{
-		int type = CardHistory[index];
-		// The first entry of a walk that began on the grid is the grid's own selection again.
-		FocusType = ((index == 0 && CardBaseFromGrid) ? 0 : type);
+		FocusType = type;
 		ArmorFocus = 0;
 		Variant = 0;
 		DetailsPage = 0;
+		UsedInMode = usedIn;
 	}
 
-	private static void CardBack()
+	// Everything Back/Forward restores: the tab and its filters, the stage, the selection and the card, and the
+	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, int Selected, int Variant, int ArmorFocus, int FocusType, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, string EnemyVariants, int EnemyVariant, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage, int EnemyPage)
 	{
-		if (CardHistory.Count >= 2)
+		internal NavState WithoutPages => this with
 		{
-			CardHistory.GoTo(CardHistory.Count - 2);
-			ShowCardStep(CardHistory.Count - 1);
+			Page = 0,
+			DetailsPage = 0,
+			AcquisitionPage = 0,
+			AcquisitionRulePage = 0,
+			EnemyPage = 0
+		};
+	}
+
+	private static NavState CaptureNav()
+	{
+		BookUiState.TabFilters filters = LiveTabFilters();
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.SortMode, filters.SortDescending, StageFilter, Selected, Variant, ArmorFocus, FocusType, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, EnemyOpen ? string.Join(",", EnemyVariants) : "", EnemyVariant, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage, EnemyPage);
+	}
+
+	private static void RestoreNav(NavState state)
+	{
+		int from = CurrentTab;
+		int tab = (state.Tab == 2 && !StorageTabVisible) ? 0 : state.Tab;
+		Catalogue = tab == 0;
+		StorageView = tab == 2;
+		RecentView = tab == 3;
+		TrackingView = tab == 4;
+		if (from != tab && from < BookUiState.FilterTabs.Length)
+		{
+			TabFilterSlots[from] = LiveTabFilters();
+		}
+		LoadTabFilters(new BookUiState.TabFilters
+		{
+			Query = state.Query,
+			ModFilter = state.ModFilter,
+			CategoryKey = state.CategoryKey,
+			FavoritesOnly = state.FavoritesOnly,
+			SortMode = state.SortMode,
+			SortDescending = state.SortDescending
+		});
+		StageFilter = state.Stage;
+		UsedInCraftableOnly = state.UsedInCraftableOnly;
+		SetTyping(value: false);
+		ModMenu = (SortMenu = (StageMenu = (HelpOpen = false)));
+		ApplyFilters(clearMessage: false);
+		Selected = state.Selected;
+		Variant = state.Variant;
+		ArmorFocus = state.ArmorFocus;
+		FocusType = state.FocusType;
+		UsedInMode = state.UsedInMode;
+		Page = Math.Clamp(state.Page, 0, Pages - 1);
+		DetailsPage = state.DetailsPage;
+		RestoreCards(state);
+	}
+
+	private static void RestoreCards(NavState state)
+	{
+		if (state.AcquisitionVariants.Length == 0)
+		{
+			CloseAcquisition();
+			return;
+		}
+		if (!AcquisitionOpen || string.Join(",", AcquisitionVariants) != state.AcquisitionVariants || AcquisitionVariant != state.AcquisitionVariant)
+		{
+			CloseEnemyCard();
+			AcquisitionVariants = state.AcquisitionVariants.Split(',').Select(int.Parse).ToArray();
+			AcquisitionVariant = Math.Clamp(state.AcquisitionVariant, 0, AcquisitionVariants.Length - 1);
+			AcquisitionOpen = true;
+			ReadAcquisitionSources();
+		}
+		AcquisitionGroup = (state.AcquisitionGroup < AcquisitionSources.Count) ? state.AcquisitionGroup : (-1);
+		AcquisitionPage = state.AcquisitionPage;
+		AcquisitionRulePage = state.AcquisitionRulePage;
+		if (state.EnemyVariants.Length == 0)
+		{
+			CloseEnemyCard();
+			return;
+		}
+		if (!EnemyOpen || string.Join(",", EnemyVariants) != state.EnemyVariants || EnemyVariant != state.EnemyVariant)
+		{
+			EnemyVariants = state.EnemyVariants.Split(',').Select(int.Parse).ToArray();
+			EnemyVariant = Math.Clamp(state.EnemyVariant, 0, EnemyVariants.Length - 1);
+			EnemyOpen = true;
+			ReadEnemyCard();
+		}
+		EnemyPage = state.EnemyPage;
+	}
+
+	// Runs after every UI update: a change the player made becomes a new entry. Typing into the search and
+	// moving the selection with the arrows keep updating one entry; paging and changes the game makes on its
+	// own (a refreshed list, a storage update) only update the current entry.
+	private static void RecordHistory(bool acted)
+	{
+		if (!Open)
+		{
+			return;
+		}
+		NavState now = CaptureNav();
+		if (History.IsEmpty)
+		{
+			History.Push(now);
+			return;
+		}
+		NavState current = History.Current;
+		if (now != current)
+		{
+			if (!acted || now.WithoutPages == current.WithoutPages || (Typing && HistoryTypingEntry) || (ArrowMoved && HistoryArrowEntry))
+			{
+				History.ReplaceCurrent(now);
+			}
+			else
+			{
+				History.Push(now);
+				HistoryTypingEntry = Typing;
+				HistoryArrowEntry = ArrowMoved;
+			}
+		}
+		if (!Typing)
+		{
+			HistoryTypingEntry = false;
 		}
 	}
 
-	private static void CardForward()
+	private static void HistoryBack()
 	{
-		if (CardHistory.Forward() > 0)
+		if (History.CanBack)
 		{
-			ShowCardStep(CardHistory.Count - 1);
+			RestoreNav(History.Back());
 		}
+	}
+
+	private static void HistoryForward()
+	{
+		if (History.CanForward)
+		{
+			RestoreNav(History.Forward());
+		}
+	}
+
+	// What Back returns to, for the back button's tooltip.
+	private static string HistoryLabel(NavState state)
+	{
+		int type = (state.EnemyVariants.Length == 0 && state.AcquisitionVariants.Length > 0) ? int.Parse(state.AcquisitionVariants.Split(',')[Math.Clamp(state.AcquisitionVariant, 0, state.AcquisitionVariants.Split(',').Length - 1)]) : ((state.ArmorFocus > 0) ? state.ArmorFocus : ((state.FocusType > 0) ? state.FocusType : 0));
+		if (type <= 0 && state.Selected >= 0 && (state.Tab == 0 || state.Tab == 1 || state.Tab == 3))
+		{
+			type = (state.Tab == 0) ? state.Selected : ((state.Selected < Recipe.numRecipes) ? Main.recipe[state.Selected].createItem.type : 0);
+		}
+		string tab = TabLabel(state.Tab);
+		return (type > 0 && ContentSamples.ItemsByType.TryGetValue(type, out var item)) ? (item.Name + " · " + tab) : tab;
 	}
 
 	private static void StopTracker()
@@ -1688,7 +1814,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (single.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip((recipe == null) ? T("У предмета нет рецепта", "This item has no recipe") : (tracked ? T("Больше не показывать на экране", "Stop showing it on screen") : (full ? fullTip : T("Показывать материалы на экране", "Show its materials on screen"))));
+			MouseTip((recipe == null) ? T("У предмета нет рецепта", "This item has no recipe") : (tracked ? T("Больше не показывать на экране · Alt+T", "Stop showing it on screen · Alt+T") : (full ? fullTip : T("Показывать материалы на экране · Alt+T", "Show its materials on screen · Alt+T"))));
 		}
 		if (!hasSet)
 		{
@@ -1733,9 +1859,21 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return false;
 		}
+		ToggleTrack(BookGeometry.TrackSetAction.Contains(Mouse.X, Mouse.Y));
+		return true;
+	}
+
+	// Track / Untrack the card's recipe, or its whole armor set (button or Alt+T).
+	private static void ToggleTrack(bool wholeSet)
+	{
 		Recipe recipe = SelectedRecipe;
 		Item[] parts = SelectedSetParts();
-		bool wholeSet = parts != null && BookGeometry.TrackSetAction.Contains(Mouse.X, Mouse.Y);
+		wholeSet &= parts != null;
+		if (!wholeSet && recipe == null)
+		{
+			BookCrafting.LastMessage = T("У предмета нет рецепта", "This item has no recipe");
+			return;
+		}
 		string key;
 		if (wholeSet)
 		{
@@ -1749,19 +1887,19 @@ public sealed class RecipeBookSystem : ModSystem
 		if (existing != null)
 		{
 			RemoveGoal(existing);
-			return true;
+			BookCrafting.LastMessage = T("Больше не отслеживается", "No longer tracked");
+			return;
 		}
 		if (!ResourceTrackerStyle && TrackedGoals.Count >= 5)
 		{
 			BookCrafting.LastMessage = T("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
-			return true;
+			return;
 		}
 		// Track is a toggle like Untrack: the book stays open so several goals can be added in a row.
 		if (wholeSet ? StartSetTracker(parts) : StartTracker(recipe))
 		{
 			BookCrafting.LastMessage = wholeSet ? T("Сет отслеживается", "Tracking the set") : (T("Отслеживается: ", "Tracking: ") + recipe.createItem.Name);
 		}
-		return true;
 	}
 
 	private static void InsertTrackerLayer(List<GameInterfaceLayer> layers)
@@ -2390,8 +2528,14 @@ public sealed class RecipeBookSystem : ModSystem
 		int y = Main.mouseY + 14 + (Main.ThickMouse ? 6 : 0);
 		x = Math.Min(x, (int)(Main.screenWidth - size.X - 4f));
 		y = Math.Min(y, (int)(Main.screenHeight - size.Y - 4f));
-		BookSkin.Panel(Main.spriteBatch, new Rectangle(x - 8, y - 6, (int)size.X + 16, (int)size.Y + 8), Panel * 0.96f, 8f, Border);
+		DrawTooltipPanel(new Rectangle(x - 8, y - 6, (int)size.X + 16, (int)size.Y + 8));
 		Main.instance.MouseText(wrapped, 0, 0);
+	}
+
+	// One look for every tooltip over the book: the book's tips and the game's item tooltips.
+	internal static void DrawTooltipPanel(Rectangle bounds)
+	{
+		BookSkin.Panel(Main.spriteBatch, bounds, Panel * 0.96f, 8f, Border);
 	}
 
 	// The stage filter is global, so it sits in the header next to the title, not in a tab's filter bar.
@@ -3534,6 +3678,7 @@ public sealed class RecipeBookSystem : ModSystem
 		AppliedRecentVersion = -1;
 		Variant = 0;
 		ResetCard();
+		History.Clear();
 		UsedInCache.Clear();
 		BatchChoice = 0;
 		InvalidateBatchEstimate();
@@ -3604,7 +3749,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			SwitchTab(0);
 		}
-		FocusCard(type, usedIn: true);
+		StepCard(type, usedIn: true);
 		Open = true;
 		LastLeft = Main.mouseLeft;
 		LastRight = Main.mouseRight;
@@ -3905,7 +4050,25 @@ public sealed class RecipeBookSystem : ModSystem
 		return new BookRect(x, y, w, h).Contains(Mouse.X, Mouse.Y);
 	}
 
+	public override void PostUpdateInput()
+	{
+		BookPlayer.GuardTriggers();
+	}
+
 	public override void UpdateUI(GameTime gameTime)
+	{
+		MouseState mouse = Microsoft.Xna.Framework.Input.Mouse.GetState();
+		KeyboardState keys = Keyboard.GetState();
+		bool acted = (mouse.LeftButton == ButtonState.Pressed && HistoryMouse.LeftButton != ButtonState.Pressed) || (mouse.RightButton == ButtonState.Pressed && HistoryMouse.RightButton != ButtonState.Pressed) || (mouse.MiddleButton == ButtonState.Pressed && HistoryMouse.MiddleButton != ButtonState.Pressed) || mouse.ScrollWheelValue != HistoryMouse.ScrollWheelValue || keys.GetPressedKeys().Any((Keys key) => !HistoryKeys.IsKeyDown(key));
+		HistoryMouse = mouse;
+		HistoryKeys = keys;
+		ActedUpdates = acted ? 3 : Math.Max(0, ActedUpdates - 1);
+		ArrowMoved = false;
+		UpdateBookUI(gameTime);
+		RecordHistory(ActedUpdates > 0);
+	}
+
+	private static void UpdateBookUI(GameTime gameTime)
 	{
 		if (Main.gameMenu)
 		{
@@ -3915,7 +4078,7 @@ public sealed class RecipeBookSystem : ModSystem
 			return;
 		}
 		BookInventoryShortcut.ProcessRequests();
-		ProcessCardNavigation();
+		ProcessHistoryNavigation();
 		bool middle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
 		if (((Open && Typing) & middle) && !LastMiddle && ModernRecipeBook.ToggleBook.GetAssignedKeys().Contains("Mouse3"))
 		{
@@ -3967,6 +4130,20 @@ public sealed class RecipeBookSystem : ModSystem
 		if (AcquisitionOpen)
 		{
 			KeyboardState acquisitionKeys = Keyboard.GetState();
+			BookHotkeys.Action navigation = BookHotkeys.Read(acquisitionKeys, LastKeys, typing: false, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, help: false, menu: false, storage: false, arrows: false);
+			if (navigation == BookHotkeys.Action.Back || navigation == BookHotkeys.Action.Forward)
+			{
+				if (navigation == BookHotkeys.Action.Back)
+				{
+					HistoryBack();
+				}
+				else
+				{
+					HistoryForward();
+				}
+				LastKeys = acquisitionKeys;
+				return;
+			}
 			HandleAcquisitionInput(click, acquisitionKeys);
 			LastKeys = acquisitionKeys;
 			LastEscape = acquisitionKeys.IsKeyDown(Keys.Escape);
@@ -4397,6 +4574,37 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : BookGeometry.GridTop;
 
+	// The item card is on screen (Items, Recipes, Recent) with an item in it.
+	private static bool CardShown => !StorageView && !TrackingView && SelectedItem != null;
+
+	// Arrow keys move the grid selection unless the player bound them to a game control.
+	private static bool ArrowsFree()
+	{
+		if (!PlayerInput.CurrentProfile.InputModes.TryGetValue(PlayerInput.CurrentInputMode, out var mode))
+		{
+			return true;
+		}
+		return !mode.KeyStatus.Values.Any((List<string> keys) => keys.Contains("Left") || keys.Contains("Right") || keys.Contains("Up") || keys.Contains("Down"));
+	}
+
+	// Moves the grid selection by a step (±1 across, ±8 a row), turning pages as needed; the card follows.
+	private static void MoveSelection(int step)
+	{
+		if (TrackingView || Filtered.Count == 0)
+		{
+			return;
+		}
+		int position = Filtered.IndexOf(Selected);
+		int next = (position < 0) ? (Page * ActivePageSize) : Math.Clamp(position + step, 0, Filtered.Count - 1);
+		next = Math.Clamp(next, 0, Filtered.Count - 1);
+		ArmorFocus = 0;
+		ResetCard();
+		Selected = Filtered[next];
+		Page = next / ActivePageSize;
+		DetailsPage = (Variant = 0);
+		ArrowMoved = true;
+	}
+
 	private static void ToggleFavorite(Item item)
 	{
 		if (item != null && !item.IsAir)
@@ -4423,7 +4631,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool HandleKeys(KeyboardState keys)
 	{
-		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, MenuOpen, StorageView);
+		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, MenuOpen, StorageView, ArrowsFree());
 		switch (action)
 		{
 		case BookHotkeys.Action.None:
@@ -4474,6 +4682,57 @@ public sealed class RecipeBookSystem : ModSystem
 				BookCrafting.TryCraft(SelectedRecipe, Ru, PreviewBatches(SelectedRecipe));
 			}
 			break;
+		case BookHotkeys.Action.CraftMax:
+			if (!TrackingView && SelectedRecipe != null)
+			{
+				BookCrafting.TryCraft(SelectedRecipe, Ru, Math.Max(1, CachedAvailableBatches(SelectedRecipe)));
+			}
+			break;
+		case BookHotkeys.Action.ToggleTrack:
+			if (CardShown)
+			{
+				ToggleTrack(wholeSet: false);
+			}
+			break;
+		case BookHotkeys.Action.ToggleFavorite:
+			if (CardShown)
+			{
+				ToggleFavorite(SelectedItem);
+			}
+			break;
+		case BookHotkeys.Action.HowToGet:
+			if (CardShown)
+			{
+				OpenAcquisition(SelectedItem.type, null);
+			}
+			break;
+		case BookHotkeys.Action.ToggleUsedIn:
+			if (CardShown)
+			{
+				UsedInMode = !UsedInMode;
+				DetailsPage = 0;
+			}
+			break;
+		case BookHotkeys.Action.Stage1:
+		case BookHotkeys.Action.Stage2:
+		case BookHotkeys.Action.Stage3:
+		case BookHotkeys.Action.Stage4:
+			StageFilter = (BookStageFilter)(action - BookHotkeys.Action.Stage1);
+			Page = (DetailsPage = (Variant = 0));
+			ApplyFilters();
+			break;
+		case BookHotkeys.Action.MoveLeft:
+			MoveSelection(-1);
+			break;
+		case BookHotkeys.Action.MoveRight:
+			MoveSelection(1);
+			break;
+		case BookHotkeys.Action.MoveUp:
+			MoveSelection(-8);
+			break;
+		case BookHotkeys.Action.MoveDown:
+			MoveSelection(8);
+			break;
 		case BookHotkeys.Action.DepositCursor:
 			BookStorage.DepositCursor();
 			break;
@@ -4490,10 +4749,10 @@ public sealed class RecipeBookSystem : ModSystem
 			RefreshView();
 			break;
 		case BookHotkeys.Action.Back:
-			CardBack();
+			HistoryBack();
 			break;
 		case BookHotkeys.Action.Forward:
-			CardForward();
+			HistoryForward();
 			break;
 		case BookHotkeys.Action.PagePrevious:
 			Page = Math.Max(0, Page - 1);
@@ -5507,7 +5766,7 @@ public sealed class RecipeBookSystem : ModSystem
 		Dropdown(sb, stage, StageLabels()[(int)StageFilter], StageMenu, enabled: true, highlight: StageFilter != BookStageFilter.All);
 		if (!MenuOpen && stage.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Этап для всех вкладок", "Stage for every tab") + "\n" + T("Самый ранний этап получения; учитывается сложность мира", "Earliest stage you can get an item; world difficulty counts"));
+			MouseTip(T("Этап для всех вкладок · Alt+1…4", "Stage for every tab · Alt+1…4") + "\n" + T("Самый ранний этап получения; учитывается сложность мира", "Earliest stage you can get an item; world difficulty counts"));
 		}
 		List<int> tabs = VisibleTabs();
 		BookRect firstTab = TabRect(tabs[0]);
@@ -5761,7 +6020,7 @@ public sealed class RecipeBookSystem : ModSystem
 			ActionButton(sb, obtain, T("Где взять", "How to Get"), primary: false);
 			if (!MenuOpen && obtain.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(T("Все источники: ", "All sources: ") + chosen.Name);
+				MouseTip(T("Все источники: ", "All sources: ") + chosen.Name + " · Alt+G");
 			}
 		}
 		bool favorite = Favorites.Contains(ItemKey(chosen));
@@ -5770,14 +6029,14 @@ public sealed class RecipeBookSystem : ModSystem
 		Star(sb, favoriteRect.X + 6f, favoriteRect.Y + 6f, 20f, favorite);
 		if (!MenuOpen && favoriteRect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(favorite ? T("Убрать из избранного · Alt+клик", "Remove from favorites · Alt+Click") : T("В избранное · Alt+клик", "Add to favorites · Alt+Click"));
+			MouseTip(favorite ? T("Убрать из избранного · Alt+F", "Remove from favorites · Alt+F") : T("В избранное · Alt+F", "Add to favorites · Alt+F"));
 		}
 		if (r != null)
 		{
 			ActionButton(sb, BookGeometry.CraftAction, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
 			if (!MenuOpen && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(BookCrafting.Reason(r, Ru) + "\nCtrl+Enter");
+				MouseTip(BookCrafting.Reason(r, Ru) + "\nCtrl+Enter · " + T("максимум", "max") + ": Ctrl+Shift+Enter");
 			}
 		}
 		DrawTrackButton(sb, r);
@@ -5905,20 +6164,19 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawCardNav(SpriteBatch sb)
 	{
 		BookRect back = BookGeometry.CardBack;
-		bool canBack = CardHistory.Count >= 2;
+		bool canBack = History.CanBack;
 		IconButtonFrame(sb, back, active: false, canBack);
 		Chevron(sb, back.X + back.Width / 2f - 1f, back.Y + back.Height / 2f, 4f, 2, canBack ? TextColor : Border);
 		if (!MenuOpen && back.Contains(Mouse.X, Mouse.Y))
 		{
-			string previous = (canBack && ContentSamples.ItemsByType.TryGetValue(CardHistory[CardHistory.Count - 2], out var item)) ? (": " + item.Name) : "";
-			MouseTip(T("Назад", "Back") + previous + "\nMouse4 · Alt+←");
+			MouseTip(T("Назад", "Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
 		}
 		BookRect[] modes = CardModeRects();
 		Segmented(sb, modes, CardModeLabels(), UsedInMode ? 1 : 0, 0.8f);
 		int hover = MenuOpen ? (-1) : SegmentAt(modes);
 		if (hover >= 0)
 		{
-			MouseTip((hover == 0) ? T("Из чего сделан предмет", "What the item is made of") : T("Что можно сделать из предмета · Shift+клик", "What you can make from it · Shift+Click"));
+			MouseTip((hover == 0) ? T("Из чего сделан предмет · Alt+U", "What the item is made of · Alt+U") : T("Что можно сделать из предмета · Alt+U", "What you can make from it · Alt+U"));
 		}
 	}
 
@@ -5926,7 +6184,7 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		if (BookGeometry.CardBack.Contains(Mouse.X, Mouse.Y))
 		{
-			CardBack();
+			HistoryBack();
 			return true;
 		}
 		int mode = SegmentAt(CardModeRects());
@@ -6331,12 +6589,13 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			MouseTip(T("Закрыть · Esc или F1", "Close · Esc or F1"));
 		}
-		Box(sb, modal.X + 24f, modal.Y + 80f, modal.Width - 48f, 1f, Border);
-		float[] top = new float[2]
+		Text(sb, T("Наведите на кнопку — в подсказке есть её клавиша", "Hover any button: its tooltip shows the shortcut"), modal.X + 24f, modal.Y + 60f, Muted, 0.85f, modal.Width - 112f, 24f);
+		Box(sb, modal.X + 24f, modal.Y + 96f, modal.Width - 48f, 1f, Border);
+		float[] top = new float[BookHelp.Columns];
+		for (int column = 0; column < BookHelp.Columns; column++)
 		{
-			BookHelp.Column(0).Y,
-			BookHelp.Column(1).Y
-		};
+			top[column] = BookHelp.Column(column).Y;
+		}
 		foreach (BookHelp.Section section in BookHelp.Sections)
 		{
 			if (section.StorageOnly && !BookStorage.Installed)

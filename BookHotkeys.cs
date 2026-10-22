@@ -18,6 +18,19 @@ internal static class BookHotkeys
 		PreviousTab,
 		ResetFilters,
 		Craft,
+		CraftMax,
+		ToggleTrack,
+		ToggleFavorite,
+		HowToGet,
+		ToggleUsedIn,
+		Stage1,
+		Stage2,
+		Stage3,
+		Stage4,
+		MoveLeft,
+		MoveRight,
+		MoveUp,
+		MoveDown,
 		DepositCursor,
 		DepositAll,
 		QuickStack,
@@ -31,7 +44,8 @@ internal static class BookHotkeys
 		LastPage
 	}
 
-	internal static Action Read(KeyboardState keys, KeyboardState previous, bool typing, bool blocked, bool nativeInput, bool help, bool menu, bool storage)
+		// arrows: the arrow keys are not bound to a game control, so they can move the grid selection.
+	internal static Action Read(KeyboardState keys, KeyboardState previous, bool typing, bool blocked, bool nativeInput, bool help, bool menu, bool storage, bool arrows)
 	{
 		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
 		bool shift = keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift);
@@ -96,7 +110,7 @@ internal static class BookHotkeys
 			}
 			if (!storage && Press(Keys.Enter))
 			{
-				return Action.Craft;
+				return shift ? Action.CraftMax : Action.Craft;
 			}
 			if (storage)
 			{
@@ -121,6 +135,62 @@ internal static class BookHotkeys
 		if (Press(Keys.F5))
 		{
 			return Action.Refresh;
+		}
+		// Alt+letter acts on the item in the card; Alt+1..4 picks the stage. Plain letters would also reach the
+		// game (T throws the held item), Alt keeps them to the book.
+		if (alt && !ctrl && !shift)
+		{
+			if (Press(Keys.T))
+			{
+				return Action.ToggleTrack;
+			}
+			if (Press(Keys.F))
+			{
+				return Action.ToggleFavorite;
+			}
+			if (Press(Keys.G))
+			{
+				return Action.HowToGet;
+			}
+			if (Press(Keys.U))
+			{
+				return Action.ToggleUsedIn;
+			}
+			if (Press(Keys.D1))
+			{
+				return Action.Stage1;
+			}
+			if (Press(Keys.D2))
+			{
+				return Action.Stage2;
+			}
+			if (Press(Keys.D3))
+			{
+				return Action.Stage3;
+			}
+			if (Press(Keys.D4))
+			{
+				return Action.Stage4;
+			}
+		}
+		if (arrows && !ctrl && !alt && !shift)
+		{
+			if (Press(Keys.Left))
+			{
+				return Action.MoveLeft;
+			}
+			if (Press(Keys.Right))
+			{
+				return Action.MoveRight;
+			}
+			if (Press(Keys.Up))
+			{
+				return Action.MoveUp;
+			}
+			if (Press(Keys.Down))
+			{
+				return Action.MoveDown;
+			}
 		}
 		if (alt && !ctrl && Press(Keys.Left))
 		{
