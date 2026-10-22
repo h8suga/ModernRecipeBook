@@ -34,7 +34,7 @@ internal static class BookHelp
 			new Entry("Esc", "Esc", "Закрыть верхнее окно", "Close the top window"),
 			new Entry("F1", "F1", "Эта справка", "This help")
 		}),
-		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[12]
+		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[11]
 		{
 			new Entry("Ctrl+Enter", "Ctrl+Enter", "Создать", "Craft"),
 			new Entry("Ctrl+Shift+Enter", "Ctrl+Shift+Enter", "Создать максимум", "Craft the most"),
@@ -46,8 +46,7 @@ internal static class BookHelp
 			new Entry("ЛКМ", "LMB", "Открыть материал", "Open an ingredient"),
 			new Entry("Shift+ЛКМ", "Shift+LMB", "Где используется", "Where it's used"),
 			new Entry("Alt+ЛКМ", "Alt+LMB", "Избранное из сетки", "Favorite in the grid"),
-			new Entry("Mouse3", "Mouse3", "Найти предмет", "Look up an item"),
-			new Entry("Mouse3", "Mouse3", "Моб в бестиарии", "Mob in the Bestiary")
+			new Entry("Mouse3", "Mouse3", "Предмет или моб", "Look up item or mob")
 		}),
 		new Section(2, "ПОИСК И ФИЛЬТРЫ", "FINDING THINGS", new Entry[5]
 		{
@@ -57,15 +56,14 @@ internal static class BookHelp
 			new Entry("Кнопки класса", "Class buttons", "Фильтр по классу", "Filter by class"),
 			new Entry("F5", "F5", "Обновить", "Refresh")
 		}),
-		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[7]
+		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
 		{
 			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack"),
 			new Entry("ПКМ", "RMB", "Взять одну", "Take one"),
 			new Entry("Ctrl+D", "Ctrl+D", "Положить с курсора", "Deposit held item"),
 			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack"),
 			new Entry("Ctrl+Shift+D", "Ctrl+Shift+D", "Сложить всё", "Deposit all"),
-			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock"),
-			new Entry("F5", "F5", "Перечитать", "Reload storage")
+			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock")
 		}, StorageOnly: true)
 	};
 

@@ -3,6 +3,39 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.6.0 — 2026-10-22
+
+### Added
+- Bestiary tab: every mob of the game and its mods, by kind (bosses, mini-bosses, enemies, town NPCs, critters),
+  event and biome (Calamity's biomes included), with search, mod, sort, favorites, "encountered only" and the
+  stage filter. The mob card shows an animated portrait over its biome, its own drops first (drops any enemy can
+  give are folded under "Any enemy"), and its life, defense, damage, knockback resistance, coins, kills, banner
+  progress and Calamity damage reduction once the Bestiary would show them (enemies after a kill, town NPCs after a
+  chat, critters once seen). Mouse3 on a mob in the world opens its entry; How to Get's enemy rows lead there.
+- Class buttons above the categories: Melee, Ranged, Magic, Summoner and Rogue (with Calamity) for weapons, ammo,
+  armor, accessories and buff potions; armor and accessories by what they actually boost, set bonuses included.
+- Popups (How to Get, Help) open over the blurred book instead of hiding it, with a short fade.
+- Magic Storage: the book connects to the nearest network by itself (a Crafting Interface first) and follows you;
+  a network picker appears when several are in reach; the card shows whether Craft takes from the inventory or
+  the storage. "Auto-connect Magic Storage" in the config brings back the manual button when turned off.
+- Optional Double-Tap Dash (Calamity): double-tapping left/right dashes again while Calamity's dash key keeps
+  working. Off by default.
+
+### Changed
+- Tabs: Items · Recipes · Bestiary · Storage · Recent · Tracking (Ctrl+1…6).
+- Categories are item types only; the per-class and per-damage-type entries moved to the class buttons.
+- Help (F1) lists the new shortcuts.
+
+### Fixed
+- Magic Storage: holding a Locator or Portable Access near a network re-linked or used it up and spammed the chat;
+  the storage status and the Craft button blinked every two seconds; ×5/×10/Max crafted one batch with recursive
+  crafting on; the native Magic Storage window popped up after closing the book; any Magic Storage update turned
+  the integration off. The adapter costs a tenth of what it did.
+- Ctrl+Enter crafted and also opened the chat.
+- A mob's name under the cursor was drawn over the open book; slimes were grey in mob portraits.
+- Station names stayed in the previous language after switching it.
+- Calamity armor sets with one helmet per class are recognised as sets.
+
 ## 1.5.2 — 2026-10-22
 
 ### Fixed
