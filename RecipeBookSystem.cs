@@ -1820,10 +1820,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			BookStorage.Tick(manageFocus: false);
 		}
-		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
-		int[] types = needs.SelectMany((BookBatchNeed n) => n.AcceptedTypes).Distinct().ToArray();
+		int[] types = goal.Materials.SelectMany((MaterialRequirement m) => m.Alternatives ?? (IEnumerable<int>)m.ItemTypes).Distinct().ToArray();
 		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || BookStorage.CraftInitializing);
 		goal.Counts = (goal.Storage ? BookStorage.PreviewCounts(types) : CountPlayerMaterials(types));
+		goal.Materials = NarrowAlternatives(goal.Materials, goal.Counts);
+		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
 		if (goal.Storage && !goal.Unknown)
 		{
 			int[] array = types;
@@ -4820,6 +4821,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int materials = r.requiredItem.Count((Item i) => !i.IsAir);
 		int realStations = r.requiredTile.Count((int t) => t >= 0);
 		int stations = Math.Max(1, realStations);
+		// An "A or B" row of a merged recipe takes two lines: the shown alternative, then "or B" below it.
+		List<MaterialRequirement> requirements = MaterialRequirements(r);
 		List<List<DetailSlot>> pages = Place((top >= BookGeometry.ArmorRecipeTop) ? BookGeometry.ArmorDetailListBottom : BookGeometry.DetailListBottom);
 		if (pages.Count > 1)
 		{
@@ -4849,7 +4852,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		List<List<DetailSlot>> Place(float bottom)
 		{
-			float listTop = top + 80f;
+			// The armor view sits lower, so its list starts 4 px closer to the batch row to keep one page.
+			float listTop = top + ((top >= BookGeometry.ArmorRecipeTop) ? 76f : 80f);
 			List<List<DetailSlot>> result = new List<List<DetailSlot>>
 			{
 				new List<DetailSlot>()
@@ -4860,7 +4864,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				int kind = Kind(i);
 				bool header = kind != lastKind;
-				float need = (header ? (((y > listTop) ? 8f : 0f) + 22f) : 0f) + 32f;
+				float height = (i < requirements.Count && requirements[i].Alternatives != null) ? BookGeometry.DetailRowTallHeight : 32f;
+				float need = (header ? (((y > listTop) ? 8f : 0f) + 22f) : 0f) + height;
 				if (y + need > bottom && result[^1].Count > 0)
 				{
 					result.Add(new List<DetailSlot>());
@@ -4876,8 +4881,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 					result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, 18f), -1, Header(kind)));
 					y += 22f;
 				}
-				result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, 32f), i, null));
-				y += 36f;
+				result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, height), i, null));
+				y += height + 4f;
 				lastKind = kind;
 			}
 			return result;
@@ -6668,7 +6673,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		float textX = row.X + 10f;
 		if (d.Icon != null)
 		{
-			Icon(sb, d.Icon, row.X + 6f, row.Y + 4f, 24f, tooltip: false);
+			Icon(sb, d.Icon, row.X + 6f, row.Y + (row.Height - 24f) / 2f, 24f, tooltip: false);
 			textX = row.X + 38f;
 		}
 		BookRect obtain = BookGeometry.DetailListObtain(row);
@@ -6679,8 +6684,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CenterLabel(sb, d.Sub, right - valueWidth, row.Y + 4f, valueWidth, row.Height - 8f, d.Color, 0.85f, rightAligned: true);
 			right -= valueWidth + 10f;
 		}
-		string name = d.Alternatives ? AlternativesLabel(d.SourceTypes, d.Icon.type, right - textX) : d.Name;
-		CenterLabel(sb, name, textX, row.Y + 4f, right - textX, row.Height - 8f, (kind == 2) ? Caution : ((d.Icon == null) ? Muted : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		if (d.Alternatives && row.Height > 32f)
+		{
+			CenterLabel(sb, d.Icon.Name, textX, row.Y + 2f, right - textX, 19f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, OthersLabel(d.SourceTypes, d.Icon.type, right - textX), textX, row.Y + 20f, right - textX, 16f, Muted, 0.8f, rightAligned: false, leftAligned: true);
+		}
+		else
+		{
+			string name = d.Alternatives ? AlternativesLabel(d.SourceTypes, d.Icon.type, right - textX) : d.Name;
+			CenterLabel(sb, name, textX, row.Y + 4f, right - textX, row.Height - 8f, (kind == 2) ? Caution : ((d.Icon == null) ? Muted : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		}
 		if (hasItem)
 		{
 			bool hover = IconButtonFrame(sb, obtain);

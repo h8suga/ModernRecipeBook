@@ -408,7 +408,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	// list reaches 4 lower, so three ingredients and a station still fit on one page as before.
 	internal const float ArmorRecipeTop = 284f;
 
-	internal const float ArmorDetailListBottom = 556f;
+	internal const float ArmorDetailListBottom = 558f;
 
 	internal static BookRect ArmorTile(int slot)
 	{
@@ -458,8 +458,11 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect DetailListNext => new BookRect(1068f, 524f, 28f, 28f);
 
+	// A merged recipe's "A or B" ingredient row: two lines.
+	internal const float DetailRowTallHeight = 38f;
+
 	internal static BookRect DetailListObtain(BookRect row)
 	{
-		return new BookRect(row.X + row.Width - 28f, row.Y + 4f, 24f, 24f);
+		return new BookRect(row.X + row.Width - 28f, row.Y + (row.Height - 24f) / 2f, 24f, 24f);
 	}
 }

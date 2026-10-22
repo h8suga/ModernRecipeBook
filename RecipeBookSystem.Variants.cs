@@ -72,6 +72,19 @@ public sealed partial class RecipeBookSystem
 		return (TextWidth(more, 0.85f) <= width) ? more : (names[0] + T(" или...", " or..."));
 	}
 
+	// The second line of a two-line "A or B" row: "or Shadow Scale", "or B, C", "or B and 3 more".
+	private static string OthersLabel(int[] types, int shown, float width)
+	{
+		string[] others = Ordered(types, shown).Skip(1).Select((int type) => ContentSamples.ItemsByType[type].Name).ToArray();
+		string all = T("или ", "or ") + string.Join(", ", others);
+		if (others.Length < 2 || TextWidth(all, 0.8f) <= width)
+		{
+			return all;
+		}
+		string first = T("или ", "or ") + others[0] + T(" и ещё ", " and ") + (others.Length - 1) + T("", " more");
+		return (TextWidth(first, 0.8f) <= width) ? first : (T("или ещё ", "or ") + others.Length + T("", " more"));
+	}
+
 	private static int[] Ordered(int[] types, int shown)
 	{
 		return new int[1] { shown }.Concat(types.Where((int type) => type != shown)).ToArray();
@@ -98,15 +111,38 @@ public sealed partial class RecipeBookSystem
 		return string.Join("\n", (rest.Count == 0) ? lines : lines.Append(T("Остальные ", "Others ") + rest.Count + ": " + rest[0].Ratio));
 	}
 
-	// Tracking follows the whole merged recipe: its alternative row counts every alternative.
-	// ponytail: the count is the sum, so 5 + 5 of two kinds reads 10/10 for a 10-of-one-kind need; the Craft
-	// button still tells the truth. Count whole crafts per kind if players trip over it.
+	// Tracking follows the whole merged recipe; every update its alternative row counts the one kind you have most
+	// of (NarrowAlternatives), so 5 Tissue + 5 Shadow Scale reads 5/10, as a craft takes 10 of one kind.
 	private static List<MaterialRequirement> TrackedMaterials(Recipe recipe)
 	{
-		return MaterialRequirements(recipe).Select((MaterialRequirement m) => (m.Alternatives == null) ? m : (m with
+		return MaterialRequirements(recipe);
+	}
+
+	private static List<MaterialRequirement> NarrowAlternatives(List<MaterialRequirement> materials, IReadOnlyDictionary<int, int> counts)
+	{
+		if (!materials.Any((MaterialRequirement m) => m.Alternatives != null))
 		{
-			ItemTypes = m.Alternatives.ToHashSet()
-		})).ToList();
+			return materials;
+		}
+		return materials.Select(delegate(MaterialRequirement m)
+		{
+			if (m.Alternatives == null)
+			{
+				return m;
+			}
+			int best = m.Alternatives.OrderByDescending((int type) => counts.TryGetValue(type, out int n) ? n : 0).First();
+			if (m.ItemTypes.Count == 1 && m.ItemTypes.Contains(best))
+			{
+				return m;
+			}
+			Item icon = ContentSamples.ItemsByType[best].Clone();
+			icon.stack = m.Ingredient.stack;
+			return m with
+			{
+				Ingredient = icon,
+				ItemTypes = new HashSet<int> { best }
+			};
+		}).ToList();
 	}
 
 	// One goal per merged recipe, whichever member is shown.
