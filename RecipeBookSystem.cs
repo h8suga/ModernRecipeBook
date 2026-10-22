@@ -259,7 +259,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly Dictionary<int, Item> StationItems = new Dictionary<int, Item>();
 
-	private static readonly Dictionary<int, string> StationNames = new Dictionary<int, string>();
+	// Read live: Item.Name follows the game's language, a name cached at index time would not.
+	private static string StationName(int tile)
+	{
+		return StationItems.TryGetValue(tile, out var station) ? station.Name : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile));
+	}
 
 	private static int Selected = -1;
 
@@ -543,23 +547,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				IEnumerable<string> materials = from i in recipe.requiredItem
 					where !i.IsAir
 					select GroupName(recipe, i, out var _) + " ×" + i.stack;
-				List<string> stations = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) =>
-				{
-					string text;
-					if (!StationNames.TryGetValue(t, out var value))
-					{
-						text = TileLoader.GetTile(t)?.Name;
-						if (text == null)
-						{
-							return "Tile " + t;
-						}
-					}
-					else
-					{
-						text = value;
-					}
-					return text;
-				}).ToList();
+				List<string> stations = recipe.requiredTile.Where((int t) => t >= 0).Select(StationName).ToList();
 				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
 				string conditionText = string.Join("; ", recipe.Conditions.Select((Condition c) => c.Description.Value));
 				int stationItem = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) => StationItems.TryGetValue(t, out var station) ? station.type : 0).FirstOrDefault((int t) => t > 0);
@@ -3110,7 +3098,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		foreach (int tile in tiles)
 		{
 			StationItems.TryGetValue(tile, out var station);
-			string stationName = ((station != null && !station.IsAir) ? station.Name : (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile))));
+			string stationName = StationName(tile);
 			lines.Add(new TrackingLine(station, stationName, "", TextColor, Muted));
 		}
 		if (tiles.Length == 0)
@@ -3655,7 +3643,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Filtered.Clear();
 		Mods.Clear();
 		StationItems.Clear();
-		StationNames.Clear();
 		Categories.Clear();
 		ItemCategories.Clear();
 		Dirty = true;
@@ -3773,7 +3760,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		RecipesByItem.Clear();
 		Mods.Clear();
 		StationItems.Clear();
-		StationNames.Clear();
 		RegisteredRecipes = (DisabledRecipes = 0);
 		BookRecent.RefreshIndex();
 		HashSet<string> sources = new HashSet<string>(StringComparer.Ordinal);
@@ -3818,7 +3804,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (item2 != null && !item2.IsAir && item2.createTile >= 0 && !StationItems.ContainsKey(item2.createTile))
 			{
 				StationItems[item2.createTile] = item2;
-				StationNames[item2.createTile] = item2.Name;
 			}
 		}
 		List<Item> list2 = AllItems.Select((int type) => ContentSamples.ItemsByType[type]).ToList();
@@ -5475,7 +5460,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		foreach (int tile in r.requiredTile.Where((int t) => t >= 0))
 		{
 			StationItems.TryGetValue(tile, out var station);
-			string name = (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile)));
+			string name = StationName(tile);
 			list.Add(new Detail(station, name, T("Станция", "Station"), Muted, Muted, ""));
 		}
 		if (!r.requiredTile.Any((int t) => t >= 0))
