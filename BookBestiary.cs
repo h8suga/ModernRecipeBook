@@ -94,6 +94,14 @@ internal static class BookBestiary
 		return index;
 	}
 
+	internal const string RecentKey = "recent";
+
+	internal static int IndexOfCredit(string credit)
+	{
+		EnsureBuilt();
+		return ByCredit.TryGetValue(credit, out int index) ? index : -1;
+	}
+
 	internal static Tag FindTag(string key)
 	{
 		return TagsByKey.GetValueOrDefault(key);
@@ -181,6 +189,8 @@ internal static class BookBestiary
 			Mobs.Add(mob);
 		}
 		Add("all", "Все мобы", "All mobs", null, new Icon(ItemID.Book, null, null), Mobs.Select((BookMob m) => m.Index));
+		// Members come from the player's list at filter time.
+		Add(RecentKey, "Недавние", "Recently seen", null, new Icon(ItemID.LifeformAnalyzer, null, null), Array.Empty<int>());
 		Add("kind:boss", "Боссы", "Bosses", null, new Icon(ItemID.SuspiciousLookingEye, null, null), Kind(BookMobKind.Boss));
 		Add("kind:miniboss", "Мини-боссы", "Mini-bosses", null, new Icon(ItemID.PumpkinMoonMedallion, null, null), Kind(BookMobKind.MiniBoss));
 		Add("kind:enemy", "Враги", "Enemies", null, new Icon(ItemID.ZombieBanner, null, null), Kind(BookMobKind.Enemy));
@@ -194,7 +204,7 @@ internal static class BookBestiary
 		{
 			Add(key, "", "", info.LabelKey, info.Icon, members[key]);
 		}
-		ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Bestiary index: {Mobs.Count} entries, {Tags.Count - 6} spawn tags; bosses {Kind(BookMobKind.Boss).Count()}, mini-bosses {Kind(BookMobKind.MiniBoss).Count()}, town {Kind(BookMobKind.Town).Count()}, critters {Kind(BookMobKind.Critter).Count()}.");
+		ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Bestiary index: {Mobs.Count} entries, {Tags.Count - 7} spawn tags; bosses {Kind(BookMobKind.Boss).Count()}, mini-bosses {Kind(BookMobKind.MiniBoss).Count()}, town {Kind(BookMobKind.Town).Count()}, critters {Kind(BookMobKind.Critter).Count()}.");
 		IEnumerable<int> Kind(BookMobKind kind)
 		{
 			return from m in Mobs
@@ -204,7 +214,7 @@ internal static class BookBestiary
 		void Add(string key, string ru, string en, string labelKey, Icon icon, IEnumerable<int> indexes)
 		{
 			HashSet<int> set = new HashSet<int>(indexes);
-			if (set.Count > 0 || key == "all")
+			if (set.Count > 0 || key == "all" || key == RecentKey)
 			{
 				Tag tag = new Tag(key, ru, en, labelKey, icon, set);
 				Tags.Add(tag);

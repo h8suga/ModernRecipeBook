@@ -19,6 +19,8 @@ public sealed class BookPlayer : ModPlayer
 
 	internal readonly BookRecentHistory RecentRecipes = new BookRecentHistory();
 
+	internal readonly BookMobEncounters SeenMobs = new BookMobEncounters();
+
 	private int DashTapTimer;
 
 	public override void ProcessTriggers(TriggersSet triggersSet)
@@ -192,6 +194,7 @@ public sealed class BookPlayer : ModPlayer
 	{
 		tag["FavoriteItems"] = Favorites.OrderBy((string x) => x).ToList();
 		tag["RecentCraftedRecipes"] = RecentRecipes.Snapshot();
+		tag["MobEncounters"] = SeenMobs.Snapshot();
 		if (Player.whoAmI == Main.myPlayer && RecipeBookSystem.UiStateInitialized)
 		{
 			SavedUiState = RecipeBookSystem.CapturePlayerUiState();
@@ -207,15 +210,21 @@ public sealed class BookPlayer : ModPlayer
 			Favorites.Add(value);
 		}
 		RecentRecipes.Load(tag.GetList<string>("RecentCraftedRecipes"));
+		SeenMobs.Load(tag.GetList<string>("MobEncounters"));
 		SavedUiState = RecipeBookSystem.ReadPlayerUiState(tag);
 	}
 
 	public override void PostUpdate()
 	{
-		if (Player.whoAmI == Main.myPlayer && !Main.gameMenu && RecipeBookSystem.UiStateInitialized)
+		if (Player.whoAmI != Main.myPlayer || Main.gameMenu)
+		{
+			return;
+		}
+		if (RecipeBookSystem.UiStateInitialized)
 		{
 			SavedUiState = RecipeBookSystem.CapturePlayerUiState();
 		}
+		SeenMobs.Scan(Player);
 	}
 
 	public override void OnEnterWorld()

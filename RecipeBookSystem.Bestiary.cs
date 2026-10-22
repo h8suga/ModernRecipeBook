@@ -64,13 +64,15 @@ public sealed partial class RecipeBookSystem
 
 	private static readonly Dictionary<string, Asset<Texture2D>> MobIcons = new Dictionary<string, Asset<Texture2D>>(StringComparer.Ordinal);
 
-	private static readonly (BookSortMode Mode, bool Descending)[] MobSortOptions = new (BookSortMode, bool)[5]
+	private static readonly (BookSortMode Mode, bool Descending)[] MobSortOptions = new (BookSortMode, bool)[7]
 	{
 		(BookSortMode.Name, false),
 		(BookSortMode.Name, true),
 		(BookSortMode.ItemId, false),
 		(BookSortMode.Mod, false),
-		(BookSortMode.Stage, false)
+		(BookSortMode.Stage, false),
+		(BookSortMode.Met, false),
+		(BookSortMode.Met, true)
 	};
 
 	private static int MobSortOptionIndex => Math.Max(0, Array.IndexOf(MobSortOptions, (SortMode, SortDescending)));
@@ -83,8 +85,43 @@ public sealed partial class RecipeBookSystem
 			1 => T("Имя Я-А", "Name Z-A"),
 			2 => T("Как в игре", "Game order"),
 			3 => T("Мод А-Я", "Mod A-Z"),
-			_ => T("Этап", "Stage"),
+			4 => T("Этап", "Stage"),
+			5 => T("Встречи: давние", "Met: oldest"),
+			_ => T("Встречи: новые", "Met: newest"),
 		};
+	}
+
+	// The closed sort dropdown has room for about ten letters: the encounter orders keep an arrow there.
+	private static string MobSortShortLabel(int option)
+	{
+		return option switch
+		{
+			5 => T("Встреча ↑", "Met ↑"),
+			6 => T("Встреча ↓", "Met ↓"),
+			_ => MobSortOptionLabel(option),
+		};
+	}
+
+	// When the player first met a mob: unknown (met before this was recorded) sorts as earliest, never met last
+	// in either direction.
+	private static int CompareMet(BookMob a, BookMob b, bool newestFirst)
+	{
+		long ka = MetKey(a);
+		long kb = MetKey(b);
+		if ((ka == long.MaxValue) != (kb == long.MaxValue))
+		{
+			return (ka == long.MaxValue) ? 1 : (-1);
+		}
+		return newestFirst ? kb.CompareTo(ka) : ka.CompareTo(kb);
+	}
+
+	private static long MetKey(BookMob mob)
+	{
+		if (ContentSamples.NpcBestiaryCreditIdsByNpcNetIds.TryGetValue(mob.NetId, out string credit) && SeenMobs.TryGet(credit, out var met))
+		{
+			return met.First;
+		}
+		return MobMet(mob.NetId) ? long.MinValue : long.MaxValue;
 	}
 
 	private static List<BookCategory> MobCategories
@@ -158,13 +195,39 @@ public sealed partial class RecipeBookSystem
 		return MobUnlockState(netId) > BestiaryEntryUnlockState.NotKnownAtAll_0;
 	}
 
+	private static BookMobEncounters SeenMobs => Main.LocalPlayer.GetModPlayer<BookPlayer>().SeenMobs;
+
+	private static int AppliedSeenMobsVersion = -1;
+
+	// The "Recently seen" category lists the player's last mobs newest first; the sort menu does not apply there.
+	private static bool MobRecentCategory => BestiaryView && Category > 0 && Category < MobCategories.Count && MobCategories[Category].Key == BookBestiary.RecentKey;
+
+	// Bestiary entry index -> (position in the recent list, when it was seen).
+	private static Dictionary<int, (int Rank, long SeenUtc)> RecentMobRanks()
+	{
+		Dictionary<int, (int, long)> ranks = new Dictionary<int, (int, long)>();
+		IReadOnlyList<string> newest = SeenMobs.Newest;
+		for (int i = 0; i < newest.Count; i++)
+		{
+			int index = BookBestiary.IndexOfCredit(newest[i]);
+			if (index >= 0 && !ranks.ContainsKey(index) && SeenMobs.TryGet(newest[i], out var met))
+			{
+				ranks[index] = (i, met.Last);
+			}
+		}
+		return ranks;
+	}
+
 	private static void ApplyMobFilters()
 	{
 		EnsureBestiary();
 		BookBestiary.Tag tag = (Category > 0 && Category < MobCategories.Count) ? BookBestiary.FindTag(MobCategories[Category].Key) : null;
+		bool recent = tag != null && tag.Key == BookBestiary.RecentKey;
+		Dictionary<int, (int Rank, long SeenUtc)> ranks = recent ? RecentMobRanks() : null;
+		AppliedSeenMobsVersion = SeenMobs.Version;
 		foreach (BookMob mob in BookBestiary.Mobs)
 		{
-			if ((tag != null && !tag.Members.Contains(mob.Index)) || (FavoritesOnly && !Favorites.Contains(mob.Key)) || (ModFilter.Length > 0 && mob.Mod != ModFilter) || (MetOnly && !MobMet(mob.NetId)))
+			if ((tag != null && (recent ? !ranks.ContainsKey(mob.Index) : !tag.Members.Contains(mob.Index))) || (FavoritesOnly && !Favorites.Contains(mob.Key)) || (ModFilter.Length > 0 && mob.Mod != ModFilter) || (MetOnly && !MobMet(mob.NetId)))
 			{
 				continue;
 			}
@@ -175,7 +238,14 @@ public sealed partial class RecipeBookSystem
 			}
 			Filtered.Add(mob.Index);
 		}
-		Filtered.Sort(CompareMobs);
+		if (recent)
+		{
+			Filtered.Sort((int a, int b) => ranks[a].Rank.CompareTo(ranks[b].Rank));
+		}
+		else
+		{
+			Filtered.Sort(CompareMobs);
+		}
 		Page = Math.Clamp(Page, 0, Math.Max(0, (Filtered.Count - 1) / ActivePageSize));
 		if (!Filtered.Contains(Selected))
 		{
@@ -188,6 +258,11 @@ public sealed partial class RecipeBookSystem
 	{
 		BookMob a = BookBestiary.Mobs[left];
 		BookMob b = BookBestiary.Mobs[right];
+		if (SortMode == BookSortMode.Met)
+		{
+			int met = CompareMet(a, b, SortDescending);
+			return (met != 0) ? met : a.Order.CompareTo(b.Order);
+		}
 		int comparison = SortMode switch
 		{
 			BookSortMode.ItemId => a.Order.CompareTo(b.Order),
@@ -253,12 +328,28 @@ public sealed partial class RecipeBookSystem
 			}
 			if (hovered)
 			{
-				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : T("Ещё не встречен", "Not encountered yet")));
+				string seen = "";
+				if (MobRecentCategory)
+				{
+					var ranks = RecentMobRanks();
+					if (ranks.TryGetValue(mob.Index, out var entry))
+					{
+						seen = "\n" + T("Видели ", "Seen ") + BookMobEncounters.Ago(entry.SeenUtc, Ru);
+					}
+				}
+				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : T("Ещё не открыт в бестиарии", "Not in the Bestiary yet")) + seen);
 			}
 		}
 		if (Filtered.Count == 0)
 		{
-			EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			if (MobRecentCategory && SeenMobs.Newest.Count == 0)
+			{
+				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Пока никого не видели", "No mobs seen yet"), T("Здесь появятся мобы, которых вы встретите", "Mobs you come across will show up here"));
+			}
+			else
+			{
+				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			}
 		}
 	}
 
@@ -552,7 +643,19 @@ public sealed partial class RecipeBookSystem
 		TagLine(0, T("Этап", "Stage"), StageName(BookProgression.NpcStage(netId)));
 		TagLine(1, T("Биом", "Biome"), (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"));
 		TagLine(2, T("Появление", "Spawns"), (EnemySpawn.Length > 0) ? EnemySpawn : T("Не указано", "Not listed"));
-		if (!MenuOpen && tags.Contains(Mouse.X, Mouse.Y))
+		bool tracked = ContentSamples.NpcBestiaryCreditIdsByNpcNetIds.TryGetValue(mob.NetId, out string credit) && SeenMobs.TryGet(credit, out _);
+		(long First, long Last) met = default;
+		if (tracked)
+		{
+			SeenMobs.TryGet(credit, out met);
+		}
+		TagLine(3, T("Встреча", "Met"), tracked ? (BookMobEncounters.Date(met.First, Ru, full: false) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? T("раньше", "earlier") : T("ещё нет", "not yet")));
+		BookRect metLine = new BookRect(tags.X, tags.Y + 3f + 3 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
+		if (!MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(tracked ? (T("Впервые: ", "First met: ") + BookMobEncounters.Date(met.First, Ru, full: true) + "\n" + T("Последний раз: ", "Last met: ") + BookMobEncounters.Date(met.Last, Ru, full: true) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? T("Встречен до того, как книга начала записывать встречи", "Met before the book started recording encounters") : T("Встречи записываются, когда моб рядом с вами", "Encounters are recorded when the mob is near you")));
+		}
+		else if (!MenuOpen && tags.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(T("По данным бестиария; может быть неполно", "From the Bestiary; may be incomplete"));
 		}
@@ -574,9 +677,9 @@ public sealed partial class RecipeBookSystem
 		}
 		void TagLine(int line, string label, string value)
 		{
-			float y = tags.Y + 4f + (float)(line * 20);
-			FixedLabel(sb, label, tags.X + 10f, y, Muted, 0.75f, 84f, 20f);
-			FixedLabel(sb, value, tags.X + 96f, y, TextColor, 0.8f, tags.Width - 104f, 20f);
+			float y = tags.Y + 3f + (float)line * BookGeometry.MobTagStep;
+			FixedLabel(sb, label, tags.X + 10f, y, Muted, 0.75f, 84f, BookGeometry.MobTagStep);
+			FixedLabel(sb, value, tags.X + 96f, y, TextColor, 0.8f, tags.Width - 104f, BookGeometry.MobTagStep);
 		}
 	}
 
