@@ -37,7 +37,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 		internal int Batches;
 
-		internal int Page;
+		internal int Possible;
 
 		internal int ResourcePage;
 
@@ -50,6 +50,9 @@ public sealed class RecipeBookSystem : ModSystem
 		internal List<MaterialRequirement> Materials = new List<MaterialRequirement>();
 
 		internal Dictionary<int, int> Counts = new Dictionary<int, int>();
+
+		// One row per entry of Materials, same order; refreshed with Counts.
+		internal BookResourceProgress[] Progress = Array.Empty<BookResourceProgress>();
 
 		internal readonly BookTrackerSignal Signal = new BookTrackerSignal();
 
@@ -106,6 +109,8 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool TrackerLastLeft;
 
+	private static bool TrackerLastRight;
+
 	private static bool TrackerDragging;
 
 	private static bool TrackerCustomPosition;
@@ -150,11 +155,21 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly Dictionary<string, MaterialRequirement> ResourceTrackerMaterials = new Dictionary<string, MaterialRequirement>();
 
-	private static int ResourceTrackerPage;
+	private static readonly Color EnoughColor = new Color(130, 214, 140);
 
-	private static readonly Color ResourceCompleteColor = new Color(211, 173, 74);
+	private static readonly Color MissingColor = new Color(236, 136, 116);
+
+	private static readonly Color ConditionColor = new Color(223, 185, 139);
+
+	// Terraria's own green (rarity 2), readable on the bright world behind the compact lines.
+	private static readonly Color InfoDoneColor = new Color(150, 255, 150);
 
 	private static TrackedGoal TrackingSelection;
+
+	private static ulong TrackingClearArmedAt;
+
+	// Armed for three seconds after the first click on Clear.
+	private static bool TrackingClearArmed => TrackingClearArmedAt != 0 && Main.GameUpdateCount - TrackingClearArmedAt < 180;
 
 	private const string PlayerUiStateTag = "ModernRecipeBookUI";
 
@@ -306,9 +321,10 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly Color Accent = new Color(178, 218, 191);
 
-	private static int[] TrackerRows => TrackedGoals.Select((TrackedGoal g) => g.Materials.Count).ToArray();
+	// -1 when every card is collapsed.
+	private static int TrackerActiveIndex => (ActiveGoal == null) ? (-1) : TrackedGoals.IndexOf(ActiveGoal);
 
-	private static int TrackerActiveIndex => Math.Max(0, TrackedGoals.IndexOf(ActiveGoal));
+	private static int TrackerActiveMaterials => ActiveGoal?.Materials.Count ?? 0;
 
 	private static bool ResourceTrackerStyle
 	{
@@ -322,21 +338,9 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static int TrackerPanelHeight
-	{
-		get
-		{
-			if (!ResourceTrackerStyle)
-			{
-				return BookTrackerRules.PanelHeight(TrackerRows, TrackerActiveIndex);
-			}
-			return BookResourceTrackerRules.Height(ResourceTrackerRows.Length);
-		}
-	}
+	private static int TrackerPanelHeight => BookTrackerRules.ListHeight(TrackedGoals.Count, TrackerActiveIndex, TrackerActiveMaterials);
 
-	private static float ResourcePagerY => 240f;
-
-	private static int TrackingGoalPages => BookTrackingSelectionRules.Pages(TrackedGoals.Count, 60);
+	private static int TrackingGoalPages => BookTrackingSelectionRules.Pages(TrackedGoals.Count, BookGeometry.TrackingPageSize);
 
 	internal static bool UiStateInitialized { get; private set; }
 
@@ -1344,9 +1348,10 @@ public sealed class RecipeBookSystem : ModSystem
 		TrackedGoals.Remove(goal);
 		ResetResourceTracker();
 		TrackerTicks = 0;
+		// Collapse rather than expand another card: the list must not rearrange itself under the cursor.
 		if (goal == ActiveGoal)
 		{
-			ActiveGoal = TrackedGoals.FirstOrDefault();
+			ActiveGoal = null;
 		}
 		if (TrackedGoals.Count == 0)
 		{
@@ -1438,7 +1443,7 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 			if (recipe == null)
 			{
-				BookCrafting.LastMessage = T("У части сета нет рецепта: ", "No recipe for set piece: ") + part.Name;
+				BookCrafting.LastMessage = T("Нет рецепта: ", "No recipe: ") + part.Name;
 				return false;
 			}
 			recipes.Add(recipe);
@@ -1451,7 +1456,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		catch (ArgumentOutOfRangeException)
 		{
-			BookCrafting.LastMessage = T("Слишком большое количество материалов сета.", "Set material amount exceeds supported bounds.");
+			BookCrafting.LastMessage = T("Слишком много материалов для одной цели", "Too many materials for one goal");
 			return false;
 		}
 		List<MaterialRequirement> materials = new List<MaterialRequirement>();
@@ -1547,6 +1552,8 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		goal.Unknown |= goal.Counts.Values.Any((int n) => n < 0);
 		goal.Ready = !goal.Unknown && BookTrackerRules.Ready(needs, goal.Counts, goal.Batches);
+		goal.Progress = AssessTrackedGoal(goal);
+		goal.Possible = (goal.Unknown ? 0 : BookBatchPlanner.MaxBatches(needs, goal.Counts, 9999));
 		if (ResourceTrackerStyle)
 		{
 			return false;
@@ -1562,35 +1569,62 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawTrackButton(SpriteBatch sb, Recipe recipe)
 	{
 		Item[] parts = SelectedSetParts();
-		bool flag = parts != null;
+		bool hasSet = parts != null;
 		bool tracked = recipe != null && TrackedGoals.Any((TrackedGoal g) => g.Key == "recipe:" + recipe.RecipeIndex);
-		bool full = !ResourceTrackerStyle && TrackedGoals.Count >= 5;
-		BookRect single = (flag ? BookGeometry.TrackSingleAction : BookGeometry.TrackAction);
-		SpriteBatch sb2 = sb;
-		BookRect rect = single;
-		string label;
+		bool full = !ResourceTrackerStyle && TrackedGoals.Count >= BookTrackerRules.MaxGoals;
+		BookRect single = (hasSet ? BookGeometry.TrackSingleAction : BookGeometry.TrackAction);
+		string fullTip = T("В карточках до 5 целей · Ctrl+6 — список", "Up to 5 goals in cards style · Ctrl+6 opens the list");
 		if (tracked)
 		{
-			label = T("Убрать цель", "Remove goal");
+			Button(sb, single, T("Не отслеживать", "Untrack"), active: true);
+		}
+		else if (recipe == null || full)
+		{
+			DisabledButton(sb, single, T("Отслеживать", "Track"));
 		}
 		else
 		{
-			label = (full ? T("Лимит: 5/5", "Limit: 5/5") : T("Начать крафт", "Start crafting"));
-		}
-		Button(sb2, rect, label, tracked);
-		if (flag)
-		{
-			bool setTracked = TrackedGoals.Any((TrackedGoal g) => g.Key == SetGoalKey(parts));
-			Button(sb, BookGeometry.TrackSetAction, setTracked ? T("Снять сет", "Unpin set") : T("Весь сет", "Full set"), setTracked);
-			if (BookGeometry.TrackSetAction.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Отслеживать три части как одну цель, с общими материалами.\nИспользуется выбранный вариант брони. Для остальных частей — первый включённый рецепт того же источника, иначе первый доступный.\nКоличество: ×1/×5/×10; Макс считается по всему сету. Готовые части брони не вычитаются из плана.", "Track all three pieces as one goal with summed materials.\nUses the chosen armor variant. Other pieces use the first enabled recipe from the same owner, or the first available recipe.\nQuantity: ×1/×5/×10; Max uses the whole set. Existing armor pieces are not subtracted."));
-			}
+			Button(sb, single, T("Отслеживать", "Track"));
 		}
 		if (single.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip((recipe == null) ? T("Для отслеживания нужен обычный рецепт", "An ordinary recipe is needed for tracking") : (T("Целей: ", "Goals: ") + TrackedGoals.Count + (ResourceTrackerStyle ? "\n" : "/5\n") + T("Добавляет цель в панель. Перетаскивайте заголовок. Размер и прозрачность — в настройках мода.\n", "Adds a panel objective. Drag its header. Size and opacity are in mod settings.\n") + T("Карточки: цели независимы. Стиль «только ресурсы»: потребности суммируются, сигнал — за весь список.\nМатериалы не резервируются и не расходуются. Крафт остаётся ручным; станции и условия проверяются отдельно.", "Cards: goals are independent. Resources-only style: needs are summed, with one sound for the entire list.\nMaterials are not reserved or consumed. Craft manually; stations and conditions are separate.")));
+			MouseTip((recipe == null) ? T("У предмета нет рецепта", "This item has no recipe") : (tracked ? T("Больше не показывать на экране", "Stop showing it on screen") : (full ? fullTip : T("Показывать материалы на экране", "Show its materials on screen"))));
 		}
+		if (!hasSet)
+		{
+			return;
+		}
+		bool setTracked = TrackedGoals.Any((TrackedGoal g) => g.Key == SetGoalKey(parts));
+		if (setTracked)
+		{
+			Button(sb, BookGeometry.TrackSetAction, T("Снять сет", "Untrack Set"), active: true);
+		}
+		else if (full)
+		{
+			DisabledButton(sb, BookGeometry.TrackSetAction, T("Весь сет", "Track Set"));
+		}
+		else
+		{
+			Button(sb, BookGeometry.TrackSetAction, T("Весь сет", "Track Set"));
+		}
+		if (BookGeometry.TrackSetAction.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(setTracked ? T("Не отслеживать весь сет", "Untrack all three pieces") : (full ? fullTip : T("Отслеживать три части одной целью", "Track all three pieces as one goal")));
+		}
+	}
+
+	// Disabled state of the shared button: muted label, no hover.
+	private static void DisabledButton(SpriteBatch sb, BookRect rect, string label)
+	{
+		Box(sb, rect, Panel, border: true, 8f, Border);
+		CenterLabel(sb, label, rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, Muted);
+	}
+
+	// Destructive action: outlined, muted red label.
+	private static void DestructiveButton(SpriteBatch sb, BookRect rect, string label)
+	{
+		Box(sb, rect, rect.Contains(Mouse.X, Mouse.Y) ? new Color(58, 44, 40) : Panel, border: true, 8f, new Color(112, 78, 70));
+		CenterLabel(sb, label, rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, MissingColor);
 	}
 
 	private static bool HandleTrackButton()
@@ -1619,7 +1653,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (!ResourceTrackerStyle && TrackedGoals.Count >= 5)
 		{
-			BookCrafting.LastMessage = T("В стиле карточек — до 5 целей. Включите «только ресурсы» для списка без лимита.", "Cards support up to 5 goals. Enable resources-only style for an uncapped list.");
+			BookCrafting.LastMessage = T("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
 			return true;
 		}
 		if (wholeSet ? StartSetTracker(parts) : StartTracker(recipe))
@@ -1632,19 +1666,27 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void InsertTrackerLayer(List<GameInterfaceLayer> layers)
 	{
-		if (TrackedGoals.Count != 0 && !Open && !Main.gameMenu)
+		if (TrackedGoals.Count == 0 || Main.gameMenu)
 		{
-			int index = layers.FindIndex((GameInterfaceLayer l) => l.Name == "Vanilla: Mouse Text");
-			if (index < 0)
-			{
-				index = layers.Count;
-			}
-			layers.Insert(index, new LegacyGameInterfaceLayer("ModernRecipeBook: Craft tracker", () =>
-			{
-				SafeDrawTracker(Main.spriteBatch);
-				return true;
-			}, InterfaceScaleType.UI));
+			return;
 		}
+		// The compact style continues the info accessory lines and stays visible with the book open, like they do.
+		// Cards are interactive and hide while the book is open.
+		bool compact = ResourceTrackerStyle;
+		if (!compact && Open)
+		{
+			return;
+		}
+		int index = compact ? (layers.FindIndex((GameInterfaceLayer l) => l.Name == "Vanilla: Info Accessories Bar") + 1) : layers.FindIndex((GameInterfaceLayer l) => l.Name == "Vanilla: Mouse Text");
+		if (index <= 0)
+		{
+			index = layers.Count;
+		}
+		layers.Insert(index, new LegacyGameInterfaceLayer("ModernRecipeBook: Craft tracker", () =>
+		{
+			SafeDrawTracker(Main.spriteBatch);
+			return true;
+		}, InterfaceScaleType.UI));
 	}
 
 	private static BookGeometry TrackerLayout()
@@ -1652,20 +1694,18 @@ public sealed class RecipeBookSystem : ModSystem
 		return BookTrackerRules.PanelLayoutHeight(TrackerPanelHeight, Main.screenWidth, Main.screenHeight, TrackerCustomPosition, TrackerPositionX, TrackerPositionY, ModContent.GetInstance<BookConfig>().TrackerScalePercent, Main.UIScale);
 	}
 
-	private static BookRect TrackerGoalClose(BookRect row)
-	{
-		return new BookRect(272f, row.Y + 10f, 20f, 20f);
-	}
-
 	private static void HandleTrackerInput()
 	{
-		if (!Main.mouseLeft)
+		if (!Main.mouseLeft && !Main.mouseRight)
 		{
 			BlockTrackerPress = false;
 		}
 		bool click = Main.mouseLeft && !TrackerLastLeft;
+		bool rightClick = Main.mouseRight && !TrackerLastRight;
 		TrackerLastLeft = Main.mouseLeft;
-		if (Open || TrackedGoals.Count == 0 || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
+		TrackerLastRight = Main.mouseRight;
+		// The compact style is not interactive, like the info accessory lines it sits under.
+		if (Open || TrackedGoals.Count == 0 || ResourceTrackerStyle || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
 		{
 			TrackerDragging = false;
 			return;
@@ -1686,63 +1726,37 @@ public sealed class RecipeBookSystem : ModSystem
 			(TrackerPositionX, TrackerPositionY) = BookTrackerRules.Position(Main.MouseScreen.X - TrackerDragX, Main.MouseScreen.Y - TrackerDragY, height, Main.screenWidth, Main.screenHeight, layout.Scale);
 			return;
 		}
-		(float, float) mouse = layout.ToLocal(Main.MouseScreen.X, Main.MouseScreen.Y);
-		if (!new BookRect(0f, 0f, 300f, height).Contains(mouse.Item1, mouse.Item2))
+		(float x, float y) = layout.ToLocal(Main.MouseScreen.X, Main.MouseScreen.Y);
+		if (!new BookRect(0f, 0f, BookTrackerRules.PanelWidth, height).Contains(x, y))
 		{
 			return;
 		}
 		Main.LocalPlayer.mouseInterface = true;
 		PlayerInputLockTracker();
-		if (Main.mouseLeft)
+		if (Main.mouseLeft || Main.mouseRight)
 		{
 			BlockTrackerPress = true;
 		}
-		if (!click)
-		{
-			return;
-		}
-		if (new BookRect(272f, 4f, 20f, 20f).Contains(mouse.Item1, mouse.Item2))
-		{
-			StopTracker();
-			return;
-		}
-		if (new BookRect(0f, 0f, 264f, 28f).Contains(mouse.Item1, mouse.Item2))
+		if (click && y < BookTrackerRules.HeaderHeight)
 		{
 			TrackerDragging = true;
 			TrackerDragX = Main.MouseScreen.X - layout.Left;
 			TrackerDragY = Main.MouseScreen.Y - layout.Top;
 			return;
 		}
-		if (ResourceTrackerStyle)
+		int index = BookTrackerRules.GoalAt(y, TrackedGoals.Count, TrackerActiveIndex, TrackerActiveMaterials);
+		if (index < 0)
 		{
-			HandleResourceTrackerInput(mouse.Item1, mouse.Item2);
 			return;
 		}
-		for (int i = 0; i < TrackedGoals.Count; i++)
+		TrackedGoal goal = TrackedGoals[index];
+		if (rightClick)
 		{
-			BookRect row = BookTrackerRules.GoalRow(TrackerRows, TrackerActiveIndex, i);
-			if (TrackerGoalClose(row).Contains(mouse.Item1, mouse.Item2))
-			{
-				RemoveGoal(TrackedGoals[i]);
-				return;
-			}
-			if (row.Contains(mouse.Item1, mouse.Item2))
-			{
-				ActiveGoal = TrackedGoals[i];
-				return;
-			}
+			RemoveGoal(goal);
 		}
-		if (ActiveGoal != null && ActiveGoal.Materials.Count > 5)
+		else if (click)
 		{
-			float pagerY = BookTrackerRules.GoalRow(TrackerRows, TrackerActiveIndex, TrackerActiveIndex).Y + 40f + (float)BookTrackerRules.DetailHeight(ActiveGoal.Materials.Count) - 24f;
-			if (new BookRect(8f, pagerY, 24f, 20f).Contains(mouse.Item1, mouse.Item2))
-			{
-				ActiveGoal.Page = Math.Max(0, ActiveGoal.Page - 1);
-			}
-			if (new BookRect(268f, pagerY, 24f, 20f).Contains(mouse.Item1, mouse.Item2))
-			{
-				ActiveGoal.Page = Math.Min(BookTrackerRules.PageCount(ActiveGoal.Materials.Count) - 1, ActiveGoal.Page + 1);
-			}
+			ActiveGoal = ((ActiveGoal == goal) ? null : goal);
 		}
 	}
 
@@ -1766,10 +1780,17 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Cards style: a compact list. The header "Tracking · n" drags the panel; a row shows crafts possible/wanted and
+	// a thin progress bar; click expands its materials (missing first), right-click untracks.
 	private static void DrawTracker(SpriteBatch sb)
 	{
 		if (TrackedGoals.Count == 0 || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
 		{
+			return;
+		}
+		if (ResourceTrackerStyle)
+		{
+			DrawResourceTracker(sb);
 			return;
 		}
 		Vector2 savedOrigin = Origin;
@@ -1783,79 +1804,48 @@ public sealed class RecipeBookSystem : ModSystem
 			Scale = layout.Scale;
 			(float, float) mouse = layout.ToLocal(Main.MouseScreen.X, Main.MouseScreen.Y);
 			Mouse = new Vector2(mouse.Item1, mouse.Item2);
-			int[] rows = TrackerRows;
 			int active = TrackerActiveIndex;
-			int height = BookTrackerRules.PanelHeight(rows, active);
+			int activeMaterials = TrackerActiveMaterials;
+			float width = BookTrackerRules.PanelWidth;
 			float opacity = (float)Math.Clamp(ModContent.GetInstance<BookConfig>().TrackerOpacityPercent, 20, 100) / 100f;
-			if (ResourceTrackerStyle)
-			{
-				DrawResourceTracker(sb, opacity);
-				return;
-			}
 			GraphicsOpacity = opacity * ((TrackedGoals.Count == 1) ? (1f - TrackedGoals[0].Dismiss.Progress) : 1f);
-			Box(sb, 0f, 0f, 300f, height, new Color(25, 32, 28), border: true, 12f, Border);
-			Text(sb, T("КРАФТ · ", "CRAFT · ") + TrackedGoals.Count + "/5", 8f, 3f, Muted, 0.7f, 252f, 20f);
-			Button(sb, new BookRect(272f, 4f, 20f, 20f), "X");
-			if (Hit(0f, 0f, 264f, 28f))
+			Box(sb, 0f, 0f, width, TrackerPanelHeight, Panel, border: true, 10f, Border);
+			bool header = TrackerDragging || Hit(0f, 0f, width, BookTrackerRules.HeaderHeight);
+			FixedLabel(sb, T("ОТСЛЕЖИВАНИЕ · ", "TRACKING · ") + TrackedGoals.Count, 12f, 5f, header ? TextColor : Muted, 0.8f, width - 56f, 22f);
+			for (int line = 0; line < 3; line++)
 			{
-				MouseTip(T("Перетащите заголовок, чтобы переместить панель.\nРазмер и прозрачность: настройки Modern Recipe Book.", "Drag the header to move this panel.\nSize and opacity: Modern Recipe Book settings."));
+				Box(sb, width - 26f, 11 + line * 4, 14f, 2f, header ? TextColor : Muted, border: false, 1f);
 			}
-			if (Hit(272f, 4f, 20f, 20f))
+			if (header && !TrackerDragging)
 			{
-				MouseTip(T("Убрать все цели", "Remove all objectives"));
+				MouseTip(T("Перетащите, чтобы переместить", "Drag to move"));
 			}
 			for (int i = 0; i < TrackedGoals.Count; i++)
 			{
 				TrackedGoal goal = TrackedGoals[i];
-				BookRect row = BookTrackerRules.GoalRow(rows, active, i);
-				GraphicsOpacity = opacity * (1f - goal.Dismiss.Progress);
-				if (i == active)
+				bool expanded = i == active;
+				float top = BookTrackerRules.GoalTop(i, active, activeMaterials);
+				float block = BookTrackerRules.GoalHeight + (expanded ? BookTrackerRules.ExpandedHeight(goal.Materials.Count) : 0);
+				float fade = 1f - goal.Dismiss.Progress;
+				GraphicsOpacity = opacity * fade;
+				bool hover = !TrackerDragging && Hit(0f, top, width, block);
+				if (expanded || hover)
 				{
-					Box(sb, 4f, row.Y, 292f, 40f, Raised, border: true, 8f, goal.Ready ? Accent : Border);
+					Box(sb, 4f, top + 2f, width - 8f, block - 4f, (expanded && !hover) ? Surface : Raised, border: false, 8f);
 				}
-				if (goal.IsSet)
+				Icon(sb, GoalIcon(goal), 12f, top + 8f, 28f, tooltip: false);
+				string crafts = CraftsRatio(goal);
+				float craftsWidth = CountWidth(crafts, 0.88f);
+				FixedLabel(sb, GoalTitle(goal), 48f, top + 5f, TextColor * fade, 0.88f, width - 48f - 12f - craftsWidth - 12f, 22f);
+				CenterLabel(sb, crafts, width - 12f - craftsWidth, top + 5f, craftsWidth, 22f, (goal.Ready ? EnoughColor : TextColor) * fade, 0.88f, rightAligned: true);
+				DrawProgressBar(sb, 48f, top + 31f, width - 48f - 12f, 4f, goal);
+				if (expanded)
 				{
-					for (int part = 0; part < 3; part++)
-					{
-						Icon(sb, goal.Parts[part], 8 + part * 24, row.Y + 8f, 24f, tooltip: false);
-					}
+					DrawGoalMaterials(sb, goal, top + BookTrackerRules.GoalHeight, fade);
 				}
-				else
+				if (hover)
 				{
-					Icon(sb, goal.Recipe.createItem, 8f, row.Y + 6f, 28f, tooltip: false);
-				}
-				float textX = (goal.IsSet ? 84 : 44);
-				FixedLabel(sb, goal.IsSet ? T("Комплект брони", "Armor set") : goal.Recipe.createItem.Name, textX, row.Y + 2f, TextColor, 0.78f, 264f - textX, 20f);
-				int collected = goal.Materials.Count((MaterialRequirement m) => !goal.Unknown && ((IEnumerable<int>)m.ItemTypes).Sum((Func<int, long>)((int type) => Math.Max(0, goal.Counts.GetValueOrDefault(type)))) >= (long)m.Ingredient.stack * (long)goal.Batches);
-				string summary;
-				if (goal.Unknown)
-				{
-					summary = "?";
-				}
-				else
-				{
-					summary = (goal.Ready ? T("Готово!", "Ready!") : (collected + "/" + goal.Materials.Count));
-				}
-				Text(sb, "×" + goal.Batches + " · " + summary, textX, row.Y + 22f, goal.Ready ? Accent : Muted, 0.64f, 264f - textX, 16f);
-				Button(sb, TrackerGoalClose(row), "X");
-				if (Hit(8f, row.Y, 256f, 40f))
-				{
-					Main instance = Main.instance;
-					string text = string.Join("\n", goal.Parts.Select((Item item) => item.Name));
-					string? text2;
-					if (goal.IsSet)
-					{
-						text2 = "\n" + ArmorSetDefenseText(goal.Parts);
-					}
-					else
-					{
-						text2 = (HasArmorDefense(goal.Parts[0]) ? ("\n" + T("Защита: ", "Defense: ") + goal.Parts[0].defense) : "");
-					}
-					instance.MouseText(text + text2 + T("\nНажмите, чтобы раскрыть материалы. Цели независимы: общие материалы не резервируются.", "\nClick to expand materials. Goals are independent: shared materials are not reserved."), 0, 0);
-				}
-				if (i == active)
-				{
-					DrawGoalMaterials(sb, goal, row.Y + 40f);
+					MouseTip(GoalTitle(goal) + "\n" + T("ЛКМ — материалы · ПКМ — не отслеживать", "Click: materials · Right-click: untrack"));
 				}
 			}
 		}
@@ -1868,48 +1858,142 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void DrawGoalMaterials(SpriteBatch sb, TrackedGoal goal, float y)
+	private static void DrawGoalMaterials(SpriteBatch sb, TrackedGoal goal, float y, float fade)
 	{
-		string status;
-		if (goal.Unknown)
+		if (goal.Progress.Length != goal.Materials.Count)
 		{
-			status = T("Недоступно", "Unavailable");
+			return;
 		}
-		else
+		float width = BookTrackerRules.PanelWidth;
+		int[] order = MissingFirst(goal.Progress);
+		bool more = order.Length > BookTrackerRules.MaxMaterialLines;
+		int shown = more ? (BookTrackerRules.MaxMaterialLines - 1) : order.Length;
+		for (int line = 0; line < shown; line++)
 		{
-			status = (goal.Ready ? T("Готово! Крафт — вручную.", "Ready! Craft manually.") : T("Сбор материалов", "Collecting materials"));
+			BookResourceProgress row = goal.Progress[order[line]];
+			MaterialRequirement material = goal.Materials[order[line]];
+			float itemY = y + (float)(line * BookTrackerRules.MaterialHeight);
+			Icon(sb, material.Ingredient, 48f, itemY + 2f, 20f, tooltip: false);
+			string ratio = ProgressRatio(row);
+			float ratioWidth = CountWidth(ratio, 0.82f);
+			FixedLabel(sb, MaterialName(material), 76f, itemY + 1f, (row.Met ? Muted : TextColor) * fade, 0.82f, width - 76f - 12f - ratioWidth - 12f, 22f);
+			CenterLabel(sb, ratio, width - 12f - ratioWidth, itemY + 1f, ratioWidth, 22f, ProgressColor(row) * fade, 0.82f, rightAligned: true);
 		}
-		Text(sb, (goal.Storage ? "Magic Storage" : T("Инвентарь", "Inventory")) + " · " + status, 8f, y + 1f, goal.Ready ? Accent : Muted, 0.65f, 284f, 18f);
-		goal.Page = Math.Clamp(goal.Page, 0, BookTrackerRules.PageCount(goal.Materials.Count) - 1);
-		for (int row = 0; row < 5; row++)
+		if (more)
 		{
-			int n = goal.Page * 5 + row;
-			if (n >= goal.Materials.Count)
+			FixedLabel(sb, "+" + (order.Length - shown) + T(" ещё · Ctrl+6", " more · Ctrl+6"), 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
+		}
+	}
+
+	// Width a count needs, so the name next to it gets the rest of the row.
+	private static float CountWidth(string count, float size)
+	{
+		return Ink(count).Width * size * Math.Clamp(TextScale, 0.9f, 1.15f) + 2f;
+	}
+
+	// Track + fill. A ready goal fills green; an unknown source stays empty.
+	private static void DrawProgressBar(SpriteBatch sb, float x, float y, float width, float height, TrackedGoal goal)
+	{
+		Box(sb, x, y, width, height, Border, border: false, height / 2f);
+		float fraction = GoalFraction(goal);
+		if (fraction > 0f)
+		{
+			Box(sb, x, y, Math.Max(height, width * fraction), height, goal.Ready ? EnoughColor : Accent, border: false, height / 2f);
+		}
+	}
+
+	private static float GoalFraction(TrackedGoal goal)
+	{
+		if (goal.Ready)
+		{
+			return 1f;
+		}
+		if (goal.Unknown || goal.Progress.Length == 0)
+		{
+			return 0f;
+		}
+		return goal.Progress.Average((BookResourceProgress r) => (r.Need.Quantity <= 0) ? 1f : ((float)Math.Min(1.0, (double)r.Allocated / (double)r.Need.Quantity)));
+	}
+
+	// The real amount on hand, never clamped to the need: 10 Silk for a 2 Silk need reads 10/2.
+	private static string ProgressRatio(BookResourceProgress row)
+	{
+		return (row.Unknown ? "?" : (row.Infinite ? "∞" : Count(row.Owned))) + "/" + Count(row.Need.Quantity);
+	}
+
+	private static Color ProgressColor(BookResourceProgress row)
+	{
+		if (row.Unknown)
+		{
+			return Muted;
+		}
+		return row.Met ? EnoughColor : MissingColor;
+	}
+
+	private static string CraftsRatio(TrackedGoal goal)
+	{
+		return (goal.Unknown ? "?" : Count(goal.Possible)) + "/" + Count(goal.Batches);
+	}
+
+	// Stable: missing rows keep their recipe order, then the collected ones.
+	private static int[] MissingFirst(IReadOnlyList<BookResourceProgress> rows)
+	{
+		return (from i in Enumerable.Range(0, rows.Count)
+			orderby rows[i].Met ? 1 : 0
+			select i).ToArray();
+	}
+
+	// Live name, so a language switch also renames the materials of goals tracked before it.
+	private static string MaterialName(MaterialRequirement material)
+	{
+		return material.Group?.GetText() ?? material.Ingredient.Name;
+	}
+
+	private static Item GoalIcon(TrackedGoal goal)
+	{
+		if (!goal.IsSet)
+		{
+			return goal.Recipe.createItem;
+		}
+		return goal.Parts[1];
+	}
+
+	private static string GoalTitle(TrackedGoal goal)
+	{
+		if (!goal.IsSet)
+		{
+			return goal.Recipe.createItem.Name;
+		}
+		// "Molten Helmet / Molten Breastplate / Molten Greaves" reads "Molten Armor".
+		string[][] words = goal.Parts.Select((Item p) => p.Name.Split(' ')).ToArray();
+		int common = 0;
+		while (words.All((string[] w) => w.Length > common + 1 && w[common] == words[0][common]))
+		{
+			common++;
+		}
+		if (common == 0)
+		{
+			return T("Комплект брони", "Armor set");
+		}
+		string prefix = string.Join(" ", words[0].Take(common));
+		return Ru ? ("Комплект: " + prefix) : (prefix + " Armor");
+	}
+
+	private static BookResourceProgress[] AssessTrackedGoal(TrackedGoal goal)
+	{
+		BookResourceNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookResourceNeed(goal.Storage, (long)m.Ingredient.stack * (long)goal.Batches, m.ItemTypes)).ToArray();
+		HashSet<int> infinite = new HashSet<int>();
+		if (goal.Storage && !goal.Unknown)
+		{
+			foreach (int type in needs.SelectMany((BookResourceNeed n) => n.Types).Distinct())
 			{
-				break;
-			}
-			MaterialRequirement material = goal.Materials[n];
-			float itemY = y + 20f + (float)(row * 24);
-			long owned = ((IEnumerable<int>)material.ItemTypes).Sum((Func<int, long>)((int t) => Math.Max(0, goal.Counts.GetValueOrDefault(t))));
-			long needed = (long)material.Ingredient.stack * (long)goal.Batches;
-			bool infinite = goal.Storage && !goal.Unknown && BookStorage.IsInfinite(material.ItemTypes);
-			bool met = !goal.Unknown && (infinite || owned >= needed);
-			string ratio = (goal.Unknown ? ("?/" + Count(needed)) : ((infinite ? "∞" : Count(owned)) + "/" + Count(needed)));
-			Icon(sb, material.Ingredient, 8f, itemY, 20f, tooltip: false);
-			Text(sb, material.Name, 36f, itemY, TextColor, 0.7f, 174f, 22f);
-			CenterLabel(sb, ratio, 216f, itemY, 76f, 22f, met ? Accent : new Color(238, 184, 139), 0.68f, rightAligned: true);
-			if (Hit(8f, itemY, 284f, 24f))
-			{
-				MouseTip(material.Name + "\n" + ratio + (material.Overlapping ? T("\nГруппы пересекаются; готовность рассчитана без двойного учёта.", "\nGroups overlap; readiness prevents double counting.") : ""));
+				if (BookStorage.IsInfinite(new int[1] { type }))
+				{
+					infinite.Add(type);
+				}
 			}
 		}
-		if (goal.Materials.Count > 5)
-		{
-			float pagerY = y + (float)BookTrackerRules.DetailHeight(goal.Materials.Count) - 24f;
-			Button(sb, new BookRect(8f, pagerY, 24f, 20f), "<");
-			Button(sb, new BookRect(268f, pagerY, 24f, 20f), ">");
-			CenterLabel(sb, goal.Page + 1 + " / " + BookTrackerRules.PageCount(goal.Materials.Count), 40f, pagerY, 220f, 20f, Muted, 0.68f);
-		}
+		return BookResourceTrackerRules.AssessGoal(needs, goal.Counts.ToDictionary((KeyValuePair<int, int> p) => p.Key, (KeyValuePair<int, int> p) => (long)p.Value), goal.Unknown, infinite);
 	}
 
 	private static bool CanOpenEnemy(BookAcquisitionGroup group)
@@ -2265,7 +2349,6 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		ResourceTrackerSignal.Reset();
 		ResourceTrackerDismiss.Reset();
-		ResourceTrackerPage = 0;
 		ResourceTrackerRows = Array.Empty<BookResourceProgress>();
 		ResourceTrackerMaterials.Clear();
 	}
@@ -2360,86 +2443,106 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void HandleResourceTrackerInput(float x, float y)
+	// Compact style: one vanilla info accessory line per material ("Silk 40/10"), continuing below the lines the game
+	// draws under the minimap. Same font, colours, shadow, line height and column as Main.DrawInfoAccs; no panel, no
+	// input. Hidden whenever the game hides its own info text (inventory open, NPC chat).
+	private static void DrawResourceTracker(SpriteBatch sb)
 	{
-		int pages = BookResourceTrackerRules.PageCount(ResourceTrackerRows.Length);
-		if (pages > 1)
+		if (Main.playerInventory || !Main.CanShowInfoAccs || ResourceTrackerRows.Length == 0)
 		{
-			if (new BookRect(8f, ResourcePagerY, 24f, 20f).Contains(x, y))
-			{
-				ResourceTrackerPage = Math.Max(0, ResourceTrackerPage - 1);
-			}
-			if (new BookRect(268f, ResourcePagerY, 24f, 20f).Contains(x, y))
-			{
-				ResourceTrackerPage = Math.Min(pages - 1, ResourceTrackerPage + 1);
-			}
+			return;
+		}
+		bool ru = GameCulture.FromCultureName(GameCulture.CultureName.Russian).IsActive;
+		int x = Main.screenWidth - 280 + (ru ? (-50) : 0);
+		int top = -32 + ((Main.mapStyle == 1 && Main.mapEnabled) ? 261 : 0) + 74 + 48;
+		int step = (Main.screenHeight < 650) ? 20 : 22;
+		float maxWidth = ru ? 265f : 215f;
+		int line = InfoAccessoryLines();
+		int room = Math.Max(1, (Main.screenHeight - 24 - top) / step - line);
+		float fade = 1f - ResourceTrackerDismiss.Progress;
+		bool mixed = ResourceTrackerRows.Any((BookResourceProgress r) => r.Need.Storage) && ResourceTrackerRows.Any((BookResourceProgress r) => !r.Need.Storage);
+		int[] order = MissingFirst(ResourceTrackerRows);
+		int shown = (order.Length > room) ? (room - 1) : order.Length;
+		for (int n = 0; n < shown; n++)
+		{
+			BookResourceProgress row = ResourceTrackerRows[order[n]];
+			MaterialRequirement material = ResourceTrackerMaterials[BookResourceTrackerRules.Key(row.Need.Storage, row.Need.Types)];
+			string name = MaterialName(material) + ((!mixed) ? "" : (row.Need.Storage ? T(" · хранилище", " · storage") : T(" · инвентарь", " · inventory")));
+			DrawInfoLine(sb, material.Ingredient, name, " " + ProgressRatio(row), x, top + (line + n) * step, maxWidth, row.Met ? InfoDoneColor : Color.White, fade);
+		}
+		if (shown < order.Length)
+		{
+			DrawInfoLine(sb, null, "+" + (order.Length - shown) + T(" ещё", " more"), "", x, top + (line + shown) * step, maxWidth, new Color(150, 150, 150), fade);
 		}
 	}
 
-	private static void DrawResourceTracker(SpriteBatch sb, float opacity)
+	// Lines the game draws above ours. The built-in displays are not listed by GetContent, so they are named here.
+	// ponytail: counts active, unhidden displays; a modded display whose value is empty draws no line but is counted.
+	private static int InfoAccessoryLines()
 	{
-		GraphicsOpacity = opacity * (1f - ResourceTrackerDismiss.Progress);
-		int pages = BookResourceTrackerRules.PageCount(ResourceTrackerRows.Length);
-		ResourceTrackerPage = Math.Clamp(ResourceTrackerPage, 0, pages - 1);
-		int complete = ResourceTrackerRows.Count((BookResourceProgress r) => r.Met);
-		FixedLabel(sb, T("РЕСУРСЫ · ", "RESOURCES · ") + complete + "/" + ResourceTrackerRows.Length, 8f, 3f, Muted, 0.7f, 252f, 20f);
-		CenterLabel(sb, "X", 272f, 4f, 20f, 20f, TextColor, 0.75f);
-		if (Hit(0f, 0f, 264f, 28f))
+		bool[] hidden = Main.LocalPlayer.hideInfo;
+		InfoDisplay[] builtIn = new InfoDisplay[12]
 		{
-			MouseTip(T("Перетащите список. Стиль, размер и прозрачность — в настройках.\nЗвук — только когда собран весь список. Крафт остаётся ручным.", "Drag this list. Style, size and opacity are in settings.\nOne sound only when the entire list is collected. Craft manually."));
+			InfoDisplay.Watches,
+			InfoDisplay.WeatherRadio,
+			InfoDisplay.Sextant,
+			InfoDisplay.FishFinder,
+			InfoDisplay.MetalDetector,
+			InfoDisplay.LifeformAnalyzer,
+			InfoDisplay.Radar,
+			InfoDisplay.TallyCounter,
+			InfoDisplay.DPSMeter,
+			InfoDisplay.Stopwatch,
+			InfoDisplay.Compass,
+			InfoDisplay.DepthMeter
+		};
+		return builtIn.Concat(ModContent.GetContent<InfoDisplay>()).Distinct().Count((InfoDisplay d) => InfoDisplayLoader.Active(d) && (d.Type >= hidden.Length || !hidden[d.Type]));
+	}
+
+	// One line as Main.DrawInfoAccs draws it: icon in the 20 px column, MouseText at scale 1 pulsing with
+	// mouseTextColor, a 2 px black shadow on four sides. A long name is shortened, the count always stays whole.
+	private static void DrawInfoLine(SpriteBatch sb, Item icon, string name, string value, int x, int y, float maxWidth, Color tint, float fade)
+	{
+		DynamicSpriteFont font = FontAssets.MouseText.Value;
+		if (icon != null && !icon.IsAir && icon.type < TextureAssets.Item.Length)
+		{
+			Main.instance.LoadItem(icon.type);
+			Texture2D texture = TextureAssets.Item[icon.type].Value;
+			Rectangle frame = Main.itemAnimations[icon.type]?.GetFrame(texture) ?? texture.Bounds;
+			float scale = Math.Min(1f, 20f / (float)Math.Max(frame.Width, frame.Height));
+			sb.Draw(texture, new Vector2(x + 10, y + 14), frame, Color.White * fade, 0f, frame.Size() / 2f, scale, SpriteEffects.None, 0f);
 		}
-		if (Hit(272f, 4f, 20f, 20f))
+		float valueWidth = font.MeasureString(value).X;
+		if (font.MeasureString(name).X + valueWidth > maxWidth)
 		{
-			MouseTip(T("Убрать все цели", "Remove all objectives"));
-		}
-		if (ResourceTrackerRows.Length == 0)
-		{
-			FixedLabel(sb, T("Нет требуемых ресурсов", "No resources required"), 8f, 32f, ResourceCompleteColor, 0.72f, 284f, 24f);
-		}
-		bool mixed = ResourceTrackerRows.Any((BookResourceProgress r) => r.Need.Storage) && ResourceTrackerRows.Any((BookResourceProgress r) => !r.Need.Storage);
-		for (int line = 0; line < 8; line++)
-		{
-			int i = ResourceTrackerPage * 8 + line;
-			if (i >= ResourceTrackerRows.Length)
+			while (name.Length > 1 && font.MeasureString(name + "...").X + valueWidth > maxWidth)
 			{
-				break;
+				name = name.Substring(0, name.Length - 1);
 			}
-			BookResourceProgress row = ResourceTrackerRows[i];
-			MaterialRequirement material = ResourceTrackerMaterials[BookResourceTrackerRules.Key(row.Need.Storage, row.Need.Types)];
-			float y = 32 + line * 26;
-			Color color = (row.Met ? ResourceCompleteColor : TextColor);
-			string ratio = (row.Unknown ? ("?/" + Count(row.Need.Quantity)) : ((row.Infinite ? "∞" : Count(row.Allocated)) + "/" + Count(row.Need.Quantity)));
-			string name = material.Name;
-			string text;
-			if (mixed)
-			{
-				text = (row.Need.Storage ? " · MS" : T(" · ИНВ", " · INV"));
-			}
-			else
-			{
-				text = "";
-			}
-			string name2 = name + text;
-			Icon(sb, material.Ingredient, 8f, y + 2f, 22f, tooltip: false);
-			FixedLabel(sb, name2, 38f, y, color, 0.74f, 160f, 24f);
-			CenterLabel(sb, ratio, 204f, y, 88f, 24f, color, 0.7f, rightAligned: true);
-			if (Hit(8f, y, 284f, 26f))
-			{
-				MouseTip(material.Name + "\n" + ratio + "\n" + (row.Need.Storage ? "Magic Storage" : T("Инвентарь", "Inventory")) + "\n" + T("Всего доступно: ", "Total available: ") + (row.Unknown ? "?" : (row.Infinite ? "∞" : Count(row.Owned))) + "\n" + T("Общие ресурсы целей суммируются. Пересекающиеся группы распределяются без двойного учёта.", "Shared objective needs are summed. Overlapping groups are allocated without double counting."));
-			}
+			name = name.TrimEnd() + "...";
 		}
-		if (pages > 1)
+		string text = name + value;
+		float pulse = (float)(int)Main.mouseTextColor / 255f;
+		Color color = new Color((int)((float)(int)tint.R * pulse), (int)((float)(int)tint.G * pulse), (int)((float)(int)tint.B * pulse), (int)Main.mouseTextColor) * fade;
+		Vector2 position = new Vector2(x + 20, y);
+		Vector2[] shadow = new Vector2[4]
 		{
-			CenterLabel(sb, "<", 8f, ResourcePagerY, 24f, 20f, TextColor, 0.75f);
-			CenterLabel(sb, ">", 268f, ResourcePagerY, 24f, 20f, TextColor, 0.75f);
-			CenterLabel(sb, ResourceTrackerPage + 1 + " / " + pages, 40f, ResourcePagerY, 220f, 20f, Muted, 0.68f);
+			new Vector2(-2f, 0f),
+			new Vector2(2f, 0f),
+			new Vector2(0f, -2f),
+			new Vector2(0f, 2f)
+		};
+		foreach (Vector2 offset in shadow)
+		{
+			sb.DrawString(font, text, position + offset, Color.Black * fade, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
 		}
+		sb.DrawString(font, text, position, color, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
 	}
 
 	private static TrackedGoal SelectedTrackingGoal()
 	{
 		Page = Math.Clamp(Page, 0, TrackingGoalPages - 1);
-		int index = BookTrackingSelectionRules.Resolve(TrackedGoals.Count, Page, (TrackingSelection == null) ? (-1) : TrackedGoals.IndexOf(TrackingSelection), 60);
+		int index = BookTrackingSelectionRules.Resolve(TrackedGoals.Count, Page, (TrackingSelection == null) ? (-1) : TrackedGoals.IndexOf(TrackingSelection), BookGeometry.TrackingPageSize);
 		return TrackingSelection = ((index < 0) ? null : TrackedGoals[index]);
 	}
 
@@ -2462,32 +2565,45 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void HandleTrackingTabInput()
 	{
+		if (TrackedGoals.Count == 0)
+		{
+			return;
+		}
 		if (BookGeometry.TrackingClear.Contains(Mouse.X, Mouse.Y))
 		{
+			// Clearing everything has no undo: the first click arms the button, the second one clears.
+			if (!TrackingClearArmed)
+			{
+				TrackingClearArmedAt = Main.GameUpdateCount;
+				return;
+			}
 			StopTracker();
 			Page = 0;
 			return;
 		}
-		if (BookGeometry.TrackingPrevious.Contains(Mouse.X, Mouse.Y))
+		if (TrackingGoalPages > 1)
 		{
-			Page = Math.Max(0, Page - 1);
-			SelectedTrackingGoal();
-			return;
+			if (BookGeometry.TrackingPrevious.Contains(Mouse.X, Mouse.Y))
+			{
+				Page = Math.Max(0, Page - 1);
+				SelectedTrackingGoal();
+				return;
+			}
+			if (BookGeometry.TrackingNext.Contains(Mouse.X, Mouse.Y))
+			{
+				Page = Math.Min(TrackingGoalPages - 1, Page + 1);
+				SelectedTrackingGoal();
+				return;
+			}
 		}
-		if (BookGeometry.TrackingNext.Contains(Mouse.X, Mouse.Y))
+		for (int row = 0; row < BookGeometry.TrackingPageSize; row++)
 		{
-			Page = Math.Min(TrackingGoalPages - 1, Page + 1);
-			SelectedTrackingGoal();
-			return;
-		}
-		for (int cell = 0; cell < 60; cell++)
-		{
-			int index = Page * 60 + cell;
+			int index = Page * BookGeometry.TrackingPageSize + row;
 			if (index >= TrackedGoals.Count)
 			{
 				break;
 			}
-			if (BookGeometry.TrackingCell(cell).Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.TrackingRow(row).Contains(Mouse.X, Mouse.Y))
 			{
 				TrackingSelection = TrackedGoals[index];
 				return;
@@ -2509,42 +2625,28 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 			return;
 		}
-		int pages = TrackingDetailPages(goal);
-		if (BookGeometry.DetailPrevious.Contains(Mouse.X, Mouse.Y))
+		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
+		if (pages.Count > 1)
 		{
-			goal.ResourcePage = Math.Max(0, goal.ResourcePage - 1);
-			return;
-		}
-		if (BookGeometry.DetailNext.Contains(Mouse.X, Mouse.Y))
-		{
-			goal.ResourcePage = Math.Min(pages - 1, goal.ResourcePage + 1);
-			return;
-		}
-		List<Detail> rows = TrackingDetails(goal);
-		for (int line = 0; line < 3; line++)
-		{
-			int index2 = goal.ResourcePage * 3 + line;
-			if (index2 < rows.Count)
+			if (BookGeometry.TrackingDetailPrevious.Contains(Mouse.X, Mouse.Y))
 			{
-				Detail detail = rows[index2];
-				if (detail.Icon != null && !detail.Icon.IsAir && BookGeometry.DetailObtain(line).Contains(Mouse.X, Mouse.Y))
-				{
-					OpenAcquisition(detail.Icon.type, detail.SourceTypes);
-					break;
-				}
-				continue;
+				goal.ResourcePage = Math.Max(0, goal.ResourcePage - 1);
+				return;
 			}
-			break;
+			if (BookGeometry.TrackingDetailNext.Contains(Mouse.X, Mouse.Y))
+			{
+				goal.ResourcePage = Math.Min(pages.Count - 1, goal.ResourcePage + 1);
+				return;
+			}
 		}
-	}
-
-	private static string TrackingGoalName(TrackedGoal goal)
-	{
-		if (!goal.IsSet)
+		foreach ((TrackingLine line, BookRect rect) in pages[Math.Clamp(goal.ResourcePage, 0, pages.Count - 1)])
 		{
-			return goal.Recipe.createItem.Name + " ×" + Count((long)goal.Recipe.createItem.stack * (long)goal.Batches);
+			if (line.SourceTypes != null && TrackingObtain(rect).Contains(Mouse.X, Mouse.Y))
+			{
+				OpenAcquisition(line.Icon.type, line.SourceTypes);
+				return;
+			}
 		}
-		return T("Комплект брони", "Armor set") + " ×" + goal.Batches;
 	}
 
 	private static string TrackingSource(TrackedGoal goal)
@@ -2553,241 +2655,234 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return T("Инвентарь", "Inventory");
 		}
-		return "Magic Storage";
+		return T("Хранилище", "Storage");
+	}
+
+	private static string TrackingStatus(TrackedGoal goal)
+	{
+		if (goal.Unknown)
+		{
+			return T("Хранилище недоступно", "Storage unavailable");
+		}
+		if (goal.Ready)
+		{
+			return T("Можно создать", "Ready to craft");
+		}
+		int met = goal.Progress.Count((BookResourceProgress r) => r.Met);
+		return T("Ингредиенты: ", "Ingredients: ") + met + "/" + goal.Progress.Length;
+	}
+
+	// "<item's own mod> · Stage", like the item details on the other tabs.
+	private static string TrackingOrigin(TrackedGoal goal)
+	{
+		if (goal.IsSet)
+		{
+			return string.Join(" / ", goal.Parts.Select((Item p) => ModName(p.ModItem?.Mod.Name ?? "Terraria")).Distinct());
+		}
+		return ModName(goal.Recipe.createItem.ModItem?.Mod.Name ?? "Terraria") + " · " + StageName(null, goal.Recipe);
+	}
+
+	// "Recipe: Calamity Mod" when another mod than the item's own one made this recipe (vanilla Flying Carpet).
+	private static string RecipeOwnerNote(TrackedGoal goal)
+	{
+		string owner = ModName(Owner(goal.Recipe));
+		if (goal.IsSet || owner == ModName(goal.Recipe.createItem.ModItem?.Mod.Name ?? "Terraria"))
+		{
+			return "";
+		}
+		return T("Рецепт: ", "Recipe: ") + owner;
 	}
 
 	private static void DrawTrackingTab(SpriteBatch sb)
 	{
 		TrackedGoal selected = SelectedTrackingGoal();
-		Box(sb, BookGeometry.TrackingPanel, Surface, border: false, 12f);
-		FixedLabel(sb, T("ОТСЛЕЖИВАЕМЫЕ КРАФТЫ", "TRACKED CRAFTS"), 28f, 108f, TextColor, 0.94f, 560f, 28f);
-		FixedLabel(sb, ResourceTrackerStyle ? T("Без лимита целей · выберите крафт в сетке", "No goal cap · select a craft in the grid") : T("До 5 целей · выберите крафт в сетке", "Up to 5 goals · select a craft in the grid"), 28f, 144f, Muted, 0.78f, 736f, 24f);
-		Button(sb, BookGeometry.TrackingClear, T("Убрать все", "Remove all"));
+		BookRect panel = BookGeometry.TrackingPanel;
 		if (TrackedGoals.Count == 0)
 		{
-			CenterLabel(sb, T("Пока нет отслеживаемых крафтов", "No tracked crafts yet"), 28f, 300f, 736f, 36f, TextColor);
-			CenterLabel(sb, T("Добавьте рецепт кнопкой «Начать крафт» или «Весь сет».", "Add a recipe using Start crafting or Full set."), 28f, 344f, 736f, 32f, Muted, 0.8f);
+			BookRect area = new BookRect(panel.X, panel.Y, BookGeometry.DetailsPanel.X + BookGeometry.DetailsPanel.Width - panel.X, panel.Height);
+			Box(sb, area, Surface, border: false, 12f);
+			CenterLabel(sb, T("Ничего не отслеживается", "Nothing tracked yet"), area.X, area.Y + area.Height / 2f - 36f, area.Width, 32f, TextColor, 1.1f);
+			CenterLabel(sb, T("Выберите предмет и нажмите «Отслеживать»", "Select an item and press Track"), area.X, area.Y + area.Height / 2f + 4f, area.Width, 24f, Muted, 0.9f);
+			return;
 		}
-		for (int cell = 0; cell < 60; cell++)
+		Box(sb, panel, Surface, border: false, 12f);
+		FixedLabel(sb, T("ОТСЛЕЖИВАЕТСЯ · ", "TRACKED · ") + TrackedGoals.Count + (ResourceTrackerStyle ? "" : ("/" + BookTrackerRules.MaxGoals)), panel.X + 16f, panel.Y + 17f, Muted, 0.8f, 400f, 22f);
+		DestructiveButton(sb, BookGeometry.TrackingClear, TrackingClearArmed ? T("Очистить всё?", "Clear All?") : T("Очистить", "Clear"));
+		if (BookGeometry.TrackingClear.Contains(Mouse.X, Mouse.Y))
 		{
-			int index = Page * 60 + cell;
+			MouseTip(TrackingClearArmed ? T("Нажмите ещё раз, чтобы убрать все цели", "Click again to untrack everything") : T("Не отслеживать ничего", "Untrack everything"));
+		}
+		for (int row = 0; row < BookGeometry.TrackingPageSize; row++)
+		{
+			int index = Page * BookGeometry.TrackingPageSize + row;
 			if (index >= TrackedGoals.Count)
 			{
 				break;
 			}
 			TrackedGoal goal = TrackedGoals[index];
-			BookRect rect = BookGeometry.TrackingCell(cell);
+			BookRect rect = BookGeometry.TrackingRow(row);
 			bool active = goal == selected;
-			bool hover = rect.Contains(Mouse.X, Mouse.Y);
-			SpriteBatch sb2 = sb;
-			float x = rect.X;
-			float y = rect.Y;
-			float width = rect.Width;
-			float height = rect.Height;
-			Color color;
-			if (hover)
-			{
-				color = new Color(61, 84, 67);
-			}
-			else
-			{
-				color = (active ? new Color(50, 76, 59) : Raised);
-			}
-			Box(sb2, x, y, width, height, color, border: true, 8f, active ? new Color?(Accent) : ((Color?)null), (!active) ? 1 : 2);
-			if (goal.IsSet)
-			{
-				for (int part = 0; part < 3; part++)
-				{
-					Icon(sb, goal.Parts[part], rect.X + 2f + (float)(part * 20), rect.Y + 16f, 20f, tooltip: false);
-				}
-			}
-			else
-			{
-				Icon(sb, goal.Recipe.createItem, rect.X + 12f, rect.Y + 6f, 40f, tooltip: false);
-			}
-			CenterLabel(sb, "×" + goal.Batches, rect.X + 4f, rect.Y + 46f, 56f, 16f, Muted, 0.62f);
-			if (goal.Ready)
-			{
-				CenterLabel(sb, "+", rect.X + 46f, rect.Y + 2f, 16f, 16f, ResourceCompleteColor, 0.72f);
-			}
-			if (hover)
-			{
-				MouseTip(TrackingGoalName(goal) + "\n" + string.Join("\n", goal.Parts.Select((Item p) => p.Name)) + "\n" + TrackingSource(goal) + "\n" + T("Партий: ", "Batches: ") + goal.Batches + "\n" + (goal.Unknown ? T("Источник недоступен", "Source unavailable") : (goal.Ready ? T("Материалы собраны", "Materials collected") : T("Идёт сбор ресурсов", "Collecting resources"))) + "\n" + T("ЛКМ — выбрать крафт. Подробнее — в правой панели.", "Left-click to select. Details appear on the right."));
-			}
+			Color fill = (active ? new Color(50, 76, 59) : (rect.Contains(Mouse.X, Mouse.Y) ? new Color(51, 67, 55) : Raised));
+			Box(sb, rect.X, rect.Y, rect.Width, rect.Height, fill, border: true, 8f, active ? new Color?(Accent) : null, active ? 2 : 1);
+			Icon(sb, GoalIcon(goal), rect.X + 12f, rect.Y + 8f, 40f, tooltip: false);
+			float countX = rect.X + rect.Width - 16f - 80f;
+			float barX = countX - 16f - 140f;
+			float nameWidth = barX - 24f - (rect.X + 64f);
+			FixedLabel(sb, GoalTitle(goal), rect.X + 64f, rect.Y + 7f, TextColor, 1f, nameWidth, 24f);
+			FixedLabel(sb, TrackingStatus(goal), rect.X + 64f, rect.Y + 31f, goal.Ready ? EnoughColor : Muted, 0.8f, nameWidth, 18f);
+			DrawProgressBar(sb, barX, rect.Y + 26f, 140f, 4f, goal);
+			CenterLabel(sb, CraftsRatio(goal), countX, rect.Y + 7f, 80f, 24f, goal.Ready ? EnoughColor : TextColor, 1f, rightAligned: true);
+			CenterLabel(sb, T("крафтов", "crafts"), countX, rect.Y + 31f, 80f, 18f, Muted, 0.8f, rightAligned: true);
 		}
-		Button(sb, BookGeometry.TrackingPrevious, "<");
-		Button(sb, BookGeometry.TrackingNext, ">");
-		BookRect pager = BookGeometry.TrackingPager;
-		CenterLabel(sb, T("Крафтов: ", "Crafts: ") + TrackedGoals.Count + " · " + (Page + 1) + " / " + TrackingGoalPages, pager.X, pager.Y, pager.Width, pager.Height, Muted, 0.84f);
+		if (TrackingGoalPages > 1)
+		{
+			Button(sb, BookGeometry.TrackingPrevious, "<");
+			Button(sb, BookGeometry.TrackingNext, ">");
+			Label(sb, BookGeometry.TrackingPager, Page + 1 + " / " + TrackingGoalPages, Muted, 0.85f);
+		}
 		DrawSelectedTrackingGoal(sb, selected);
 	}
 
 	private static void DrawSelectedTrackingGoal(SpriteBatch sb, TrackedGoal goal)
 	{
-		Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
-		FixedLabel(sb, T("ВЫБРАННЫЙ КРАФТ", "SELECTED CRAFT"), 812f, 108f, Muted, 0.82f, 284f, 24f);
+		BookRect d = BookGeometry.DetailsPanel;
+		Box(sb, d, Surface, border: false, 12f);
 		if (goal == null)
 		{
-			CenterLabel(sb, T("Выберите крафт слева", "Select a craft on the left"), 812f, 300f, 284f, 32f, Muted, 0.88f);
 			return;
 		}
-		Item output = goal.Recipe.createItem;
-		bool armor = goal.IsSet || HasArmorDefense(output);
-		if (goal.IsSet)
+		Icon(sb, GoalIcon(goal), d.X + 16f, d.Y + 16f, 48f);
+		string title = GoalTitle(goal);
+		float titleSize = Math.Clamp((d.Width - 92f) / Math.Max(1f, Ink(title).Width * TextScale), 0.85f, 1.05f);
+		FixedLabel(sb, title, d.X + 76f, d.Y + 17f, TextColor, titleSize, d.Width - 92f, 26f);
+		FixedLabel(sb, TrackingOrigin(goal), d.X + 76f, d.Y + 45f, Muted, 0.8f, d.Width - 92f, 20f);
+		FixedLabel(sb, T("Крафтов: ", "Crafts: ") + CraftsRatio(goal), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
+		CenterLabel(sb, TrackingSource(goal), d.X + d.Width - 16f - 120f, d.Y + 76f, 120f, 20f, Muted, 0.85f, rightAligned: true);
+		DrawProgressBar(sb, d.X + 16f, d.Y + 102f, d.Width - 32f, 6f, goal);
+		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
+		goal.ResourcePage = Math.Clamp(goal.ResourcePage, 0, pages.Count - 1);
+		foreach ((TrackingLine line, BookRect rect) in pages[goal.ResourcePage])
 		{
-			for (int slot = 0; slot < 3; slot++)
+			if (line.Section)
 			{
-				BookRect rect = BookGeometry.ArmorPart(slot);
-				Item part = goal.Parts[slot];
-				Box(sb, rect, Raised, border: true, 8f);
-				Icon(sb, part, rect.X + 15f, rect.Y + 4f, 30f, tooltip: false);
-				BookRect defense = BookGeometry.ArmorPartDefense(slot);
-				CenterLabel(sb, part.defense + T(" защ.", " def"), defense.X, defense.Y, defense.Width, defense.Height, Accent, 0.62f, rightAligned: false, leftAligned: false, fitWidth: true);
-				if (rect.Contains(Mouse.X, Mouse.Y))
+				float labelWidth = Math.Min(rect.Width, CountWidth(line.Name, 0.78f));
+				FixedLabel(sb, line.Name, rect.X, rect.Y + 6f, Muted, 0.78f, labelWidth, 20f);
+				if (line.Value.Length > 0)
 				{
-					MouseTip(ArmorDefenseTooltip(part, goal.Parts));
+					CenterLabel(sb, line.Value, rect.X + labelWidth + 12f, rect.Y + 6f, rect.Width - labelWidth - 12f, 20f, Muted, 0.78f, rightAligned: true);
+				}
+				continue;
+			}
+			Box(sb, rect, Raised, border: false, 8f);
+			float textX = rect.X + 12f;
+			if (line.Icon != null && !line.Icon.IsAir)
+			{
+				Icon(sb, line.Icon, rect.X + 8f, rect.Y + 6f, 24f);
+				textX = rect.X + 40f;
+			}
+			float right = rect.X + rect.Width - ((line.SourceTypes != null) ? 44f : 12f);
+			float valueWidth = ((line.Value.Length > 0) ? CountWidth(line.Value, 0.85f) : 0f);
+			FixedLabel(sb, line.Name, textX, rect.Y + 7f, line.NameColor, 0.85f, right - valueWidth - 6f - textX, 22f);
+			if (valueWidth > 0f)
+			{
+				CenterLabel(sb, line.Value, right - valueWidth, rect.Y + 7f, valueWidth, 22f, line.ValueColor, 0.85f, rightAligned: true);
+			}
+			if (line.SourceTypes != null)
+			{
+				BookRect obtain = TrackingObtain(rect);
+				Button(sb, obtain, "?");
+				if (obtain.Contains(Mouse.X, Mouse.Y))
+				{
+					MouseTip(T("Где взять: ", "How to Get: ") + line.Name);
 				}
 			}
 		}
-		else
+		if (pages.Count > 1)
 		{
-			Icon(sb, output, 926f, 136f, 56f);
+			Button(sb, BookGeometry.TrackingDetailPrevious, "<");
+			Button(sb, BookGeometry.TrackingDetailNext, ">");
+			Label(sb, BookGeometry.TrackingDetailPager, goal.ResourcePage + 1 + " / " + pages.Count, Muted, 0.85f);
 		}
-		BookRect name = (armor ? BookGeometry.ArmorName : new BookRect(812f, 200f, 284f, 32f));
-		FixedLabel(sb, TrackingGoalName(goal), name.X, name.Y, TextColor, armor ? 1f : 1.16f, name.Width, name.Height);
-		if (armor)
-		{
-			BookRect defense2 = BookGeometry.ArmorDefense;
-			FixedLabel(sb, goal.IsSet ? ArmorSetDefenseText(goal.Parts) : (T("Защита части: ", "Piece defense: ") + output.defense), defense2.X, defense2.Y, Accent, 0.76f, defense2.Width, defense2.Height);
-			if (defense2.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(ArmorDefenseTooltip(goal.Parts[0], goal.IsSet ? goal.Parts : null));
-			}
-		}
-		BookRect source = (armor ? BookGeometry.ArmorSource : new BookRect(812f, 240f, 284f, 20f));
-		string origin = (goal.IsSet ? string.Join(" / ", goal.Recipes.Select((Recipe r) => ModName(Owner(r))).Distinct()) : (ModName(Owner(goal.Recipe)) + " · " + StageName(null, goal.Recipe)));
-		FixedLabel(sb, origin, source.X, source.Y, Muted, 0.78f, source.Width, source.Height);
-		BookRect quantity = BookGeometry.TrackingQuantity;
-		FixedLabel(sb, T("Партий: ×", "Batches: ×") + goal.Batches + " · " + TrackingSource(goal), quantity.X, quantity.Y, Muted, 0.78f, quantity.Width, quantity.Height);
-		if (quantity.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Количество и источник сохранены при добавлении цели. Материалы ниже рассчитаны для всех её партий.", "Quantity and source were captured when the goal was added. Materials below cover all its batches."));
-		}
-		List<Detail> details = TrackingDetails(goal);
-		int pages = BookTrackingSelectionRules.Pages(details.Count, 3);
-		goal.ResourcePage = Math.Clamp(goal.ResourcePage, 0, pages - 1);
-		for (int line = 0; line < 3; line++)
-		{
-			int index = goal.ResourcePage * 3 + line;
-			if (index >= details.Count)
-			{
-				break;
-			}
-			Detail detail = details[index];
-			BookRect rect2 = BookGeometry.DetailRow(line);
-			Box(sb, rect2, Raised);
-			BookRect icon = BookGeometry.DetailIcon(line);
-			if (detail.Icon != null)
-			{
-				Icon(sb, detail.Icon, icon.X, icon.Y, icon.Width, tooltip: false);
-			}
-			float textX = ((detail.Icon == null) ? (rect2.X + 8f) : (icon.X + icon.Width + 8f));
-			bool num = detail.Icon != null && !detail.Icon.IsAir;
-			BookRect action = BookGeometry.DetailObtain(line);
-			DrawTextPair(width: (num ? (action.X - 8f) : (rect2.X + rect2.Width - 8f)) - textX, sb: sb, name: detail.Name, subtitle: detail.Sub, x: textX, y: rect2.Y, height: rect2.Height, titleColor: detail.Color, subColor: detail.SubColor);
-			if (num)
-			{
-				Button(sb, action, "?");
-			}
-			if (num && action.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Как получить: ", "How to obtain: ") + detail.Name);
-			}
-			else if (rect2.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(detail.Name + "\n" + detail.Tooltip);
-			}
-		}
-		Button(sb, BookGeometry.DetailPrevious, "<");
-		Button(sb, BookGeometry.DetailNext, ">");
-		Label(sb, BookGeometry.DetailPager, goal.ResourcePage + 1 + " / " + pages, Muted, 0.86f);
-		Button(sb, BookGeometry.TrackingRemove, T("Убрать выбранный крафт", "Remove selected craft"));
-		BookRect status = BookGeometry.TrackingStatus;
-		SpriteBatch sb2 = sb;
-		string label;
-		if (goal.Unknown)
-		{
-			label = T("Источник недоступен", "Source unavailable");
-		}
-		else
-		{
-			label = (goal.Ready ? T("Материалы собраны", "Materials collected") : T("Идёт сбор ресурсов", "Collecting resources"));
-		}
-		FixedLabel(sb2, label, status.X, status.Y, goal.Ready ? ResourceCompleteColor : Muted, 0.78f, status.Width, status.Height);
-		if (status.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Статус материалов только этого крафта, без резервирования. Станции и условия проверяет игра.\nВ минималистичном HUD потребности всех целей суммируются; сигнал — только за полный список. Крафт остаётся ручным.", "Material status for this craft only, without reservation. The game checks stations and conditions.\nThe minimal HUD sums all goals; sound plays only for the complete list. Craft manually."));
-		}
+		DestructiveButton(sb, BookGeometry.TrackingRemove, T("Не отслеживать", "Untrack"));
+	}
+
+	private static BookRect TrackingObtain(BookRect row)
+	{
+		return new BookRect(row.X + row.Width - 32f, row.Y + 4f, 28f, 28f);
 	}
 
 	private static int TrackingDetailPages(TrackedGoal goal)
 	{
-		return BookTrackingSelectionRules.Pages(TrackingDetails(goal).Count, 3);
+		return TrackingDetailLayout(goal).Count;
 	}
 
-	private static List<Detail> TrackingDetails(TrackedGoal goal)
+	// Section labels and rows of the selected goal, split into pages that fit above the Untrack button.
+	private static List<List<(TrackingLine Line, BookRect Rect)>> TrackingDetailLayout(TrackedGoal goal)
 	{
-		BookResourceNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookResourceNeed(goal.Storage, (long)m.Ingredient.stack * (long)goal.Batches, m.ItemTypes)).ToArray();
-		HashSet<int> infinite = new HashSet<int>();
-		if (goal.Storage && !goal.Unknown)
+		BookRect d = BookGeometry.DetailsPanel;
+		List<TrackingLine> lines = TrackingDetails(goal);
+		float top = d.Y + 120f;
+		float total = lines.Sum((TrackingLine l) => l.Section ? 28f : 40f);
+		float bottom = ((top + total <= BookGeometry.TrackingRemove.Y - 8f) ? (BookGeometry.TrackingRemove.Y - 8f) : (BookGeometry.TrackingDetailPrevious.Y - 8f));
+		List<List<(TrackingLine, BookRect)>> pages = new List<List<(TrackingLine, BookRect)>> { new List<(TrackingLine, BookRect)>() };
+		float y = top;
+		foreach (TrackingLine line in lines)
 		{
-			foreach (int type in needs.SelectMany((BookResourceNeed n) => n.Types).Distinct())
+			float height = (line.Section ? 28f : 40f);
+			// A section label never ends a page: it moves on with its first row.
+			if (y + height + (line.Section ? 40f : 0f) > bottom && pages[^1].Count > 0)
 			{
-				if (BookStorage.IsInfinite(new int[1] { type }))
-				{
-					infinite.Add(type);
-				}
+				pages.Add(new List<(TrackingLine, BookRect)>());
+				y = top;
+			}
+			pages[^1].Add((line, new BookRect(d.X + 16f, y, d.Width - 32f, line.Section ? 28f : 36f)));
+			y += height;
+		}
+		return pages;
+	}
+
+	private sealed record TrackingLine(Item Icon, string Name, string Value, Color NameColor, Color ValueColor, int[] SourceTypes = null, bool Section = false);
+
+	private static List<TrackingLine> TrackingDetails(TrackedGoal goal)
+	{
+		List<TrackingLine> lines = new List<TrackingLine>
+		{
+			new TrackingLine(null, T("ИНГРЕДИЕНТЫ", "INGREDIENTS"), RecipeOwnerNote(goal), Muted, Muted, null, Section: true)
+		};
+		if (goal.Progress.Length == goal.Materials.Count)
+		{
+			foreach (int i in MissingFirst(goal.Progress))
+			{
+				BookResourceProgress row = goal.Progress[i];
+				MaterialRequirement material = goal.Materials[i];
+				lines.Add(new TrackingLine(material.Ingredient, MaterialName(material), ProgressRatio(row), TextColor, ProgressColor(row), material.ItemTypes.OrderBy((int t) => t).ToArray()));
 			}
 		}
-		BookResourceProgress[] progress = BookResourceTrackerRules.AssessGoal(needs, ((IEnumerable<KeyValuePair<int, int>>)goal.Counts).ToDictionary((Func<KeyValuePair<int, int>, int>)((KeyValuePair<int, int> p) => p.Key), (Func<KeyValuePair<int, int>, long>)((KeyValuePair<int, int> p) => p.Value)), goal.Unknown, infinite);
-		List<Detail> details = new List<Detail>();
-		for (int i = 0; i < progress.Length; i++)
-		{
-			BookResourceProgress row = progress[i];
-			MaterialRequirement material = goal.Materials[i];
-			Color color;
-			if (row.Met)
-			{
-				color = ResourceCompleteColor;
-			}
-			else
-			{
-				color = (row.Unknown ? Muted : TextColor);
-			}
-			string ratio = (row.Unknown ? ("?/" + Count(row.Need.Quantity)) : ((row.Infinite ? "∞" : Count(row.Allocated)) + "/" + Count(row.Need.Quantity)));
-			details.Add(new Detail(material.Ingredient, material.Name, ratio, color, color, ratio + "\n" + TrackingSource(goal) + "\n" + T("Партий: ", "Batches: ") + goal.Batches + "\n" + T("Доступно всего: ", "Total available: ") + (row.Unknown ? "?" : (row.Infinite ? "∞" : Count(row.Owned))) + "\n" + T("Для выбранного крафта, без резервирования. Пересекающиеся группы распределены без двойного учёта.", "For the selected craft, without reservation. Overlapping groups are allocated without double counting."), material.ItemTypes.OrderBy((int t) => t).ToArray()));
-		}
+		lines.Add(new TrackingLine(null, T("СТАНЦИЯ", "STATION"), "", Muted, Muted, null, Section: true));
 		int[] tiles = (from t in goal.Recipes.SelectMany((Recipe r) => r.requiredTile)
 			where t >= 0
 			select t).Distinct().ToArray();
-		int[] array = tiles;
-		for (int num = 0; num < array.Length; num++)
+		foreach (int tile in tiles)
 		{
-			int tile = array[num];
 			StationItems.TryGetValue(tile, out var station);
-			string stationName = (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile)));
-			details.Add(new Detail(station, stationName, T("Рабочая станция", "Crafting station"), Muted, Muted, T("Требование рецепта. Текущую доступность проверяет игра.", "Recipe requirement. The game checks current availability.")));
+			string stationName = ((station != null && !station.IsAir) ? station.Name : (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile))));
+			lines.Add(new TrackingLine(station, stationName, "", TextColor, Muted));
 		}
 		if (tiles.Length == 0)
 		{
-			details.Add(new Detail(null, T("Создаётся вручную", "Crafted by hand"), T("Станция не требуется", "No station required"), Muted, Muted, ""));
+			lines.Add(new TrackingLine(null, T("Вручную", "By hand"), "", Muted, Muted));
 		}
-		foreach (string condition in (from c in goal.Recipes.SelectMany((Recipe r) => r.Conditions)
-			select c.Description.Value).Distinct())
+		string[] conditions = (from c in goal.Recipes.SelectMany((Recipe r) => r.Conditions)
+			select c.Description.Value).Distinct().ToArray();
+		if (conditions.Length > 0)
 		{
-			details.Add(new Detail(null, condition, T("Условие рецепта", "Recipe condition"), new Color(223, 185, 139), Muted, T("Текущее выполнение условия проверяет игра.", "The game checks whether this condition is currently met.")));
+			lines.Add(new TrackingLine(null, T("УСЛОВИЯ", "CONDITIONS"), "", Muted, Muted, null, Section: true));
+			foreach (string condition in conditions)
+			{
+				lines.Add(new TrackingLine(null, condition, "", ConditionColor, Muted));
+			}
 		}
-		return details;
+		return lines;
 	}
 
 	internal static void ReportUiFailure(string phase, Exception error)
