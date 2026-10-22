@@ -64,8 +64,6 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private sealed record ChainMaterialPreview(string Summary, Color Color, string Tooltip);
 
-	private static bool AcquisitionInfoOpen;
-
 	private static bool AcquisitionOpen;
 
 	private static int[] AcquisitionVariants = Array.Empty<int>();
@@ -121,8 +119,6 @@ public sealed class RecipeBookSystem : ModSystem
 	private static float GraphicsOpacity = 1f;
 
 	private static bool EnemyOpen;
-
-	private static bool EnemyInfoOpen;
 
 	private static int[] EnemyVariants = Array.Empty<int>();
 
@@ -473,7 +469,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void CloseAcquisition()
 	{
 		CloseEnemyCard();
-		AcquisitionOpen = (AcquisitionInfoOpen = false);
+		AcquisitionOpen = false;
 		AcquisitionVariants = Array.Empty<int>();
 		AcquisitionSources.Clear();
 		AcquisitionVariant = (AcquisitionPage = (AcquisitionReadErrors = (AcquisitionRulePage = 0)));
@@ -499,7 +495,6 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		int type = AcquisitionVariants[AcquisitionVariant];
 		AcquisitionPage = (AcquisitionReadErrors = 0);
-		AcquisitionInfoOpen = false;
 		AcquisitionGroup = -1;
 		AcquisitionRulePage = 0;
 		List<BookAcquisitionEntry> reports = new List<BookAcquisitionEntry>();
@@ -532,14 +527,10 @@ public sealed class RecipeBookSystem : ModSystem
 					}
 					return text;
 				}).ToList();
-				string body = T("Материалы: ", "Materials: ") + string.Join(", ", materials) + ". " + ((stations.Count == 0) ? T("Вручную.", "By hand.") : (T("Станции: ", "Stations: ") + string.Join(", ", stations) + "."));
-				if (recipe.Conditions.Count > 0)
-				{
-					body = body + " " + T("Условия: ", "Conditions: ") + string.Join("; ", recipe.Conditions.Select((Condition c) => c.Description.Value));
-				}
-				body = body + " " + T("Нажмите, чтобы открыть рецепт.", "Click to open this recipe.");
-				body = body + " " + ModName(Owner(recipe));
-				Add(new BookAcquisitionEntry((stations.Count == 0) ? T("Вручную", "By hand") : string.Join(", ", stations), body, BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, type, 0, recipe.Conditions.Count > 0, index));
+				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
+				string conditionText = string.Join("; ", recipe.Conditions.Select((Condition c) => c.Description.Value));
+				int stationItem = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) => StationItems.TryGetValue(t, out var station) ? station.type : 0).FirstOrDefault((int t) => t > 0);
+				Add(new BookAcquisitionEntry((stations.Count == 0) ? T("Вручную", "By hand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText));
 			}
 		}
 		try
@@ -547,7 +538,7 @@ public sealed class RecipeBookSystem : ModSystem
 			HashSet<IItemDropRule> own = new HashSet<IItemDropRule>(Main.ItemDropsDB.GetRulesForNPCID(0, includeGlobalDrops: false), ReferenceEqualityComparer.Instance);
 			Drops(from rule in Main.ItemDropsDB.GetRulesForNPCID(0)
 				where !own.Contains(rule)
-				select rule, T("Подходящие враги", "Eligible enemies"), BookAcquisitionKind.Drop, 0, 0, "<global>");
+				select rule, T("Любые враги", "Any enemy"), BookAcquisitionKind.Drop, 0, 0, "<global>");
 			foreach (KeyValuePair<int, NPC> npc in ContentSamples.NpcsByNetId.OrderBy((KeyValuePair<int, NPC> x) => x.Key))
 			{
 				if (npc.Key != 0)
@@ -591,14 +582,8 @@ public sealed class RecipeBookSystem : ModSystem
 				}
 				try
 				{
-					string body2 = T("Магазин: ", "Shop: ") + shop.Name + ".";
 					string[] conditions = entry.Conditions.Select((Condition c) => c.Description.Value).ToArray();
-					if (conditions.Length != 0)
-					{
-						body2 = body2 + " " + T("Условия: ", "Conditions: ") + string.Join("; ", conditions);
-					}
-					body2 = body2 + " " + T("Наличие и цену проверяйте у продавца.", "Check current stock and price with the vendor.");
-					Add(new BookAcquisitionEntry(Lang.GetNPCNameValue(shop.NpcType), body2, BookAcquisitionKind.Shop, "", "", 0, shop.NpcType, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), shop.Name));
+					Add(new BookAcquisitionEntry(Lang.GetNPCNameValue(shop.NpcType), string.Join("; ", conditions), BookAcquisitionKind.Shop, "", "", 0, shop.NpcType, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), shop.Name));
 				}
 				catch (Exception)
 				{
@@ -608,7 +593,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (reports.Count == 0)
 		{
-			Add(new BookAcquisitionEntry(T("Источники не найдены", "No sources found"), T("Это не означает, что предмет недоступен. Добыча блоков, сундуки мира, рыбалка и особые механики модов могут не публиковать данные в этих списках.", "This does not mean the item is unobtainable. Mining, world chests, fishing and custom mod mechanics may not publish data in these lists."), BookAcquisitionKind.Unknown));
+			Add(new BookAcquisitionEntry(T("Источники не найдены", "No known sources"), "", BookAcquisitionKind.Unknown));
 		}
 		AcquisitionSources = BookAcquisitionGrouping.Build(reports);
 		if (AcquisitionReadErrors > 0)
@@ -644,41 +629,19 @@ public sealed class RecipeBookSystem : ModSystem
 						try
 						{
 							string description = condition.GetConditionDescription();
-							string full = (string.IsNullOrWhiteSpace(description) ? T("Особое условие источника", "Special source condition") : description);
+							string full = (string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description);
 							conditions2.Add(full);
-							string item2;
-							if (condition is Conditions.IsExpert)
-							{
-								item2 = T("Эксперт / Мастер", "Expert / Master");
-							}
-							else if (condition is Conditions.NotExpert)
-							{
-								item2 = T("Обычный", "Classic");
-							}
-							else if (condition is Conditions.IsMasterMode)
-							{
-								item2 = T("Мастер", "Master");
-							}
-							else
-							{
-								item2 = ((!(condition is Conditions.NotMasterMode)) ? full : T("Не Мастер", "Not Master"));
-							}
-							shortConditions.Add(item2);
+							shortConditions.Add(DropConditionLabel(condition, full));
 						}
 						catch (Exception)
 						{
-							string unavailable = T("Условие мода: описание недоступно", "Mod condition: description unavailable");
+							string unavailable = T("Неизвестное условие", "Unknown condition");
 							conditions2.Add(unavailable);
 							shortConditions.Add(unavailable);
 							AcquisitionReadErrors++;
 						}
 					}
-					string body3 = T("Базовый шанс: ", "Base chance: ") + BookAcquisitionRules.Chance(rate.dropRate) + T(" · Количество: ", " · Amount: ") + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax) + ".";
-					if (conditions2.Count > 0)
-					{
-						body3 = body3 + " " + T("Условия: ", "Conditions: ") + string.Join("; ", conditions2.Distinct());
-					}
-					Add(new BookAcquisitionEntry(name, body3, kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), itemType, npcNetId, conditions2.Count > 0, -1, owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal)))));
+					Add(new BookAcquisitionEntry(name, string.Join("; ", conditions2.Distinct()), kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), itemType, npcNetId, conditions2.Count > 0, -1, owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal)))));
 				}
 			}
 		}
@@ -707,7 +670,42 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		AcquisitionGroup = -1;
 		AcquisitionRulePage = 0;
-		AcquisitionInfoOpen = false;
+	}
+
+	// Difficulty conditions get a one-word label; anything else keeps the mod's own description.
+	private static string DropConditionLabel(IItemDropRuleCondition condition, string full)
+	{
+		if (condition is Conditions.IsExpert)
+		{
+			return T("Эксперт / Мастер", "Expert / Master");
+		}
+		if (condition is Conditions.NotExpert)
+		{
+			return T("Обычный", "Classic");
+		}
+		if (condition is Conditions.IsMasterMode)
+		{
+			return T("Мастер", "Master");
+		}
+		if (condition is Conditions.NotMasterMode)
+		{
+			return T("Не Мастер", "Not Master");
+		}
+		return full;
+	}
+
+	// A row opens something only when there is more to see: its recipe, the enemy card or several drop rules.
+	private static bool AcquisitionOpens(BookAcquisitionGroup group)
+	{
+		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group))
+		{
+			if (group.CanExpand)
+			{
+				return group.Rules.Length > 1;
+			}
+			return false;
+		}
+		return true;
 	}
 
 	private static void HandleAcquisitionInput(bool click, KeyboardState keys)
@@ -720,12 +718,8 @@ public sealed class RecipeBookSystem : ModSystem
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int delta = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
-		if (Press(Keys.Escape) && AcquisitionInfoOpen)
-		{
-			AcquisitionInfoOpen = false;
-			return;
-		}
-		if ((Press(Keys.Escape) && AcquisitionGroup >= 0) || (click && AcquisitionGroup >= 0 && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y)))
+		bool expanded = AcquisitionGroup >= 0;
+		if (expanded && (Press(Keys.Escape) || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y))))
 		{
 			BackAcquisitionGroup();
 			return;
@@ -735,25 +729,7 @@ public sealed class RecipeBookSystem : ModSystem
 			CloseAcquisition();
 			return;
 		}
-		if (click && BookGeometry.AcquisitionInfo.Contains(Mouse.X, Mouse.Y))
-		{
-			AcquisitionInfoOpen = !AcquisitionInfoOpen;
-			return;
-		}
-		if (AcquisitionInfoOpen)
-		{
-			if (click)
-			{
-				AcquisitionInfoOpen = false;
-			}
-			return;
-		}
-		if (click && AcquisitionGroup >= 0 && CanOpenEnemy(AcquisitionSources[AcquisitionGroup]) && BookGeometry.EnemyOpenAction.Contains(Mouse.X, Mouse.Y))
-		{
-			OpenEnemyCard(AcquisitionSources[AcquisitionGroup]);
-			return;
-		}
-		int variantStep = ((AcquisitionGroup < 0) ? ((click && BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y)) ? (-1) : ((click && BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y)) ? 1 : 0)) : 0);
+		int variantStep = ((!expanded && AcquisitionVariants.Length > 1) ? ((click && BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y)) ? (-1) : ((click && BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y)) ? 1 : 0)) : 0);
 		if (variantStep != 0)
 		{
 			int next = Math.Clamp(AcquisitionVariant + variantStep, 0, AcquisitionVariants.Length - 1);
@@ -765,8 +741,8 @@ public sealed class RecipeBookSystem : ModSystem
 			return;
 		}
 		int pageStep = ((Press(Keys.PageUp) || (delta > 0 && BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)) || (click && BookGeometry.AcquisitionPrevious.Contains(Mouse.X, Mouse.Y))) ? (-1) : ((Press(Keys.PageDown) || (delta < 0 && BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)) || (click && BookGeometry.AcquisitionNext.Contains(Mouse.X, Mouse.Y))) ? 1 : 0));
-		int count = ((AcquisitionGroup >= 0) ? AcquisitionSources[AcquisitionGroup].Rules.Length : AcquisitionSources.Count);
-		int page = ((AcquisitionGroup >= 0) ? AcquisitionRulePage : AcquisitionPage);
+		int count = (expanded ? AcquisitionSources[AcquisitionGroup].Rules.Length : AcquisitionSources.Count);
+		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
 		page = BookAcquisitionRules.ClampPage(page + pageStep, count);
 		if (Press(Keys.Home))
 		{
@@ -776,7 +752,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			page = BookAcquisitionRules.PageCount(count) - 1;
 		}
-		if (AcquisitionGroup >= 0)
+		if (expanded)
 		{
 			AcquisitionRulePage = page;
 			return;
@@ -789,24 +765,25 @@ public sealed class RecipeBookSystem : ModSystem
 		for (int row = 0; row < 6; row++)
 		{
 			int index = AcquisitionPage * 6 + row;
-			if (index < AcquisitionSources.Count && BookGeometry.AcquisitionRow(row).Contains(Mouse.X, Mouse.Y))
+			if (index >= AcquisitionSources.Count || !BookGeometry.AcquisitionRow(row).Contains(Mouse.X, Mouse.Y))
 			{
-				BookAcquisitionGroup source = AcquisitionSources[index];
-				if (source.Source.RecipeIndex >= 0)
-				{
-					OpenAcquisitionRecipe(source.Source.RecipeIndex);
-				}
-				else if (CanOpenEnemy(source) && !BookGeometry.AcquisitionSourceAction(row).Contains(Mouse.X, Mouse.Y))
-				{
-					OpenEnemyCard(source);
-				}
-				else if (source.CanExpand)
-				{
-					AcquisitionGroup = index;
-					AcquisitionRulePage = 0;
-				}
-				break;
+				continue;
 			}
+			BookAcquisitionGroup source = AcquisitionSources[index];
+			if (source.Source.RecipeIndex >= 0)
+			{
+				OpenAcquisitionRecipe(source.Source.RecipeIndex);
+			}
+			else if (CanOpenEnemy(source))
+			{
+				OpenEnemyCard(source);
+			}
+			else if (AcquisitionOpens(source))
+			{
+				AcquisitionGroup = index;
+				AcquisitionRulePage = 0;
+			}
+			break;
 		}
 		bool Press(Keys key)
 		{
@@ -822,11 +799,11 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		return kind switch
 		{
-			BookAcquisitionKind.Craft => T("Крафт", "Crafting"), 
-			BookAcquisitionKind.Drop => T("Лут", "Drop"), 
-			BookAcquisitionKind.Container => T("Контейнер", "Container"), 
-			BookAcquisitionKind.Shop => T("Магазин", "Shop"), 
-			_ => T("Нет данных", "No data"), 
+			BookAcquisitionKind.Craft => T("Крафт", "Crafting"),
+			BookAcquisitionKind.Drop => T("Добыча", "Drop"),
+			BookAcquisitionKind.Container => T("Контейнер", "Container"),
+			BookAcquisitionKind.Shop => T("Магазин", "Shop"),
+			_ => T("Нет данных", "No data"),
 		};
 	}
 
@@ -852,32 +829,51 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Chance and amount columns: plain right-aligned values, so the numbers line up from row to row.
 	private static void AcquisitionBadge(SpriteBatch sb, BookRect rect, string value)
 	{
 		if (value.Length != 0)
 		{
-			Box(sb, rect, Surface, border: false, 6f);
-			Label(sb, rect, value, TextColor, 0.82f);
+			CenterLabel(sb, value, rect.X, rect.Y, rect.Width, rect.Height, TextColor, 0.95f, rightAligned: true);
 		}
-	}
-
-	private static string AcquisitionVariantsLabel(int count)
-	{
-		return T("Варианты: ", "Variants: ") + count;
 	}
 
 	private static string AcquisitionRuleReport(BookAcquisitionRule rule)
 	{
-		string body = string.Join("\n", rule.Reports.Select((BookAcquisitionEntry x) => x.Body).Distinct(StringComparer.Ordinal));
-		string variants = string.Join(", ", (from x in rule.Reports
-			select x.NpcNetId into x
-			where x != 0
-			select x).Distinct());
-		if (variants.Length > 0)
+		return string.Join("\n", (from x in rule.Reports
+			select x.Body into x
+			where x.Length > 0
+			select x).Distinct(StringComparer.Ordinal));
+	}
+
+	// Crafting rows list their materials (several rows can share a station); other rows say what kind of source.
+	private static string AcquisitionDetailText(BookAcquisitionGroup group)
+	{
+		BookAcquisitionEntry source = group.Source;
+		if (source.Kind == BookAcquisitionKind.Craft)
 		{
-			body = body + "\n" + T("Варианты NPC (ID): ", "NPC variants (IDs): ") + variants;
+			string materials = ((source.Body.Length > 0) ? source.Body : AcquisitionKindName(source.Kind));
+			return (source.ConditionLabel.Length > 0) ? (materials + " · " + source.ConditionLabel) : materials;
 		}
-		return body;
+		string kind = AcquisitionKindName(source.Kind);
+		if (group.Rules.Length > 1)
+		{
+			return kind + " · " + T("зависит от условий", "varies by condition");
+		}
+		if (source.ConditionLabel.Length > 0)
+		{
+			return kind + " · " + source.ConditionLabel;
+		}
+		return kind;
+	}
+
+	private static string AcquisitionHint(BookAcquisitionGroup group, bool withName)
+	{
+		if (group.Source.RecipeIndex >= 0)
+		{
+			return ((group.Source.Owner != "Terraria") ? (T("Рецепт: ", "Recipe: ") + ModName(group.Source.Owner) + "\n") : "") + T("Открыть рецепт", "Open recipe");
+		}
+		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? T("Открыть карточку врага", "Open enemy card") : T("Показать условия", "Show conditions"));
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
@@ -888,138 +884,177 @@ public sealed class RecipeBookSystem : ModSystem
 			return;
 		}
 		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
-		BookRect panel = BookGeometry.AcquisitionPanel;
-		Box(sb, panel, Surface, border: true, 12f);
+		Box(sb, BookGeometry.AcquisitionPanel, Surface, border: true, 12f);
 		bool expanded = AcquisitionGroup >= 0;
 		BookAcquisitionGroup current = (expanded ? AcquisitionSources[AcquisitionGroup] : null);
-		if (expanded)
-		{
-			Button(sb, BookGeometry.AcquisitionBack, "<");
-		}
-		Text(sb, expanded ? T("УСЛОВИЯ", "CONDITIONS") : T("КАК ПОЛУЧИТЬ", "HOW TO OBTAIN"), panel.X + (float)(expanded ? 68 : 24), panel.Y + 16f, Accent, 1f, panel.Width - 140f, 24f);
-		Button(sb, BookGeometry.AcquisitionClose, "X");
 		Item item = ContentSamples.ItemsByType[AcquisitionVariants[AcquisitionVariant]];
+		BookRect icon = BookGeometry.AcquisitionIcon(expanded);
 		if (expanded)
 		{
-			DrawAcquisitionIcon(sb, current.Source, new BookRect(panel.X + 24f, panel.Y + 48f, 40f, 40f));
+			DrawAcquisitionIcon(sb, current.Source, icon);
 		}
 		else
 		{
-			Icon(sb, item, panel.X + 24f, panel.Y + 48f, 40f, tooltip: false);
+			Icon(sb, item, icon.X, icon.Y, icon.Width, tooltip: false);
 		}
-		if (expanded && CanOpenEnemy(current))
-		{
-			Button(sb, BookGeometry.EnemyOpenAction, T("Враг", "Enemy"));
-		}
-		float nameWidth;
-		if (expanded && CanOpenEnemy(current))
-		{
-			nameWidth = panel.Width - 240f;
-		}
-		else
-		{
-			nameWidth = ((!expanded && AcquisitionVariants.Length > 1) ? (panel.Width - 252f) : (panel.Width - 104f));
-		}
-		Text(sb, expanded ? current.Source.Name : item.Name, panel.X + 80f, panel.Y + 48f, TextColor, 1.08f, nameWidth, 40f);
-		if (!expanded && AcquisitionVariants.Length > 1)
-		{
-			Button(sb, BookGeometry.AcquisitionVariantPrevious, "<");
-			Button(sb, BookGeometry.AcquisitionVariantNext, ">");
-			Label(sb, BookGeometry.AcquisitionVariantLabel, AcquisitionVariant + 1 + "/" + AcquisitionVariants.Length, Muted, 0.8f);
-			if (BookGeometry.AcquisitionVariantLabel.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Варианты группы рецепта", "Recipe-group alternatives"));
-			}
-		}
+		bool unknown = !expanded && AcquisitionSources.All((BookAcquisitionGroup x) => x.Source.Kind == BookAcquisitionKind.Unknown);
+		string subtitle = (expanded ? (T("Условия · ", "Conditions · ") + item.Name) : (T("Где взять", "How to Get") + (unknown ? "" : (" · " + CountLabel(AcquisitionSources.Count, "источник", "источника", "источников", "source", "sources")))));
+		DrawCardHeader(sb, expanded, expanded ? current.Source.Name : item.Name, subtitle, (!expanded) ? AcquisitionVariant : 0, (!expanded) ? AcquisitionVariants.Length : 1, T("Другие подходящие предметы", "Other accepted items"));
 		int count = (expanded ? current.Rules.Length : AcquisitionSources.Count);
 		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
-		for (int row = 0; row < 6; row++)
+		if (unknown)
+		{
+			DrawCardEmpty(sb, BookGeometry.AcquisitionList, T("Источники не найдены", "No known sources"), T("Попробуйте добычу блоков, сундуки или рыбалку", "Try mining, chests or fishing"));
+		}
+		for (int row = 0; row < 6 && !unknown; row++)
 		{
 			int index = page * 6 + row;
 			if (index >= count)
 			{
 				break;
 			}
-			if (AcquisitionInfoOpen && row >= 4)
-			{
-				continue;
-			}
 			BookAcquisitionGroup group = (expanded ? current : AcquisitionSources[index]);
 			BookAcquisitionRule rule = (expanded ? group.Rules[index] : group.Rules[0]);
 			BookAcquisitionEntry source = (expanded ? rule.Source : group.Source);
+			bool opens = !expanded && AcquisitionOpens(group);
+			bool varies = !expanded && group.Rules.Length > 1;
 			BookRect bounds = BookGeometry.AcquisitionRow(row);
-			bool hover = !AcquisitionInfoOpen && bounds.Contains(Mouse.X, Mouse.Y);
-			Box(sb, bounds, hover ? (Raised * 1.12f) : Raised, border: true, 8f);
+			bool hover = bounds.Contains(Mouse.X, Mouse.Y);
+			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
 			DrawAcquisitionIcon(sb, source, BookGeometry.AcquisitionSourceIcon(row));
+			string title = (expanded ? ((source.ConditionLabel.Length > 0) ? source.ConditionLabel : T("Без условий", "No conditions")) : source.Name);
 			BookRect name = BookGeometry.AcquisitionName(row);
-			string title;
-			if (expanded)
+			BookRect detail = BookGeometry.AcquisitionDetail(row);
+			Text(sb, title, name.X, name.Y, TextColor, 1f, name.Width, name.Height);
+			Text(sb, expanded ? AcquisitionKindName(source.Kind) : AcquisitionDetailText(group), detail.X, detail.Y, Muted, 0.85f, detail.Width, detail.Height);
+			AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), varies ? "" : source.Chance);
+			AcquisitionBadge(sb, BookGeometry.AcquisitionAmount(row), varies ? "" : (expanded ? source.Amount : group.Amount));
+			if (opens)
 			{
-				title = ((source.ConditionLabel.Length == 0) ? T("Без указанных условий", "No reported conditions") : source.ConditionLabel);
+				Label(sb, BookGeometry.AcquisitionSourceAction(row), ">", hover ? TextColor : Muted);
 			}
-			else
+			if (hover && opens)
 			{
-				title = source.Name;
+				MouseTip(AcquisitionHint(group, Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
 			}
-			Text(sb, title, name.X, name.Y, (source.RecipeIndex >= 0) ? Accent : TextColor, 0.92f, name.Width, name.Height);
-			string subtitle = AcquisitionKindName(source.Kind);
-			int variants = (expanded ? rule.VariantCount : group.VariantCount);
-			if (variants > 1)
+			else if (hover && expanded)
 			{
-				subtitle = subtitle + " · " + AcquisitionVariantsLabel(variants);
-			}
-			Text(sb, subtitle, name.X, bounds.Y + 32f, Muted, 0.72f, name.Width, 16f);
-			string chance = ((!expanded && group.Rules.Length > 1) ? (group.Rules.Length + T(" усл.", " cond.")) : source.Chance);
-			AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), chance);
-			AcquisitionBadge(sb, BookGeometry.AcquisitionAmount(row), expanded ? source.Amount : group.Amount);
-			BookRect action = BookGeometry.AcquisitionSourceAction(row);
-			if (!expanded && (source.RecipeIndex >= 0 || group.CanExpand))
-			{
-				Button(sb, action, ">");
-			}
-			else
-			{
-				Box(sb, action, Surface, source.Conditional, 6f, source.Conditional ? Accent : Border);
-				Label(sb, action, source.Conditional ? "!" : "i", source.Conditional ? Accent : Muted, 0.86f);
-			}
-			if (hover)
-			{
-				string body;
-				if (expanded)
+				string report = AcquisitionRuleReport(rule);
+				if (report.Length > 0 && report != title)
 				{
-					body = AcquisitionRuleReport(rule);
+					MouseTip(report);
 				}
-				else
-				{
-					body = ((group.Rules.Length == 1) ? AcquisitionRuleReport(group.Rules[0]) : (group.Rules.Length + T(" отдельных правил. Шансы не складываются.", " separate rules. Chances are not added.")));
-				}
-				if (!expanded && CanOpenEnemy(group))
-				{
-					body = body + "\n" + T("ЛКМ — карточка врага; > — условия выпадения.", "Click: enemy card; >: drop conditions.");
-				}
-				else if (!expanded && group.CanExpand)
-				{
-					body = body + "\n" + T("Нажмите, чтобы посмотреть условия отдельно.", "Click to view conditions separately.");
-				}
-				MouseTip(AcquisitionKindName(source.Kind) + " · " + group.Source.Name + "\n" + body);
 			}
 		}
-		Button(sb, BookGeometry.AcquisitionInfo, (AcquisitionReadErrors > 0) ? "!" : "i", AcquisitionInfoOpen);
-		Button(sb, BookGeometry.AcquisitionPrevious, "<");
-		Button(sb, BookGeometry.AcquisitionNext, ">");
-		Label(sb, BookGeometry.AcquisitionPager, page + 1 + "/" + BookAcquisitionRules.PageCount(count), Muted, 0.86f);
-		if (BookGeometry.AcquisitionInfo.Contains(Mouse.X, Mouse.Y) && !AcquisitionInfoOpen)
+		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? T("Часть источников не прочитана", "Some sources could not be read") : "");
+	}
+
+	private static readonly Color HoverFill = new Color(51, 67, 55);
+
+	// Button for this zone's panels: disabled is muted with no hover, primary is filled with Accent.
+	private static void CardButton(SpriteBatch sb, BookRect rect, string label, bool enabled = true, bool primary = false)
+	{
+		bool hover = enabled && rect.Contains(Mouse.X, Mouse.Y);
+		Color fill = ((!enabled) ? Panel : (primary ? (hover ? new Color(205, 235, 214) : Accent) : (hover ? HoverFill : Raised)));
+		Box(sb, rect, fill, border: true, 8f, (!enabled) ? new Color(46, 58, 50) : (primary ? fill : Border));
+		if (!primary || !enabled)
 		{
-			MouseTip(T("Об источниках и управлении", "About sources and controls"));
+			CenterLabel(sb, label, rect.X + 6f, rect.Y + 4f, rect.Width - 12f, rect.Height - 8f, (!enabled) ? new Color(110, 128, 115) : TextColor);
+			return;
 		}
-		if (AcquisitionInfoOpen)
+		// Dark text on the Accent fill, without the black outline every other label gets.
+		BookTypography.Line line = BookTypography.Layout(BookRules.PlainText(label), rect.Width - 12f, rect.Height - 8f, 1f, TextScale, (string value) =>
 		{
-			BookRect info = BookGeometry.AcquisitionInfoPanel;
-			Box(sb, info, Panel, border: true, 8f);
-			Text(sb, T("Источники объединены. Шансы по условиям не складываются.", "Sources are grouped. Conditional chances are never added."), info.X + 16f, info.Y + 12f, TextColor, 0.8f, info.Width - 32f, 24f);
-			Text(sb, (AcquisitionReadErrors > 0) ? T("Часть отчётов мода не прочитана; список может быть неполным.", "Some mod reports could not be read; the list may be incomplete.") : T("Добыча, сундуки мира, рыбалка и особые механики могут отсутствовать.", "Mining, world chests, fishing and custom mechanics may be missing."), info.X + 16f, info.Y + 44f, Muted, 0.76f, info.Width - 32f, 24f);
-			Text(sb, T("Колесо / PgUp / PgDn — страницы. Esc — назад.", "Wheel / PgUp / PgDn: pages. Esc: back."), info.X + 16f, info.Y + 76f, Muted, 0.76f, info.Width - 32f, 24f);
+			BookGlyphLayout.Bounds bounds = Ink(value);
+			return (Width: bounds.Width, Height: bounds.Height);
+		}, centered: true);
+		BookGlyphLayout.Bounds ink = Ink(line.Value);
+		Vector2 pos = Origin + new Vector2(rect.X + 6f + line.X - ink.X * line.Scale, rect.Y + 4f + line.Y - ink.Y * line.Scale) * Scale;
+		sb.DrawString(FontAssets.MouseText.Value, line.Value, pos, Panel, 0f, Vector2.Zero, line.Scale * Scale, SpriteEffects.None, 0f);
+	}
+
+	// Shared header of the How to Get and enemy cards: [back] [icon] title / subtitle ... [variants] [X].
+	private static void DrawCardHeader(SpriteBatch sb, bool back, string title, string subtitle, int variant, int variants, string variantTip)
+	{
+		bool pager = variants > 1;
+		if (back)
+		{
+			CardButton(sb, BookGeometry.AcquisitionBack, "<");
+			if (BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(T("Назад · Esc", "Back · Esc"));
+			}
 		}
+		BookRect name = BookGeometry.AcquisitionTitle(back, pager);
+		BookRect sub = BookGeometry.AcquisitionSubtitle(back, pager);
+		Text(sb, title, name.X, name.Y, TextColor, 1.08f, name.Width, name.Height);
+		Text(sb, subtitle, sub.X, sub.Y, Muted, 0.85f, sub.Width, sub.Height);
+		if (pager)
+		{
+			CardButton(sb, BookGeometry.AcquisitionVariantPrevious, "<", variant > 0);
+			Label(sb, BookGeometry.AcquisitionVariantLabel, variant + 1 + "/" + variants, Muted, 0.85f);
+			CardButton(sb, BookGeometry.AcquisitionVariantNext, ">", variant < variants - 1);
+			if (BookGeometry.AcquisitionVariantLabel.Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(variantTip);
+			}
+			if (BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y) && variant > 0)
+			{
+				MouseTip(T("Предыдущий вариант", "Previous variant"));
+			}
+			if (BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y) && variant < variants - 1)
+			{
+				MouseTip(T("Следующий вариант", "Next variant"));
+			}
+		}
+		CardButton(sb, BookGeometry.AcquisitionClose, "X");
+		if (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(back ? T("Закрыть", "Close") : T("Закрыть · Esc", "Close · Esc"));
+		}
+		Box(sb, BookGeometry.AcquisitionDivider, Border);
+	}
+
+	private static void DrawCardFooter(SpriteBatch sb, int page, int pages, string status)
+	{
+		BookRect note = BookGeometry.AcquisitionStatus;
+		if (status.Length > 0)
+		{
+			Text(sb, status, note.X, note.Y, Muted, 0.85f, note.Width, note.Height);
+		}
+		if (pages > 1)
+		{
+			CardButton(sb, BookGeometry.AcquisitionPrevious, "<", page > 0);
+			Label(sb, BookGeometry.AcquisitionPager, page + 1 + " / " + pages, Muted, 0.85f);
+			CardButton(sb, BookGeometry.AcquisitionNext, ">", page < pages - 1);
+			if (BookGeometry.AcquisitionPrevious.Contains(Mouse.X, Mouse.Y) && page > 0)
+			{
+				MouseTip(T("Назад · PgUp", "Previous · PgUp"));
+			}
+			if (BookGeometry.AcquisitionNext.Contains(Mouse.X, Mouse.Y) && page < pages - 1)
+			{
+				MouseTip(T("Дальше · PgDn", "Next · PgDn"));
+			}
+		}
+	}
+
+	private static void DrawCardEmpty(SpriteBatch sb, BookRect area, string title, string hint)
+	{
+		float y = area.Y + area.Height / 2f - 28f;
+		CenterLabel(sb, title, area.X, y, area.Width, 28f, TextColor);
+		CenterLabel(sb, hint, area.X, y + 32f, area.Width, 24f, Muted, 0.85f);
+	}
+
+	// "21 источник", "3 источника", "5 источников" / "1 source", "2 sources".
+	private static string CountLabel(int count, string ru1, string ru2, string ru5, string en1, string en2)
+	{
+		if (!Ru)
+		{
+			return count + " " + ((count == 1) ? en1 : en2);
+		}
+		int ones = count % 10;
+		int tens = count % 100;
+		return count + " " + ((ones == 1 && tens != 11) ? ru1 : ((ones >= 2 && ones <= 4 && (tens < 12 || tens > 14)) ? ru2 : ru5));
 	}
 
 	private static bool HasArmorDefense(Item item)
@@ -1923,7 +1958,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void CloseEnemyCard()
 	{
-		EnemyOpen = (EnemyInfoOpen = false);
+		EnemyOpen = false;
 		EnemyVariants = Array.Empty<int>();
 		EnemyVariant = (EnemyPage = (EnemyReadErrors = 0));
 		EnemyLoot.Clear();
@@ -1940,7 +1975,6 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				EnemyOpen = true;
 				EnemyVariant = 0;
-				AcquisitionInfoOpen = false;
 				ReadEnemyCard();
 			}
 		}
@@ -1949,7 +1983,6 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void ReadEnemyCard()
 	{
 		EnemyPage = (EnemyReadErrors = 0);
-		EnemyInfoOpen = false;
 		int id = EnemyVariants[EnemyVariant];
 		NPC npc = ContentSamples.NpcsByNetId[id];
 		List<string> biomes = new List<string>();
@@ -2028,11 +2061,11 @@ public sealed class RecipeBookSystem : ModSystem
 						try
 						{
 							string description = condition.GetConditionDescription();
-							conditions.Add(string.IsNullOrWhiteSpace(description) ? T("Особое условие источника", "Special source condition") : description);
+							conditions.Add(DropConditionLabel(condition, string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description));
 						}
 						catch (Exception)
 						{
-							conditions.Add(T("Описание условия недоступно", "Condition description unavailable"));
+							conditions.Add(T("Неизвестное условие", "Unknown condition"));
 							EnemyReadErrors++;
 						}
 					}
@@ -2051,35 +2084,23 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Esc and the back button return to How to Get; X and a click outside close the whole card.
 	private static void HandleEnemyInput(bool click, KeyboardState keys)
 	{
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int delta = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
-		if (Press(Keys.Escape) && EnemyInfoOpen)
-		{
-			EnemyInfoOpen = false;
-			return;
-		}
-		if (Press(Keys.Escape) || (click && (BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y) || BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y))))
+		if (Press(Keys.Escape) || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y)))
 		{
 			CloseEnemyCard();
 			return;
 		}
-		if (click && BookGeometry.AcquisitionInfo.Contains(Mouse.X, Mouse.Y))
+		if (click && (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)))
 		{
-			EnemyInfoOpen = !EnemyInfoOpen;
+			CloseAcquisition();
 			return;
 		}
-		if (EnemyInfoOpen)
-		{
-			if (click)
-			{
-				EnemyInfoOpen = false;
-			}
-			return;
-		}
-		int step = ((click && BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y)) ? (-1) : ((click && BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y)) ? 1 : 0));
+		int step = ((EnemyVariants.Length > 1) ? ((click && BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y)) ? (-1) : ((click && BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y)) ? 1 : 0)) : 0);
 		if (step != 0)
 		{
 			int next = Math.Clamp(EnemyVariant + step, 0, EnemyVariants.Length - 1);
@@ -2112,7 +2133,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static string EnemyLootTooltip(BookEnemyLoot loot)
 	{
-		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : T("Без указанных условий", "No reported conditions"))));
+		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : T("без условий", "no conditions"))));
 	}
 
 	private static void DrawEnemyCard(SpriteBatch sb)
@@ -2121,36 +2142,25 @@ public sealed class RecipeBookSystem : ModSystem
 		BookRect panel = BookGeometry.AcquisitionPanel;
 		Box(sb, panel, Surface, border: true, 12f);
 		NPC npc = ContentSamples.NpcsByNetId[EnemyVariants[EnemyVariant]];
-		Button(sb, BookGeometry.AcquisitionBack, "<");
-		Button(sb, BookGeometry.AcquisitionClose, "X");
-		Text(sb, npc.friendly ? T("СУЩЕСТВО", "CREATURE") : T("ВРАГ", "ENEMY"), panel.X + 68f, panel.Y + 16f, Accent, 1f, panel.Width - 140f, 24f);
 		DrawAcquisitionIcon(sb, new BookAcquisitionEntry(npc.FullName, "", BookAcquisitionKind.Drop, "", "", 0, EnemyVariants[EnemyVariant]), BookGeometry.EnemyPortrait);
-		Text(sb, npc.FullName, panel.X + 104f, panel.Y + 52f, TextColor, 1.08f, (EnemyVariants.Length > 1) ? (panel.Width - 276f) : (panel.Width - 128f), 32f);
-		Text(sb, ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), panel.X + 104f, panel.Y + 88f, Muted, 0.8f, panel.Width - 128f, 24f);
-		if (EnemyVariants.Length > 1)
-		{
-			Button(sb, BookGeometry.AcquisitionVariantPrevious, "<");
-			Button(sb, BookGeometry.AcquisitionVariantNext, ">");
-			Label(sb, BookGeometry.AcquisitionVariantLabel, EnemyVariant + 1 + "/" + EnemyVariants.Length, Muted, 0.8f);
-		}
-		if (BookGeometry.EnemyPortrait.Contains(Mouse.X, Mouse.Y) || BookGeometry.AcquisitionVariantLabel.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(npc.FullName + "\nNPC ID: " + EnemyVariants[EnemyVariant]);
-		}
+		string kind = (npc.friendly ? T("Существо", "Creature") : (npc.boss ? T("Босс", "Boss") : T("Враг", "Enemy")));
+		DrawCardHeader(sb, back: true, npc.FullName, kind + " · " + ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), EnemyVariant, EnemyVariants.Length, T("Варианты этого врага", "Variants of this enemy"));
 		BookRect tags = BookGeometry.EnemyTags;
 		Box(sb, tags, Raised, border: false, 8f);
-		Text(sb, T("Биом", "Biome"), tags.X + 12f, tags.Y + 4f, Muted, 0.76f, 92f, 24f);
-		Text(sb, (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Нет меток бестиария", "No bestiary tags"), tags.X + 112f, tags.Y + 4f, TextColor, 0.82f, tags.Width - 124f, 24f);
-		Text(sb, T("Появление", "Spawning"), tags.X + 12f, tags.Y + 32f, Muted, 0.76f, 92f, 24f);
-		Text(sb, (EnemySpawn.Length > 0) ? EnemySpawn : T("Условия не указаны", "Conditions not reported"), tags.X + 112f, tags.Y + 32f, Muted, 0.82f, tags.Width - 124f, 24f);
+		Text(sb, T("Биом", "Biome"), tags.X + 12f, tags.Y + 8f, Muted, 0.8f, 96f, 22f);
+		Text(sb, (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"), tags.X + 116f, tags.Y + 8f, TextColor, 0.85f, tags.Width - 128f, 22f);
+		Text(sb, T("Появление", "Spawns"), tags.X + 12f, tags.Y + 34f, Muted, 0.8f, 96f, 22f);
+		Text(sb, (EnemySpawn.Length > 0) ? EnemySpawn : T("Не указано", "Not listed"), tags.X + 116f, tags.Y + 34f, TextColor, 0.85f, tags.Width - 128f, 22f);
 		if (tags.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Метки бестиария, не полный список условий спавна.", "Bestiary tags, not a complete list of spawning requirements.") + "\n" + ((EnemyBiomes.Length > 0) ? EnemyBiomes : T("Биом не указан", "Biome not reported")) + "\n" + ((EnemySpawn.Length > 0) ? EnemySpawn : T("Время и события не указаны", "Time and events not reported")));
+			MouseTip(T("По данным бестиария; может быть неполно", "From the Bestiary; may be incomplete"));
 		}
-		Text(sb, T("ДОБЫЧА", "LOOT") + " · " + EnemyLoot.Count, panel.X + 24f, panel.Y + 196f, Muted, 0.82f, panel.Width - 48f, 20f);
+		BookRect lootLabel = BookGeometry.EnemyLootLabel;
+		Text(sb, T("ДОБЫЧА", "LOOT") + " · " + EnemyLoot.Count, lootLabel.X, lootLabel.Y, Muted, 0.8f, lootLabel.Width, lootLabel.Height);
 		if (EnemyLoot.Count == 0)
 		{
-			Text(sb, T("Нет зарегистрированных отчётов добычи", "No registered loot reports"), panel.X + 24f, panel.Y + 224f, Muted, 0.9f, panel.Width - 48f, 40f);
+			BookRect first = BookGeometry.EnemyLootRow(0);
+			CenterLabel(sb, T("Добыча не указана", "No loot listed"), first.X, first.Y + 64f, first.Width, 28f, TextColor);
 		}
 		for (int row = 0; row < 5; row++)
 		{
@@ -2159,44 +2169,32 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				break;
 			}
+			BookEnemyLoot loot = EnemyLoot[index];
+			Item item = ContentSamples.ItemsByType[loot.ItemType];
 			BookRect rect = BookGeometry.EnemyLootRow(row);
-			if (!EnemyInfoOpen || !(rect.Y + rect.Height > BookGeometry.AcquisitionInfoPanel.Y))
+			Box(sb, rect, Raised, border: true, 8f);
+			Icon(sb, item, rect.X + 8f, rect.Y + 8f, 32f, tooltip: false);
+			BookRect chance = BookGeometry.EnemyLootChance(row);
+			bool varies = loot.Rules.Length > 1;
+			string detail = (varies ? T("Зависит от условий", "Varies by condition") : loot.Rules[0].Conditions);
+			float nameWidth = chance.X - rect.X - 64f;
+			if (detail.Length > 0)
 			{
-				BookEnemyLoot loot = EnemyLoot[index];
-				Item item = ContentSamples.ItemsByType[loot.ItemType];
-				Box(sb, rect, Raised, border: true, 8f);
-				Icon(sb, item, rect.X + 8f, rect.Y + 4f, 32f, tooltip: false);
-				BookRect chance = BookGeometry.EnemyLootChance(row);
-				BookRect amount = BookGeometry.EnemyLootAmount(row);
-				BookRect info = BookGeometry.EnemyLootInfo(row);
-				Text(sb, item.Name, rect.X + 48f, rect.Y + 4f, TextColor, 0.88f, chance.X - rect.X - 60f, 32f);
-				AcquisitionBadge(sb, chance, (loot.Rules.Length > 1) ? (loot.Rules.Length + T(" усл.", " cond.")) : BookAcquisitionRules.Chance(loot.Rules[0].Chance));
-				AcquisitionBadge(sb, amount, loot.Amount);
-				bool conditional = loot.Rules.Length > 1 || loot.Rules.Any((BookEnemyDrop x) => x.Conditions.Length > 0);
-				Box(sb, info, Surface, conditional, 6f, conditional ? Accent : Border);
-				Label(sb, info, conditional ? "!" : "i", conditional ? Accent : Muted, 0.86f);
-				if (!EnemyInfoOpen && rect.Contains(Mouse.X, Mouse.Y))
-				{
-					MouseTip(item.Name + "\n" + EnemyLootTooltip(loot));
-				}
+				Text(sb, item.Name, rect.X + 52f, rect.Y + 4f, TextColor, 0.95f, nameWidth, 22f);
+				Text(sb, detail, rect.X + 52f, rect.Y + 26f, Muted, 0.85f, nameWidth, 18f);
+			}
+			else
+			{
+				Text(sb, item.Name, rect.X + 52f, rect.Y + 12f, TextColor, 0.95f, nameWidth, 24f);
+			}
+			AcquisitionBadge(sb, chance, varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance));
+			AcquisitionBadge(sb, BookGeometry.EnemyLootAmount(row), varies ? "" : loot.Amount);
+			if (varies && rect.Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(item.Name + "\n" + EnemyLootTooltip(loot));
 			}
 		}
-		Button(sb, BookGeometry.AcquisitionInfo, (EnemyReadErrors > 0) ? "!" : "i", EnemyInfoOpen);
-		Button(sb, BookGeometry.AcquisitionPrevious, "<");
-		Button(sb, BookGeometry.AcquisitionNext, ">");
-		Label(sb, BookGeometry.AcquisitionPager, EnemyPage + 1 + "/" + BookEnemyRules.PageCount(EnemyLoot.Count), Muted, 0.86f);
-		if (BookGeometry.AcquisitionInfo.Contains(Mouse.X, Mouse.Y) && !EnemyInfoOpen)
-		{
-			MouseTip(T("О данных врага", "About enemy data"));
-		}
-		if (EnemyInfoOpen)
-		{
-			BookRect info2 = BookGeometry.AcquisitionInfoPanel;
-			Box(sb, info2, Panel, border: true, 8f);
-			Text(sb, T("Метки бестиария не описывают все условия появления.", "Bestiary tags do not describe all spawning requirements."), info2.X + 16f, info2.Y + 12f, TextColor, 0.8f, info2.Width - 32f, 24f);
-			Text(sb, T("Шансы базовые. Условия добычи — при наведении; проценты не складываются.", "Base chances. Hover loot for conditions; percentages are never added."), info2.X + 16f, info2.Y + 44f, Muted, 0.76f, info2.Width - 32f, 24f);
-			Text(sb, (EnemyReadErrors > 0) ? T("Часть данных не прочитана. Esc — назад.", "Some data could not be read. Esc: back.") : T("Монеты и особая логика модов могут отсутствовать. Esc — назад.", "Coins and custom mod logic may be missing. Esc: back."), info2.X + 16f, info2.Y + 76f, Muted, 0.76f, info2.Width - 32f, 24f);
-		}
+		DrawCardFooter(sb, EnemyPage, BookEnemyRules.PageCount(EnemyLoot.Count), (EnemyReadErrors > 0) ? T("Часть данных не прочитана", "Some data could not be read") : "");
 	}
 
 	// An Unknown stage is either a source the current difficulty rules out or no regular source at all.

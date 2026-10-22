@@ -24,31 +24,34 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect AcquisitionPanel => new BookRect(160f, 80f, 800f, 536f);
 
-	internal static BookRect AcquisitionBack => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 16f, 32f, 24f);
+	// Card header: [back] [icon] title / subtitle ........ [‹ n/m ›] [X]; one divider; list; footer pager.
+	internal static BookRect AcquisitionBack => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 24f, 32f, 32f);
 
-	internal static BookRect AcquisitionClose => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 56f, AcquisitionPanel.Y + 16f, 32f, 32f);
+	internal static BookRect AcquisitionClose => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 56f, AcquisitionPanel.Y + 24f, 32f, 32f);
 
-	internal static BookRect AcquisitionVariantPrevious => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 160f, AcquisitionPanel.Y + 52f, 32f, 32f);
+	internal static BookRect AcquisitionVariantPrevious => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 188f, AcquisitionPanel.Y + 24f, 32f, 32f);
 
-	internal static BookRect AcquisitionVariantLabel => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 120f, AcquisitionPanel.Y + 52f, 56f, 32f);
+	internal static BookRect AcquisitionVariantLabel => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 152f, AcquisitionPanel.Y + 24f, 48f, 32f);
 
-	internal static BookRect AcquisitionVariantNext => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 56f, AcquisitionPanel.Y + 52f, 32f, 32f);
+	internal static BookRect AcquisitionVariantNext => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 96f, AcquisitionPanel.Y + 24f, 32f, 32f);
 
-	internal static BookRect AcquisitionInfo => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 488f, 32f, 32f);
+	internal static BookRect AcquisitionDivider => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 80f, AcquisitionPanel.Width - 48f, 1f);
 
-	internal static BookRect AcquisitionPrevious => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 184f, AcquisitionPanel.Y + 488f, 40f, 32f);
+	internal static BookRect AcquisitionPrevious => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 152f, AcquisitionPanel.Y + 480f, 32f, 32f);
 
-	internal static BookRect AcquisitionNext => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 64f, AcquisitionPanel.Y + 488f, 40f, 32f);
+	internal static BookRect AcquisitionNext => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 56f, AcquisitionPanel.Y + 480f, 32f, 32f);
 
-	internal static BookRect AcquisitionPager => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 136f, AcquisitionPanel.Y + 488f, 64f, 32f);
+	internal static BookRect AcquisitionPager => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 116f, AcquisitionPanel.Y + 480f, 56f, 32f);
 
-	internal static BookRect AcquisitionInfoPanel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 352f, AcquisitionPanel.Width - 48f, 120f);
+	internal static BookRect AcquisitionStatus => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 480f, AcquisitionPanel.Width - 200f, 32f);
 
-	internal static BookRect EnemyOpenAction => new BookRect(AcquisitionPanel.X + AcquisitionPanel.Width - 144f, AcquisitionPanel.Y + 52f, 120f, 32f);
+	internal static BookRect AcquisitionList => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 376f);
 
-	internal static BookRect EnemyPortrait => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 52f, 64f, 64f);
+	internal static BookRect EnemyPortrait => AcquisitionIcon(back: true);
 
-	internal static BookRect EnemyTags => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 124f, AcquisitionPanel.Width - 48f, 64f);
+	internal static BookRect EnemyTags => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 64f);
+
+	internal static BookRect EnemyLootLabel => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 168f, AcquisitionPanel.Width - 48f, 20f);
 
 	internal static BookRect DetailPrevious => new BookRect(812f, 528f, 40f, 32f);
 
@@ -208,9 +211,28 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(row.X + row.Width - 8f - 32f, row.Y + (row.Height - 32f) / 2f, 32f, 32f);
 	}
 
+	internal static BookRect AcquisitionIcon(bool back)
+	{
+		return new BookRect(AcquisitionPanel.X + (back ? 72f : 24f), AcquisitionPanel.Y + 16f, 48f, 48f);
+	}
+
+	internal static BookRect AcquisitionTitle(bool back, bool pager)
+	{
+		BookRect icon = AcquisitionIcon(back);
+		float right = (pager ? AcquisitionVariantPrevious.X : AcquisitionClose.X) - 16f;
+		return new BookRect(icon.X + icon.Width + 12f, AcquisitionPanel.Y + 16f, right - icon.X - icon.Width - 12f, 26f);
+	}
+
+	internal static BookRect AcquisitionSubtitle(bool back, bool pager)
+	{
+		BookRect title = AcquisitionTitle(back, pager);
+		return new BookRect(title.X, title.Y + 30f, title.Width, 20f);
+	}
+
+	// Six 56-pixel rows with 8-pixel gaps fill AcquisitionList exactly.
 	internal static BookRect AcquisitionRow(int index)
 	{
-		return new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 96f + (float)(index * 64), AcquisitionPanel.Width - 48f, 56f);
+		return new BookRect(AcquisitionList.X, AcquisitionList.Y + (float)(index * 64), AcquisitionList.Width, 56f);
 	}
 
 	internal static BookRect AcquisitionSourceIcon(int index)
@@ -218,51 +240,67 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return AcquisitionRow(index).InsetIcon(8f, 40f);
 	}
 
+	// The whole row is the button; the chevron only marks rows that open something.
 	internal static BookRect AcquisitionSourceAction(int index)
 	{
 		BookRect row = AcquisitionRow(index);
-		return new BookRect(row.X + row.Width - 44f, row.Y + 12f, 32f, 32f);
+		return new BookRect(row.X + row.Width - 36f, row.Y + 12f, 24f, 32f);
 	}
 
 	internal static BookRect AcquisitionAmount(int index)
 	{
 		BookRect action = AcquisitionSourceAction(index);
-		return new BookRect(action.X - 72f, action.Y, 64f, 32f);
+		return new BookRect(action.X - 76f, action.Y, 68f, 32f);
 	}
 
 	internal static BookRect AcquisitionChance(int index)
 	{
 		BookRect amount = AcquisitionAmount(index);
-		return new BookRect(amount.X - 88f, amount.Y, 80f, 32f);
+		return new BookRect(amount.X - 84f, amount.Y, 76f, 32f);
 	}
 
 	internal static BookRect AcquisitionName(int index)
 	{
 		BookRect row = AcquisitionRow(index);
-		return new BookRect(row.X + 60f, row.Y + 8f, AcquisitionChance(index).X - row.X - 72f, 20f);
+		return new BookRect(row.X + 60f, row.Y + 8f, AcquisitionChance(index).X - row.X - 72f, 22f);
+	}
+
+	internal static BookRect AcquisitionDetail(int index)
+	{
+		BookRect name = AcquisitionName(index);
+		return new BookRect(name.X, name.Y + 24f, name.Width, 20f);
 	}
 
 	internal static BookRect EnemyLootRow(int index)
 	{
-		return new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 224f + (float)(index * 48), AcquisitionPanel.Width - 48f, 40f);
-	}
-
-	internal static BookRect EnemyLootInfo(int index)
-	{
-		BookRect r = EnemyLootRow(index);
-		return new BookRect(r.X + r.Width - 44f, r.Y + 4f, 32f, 32f);
+		return new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 196f + (float)(index * 56), AcquisitionPanel.Width - 48f, 48f);
 	}
 
 	internal static BookRect EnemyLootAmount(int index)
 	{
-		BookRect r = EnemyLootInfo(index);
-		return new BookRect(r.X - 72f, r.Y, 64f, 32f);
+		BookRect r = EnemyLootRow(index);
+		return new BookRect(r.X + r.Width - 12f - 68f, r.Y + 8f, 68f, 32f);
 	}
 
 	internal static BookRect EnemyLootChance(int index)
 	{
 		BookRect r = EnemyLootAmount(index);
-		return new BookRect(r.X - 88f, r.Y, 80f, 32f);
+		return new BookRect(r.X - 84f, r.Y, 76f, 32f);
+	}
+
+	// Quick Stack gets the widest slot (its Russian label is the longest), Restock the narrowest; gaps stay 8.
+	private static readonly float[] StorageToolbarExtra = new float[4] { 16f, 0f, -16f, 0f };
+
+	internal static BookRect StorageToolbarButton(int index)
+	{
+		BookRect strip = SamplePanel;
+		float width = (strip.Width - 24f - 24f) / 4f;
+		float x = strip.X + 12f;
+		for (int i = 0; i < index; i++)
+		{
+			x += width + StorageToolbarExtra[i] + 8f;
+		}
+		return new BookRect(x, strip.Y + 12f, width + StorageToolbarExtra[index], strip.Height - 24f);
 	}
 
 	internal static BookRect DetailIcon(int index)
