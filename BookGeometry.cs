@@ -89,10 +89,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect TrackingDetailPager => new BookRect(TrackingDetailPrevious.X + 48f, TrackingDetailPrevious.Y, TrackingDetailNext.X - TrackingDetailPrevious.X - 96f, 28f);
 
-	internal static BookRect CraftSource => new BookRect(712f, 660f, 208f, 24f);
+	// With Magic Storage the craft row is [star][source chip][Craft]; without it, [star][Craft].
+	internal static BookRect CraftSourceChip => new BookRect(852f, 564f, 120f, 32f);
 
-	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons); the details
-	// panel holds the selected stack, the withdraw shortcuts and the network block at its bottom.
+	internal static BookRect CraftActionBesideSource => new BookRect(980f, 564f, 116f, 32f);
+
+	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons). The details panel, top to
+	// bottom: label + status pill; what the book is (or could be) connected to; one hint line; the Connect /
+	// Disconnect toggle; the selected stack; the last action; "Open Magic Storage" pinned to the bottom.
 	internal static BookRect StorageQuickStack => StorageToolbarButton(0);
 
 	internal static BookRect StorageDepositAll => StorageToolbarButton(1);
@@ -105,17 +109,15 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect StorageStatus => new BookRect(StorageContent.X + StorageContent.Width - 160f, StorageContent.Y, 160f, 20f);
 
-	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 36f, 48f, 48f);
+	internal static BookRect StorageSource => new BookRect(StorageContent.X, StorageContent.Y + 32f, StorageContent.Width, 24f);
 
-	internal static BookRect StorageShortcuts => new BookRect(StorageContent.X, StorageContent.Y + 116f, StorageContent.Width, 116f);
+	internal static BookRect StorageHint => new BookRect(StorageContent.X, StorageContent.Y + 60f, StorageContent.Width, 20f);
 
-	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + 248f, StorageContent.Width, 20f);
+	internal static BookRect StorageConnect => new BookRect(StorageContent.X, StorageContent.Y + 88f, StorageContent.Width, 32f);
 
-	internal static BookRect StorageNetwork => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 156f, StorageContent.Width, 72f);
+	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 152f, 48f, 48f);
 
-	internal static BookRect StorageConnect => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 72f, (StorageContent.Width - 8f) / 2f, 32f);
-
-	internal static BookRect StorageDisconnect => new BookRect(StorageContent.X + (StorageContent.Width + 8f) / 2f, StorageContent.Y + StorageContent.Height - 72f, (StorageContent.Width - 8f) / 2f, 32f);
+	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + 216f, StorageContent.Width, 20f);
 
 	internal static BookRect StorageNative => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 32f, StorageContent.Width, 32f);
 

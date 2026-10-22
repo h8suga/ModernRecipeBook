@@ -289,6 +289,9 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool StageMenu;
 
+	// Storage tab: the list of networks in reach, open under the "Network: …" dropdown.
+	private static bool NetworkMenu;
+
 	private static bool Dirty = true;
 
 	private static bool LastLeft;
@@ -1763,7 +1766,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
 		int[] types = needs.SelectMany((BookBatchNeed n) => n.AcceptedTypes).Distinct().ToArray();
-		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || !BookStorage.CraftReady);
+		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || BookStorage.CraftInitializing);
 		goal.Counts = (goal.Storage ? BookStorage.PreviewCounts(types) : CountPlayerMaterials(types));
 		if (goal.Storage && !goal.Unknown)
 		{
@@ -4104,6 +4107,7 @@ public sealed class RecipeBookSystem : ModSystem
 		int selectedType = previousStorageItem?.type ?? 0;
 		int selectedPrefix = previousStorageItem?.prefix ?? 0;
 		BookStorage.UpdateBookConnection();
+		NetworkMenu &= StorageView && NetworkPickerShown;
 		if (StorageView && AppliedStorageVersion != BookStorage.ItemsVersion)
 		{
 			AppliedStorageVersion = BookStorage.ItemsVersion;
@@ -4185,6 +4189,10 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				StageMenu = false;
 			}
+			else if (NetworkMenu)
+			{
+				NetworkMenu = false;
+			}
 			else
 			{
 				Open = false;
@@ -4265,6 +4273,20 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return;
 		}
+		if (NetworkMenu)
+		{
+			IReadOnlyList<BookStorage.NetworkChoice> networks = BookStorage.Networks;
+			for (int option = 0; option < networks.Count; option++)
+			{
+				if (NetworkOption(option).Contains(Mouse.X, Mouse.Y))
+				{
+					BookStorage.PickNetwork(networks[option]);
+					break;
+				}
+			}
+			NetworkMenu = false;
+			return;
+		}
 		if (StageMenu)
 		{
 			for (int option = 0; option < 4; option++)
@@ -4321,17 +4343,6 @@ public sealed class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
-
-		int source = StorageTabVisible ? SegmentAt(CraftSourceRects()) : (-1);
-		if (source >= 0)
-		{
-			if ((source == 1) != BookStorage.UseForCrafting)
-			{
-				BookStorage.ChooseCraftSource(source == 1);
-				BookCrafting.Refresh(force: true);
-			}
-			return;
-		}
 		if (TrackingView)
 		{
 			HandleTrackingTabInput();
@@ -4362,10 +4373,23 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (StorageView)
 		{
-			if (BookGeometry.StorageConnect.Contains(Mouse.X, Mouse.Y))
+			(BookRect networkRow, BookRect actionRow, float _) = StorageRows();
+			if (networkRow.Contains(Mouse.X, Mouse.Y))
 			{
 				SetTyping(value: false);
-				if (BookStorage.ConnectNearby() && !BookStorage.Connected)
+				NetworkMenu = true;
+				return;
+			}
+			// The one button (see StorageAction): Disconnect while connected, Connect when an access point is in
+			// reach. A network that wants a password opens in MS's window (the book steps aside) to type it there.
+			if (actionRow.Contains(Mouse.X, Mouse.Y))
+			{
+				SetTyping(value: false);
+				if (BookStorage.Connected)
+				{
+					BookStorage.Disconnect();
+				}
+				else if (BookStorage.CanConnect && BookStorage.ConnectNearby() && !BookStorage.Connected)
 				{
 					CloseForStorage();
 				}
@@ -4391,14 +4415,9 @@ public sealed class RecipeBookSystem : ModSystem
 				BookStorage.DepositCursor();
 				return;
 			}
-			if (BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
+			if (BookStorage.Connected && BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
 			{
 				CloseForStorage();
-				return;
-			}
-			if (BookGeometry.StorageDisconnect.Contains(Mouse.X, Mouse.Y))
-			{
-				BookStorage.Disconnect();
 				return;
 			}
 		}
@@ -4571,7 +4590,14 @@ public sealed class RecipeBookSystem : ModSystem
 			ToggleFavorite(chosen);
 			return;
 		}
-		if (materialRecipe != null && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
+		if (materialRecipe != null && SourceShown && BookStorage.CanChooseSource && BookGeometry.CraftSourceChip.Contains(Mouse.X, Mouse.Y))
+		{
+			BookStorage.ChooseCraftSource(!BookStorage.UseForCrafting);
+			BookCrafting.Refresh(force: true);
+			InvalidateBatchEstimate();
+			return;
+		}
+		if (materialRecipe != null && CraftRect.Contains(Mouse.X, Mouse.Y))
 		{
 			BookCrafting.TryCraft(materialRecipe, Ru, PreviewBatches(materialRecipe));
 		}
@@ -4886,6 +4912,7 @@ public sealed class RecipeBookSystem : ModSystem
 		CloseAcquisition();
 		Open = (MouseOver = (ModMenu = (HelpOpen = false)));
 		BookStorage.CancelCraft();
+		BookStorage.HandOff();
 	}
 
 	public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
@@ -5092,7 +5119,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly Color Caution = new Color(223, 185, 139);
 
-	private static bool MenuOpen => ModMenu || SortMenu || StageMenu;
+	private static bool MenuOpen => ModMenu || SortMenu || StageMenu || NetworkMenu;
 
 	private static bool StorageTabVisible => BookStorage.Installed;
 
@@ -5345,27 +5372,6 @@ public sealed class RecipeBookSystem : ModSystem
 		return ingredient.Name;
 	}
 
-	private static int Owned(Item item, RecipeGroup group)
-	{
-		if (BookStorage.UseForCrafting)
-		{
-			if (!BookStorage.CraftingConnected)
-			{
-				return -1;
-			}
-			return BookStorage.Quantity(item, group);
-		}
-		long total = 0L;
-		foreach (Item inv in BookCrafting.Materials())
-		{
-			if (inv != null && !inv.IsAir && (group?.ValidItems.Contains(inv.type) ?? (inv.type == item.type)))
-			{
-				total += inv.stack;
-			}
-		}
-		return (int)Math.Min(total, 2147483647L);
-	}
-
 	private static int Owned(HashSet<int> acceptedTypes)
 	{
 		if (BookStorage.UseForCrafting)
@@ -5386,15 +5392,6 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 		}
 		return (int)total;
-	}
-
-	private static bool Infinite(Item item, RecipeGroup group)
-	{
-		if (BookStorage.UseForCrafting)
-		{
-			return BookStorage.IsInfinite(item, group);
-		}
-		return false;
 	}
 
 	private static string Count(long value)
@@ -5449,7 +5446,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static string MaterialTooltip(MaterialRequirement requirement, BookMaterialRules.Assessment assessment, int batches)
 	{
 		string have = (assessment.Unknown ? "?" : (assessment.Infinite ? "∞" : Count(assessment.Available)));
-		return T("Есть ", "Have ") + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "");
+		return (BookStorage.UseForCrafting ? T("В хранилище ", "In storage ") : T("Есть ", "Have ")) + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "");
 	}
 
 	private static List<Detail> Details(Recipe r)
@@ -5546,95 +5543,268 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
-	// Details panel: status, selected stack, withdraw shortcuts, last action; network block pinned to the bottom.
+	// Details panel, one status for the whole tab: label + pill (the state); one line saying what the book is (or
+	// could be) connected to and how far; one hint; a button only when the player has to act (Connect / Disconnect
+	// when auto-connect is off in the config, Enter Password for a locked network); the selected stack; the last
+	// action; "Open Magic Storage" at the bottom. Gestures are in the stack's tooltip and in F1.
 	private static void DrawStorageDetails(SpriteBatch sb)
 	{
 		Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
 		BookRect content = BookGeometry.StorageContent;
+		bool supported = BookStorage.Supported;
+		bool connected = BookStorage.Connected;
+		bool crafting = BookStorage.CraftingConnected;
+		bool locked = supported && BookStorage.NeedsPassword;
 		string state;
 		Color stateColor;
-		if (BookStorage.Connected)
+		if (!supported)
 		{
-			state = (BookStorage.Updating ? T("Синхронизация", "Syncing") : T("Подключено", "Connected"));
-			stateColor = (BookStorage.Updating ? new Color(219, 184, 112) : Accent);
+			state = T("Недоступно", "Unavailable");
+			stateColor = Bad;
+		}
+		else if (connected && BookStorage.Updating)
+		{
+			state = T("Синхронизация", "Syncing");
+			stateColor = Caution;
+		}
+		else if (connected)
+		{
+			state = crafting ? T("Подключено", "Connected") : T("Только хранилище", "Storage only");
+			stateColor = crafting ? Accent : Caution;
+		}
+		else if (locked)
+		{
+			state = T("Сеть под паролем", "Network locked");
+			stateColor = Caution;
 		}
 		else
 		{
-			state = BookStorage.ConnectionStatus;
+			state = T("Не подключено", "Not connected");
 			stateColor = Muted;
 		}
 		BookRect status = BookGeometry.StorageStatus;
-		CenterLabel(sb, state, status.X, status.Y, status.Width, status.Height, stateColor, 0.8f, rightAligned: true);
-		float stateWidth = Math.Min(status.Width, Ink(state).Width * 0.8f * TextScale);
-		Box(sb, status.X + status.Width - stateWidth - 14f, status.Y + 6f, 8f, 8f, stateColor, border: false, 4f);
-		Text(sb, "MAGIC STORAGE", content.X, content.Y, Muted, 0.8f, content.Width - stateWidth - 28f, 20f);
-		if (status.Contains(Mouse.X, Mouse.Y) && !ModMenu)
+		float pillWidth = TextWidth(state, 0.8f) + 34f;
+		BookRect pill = new BookRect(status.X + status.Width - pillWidth, status.Y - 2f, pillWidth, 24f);
+		Box(sb, pill, FieldFill, border: true, 12f);
+		Box(sb, pill.X + 10f, pill.Y + 8f, 8f, 8f, stateColor, border: false, 4f);
+		CenterLabel(sb, state, pill.X + 24f, pill.Y + 2f, pill.Width - 30f, pill.Height - 4f, stateColor, 0.8f, rightAligned: false, leftAligned: true);
+		SectionLabel(sb, "Magic Storage", content.X, content.Y + 1f, pill.X - content.X - 8f);
+		BookRect source = BookGeometry.StorageSource;
+		string line;
+		string lineTip;
+		if (!supported)
 		{
-			MouseTip(BookStorage.ConnectionDetails);
+			line = BookStorage.ConnectionStatus;
+			lineTip = "";
 		}
-		BookRect icon = BookGeometry.StorageItemIcon;
-		Item selected = SelectedItem;
-		if (selected != null)
+		else if (connected)
 		{
-			Box(sb, icon, Raised, border: false, 8f);
-			Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
-			Text(sb, selected.Name, icon.X + 60f, icon.Y, TextColor, 1f, content.Width - 60f, 26f);
-			Text(sb, "×" + selected.stack + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria"), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
+			line = BookStorage.AccessName + " · " + BookStoragePresentation.Tiles(BookStorage.ConnectedTiles, Ru);
+			string network = BookStorage.NetworkName;
+			lineTip = ((network.Length > 0) ? (T("Сеть: ", "Network: ") + network + "\n") : "") + BookStorage.AccessCoordinates;
 		}
 		else
 		{
-			Text(sb, BookStorage.Connected ? T("Предмет не выбран", "No item selected") : T("Нет предметов", "No items"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
-			Text(sb, BookStorage.Connected ? T("Нажмите на предмет в сетке", "Click an item in the grid") : T("Подойдите к точке доступа", "Stand near a storage access point"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+			line = BookStorage.NearbyText;
+			lineTip = (BookStorage.Manual ? T("Подключение — кнопкой ниже", "Connect with the button below") : T("Книга сама подключается к точке доступа рядом", "The book connects to an access point in reach")) + "\n" + T("Для крафта из хранилища нужен интерфейс крафта", "Crafting from storage needs a Crafting Interface");
 		}
-		Box(sb, content.X, icon.Y + icon.Height + 16f, content.Width, 1f, Border);
-		BookRect keys = BookGeometry.StorageShortcuts;
-		Text(sb, T("УПРАВЛЕНИЕ", "SHORTCUTS"), keys.X, keys.Y, Muted, 0.8f, keys.Width, 20f);
-		StorageKeyRow(sb, keys.Y + 28f, T("Shift+ЛКМ", "Shift+LMB"), T("Взять стопку", "Take stack"));
-		StorageKeyRow(sb, keys.Y + 56f, T("ПКМ", "RMB"), T("Взять одну", "Take one"));
-		StorageKeyRow(sb, keys.Y + 84f, T("Alt+ЛКМ", "Alt+LMB"), T("В избранное", "Favorite"));
+		FixedLabel(sb, line, source.X, source.Y, supported ? TextColor : Muted, 0.9f, source.Width, source.Height);
+		BookStorage.NearbyPoint? nearby = (supported && !connected) ? BookStorage.Nearest : null;
+		string hint = "";
+		Color hintColor = Muted;
+		if (!supported)
+		{
+			hint = "";
+		}
+		else if (connected && !crafting)
+		{
+			hint = T("Для крафта нужен интерфейс крафта", "Crafting needs a Crafting Interface");
+			hintColor = Caution;
+		}
+		else if (connected)
+		{
+			hint = BookStorage.UseForCrafting ? T("Книга крафтит из этого хранилища", "The book crafts from this storage") : T("Сейчас книга крафтит из инвентаря", "The book crafts from the inventory now");
+		}
+		else if (locked)
+		{
+			hint = T("Пароль вводится в окне Magic Storage", "Enter the password in Magic Storage");
+		}
+		else if (nearby.HasValue && !nearby.Value.InReach)
+		{
+			hint = T("Подойдите ближе", "Walk closer to connect");
+		}
+		else if (nearby.HasValue && BookStorage.Paused && !BookStorage.Manual)
+		{
+			hint = BookStorage.InventoryClosed ? T("Откройте инвентарь", "Open the inventory to connect") : T("Закройте сундук или диалог", "Close the chest or dialog to connect");
+		}
+		if (hint.Length > 0)
+		{
+			BookRect hintRect = BookGeometry.StorageHint;
+			FixedLabel(sb, hint, hintRect.X, hintRect.Y, hintColor, 0.8f, hintRect.Width, hintRect.Height);
+		}
+		(BookRect networkRow, BookRect toggle, float rowsBottom) = StorageRows();
+		string action = StorageAction();
+		if (networkRow.Width > 0f)
+		{
+			Dropdown(sb, networkRow, T("Сеть: ", "Network: ") + CurrentNetworkName(), NetworkMenu);
+		}
+		if (action.Length > 0)
+		{
+			CardButton(sb, toggle, action, connected || BookStorage.CanConnect, !connected);
+		}
+		if (supported)
+		{
+			CardButton(sb, BookGeometry.StorageNative, T("Открыть Magic Storage", "Open Magic Storage"), connected);
+		}
+		// The optional rows (network, button) push the divider and the stack block down; without them it moves up.
+		BookRect slot = BookGeometry.StorageConnect;
+		float shift = slot.Y + slot.Height + 8f - rowsBottom;
+		Box(sb, content.X, rowsBottom + 8f, content.Width, 1f, Border);
+		BookRect icon = BookGeometry.StorageItemIcon;
+		icon = new BookRect(icon.X, icon.Y - shift, icon.Width, icon.Height);
+		BookRect stack = new BookRect(icon.X + 60f, icon.Y, content.Width - 60f, icon.Height);
+		if (connected)
+		{
+			Item selected = SelectedItem;
+			if (selected != null)
+			{
+				Box(sb, icon, Raised, border: false, 8f);
+				Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
+				FixedLabel(sb, selected.Name, stack.X, icon.Y, TextColor, 1f, stack.Width, 26f);
+				FixedLabel(sb, "×" + selected.stack + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria"), stack.X, icon.Y + 28f, Muted, 0.85f, stack.Width, 20f);
+			}
+			else
+			{
+				stack = new BookRect(icon.X, icon.Y, content.Width, icon.Height);
+				FixedLabel(sb, T("Предмет не выбран", "No item selected"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
+				FixedLabel(sb, T("Нажмите на предмет в сетке", "Click an item in the grid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+			}
+		}
 		if (BookStorage.Message.Length > 0)
 		{
 			BookRect message = BookGeometry.StorageMessage;
-			Text(sb, BookStorage.Message, message.X, message.Y, TextColor, 0.85f, message.Width, message.Height);
+			FixedLabel(sb, BookStorage.Message, message.X, message.Y - shift, TextColor, 0.85f, message.Width, message.Height);
 		}
-		BookRect network = BookGeometry.StorageNetwork;
-		Box(sb, content.X, network.Y - 16f, content.Width, 1f, Border);
-		Text(sb, T("СЕТЬ", "NETWORK"), network.X, network.Y, Muted, 0.8f, network.Width, 20f);
-		if (BookStorage.Connected)
-		{
-			Text(sb, BookStorage.AccessName, network.X, network.Y + 26f, TextColor, 0.85f, network.Width, 20f);
-			Text(sb, BookStorage.AccessCoordinates, network.X, network.Y + 48f, Muted, 0.8f, network.Width, 20f);
-		}
-		else
-		{
-			Text(sb, T("Подключается сама у точки доступа", "Connects by itself near an access point"), network.X, network.Y + 26f, Muted, 0.85f, network.Width, 20f);
-		}
-		CardButton(sb, BookGeometry.StorageConnect, BookStorage.Connected ? T("Обновить", "Refresh") : T("Подключить", "Connect"), enabled: true, !BookStorage.Connected);
-		CardButton(sb, BookGeometry.StorageDisconnect, T("Отключить", "Disconnect"), BookStorage.Connected);
-		CardButton(sb, BookGeometry.StorageNative, T("Открыть Magic Storage", "Open Magic Storage"));
-		if (ModMenu)
+		if (MenuOpen)
 		{
 			return;
 		}
-		if (BookGeometry.StorageConnect.Contains(Mouse.X, Mouse.Y))
+		if (pill.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(BookStorage.Connected ? T("Перечитать хранилище · F5", "Reload storage · F5") : T("Подключиться к ближайшей точке доступа", "Connect to the nearest access point"));
+			MouseTip(connected ? T("Перечитать хранилище · F5", "Reload storage · F5") : (supported ? T("Для крафта из хранилища нужен интерфейс крафта", "Crafting from storage needs a Crafting Interface") : BookStorage.ConnectionStatus));
 		}
-		if (BookGeometry.StorageDisconnect.Contains(Mouse.X, Mouse.Y) && BookStorage.Connected)
+		else if (lineTip.Length > 0 && source.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Не подключаться до следующего открытия книги", "Stay offline until the book is reopened"));
+			MouseTip(lineTip);
 		}
-		if (BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
+		else if (networkRow.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Окно Magic Storage; книга закроется", "Magic Storage window; closes the book"));
+			MouseTip(T("Сети рядом с вами", "Networks in reach") + "\n" + T("Книга считает и крафтит только из выбранной", "The book counts and crafts only from this one"));
+		}
+		else if (action.Length > 0 && toggle.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(connected ? T("Отключиться от хранилища", "Disconnect from the storage") : (locked ? T("Окно Magic Storage для пароля; книга закроется", "Magic Storage's window for the password; closes the book") : (BookStorage.CanConnect ? T("Подключиться к точке доступа рядом", "Connect to the access point in reach") : T("Подойдите к точке доступа", "Walk up to an access point"))));
+		}
+		else if (supported && BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(connected ? T("Окно Magic Storage; книга закроется", "Magic Storage's own window; closes the book") : T("Сначала подключитесь", "Connect first"));
+		}
+		else if (connected && stack.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Shift+клик: взять стопку · ПКМ: взять одну", "Shift+Click: take a stack · Right-click: take one") + "\n" + T("Alt+клик: в избранное", "Alt+Click: favorite"));
 		}
 	}
 
-	private static void StorageKeyRow(SpriteBatch sb, float y, string key, string action)
+	// The Storage tab's one button, or "" when the player has nothing to do: Connect / Disconnect with auto-connect
+	// off, Enter Password when the network in reach is locked.
+	private static string StorageAction()
 	{
-		BookRect content = BookGeometry.StorageContent;
-		HelpKeycap(sb, new BookRect(content.X, y, 112f, 22f), key);
-		Text(sb, action, content.X + 124f, y, TextColor, 0.85f, content.Width - 124f, 22f);
+		if (!BookStorage.Supported)
+		{
+			return "";
+		}
+		if (BookStorage.Manual)
+		{
+			return BookStorage.Connected ? T("Отключить", "Disconnect") : T("Подключить", "Connect");
+		}
+		return BookStorage.NeedsPassword ? T("Ввести пароль", "Enter Password") : "";
+	}
+
+	// More than one network in reach: the Storage tab offers a choice. Access points of one network count as one.
+	private static bool NetworkPickerShown
+	{
+		get
+		{
+			if (BookStorage.Connected)
+			{
+				return BookStorage.Networks.Count > 1;
+			}
+			return false;
+		}
+	}
+
+	// Optional rows under the hint, top to bottom: the network dropdown and the one button. Shared by drawing and
+	// clicks; a row that isn't shown is an empty rect. Bottom is where the next block starts.
+	private static (BookRect Network, BookRect Action, float Bottom) StorageRows()
+	{
+		BookRect slot = BookGeometry.StorageConnect;
+		float y = slot.Y;
+		BookRect network = default(BookRect);
+		BookRect action = default(BookRect);
+		if (NetworkPickerShown)
+		{
+			network = new BookRect(slot.X, y, slot.Width, slot.Height);
+			y += slot.Height + 8f;
+		}
+		if (StorageAction().Length > 0)
+		{
+			action = new BookRect(slot.X, y, slot.Width, slot.Height);
+			y += slot.Height + 8f;
+		}
+		return (network, action, y);
+	}
+
+	private static string CurrentNetworkName()
+	{
+		foreach (BookStorage.NetworkChoice network in BookStorage.Networks)
+		{
+			if (BookStorage.IsCurrent(network))
+			{
+				return network.Name;
+			}
+		}
+		string name = BookStorage.NetworkName;
+		return (name.Length > 0) ? name : BookStorage.AccessName;
+	}
+
+	private static BookRect NetworkOption(int option)
+	{
+		BookRect anchor = StorageRows().Network;
+		return new BookRect(anchor.X + 4f, anchor.Y + anchor.Height + 8f + option * 48, anchor.Width - 8f, 44f);
+	}
+
+	// Each network in reach on two lines: its name, then what the book would use there and how far; the connected
+	// one selected.
+	private static void DrawNetworkMenu(SpriteBatch sb)
+	{
+		IReadOnlyList<BookStorage.NetworkChoice> networks = BookStorage.Networks;
+		BookRect anchor = StorageRows().Network;
+		Box(sb, anchor.X, anchor.Y + anchor.Height + 4f, anchor.Width, 8f + networks.Count * 48, new Color(17, 25, 20), border: true, 10f, Accent);
+		for (int option = 0; option < networks.Count; option++)
+		{
+			BookRect rect = NetworkOption(option);
+			bool active = BookStorage.IsCurrent(networks[option]);
+			if (active)
+			{
+				Box(sb, rect, SelectedFill, border: false, 6f);
+			}
+			else if (rect.Contains(Mouse.X, Mouse.Y))
+			{
+				Box(sb, rect, HoverFill, border: false, 6f);
+			}
+			FixedLabel(sb, networks[option].Name, rect.X + 12f, rect.Y + 2f, active ? Accent : TextColor, 0.85f, rect.Width - 24f, 22f);
+			FixedLabel(sb, networks[option].Access + " · " + BookStoragePresentation.Tiles(networks[option].Tiles, Ru), rect.X + 12f, rect.Y + 22f, Muted, 0.8f, rect.Width - 24f, 20f);
+		}
 	}
 
 	// Mod filter list: drops down under its button, rows are plain list items (hover, selected = Accent bar).
@@ -5746,6 +5916,10 @@ public sealed class RecipeBookSystem : ModSystem
 		if (StageMenu)
 		{
 			DrawStageMenu(sb);
+		}
+		if (NetworkMenu)
+		{
+			DrawNetworkMenu(sb);
 		}
 		if (HelpOpen)
 		{
@@ -5926,16 +6100,19 @@ public sealed class RecipeBookSystem : ModSystem
 		BookRect area = new BookRect(212f, top, 568f, 596f - top);
 		if (StorageView)
 		{
-			string emptyStorage;
-			if (!BookStorage.Connected || BookStorage.CraftInitializing)
+			// The status itself lives in the details panel; the empty grid only says what to do.
+			if (!BookStorage.Connected)
 			{
-				emptyStorage = BookStorage.Status;
+				EmptyState(sb, area, T("Здесь будут предметы хранилища", "Storage items show up here"), (!BookStorage.Supported) ? "" : (BookStorage.Manual ? T("Подключитесь к точке доступа", "Connect to an access point") : T("Подойдите к точке доступа", "Walk up to a storage access point")));
+			}
+			else if (BookStorage.Items.Count == 0)
+			{
+				EmptyState(sb, area, T("В этой сети пока нет предметов", "This network is empty"), "");
 			}
 			else
 			{
-				emptyStorage = ((BookStorage.Items.Count == 0) ? T("В этой сети пока нет предметов", "This network is empty") : T("Нет совпадений · Ctrl+Backspace — сбросить фильтры", "No matches · Ctrl+Backspace resets filters"));
+				EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
 			}
-			EmptyState(sb, area, emptyStorage, "");
 		}
 		else if (RecentView)
 		{
@@ -6038,8 +6215,12 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (r != null)
 		{
-			ActionButton(sb, BookGeometry.CraftAction, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
-			if (!MenuOpen && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
+			if (SourceShown)
+			{
+				DrawCraftSource(sb);
+			}
+			ActionButton(sb, CraftRect, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
+			if (!MenuOpen && CraftRect.Contains(Mouse.X, Mouse.Y))
 			{
 				MouseTip(BookCrafting.Reason(r, Ru) + "\nCtrl+Enter · " + T("максимум", "max") + ": Ctrl+Shift+Enter");
 			}
@@ -6448,19 +6629,6 @@ public sealed class RecipeBookSystem : ModSystem
 			MouseTip(T("Размер окна", "Window size"));
 		}
 		float hintRight = 924f;
-		if (StorageTabVisible)
-		{
-			BookRect[] sources = CraftSourceRects();
-			Segmented(sb, sources, CraftSourceLabels(), BookStorage.UseForCrafting ? 1 : 0, 0.8f);
-			string from = T("Крафт из", "Craft from");
-			float fromWidth = TextWidth(from, 0.8f) + 4f;
-			CenterLabel(sb, from, sources[0].X - 8f - fromWidth, 660f, fromWidth, 24f, Muted, 0.8f, rightAligned: true);
-			hintRight = sources[0].X - 24f - fromWidth;
-			if (!MenuOpen && SegmentAt(sources) >= 0)
-			{
-				MouseTip(T("Откуда брать материалы", "Where materials come from") + "\n" + T("Хранилищу нужен подключённый интерфейс крафта", "Storage needs a connected Crafting Interface"));
-			}
-		}
 		string message = BookCrafting.LastMessage ?? "";
 		CenterLabel(sb, (message.Length > 0) ? message : FooterHint(), 140f, 660f, hintRight - 140f, 24f, (message.Length > 0) ? Accent : Muted, 0.8f, rightAligned: false, leftAligned: true);
 	}
@@ -6477,18 +6645,24 @@ public sealed class RecipeBookSystem : ModSystem
 		};
 	}
 
-	private static string[] CraftSourceLabels()
-	{
-		return new string[2]
-		{
-			T("Инвентарь", "Inventory"),
-			T("Хранилище", "Storage")
-		};
-	}
+	// Craft source chip, between the star and Craft, only when Magic Storage support is on. The source follows the
+	// connection (a Crafting Interface means storage); the chip is clickable only while both sources work.
+	private static bool SourceShown => BookStorage.Supported;
 
-	private static BookRect[] CraftSourceRects()
+	private static BookRect CraftRect => SourceShown ? BookGeometry.CraftActionBesideSource : BookGeometry.CraftAction;
+
+	private static void DrawCraftSource(SpriteBatch sb)
 	{
-		return SegmentRects(BookGeometry.CraftSource, CraftSourceLabels(), 0.8f, natural: false);
+		BookRect rect = BookGeometry.CraftSourceChip;
+		bool storage = BookStorage.UseForCrafting;
+		bool choice = BookStorage.CanChooseSource;
+		bool over = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		Box(sb, rect, (choice && over) ? HoverFill : (storage ? SelectedFill : Surface), border: true, 8f, storage ? new Color?(Accent) : null);
+		CenterLabel(sb, storage ? T("Из хранилища", "From storage") : T("Из инвентаря", "From inventory"), rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, storage ? Accent : (choice ? TextColor : Muted), 0.8f);
+		if (over)
+		{
+			MouseTip(storage ? (T("Материалы и результат — в Magic Storage", "Materials and result: Magic Storage") + "\n" + T("Клик: из инвентаря", "Click: use the inventory")) : (T("Материалы из инвентаря", "Materials from your inventory") + "\n" + (choice ? T("Клик: из хранилища", "Click: use Magic Storage") : T("Хранилищу нужен интерфейс крафта рядом", "Storage needs a Crafting Interface in reach"))));
+		}
 	}
 
 	private static void DrawSortMenu(SpriteBatch sb)

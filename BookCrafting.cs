@@ -103,7 +103,7 @@ internal static class BookCrafting
 
 	internal static string Reason(Recipe recipe, bool ru)
 	{
-		if (BookStorage.UseForCrafting && recipe != null && (!BookStorage.CraftReady || !BookStorage.Ready))
+		if (BookStorage.UseForCrafting && recipe != null && BookStorage.CraftInitializing)
 		{
 			return BookStorage.Status;
 		}
@@ -172,7 +172,7 @@ internal static class BookCrafting
 		}
 		if (BookStorage.UseForCrafting)
 		{
-			if (recipe == null || !PlayerReady || !Main.guideItem.IsAir || !Main.mouseItem.IsAir || !BookStorage.Ready || !BookStorage.CraftReady)
+			if (recipe == null || !PlayerReady || !Main.guideItem.IsAir || !Main.mouseItem.IsAir || !IsAvailable(recipe))
 			{
 				LastMessage = Reason(recipe, ru);
 			}

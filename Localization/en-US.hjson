@@ -40,6 +40,15 @@ Mods: {
 					Tooltip: Material lines under the minimap, like an info accessory. Off: cards for up to 5 goals.
 				}
 			}
+
+			BookStorageConfig: {
+				DisplayName: Recipe Book: Magic Storage
+
+				AutoConnect: {
+					Label: Auto-connect Magic Storage
+					Tooltip: The open book joins the nearest storage in reach. Off: connect with a button.
+				}
+			}
 		}
 	}
 }
