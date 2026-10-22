@@ -91,8 +91,6 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly Dictionary<Recipe, BatchEstimate> BatchEstimates = new Dictionary<Recipe, BatchEstimate>();
 
-	private static readonly BookRect[] BatchChoiceBounds = Enumerable.Range(0, 4).Select(BookGeometry.BatchChoice).ToArray();
-
 	private static bool PendingChainBack;
 
 	private static bool PendingChainForward;
@@ -271,6 +269,8 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool ModMenu;
 
+	private static bool SortMenu;
+
 	private static bool Dirty = true;
 
 	private static bool LastLeft;
@@ -348,7 +348,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			if (Open)
 			{
-				if (!HelpOpen && !AcquisitionOpen && !ModMenu)
+				if (!HelpOpen && !AcquisitionOpen && !ModMenu && !SortMenu)
 				{
 					return !DraggingWindow;
 				}
@@ -381,13 +381,14 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool SampleUses => Chains;
 
+	// Chains list 12 recipes; Storage keeps its toolbar above a 5-row grid; the other tabs show 6 rows.
 	private static int ActivePageSize
 	{
 		get
 		{
 			if (!Chains)
 			{
-				return 40;
+				return StorageView ? 40 : 48;
 			}
 			return 12;
 		}
@@ -397,7 +398,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static HashSet<string> Favorites => Main.LocalPlayer.GetModPlayer<BookPlayer>().Favorites;
 
-	private static int MaxCategoryRow => Math.Max(0, (Categories.Count + 3 - 1) / 3 - 10);
+	private static int MaxCategoryRow => Math.Max(0, Categories.Count - BookGeometry.VisibleCategoryRows);
 
 	private static Item SelectedItem
 	{
@@ -953,8 +954,6 @@ public sealed class RecipeBookSystem : ModSystem
 		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? T("Часть источников не прочитана", "Some sources could not be read") : "");
 	}
 
-	private static readonly Color HoverFill = new Color(51, 67, 55);
-
 	// Button for this zone's panels: disabled is muted with no hover, primary is filled with Accent.
 	private static void CardButton(SpriteBatch sb, BookRect rect, string label, bool enabled = true, bool primary = false)
 	{
@@ -1102,7 +1101,7 @@ public sealed class RecipeBookSystem : ModSystem
 		long sum = ArmorPartsDefense(parts);
 		if (!NativeArmorParts(parts))
 		{
-			return T("Сет (база): ", "Set (base): ") + sum;
+			return T("Защита сета: ", "Set defense: ") + sum + "+";
 		}
 		return T("Защита сета: ", "Set defense: ") + (sum + ArmorNativeSetBonus(parts));
 	}
@@ -1121,32 +1120,40 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		Item[] parts = (from type in ArmorChoices(set, item)
 			select ContentSamples.ItemsByType[type]).ToArray();
-		return text + " · " + (NativeArmorParts(parts) ? T("Сет: ", "Set: ") : T("Сет (база): ", "Set (base): ")) + (ArmorPartsDefense(parts) + ArmorNativeSetBonus(parts));
+		return text + " · " + T("Сет: ", "Set: ") + (ArmorPartsDefense(parts) + ArmorNativeSetBonus(parts)) + (NativeArmorParts(parts) ? "" : "+");
 	}
 
+	// Two short lines: how the set number adds up, and what it leaves out.
 	private static string ArmorDefenseTooltip(Item item, Item[] displayedParts = null)
 	{
 		if (!HasArmorDefense(item))
 		{
 			return "";
 		}
-		string text = item.Name + "\n" + T("Защита этой части: ", "This piece's defense: ") + item.defense;
 		BookArmorSets.Set set = BookArmorSets.Get(item.type);
-		if (set != null)
+		if (set == null)
 		{
-			Item[] parts = displayedParts ?? (from type in ArmorChoices(set, item)
-				select ContentSamples.ItemsByType[type]).ToArray();
-			text = text + "\n\n" + string.Join("\n", parts.Select((Item p) => p.Name + ": " + p.defense)) + "\n" + T("Сумма трёх частей: ", "Sum of the three pieces: ") + ArmorPartsDefense(parts);
-			text = ((!NativeArmorParts(parts)) ? (text + "\n" + T("Показана базовая сумма. Дополнительная защита из бонуса модового сета здесь не рассчитывается.", "This is the base sum. Extra defense from the modded set bonus is not evaluated here.")) : (text + "\n" + T("Фиксированный бонус комплекта: +", "Fixed set bonus: +") + ArmorNativeSetBonus(parts) + "\n" + ArmorSetDefenseText(parts)));
+			return item.Name + ": " + item.defense + "\n" + T("Без аксессуаров и баффов", "Without accessories and buffs");
 		}
-		return text + "\n\n" + T("Без аксессуаров, баффов и динамических эффектов модов.\nПредпросмотр не надевает броню и не меняет характеристики персонажа.", "Excludes accessories, buffs and dynamic mod effects.\nThis preview does not equip armor or change player stats.");
+		Item[] parts = displayedParts ?? (from type in ArmorChoices(set, item)
+			select ContentSamples.ItemsByType[type]).ToArray();
+		string sum = T("Части: ", "Pieces: ") + string.Join(" + ", parts.Select((Item p) => p.defense));
+		if (!NativeArmorParts(parts))
+		{
+			return sum + "\n" + T("Бонус модового сета не учтён", "Modded set bonus not counted");
+		}
+		return sum + T(", бонус сета +", ", set bonus +") + ArmorNativeSetBonus(parts) + "\n" + T("Без аксессуаров и баффов", "Without accessories and buffs");
 	}
 
 	private static void DrawArmorDefense(SpriteBatch sb, Item item)
 	{
-		BookRect rect = BookGeometry.ArmorDefense;
-		FixedLabel(sb, ArmorDefenseText(item), rect.X, rect.Y, Accent, 0.76f, rect.Width, rect.Height);
-		if (!ModMenu && rect.Contains(Mouse.X, Mouse.Y))
+		DrawArmorDefenseAt(sb, item, BookGeometry.ArmorStats);
+	}
+
+	private static void DrawArmorDefenseAt(SpriteBatch sb, Item item, BookRect rect)
+	{
+		FixedLabel(sb, ArmorDefenseText(item), rect.X, rect.Y, Accent, 0.8f, rect.Width, rect.Height);
+		if (!MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(ArmorDefenseTooltip(item));
 		}
@@ -1165,19 +1172,19 @@ public sealed class RecipeBookSystem : ModSystem
 			return false;
 		}
 		int[] choices = ArmorChoices(set, chosen);
-		Item[] displayedParts = choices.Select((int type) => ContentSamples.ItemsByType[type]).ToArray();
 		for (int slot = 0; slot < 3; slot++)
 		{
-			BookRect rect = BookGeometry.ArmorPart(slot);
+			BookRect rect = BookGeometry.ArmorTile(slot);
 			bool active = choices[slot] == chosen.type;
-			Button(sb, rect, "", active);
+			bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+			Box(sb, rect, active ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
 			Item part = ContentSamples.ItemsByType[choices[slot]];
-			Icon(sb, part, rect.X + 15f, rect.Y + 4f, 30f, tooltip: false);
-			BookRect defense = BookGeometry.ArmorPartDefense(slot);
-			CenterLabel(sb, part.defense + T(" защ.", " def"), defense.X, defense.Y, defense.Width, defense.Height, Accent, 0.62f, rightAligned: false, leftAligned: false, fitWidth: true);
-			if (!ModMenu && rect.Contains(Mouse.X, Mouse.Y))
+			Icon(sb, part, rect.X + (rect.Width - 28f) / 2f, rect.Y + 6f, 28f, tooltip: false);
+			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 36f, part.defense, active ? Accent : Muted);
+			if (hover)
 			{
-				MouseTip(ArmorDefenseTooltip(part, displayedParts) + T("\nЛКМ — рецепт этой части сета", "\nLeft-click: inspect this set piece") + ((set.Parts[slot].Length > 1) ? (T("\nПовторный клик — следующий вариант (", "\nClick again for next variant (") + set.Parts[slot].Length + ")") : ""));
+				string action = active ? ((set.Parts[slot].Length > 1) ? T("Клик: следующий вариант", "Click: next variant") : "") : T("Клик: показать эту часть", "Click: show this piece");
+				MouseTip(part.Name + " · " + T("защита ", "defense ") + part.defense + ((action.Length > 0) ? ("\n" + action) : ""));
 			}
 		}
 		return true;
@@ -1193,7 +1200,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		for (int slot = 0; slot < 3; slot++)
 		{
-			if (BookGeometry.ArmorPart(slot).Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.ArmorTile(slot).Contains(Mouse.X, Mouse.Y))
 			{
 				ArmorFocus = ((BookArmorSets.Slot(chosen) == slot) ? BookArmorSetRules.Next(set.Parts[slot], chosen.type, alreadyActive: true) : ArmorChoices(set, chosen)[slot]);
 				DetailsPage = (Variant = 0);
@@ -1293,45 +1300,40 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool HandleBatchChoiceClick(Recipe recipe)
 	{
-		for (int index = 0; index < BatchChoiceBounds.Length; index++)
+		int index = SegmentAt(BatchRects());
+		if (index < 0)
 		{
-			if (BatchChoiceBounds[index].Contains(Mouse.X, Mouse.Y))
-			{
-				BatchChoice = index;
-				BookCrafting.LastMessage = "";
-				return true;
-			}
+			return false;
 		}
-		return false;
+		BatchChoice = index;
+		BookCrafting.LastMessage = "";
+		return true;
 	}
 
-	private static void DrawBatchChoices(SpriteBatch sb, Recipe recipe)
+	private static string[] BatchLabels()
 	{
-		Text(sb, T("Рецепт ", "Recipe ") + ((!Catalogue) ? 1 : (Variant + 1)) + "/" + VariantCount, 812f, 268f, Muted, 0.76f, 76f, 28f);
-		string[] labels = new string[4]
+		return new string[4]
 		{
 			"×1",
 			"×5",
 			"×10",
 			T("Макс", "Max")
 		};
-		for (int index = 0; index < BatchChoiceBounds.Length; index++)
+	}
+
+	private static BookRect[] BatchRects()
+	{
+		return SegmentRects(BookGeometry.BatchBar(RecipeBlockTop(SelectedItem)), BatchLabels(), 0.85f, natural: false);
+	}
+
+	private static void DrawBatchChoices(SpriteBatch sb, Recipe recipe)
+	{
+		BookRect[] rects = BatchRects();
+		Segmented(sb, rects, BatchLabels(), BatchChoice, 0.85f);
+		int hovered = MenuOpen ? (-1) : SegmentAt(rects);
+		if (hovered >= 0)
 		{
-			BookRect bounds = BatchChoiceBounds[index];
-			Button(sb, bounds, labels[index], BatchChoice == index);
-			if (bounds.Contains(Mouse.X, Mouse.Y))
-			{
-				int batches = index switch
-				{
-					0 => 1, 
-					1 => 5, 
-					2 => 10, 
-					_ => Math.Max(1, CachedAvailableBatches(recipe)), 
-				};
-				string detail = T($"Создать до {batches} партий. Перед каждой партией проверяются курсор, состояние игрока и доступность рецепта.", $"Craft up to {batches} batches. Cursor, player state and native recipe availability are checked before each batch.");
-				detail += T("\nМаксимум — оценка по материалам, до 100 партий за нажатие. Остатки показаны в строках материалов.", "\nMax is a materials estimate, capped at 100 batches per click. Material rows show projected leftovers.");
-				MouseTip(detail);
-			}
+			MouseTip((hovered == 3) ? T("Сколько хватит материалов, до 100 за раз", "As many as materials allow, up to 100") : T("Создать столько раз за нажатие", "Craft this many times per click"));
 		}
 	}
 
@@ -2286,17 +2288,17 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		BookStage stage = (recipe != null) ? BookProgression.RecipeStage(recipe.RecipeIndex) : BookProgression.ItemStage(item.type);
 		bool modeExcluded = (recipe != null) ? BookProgression.RecipeModeExcluded(recipe.RecipeIndex) : BookProgression.ItemModeExcluded(item.type);
-		return (stage == BookStage.Unknown && modeExcluded) ? T("Недоступно в этом режиме", "Not available at this difficulty") : StageName(stage);
+		return (stage == BookStage.Unknown && modeExcluded) ? T("Не в этом режиме", "Not in this mode") : StageName(stage);
 	}
 
 	private static string StageName(BookStage stage)
 	{
 		return stage switch
 		{
-			BookStage.PreHardmode => T("Пре-хардмод", "Pre-hardmode"), 
-			BookStage.Hardmode => T("Хардмод", "Hardmode"), 
-			BookStage.PostHardmode => T("Постхардмод", "Post-hardmode"), 
-			_ => T("Нет обычного способа получения", "No regular source"), 
+			BookStage.PreHardmode => T("Прехардмод", "Pre-Hardmode"),
+			BookStage.Hardmode => T("Хардмод", "Hardmode"),
+			BookStage.PostHardmode => T("После Лунного лорда", "Post-Moon Lord"),
+			_ => T("Нет обычного источника", "No regular source"),
 		};
 	}
 
@@ -2331,16 +2333,33 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void DrawStageFilter(SpriteBatch sb)
 	{
-		Button(sb, BookGeometry.StageFilter, (StageFilter == BookStageFilter.All) ? T("Этап: Все", "Stage: All") : StageName((BookStage)(StageFilter - 1)), StageFilter != BookStageFilter.All);
-		if (BookGeometry.StageFilter.Contains(Mouse.X, Mouse.Y))
+		BookRect[] rects = StageRects();
+		Segmented(sb, rects, StageLabels(), (int)StageFilter, 0.85f);
+		if (!MenuOpen && SegmentAt(rects) >= 0)
 		{
-			MouseTip(T("Нажмите: Все → Пре-хардмод → Хардмод → Постхардмод.\nПостхардмод — после Лунного лорда. Этап — самый ранний момент, когда предмет можно получить: рецепт по цепочке материалов, станций и условий, лут боссов и мешков, магазины жителей, ящики и враги, включая Calamity.\nРежим мира учитывается: Classic, Expert, Master и Revengeance. То, что в этом режиме не выпадает, подписано «Недоступно в этом режиме», а то, что нельзя получить обычным путём, — «Нет обычного способа получения»; они видны только в «Все». Если источник не найден, этап оценивается по редкости. В цепочках неопределённые рецепты помечены ?.", "Click: All → Pre-hardmode → Hardmode → Post-hardmode.\nPost-hardmode means after Moon Lord. The stage is the earliest point an item can be obtained: a recipe through its materials, stations and conditions, boss and bag loot, town shops, crates and enemies, Calamity included.\nThe world's difficulty counts: Classic, Expert, Master and Revengeance. What does not drop in this mode is marked “Not available at this difficulty”, what cannot be obtained the regular way “No regular source”; both stay visible only in All. Without a known source the stage is estimated from rarity. Uncertain chain recipes carry a ? marker."));
+			MouseTip(T("Самый ранний этап, когда предмет можно получить", "The earliest stage you can get an item") + "\n" + T("Учитывается сложность мира", "The world's difficulty counts"));
 		}
+	}
+
+	private static string[] StageLabels()
+	{
+		return new string[4]
+		{
+			T("Все этапы", "All stages"),
+			StageName(BookStage.PreHardmode),
+			StageName(BookStage.Hardmode),
+			StageName(BookStage.PostHardmode)
+		};
+	}
+
+	private static BookRect[] StageRects()
+	{
+		return SegmentRects(BookGeometry.StageFilter, StageLabels(), 0.85f, natural: true);
 	}
 
 	private static string StageExplanation(Item item, Recipe recipe)
 	{
-		return StageName(item, recipe) + T("\nСамый ранний способ получить предмет. Постхардмод = после Лунного лорда.\nДля каталога — лучший из рецептов, лута, магазинов и ящиков; для рецепта — его материалы, станция и условия. Режим мира учитывается.\nНестандартные источники других модов могут быть неизвестны, тогда этап оценивается по редкости.", "\nEarliest way to obtain the item. Post-hardmode = after Moon Lord.\nCatalogue: the best of recipes, loot, shops and crates; recipe: its own materials, station and conditions. The world's difficulty counts.\nUnusual sources from other mods may be unknown; the stage is then estimated from rarity.");
+		return ((recipe != null) ? T("Этап рецепта: по материалам, станции и условиям", "Recipe stage: from its materials, station and conditions") : T("Самый ранний этап, когда предмет можно получить", "The earliest stage you can get this item")) + "\n" + T("Учитывается сложность мира", "The world's difficulty counts");
 	}
 
 	private static void ResetResourceTracker()
@@ -3079,6 +3098,11 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			Catalogue = false;
 		}
+		if (StorageView && !StorageTabVisible)
+		{
+			StorageView = false;
+			Catalogue = true;
+		}
 		Query = state.Query;
 		ModFilter = (Mods.Contains(state.ModFilter, StringComparer.Ordinal) ? state.ModFilter : "");
 		StageFilter = (BookStageFilter)state.StageFilter;
@@ -3146,7 +3170,7 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 			DraggingWindow = false;
 		}
-		if (!Open || HelpOpen || ModMenu || AcquisitionOpen)
+		if (!Open || HelpOpen || MenuOpen || AcquisitionOpen)
 		{
 			return false;
 		}
@@ -3160,29 +3184,7 @@ public sealed class RecipeBookSystem : ModSystem
 			WindowScalePercent = Math.Clamp(WindowScalePercent + 10, 70, 130);
 			return true;
 		}
-		if (click && !TrackingView && BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
-		{
-			if (RecentView)
-			{
-				return true;
-			}
-			SortMode = (BookSortMode)((int)(SortMode + 1) % 3);
-			Page = 0;
-			ApplyFilters();
-			return true;
-		}
-		if (click && !TrackingView && BookGeometry.SortDirection.Contains(Mouse.X, Mouse.Y))
-		{
-			if (RecentView)
-			{
-				return true;
-			}
-			SortDescending = !SortDescending;
-			Page = 0;
-			ApplyFilters();
-			return true;
-		}
-		if (click && BookGeometry.DragHandle.Contains(Mouse.X, Mouse.Y))
+		if (click && HeaderGrab())
 		{
 			DraggingWindow = true;
 			WindowDragOffsetX = Main.MouseScreen.X - Origin.X;
@@ -3191,6 +3193,28 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		return false;
 	}
+
+	// The window is dragged by its frame (an 8 px band on every side, free of controls) or by any empty
+	// part of the header; tabs and the close button keep their clicks.
+	private static bool HeaderGrab()
+	{
+		if (!BookGeometry.Frame.Contains(Mouse.X, Mouse.Y))
+		{
+			return false;
+		}
+		if (Mouse.X < BookGeometry.FrameGrip || Mouse.X >= BookGeometry.Frame.Width - BookGeometry.FrameGrip || Mouse.Y < BookGeometry.FrameGrip || Mouse.Y >= BookGeometry.Frame.Height - BookGeometry.FrameGrip)
+		{
+			return true;
+		}
+		if (!BookGeometry.Header.Contains(Mouse.X, Mouse.Y) || BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y))
+		{
+			return false;
+		}
+		return !VisibleTabs().Any((int tab) => TabRect(tab).Contains(Mouse.X, Mouse.Y));
+	}
+
+	// Grab zones light the frame in Accent while hovered or dragged.
+	private static bool GrabHint => DraggingWindow || (!MenuOpen && !HelpOpen && HeaderGrab());
 
 	private static void MoveWindowWithPointer()
 	{
@@ -3250,12 +3274,31 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static string SortLabel()
 	{
-		return SortMode switch
+		return SortOptionLabel(SortOptionIndex);
+	}
+
+	// One list for field and direction: Name, ID and Mod, each ascending then descending.
+	private static int SortOptionIndex => (int)SortMode * 2 + (SortDescending ? 1 : 0);
+
+	private static string SortOptionLabel(int option)
+	{
+		return option switch
 		{
-			BookSortMode.ItemId => "ID", 
-			BookSortMode.Mod => T("Мод", "Mod"), 
-			_ => T("Имя", "Name"), 
+			0 => T("Имя А-Я", "Name A-Z"),
+			1 => T("Имя Я-А", "Name Z-A"),
+			2 => "ID 1-9",
+			3 => "ID 9-1",
+			4 => T("Мод А-Я", "Mod A-Z"),
+			_ => T("Мод Я-А", "Mod Z-A"),
 		};
+	}
+
+	private static void ApplySortOption(int option)
+	{
+		SortMode = (BookSortMode)Math.Clamp(option / 2, 0, 2);
+		SortDescending = option % 2 == 1;
+		Page = 0;
+		ApplyFilters();
 	}
 
 	private static string T(string ru, string en)
@@ -3454,7 +3497,8 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		foreach (Item item in ContentSamples.ItemsByType.Values.OrderBy((Item item4) => item4.type))
 		{
-			if (item != null && !item.IsAir && item.type > 0)
+			// Nameless internal items (e.g. ManaCloakStar, an effect sprite) are not catalogue entries.
+			if (item != null && !item.IsAir && item.type > 0 && !string.IsNullOrWhiteSpace(item.Name))
 			{
 				AllItems.Add(item.type);
 				sources.Add(item.ModItem?.Mod.Name ?? "Terraria");
@@ -3886,6 +3930,10 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				ModMenu = false;
 			}
+			else if (SortMenu)
+			{
+				SortMenu = false;
+			}
 			else
 			{
 				Open = false;
@@ -3928,15 +3976,15 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				ModOffset = Math.Clamp(ModOffset + step, 0, Math.Max(0, Mods.Count + 1 - 9));
 			}
-			else if (BookGeometry.CategoryPanel.Contains(Mouse.X, Mouse.Y))
+			else if (!SortMenu && BookGeometry.CategoryPanel.Contains(Mouse.X, Mouse.Y))
 			{
-				CategoryRow = Math.Clamp(CategoryRow + step, 0, MaxCategoryRow);
+				CategoryRow = Math.Clamp(CategoryRow + step * 3, 0, MaxCategoryRow);
 			}
-			else if (BookGeometry.DetailsPanel.Contains(Mouse.X, Mouse.Y))
+			else if (!SortMenu && BookGeometry.DetailsPanel.Contains(Mouse.X, Mouse.Y))
 			{
 				DetailsPage = Math.Clamp(DetailsPage + step, 0, MaxDetailsPage());
 			}
-			else if (Hit(164f, 92f, 626f, 548f))
+			else if (!SortMenu && Hit(196f, 76f, 600f, 564f))
 			{
 				Page = Math.Clamp(Page + step, 0, Pages - 1);
 			}
@@ -3944,14 +3992,14 @@ public sealed class RecipeBookSystem : ModSystem
 		BookRect sampleSlot = BookGeometry.SampleSlot;
 		if (rightClick && StorageView && !ModMenu)
 		{
-			for (int n = 0; n < 40; n++)
+			for (int n = 0; n < ActivePageSize; n++)
 			{
-				int index = Page * 40 + n;
+				int index = Page * ActivePageSize + n;
 				if (index >= Filtered.Count)
 				{
 					break;
 				}
-				if (BookGeometry.RecipeCell(n).Contains(Mouse.X, Mouse.Y))
+				if (BookGeometry.GridCell(n, BookGeometry.StorageGridTop).Contains(Mouse.X, Mouse.Y))
 				{
 					if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, leftPressed: false, rightClick, shift: false) == BookStorageGesture.Transfer.One)
 					{
@@ -3961,374 +4009,380 @@ public sealed class RecipeBookSystem : ModSystem
 				}
 			}
 		}
-		if (rightClick && !StorageView && !RecentView && !TrackingView && !ModMenu && sampleSlot.Contains(Mouse.X, Mouse.Y))
+		if (rightClick && Chains && !MenuOpen && sampleSlot.Contains(Mouse.X, Mouse.Y))
 		{
-			SetSample(0);
+			ClearSample();
+			return;
 		}
-		else
+		if (!click)
 		{
-			if (!click)
+			return;
+		}
+		if (SortMenu)
+		{
+			for (int option = 0; option < 6; option++)
 			{
-				return;
-			}
-			if (BookGeometry.Help.Contains(Mouse.X, Mouse.Y))
-			{
-				SetTyping(value: false);
-				HelpOpen = true;
-				return;
-			}
-			if (BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y))
-			{
-				SetTyping(value: false);
-				Open = (MouseOver = false);
-				BookStorage.CancelCraft();
-				return;
-			}
-			for (int tab = 0; tab < 6; tab++)
-			{
-				if (BookGeometry.Tab(tab).Contains(Mouse.X, Mouse.Y))
+				if (BookGeometry.SortOption(option).Contains(Mouse.X, Mouse.Y))
 				{
-					SwitchTab(tab);
-					return;
+					ApplySortOption(option);
+					break;
 				}
 			}
-			if (!TrackingView && BookGeometry.StageFilter.Contains(Mouse.X, Mouse.Y))
+			SortMenu = false;
+			return;
+		}
+		if (BookGeometry.Help.Contains(Mouse.X, Mouse.Y))
+		{
+			SetTyping(value: false);
+			HelpOpen = true;
+			return;
+		}
+		if (BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y))
+		{
+			SetTyping(value: false);
+			Open = (MouseOver = false);
+			BookStorage.CancelCraft();
+			return;
+		}
+		foreach (int tab in VisibleTabs())
+		{
+			if (TabRect(tab).Contains(Mouse.X, Mouse.Y))
 			{
-				StageFilter = (BookStageFilter)((int)(StageFilter + 1) % 4);
-				Page = (DetailsPage = (Variant = 0));
-				ApplyFilters();
-				if (Chains)
-				{
-					ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Chain stage audit: sample={SampleType}, stage={StageFilter}, visible={Filtered.Count}, uncertain={ChainUnknownVisibleCount}, excludedByStage={ChainStageExcludedCount}, craftableOnly={ChainCraftableOnly}");
-				}
+				SwitchTab(tab);
 				return;
 			}
-			if (BookGeometry.CraftSource.Contains(Mouse.X, Mouse.Y))
+		}
+		int stage = (TrackingView || ModMenu) ? (-1) : SegmentAt(StageRects());
+		if (stage >= 0)
+		{
+			StageFilter = (BookStageFilter)stage;
+			Page = (DetailsPage = (Variant = 0));
+			ApplyFilters();
+			if (Chains)
 			{
-				BookStorage.ChooseCraftSource(!BookStorage.UseForCrafting);
+				ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Chain stage audit: sample={SampleType}, stage={StageFilter}, visible={Filtered.Count}, uncertain={ChainUnknownVisibleCount}, excludedByStage={ChainStageExcludedCount}, craftableOnly={ChainCraftableOnly}");
+			}
+			return;
+		}
+		int source = StorageTabVisible ? SegmentAt(CraftSourceRects()) : (-1);
+		if (source >= 0)
+		{
+			if ((source == 1) != BookStorage.UseForCrafting)
+			{
+				BookStorage.ChooseCraftSource(source == 1);
 				BookCrafting.Refresh(force: true);
 				if (Chains && ChainCraftableOnly)
 				{
 					ApplyFilters(clearMessage: false);
 				}
-				return;
 			}
-			if (TrackingView)
+			return;
+		}
+		if (TrackingView)
+		{
+			HandleTrackingTabInput();
+			return;
+		}
+		if (ModMenu)
+		{
+			if (BookGeometry.ModMenuPanel.Contains(Mouse.X, Mouse.Y))
 			{
-				HandleTrackingTabInput();
-				return;
-			}
-			if (ModMenu)
-			{
-				if (BookGeometry.ModMenuPanel.Contains(Mouse.X, Mouse.Y))
+				for (int j = 0; j < 9; j++)
 				{
-					for (int j = 0; j < 9; j++)
+					if (BookGeometry.ModOption(j).Contains(Mouse.X, Mouse.Y))
 					{
-						if (BookGeometry.ModOption(j).Contains(Mouse.X, Mouse.Y))
+						int n2 = ModOffset + j;
+						if (n2 <= Mods.Count)
 						{
-							int n2 = ModOffset + j;
-							if (n2 <= Mods.Count)
-							{
-								ModFilter = ((n2 == 0) ? "" : Mods[n2 - 1]);
-								ModMenu = false;
-								Page = (DetailsPage = 0);
-								ApplyFilters();
-							}
-							return;
+							ModFilter = ((n2 == 0) ? "" : Mods[n2 - 1]);
+							ModMenu = false;
+							Page = (DetailsPage = 0);
+							ApplyFilters();
 						}
+						return;
 					}
 				}
-				ModMenu = false;
-				return;
 			}
-			if (StorageView)
+			ModMenu = false;
+			return;
+		}
+		if (StorageView)
+		{
+			if (BookGeometry.StorageConnect.Contains(Mouse.X, Mouse.Y))
 			{
-				if (BookGeometry.StorageConnect.Contains(Mouse.X, Mouse.Y))
-				{
-					SetTyping(value: false);
-					if (BookStorage.ConnectNearby() && !BookStorage.Connected)
-					{
-						CloseForStorage();
-					}
-					return;
-				}
-				if (BookGeometry.StorageQuickStack.Contains(Mouse.X, Mouse.Y))
-				{
-					BookStorage.InventoryAction(true);
-					return;
-				}
-				if (BookGeometry.StorageRestock.Contains(Mouse.X, Mouse.Y))
-				{
-					BookStorage.InventoryAction(null);
-					return;
-				}
-				if (BookGeometry.StorageDepositAll.Contains(Mouse.X, Mouse.Y))
-				{
-					BookStorage.InventoryAction(false);
-					return;
-				}
-				if (BookGeometry.StorageDeposit.Contains(Mouse.X, Mouse.Y))
-				{
-					BookStorage.DepositCursor();
-					return;
-				}
-				if (BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
+				SetTyping(value: false);
+				if (BookStorage.ConnectNearby() && !BookStorage.Connected)
 				{
 					CloseForStorage();
-					return;
 				}
-				if (BookGeometry.StorageDisconnect.Contains(Mouse.X, Mouse.Y))
-				{
-					BookStorage.Disconnect();
-					return;
-				}
+				return;
 			}
-			if (!StorageView && !RecentView && sampleSlot.Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.StorageQuickStack.Contains(Mouse.X, Mouse.Y))
 			{
+				BookStorage.InventoryAction(true);
+				return;
+			}
+			if (BookGeometry.StorageRestock.Contains(Mouse.X, Mouse.Y))
+			{
+				BookStorage.InventoryAction(null);
+				return;
+			}
+			if (BookGeometry.StorageDepositAll.Contains(Mouse.X, Mouse.Y))
+			{
+				BookStorage.InventoryAction(false);
+				return;
+			}
+			if (BookGeometry.StorageDeposit.Contains(Mouse.X, Mouse.Y))
+			{
+				BookStorage.DepositCursor();
+				return;
+			}
+			if (BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
+			{
+				CloseForStorage();
+				return;
+			}
+			if (BookGeometry.StorageDisconnect.Contains(Mouse.X, Mouse.Y))
+			{
+				BookStorage.Disconnect();
+				return;
+			}
+		}
+		if (Chains)
+		{
+			if (SampleType > 0 && BookGeometry.SampleClear.Contains(Mouse.X, Mouse.Y))
+			{
+				ClearSample();
+				return;
+			}
+			if (sampleSlot.Contains(Mouse.X, Mouse.Y))
+			{
+				SetTyping(value: false);
 				if (!Main.mouseItem.IsAir)
 				{
 					SetSample(Main.mouseItem.type);
-					return;
 				}
-				if (SampleType > 0)
+				else
 				{
-					SwitchTab(2);
-					return;
+					Main.playerInventory = true;
 				}
-				SetTyping(value: false);
-				Main.playerInventory = true;
 				return;
 			}
-			if (!StorageView && !RecentView && BookGeometry.SampleClear.Contains(Mouse.X, Mouse.Y))
+			int filter = SegmentAt(ChainFilterRects());
+			if (filter >= 0)
 			{
-				SetSample(0);
-				return;
-			}
-			if (!StorageView && !RecentView && BookGeometry.SampleOpen.Contains(Mouse.X, Mouse.Y))
-			{
-				if (SampleType > 0)
+				ChainCraftableOnly = filter == 1;
+				if (ChainCraftableOnly)
 				{
-					SwitchTab(2);
-					return;
+					BookCrafting.Refresh(force: true);
 				}
-				SetTyping(value: false);
-				Main.playerInventory = true;
-				return;
-			}
-			if (BookGeometry.SearchClear.Contains(Mouse.X, Mouse.Y))
-			{
-				Query = "";
-				SetTyping(value: false);
-				Page = 0;
+				Page = (DetailsPage = 0);
 				ApplyFilters();
 				return;
 			}
-			SetTyping(BookGeometry.Search.Contains(Mouse.X, Mouse.Y));
-			if (Typing)
+			int first = Math.Max(0, ChainHistory.Count - 4);
+			for (int visible = 0; ChainHistory.Count > 1 && visible < Math.Min(4, ChainHistory.Count); visible++)
 			{
-				return;
+				if (BookGeometry.ChainCrumb(visible).Contains(Mouse.X, Mouse.Y))
+				{
+					GoToChain(first + visible);
+					return;
+				}
 			}
-			if (!TrackingView && BookGeometry.Refresh.Contains(Mouse.X, Mouse.Y))
+		}
+		if (RecipeSampleFilter && SampleChipRect().Contains(Mouse.X, Mouse.Y))
+		{
+			ClearSample();
+			return;
+		}
+		if (Query.Length > 0 && BookGeometry.SearchClear.Contains(Mouse.X, Mouse.Y))
+		{
+			Query = "";
+			SetTyping(value: false);
+			Page = 0;
+			ApplyFilters();
+			return;
+		}
+		SetTyping(BookGeometry.Search.Contains(Mouse.X, Mouse.Y));
+		if (Typing)
+		{
+			return;
+		}
+		if (BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))
+		{
+			ModMenu = true;
+			ModOffset = 0;
+			return;
+		}
+		if (BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
+		{
+			SortMenu = !RecentView;
+			return;
+		}
+		if (BookGeometry.FavoritesFilter.Contains(Mouse.X, Mouse.Y))
+		{
+			FavoritesOnly = !FavoritesOnly;
+			Page = 0;
+			ApplyFilters();
+			return;
+		}
+		for (int visible = 0; visible < BookGeometry.VisibleCategoryRows; visible++)
+		{
+			int index2 = CategoryRow + visible;
+			if (index2 >= Categories.Count)
 			{
-				RefreshView();
-				return;
+				break;
 			}
-			if (BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.CategoryCell(visible).Contains(Mouse.X, Mouse.Y))
 			{
-				ModMenu = true;
-				ModOffset = 0;
-				return;
-			}
-			if (!TrackingView && BookGeometry.FavoritesFilter.Contains(Mouse.X, Mouse.Y))
-			{
-				FavoritesOnly = !FavoritesOnly;
-				Page = 0;
+				Category = ((Category != index2) ? index2 : 0);
+				Page = (DetailsPage = 0);
 				ApplyFilters();
 				return;
 			}
-			if (BookGeometry.CategoryPrevious.Contains(Mouse.X, Mouse.Y))
+		}
+		for (int n3 = 0; n3 < ActivePageSize; n3++)
+		{
+			int index3 = Page * ActivePageSize + n3;
+			if (index3 >= Filtered.Count)
 			{
-				CategoryRow = Math.Max(0, CategoryRow - 1);
-				return;
+				break;
 			}
-			if (BookGeometry.CategoryNext.Contains(Mouse.X, Mouse.Y))
+			if ((Chains ? BookGeometry.ChainCell(n3) : BookGeometry.GridCell(n3, GridTop)).Contains(Mouse.X, Mouse.Y))
 			{
-				CategoryRow = Math.Min(MaxCategoryRow, CategoryRow + 1);
-				return;
-			}
-			for (int visible = 0; visible < 30; visible++)
-			{
-				int index2 = CategoryRow * 3 + visible;
-				if (index2 >= Categories.Count)
+				KeyboardState keyboard = Keyboard.GetState();
+				if (keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt))
 				{
-					break;
-				}
-				if (BookGeometry.CategoryCell(visible).Contains(Mouse.X, Mouse.Y))
-				{
-					Category = ((Category != index2) ? index2 : 0);
-					Page = (DetailsPage = 0);
-					ApplyFilters();
+					ToggleFavorite(Result(Filtered[index3]));
 					return;
 				}
-			}
-			if (Chains)
-			{
-				for (int choice = 0; choice < 2; choice++)
+				if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, click, rightPressed: false, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) == BookStorageGesture.Transfer.Stack)
 				{
-					if (BookGeometry.ChainFilter(choice).Contains(Mouse.X, Mouse.Y))
-					{
-						ChainCraftableOnly = choice == 1;
-						if (ChainCraftableOnly)
-						{
-							BookCrafting.Refresh(force: true);
-						}
-						Page = (DetailsPage = 0);
-						ApplyFilters();
-						return;
-					}
-				}
-				if (BookGeometry.ChainBack.Contains(Mouse.X, Mouse.Y))
-				{
-					GoToChain(ChainHistory.Count - 2);
-					return;
-				}
-				int first = Math.Max(0, ChainHistory.Count - 4);
-				for (int visible2 = 0; visible2 < Math.Min(4, ChainHistory.Count); visible2++)
-				{
-					if (BookGeometry.ChainCrumb(visible2).Contains(Mouse.X, Mouse.Y))
-					{
-						GoToChain(first + visible2);
-						return;
-					}
-				}
-			}
-			for (int n3 = 0; n3 < ActivePageSize; n3++)
-			{
-				int index3 = Page * ActivePageSize + n3;
-				if (index3 >= Filtered.Count)
-				{
-					break;
-				}
-				if ((Chains ? BookGeometry.ChainCell(n3) : BookGeometry.RecipeCell(n3)).Contains(Mouse.X, Mouse.Y))
-				{
-					KeyboardState keyboard = Keyboard.GetState();
-					if (keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt))
-					{
-						ToggleFavorite(Result(Filtered[index3]));
-						return;
-					}
-					if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, click, rightPressed: false, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) == BookStorageGesture.Transfer.Stack)
-					{
-						Selected = Filtered[index3];
-						BookStorage.Withdraw(Result(Selected), single: false);
-						return;
-					}
-					if (Chains && BookGeometry.ChainDrill(n3).Contains(Mouse.X, Mouse.Y))
-					{
-						SetSample(Result(Filtered[index3]).type, append: true);
-						return;
-					}
-					if (!StorageView && (keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)))
-					{
-						SetSample(Result(Filtered[index3]).type);
-						return;
-					}
-					ArmorFocus = 0;
 					Selected = Filtered[index3];
-					DetailsPage = (Variant = 0);
-					BookCrafting.LastMessage = "";
+					BookStorage.Withdraw(Result(Selected), single: false);
 					return;
 				}
-			}
-			if ((Chains ? BookGeometry.ChainPrev : BookGeometry.PagePrevious).Contains(Mouse.X, Mouse.Y))
-			{
-				Page = Math.Max(0, Page - 1);
-			}
-			if (BookGeometry.PageNext.Contains(Mouse.X, Mouse.Y))
-			{
-				Page = Math.Min(Pages - 1, Page + 1);
-			}
-			if (Selected < 0 || StorageView || HandleArmorSetClick() || HandleTrackButton())
-			{
+				if (Chains && BookGeometry.ChainDrill(n3).Contains(Mouse.X, Mouse.Y))
+				{
+					SetSample(Result(Filtered[index3]).type, append: true);
+					return;
+				}
+				if (!StorageView && (keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)))
+				{
+					SetSample(Result(Filtered[index3]).type);
+					return;
+				}
+				ArmorFocus = 0;
+				Selected = Filtered[index3];
+				DetailsPage = (Variant = 0);
+				BookCrafting.LastMessage = "";
 				return;
 			}
-			if (SelectedRecipe == null)
+		}
+		if (BookGeometry.PagePrevious.Contains(Mouse.X, Mouse.Y))
+		{
+			Page = Math.Max(0, Page - 1);
+		}
+		if (BookGeometry.PageNext.Contains(Mouse.X, Mouse.Y))
+		{
+			Page = Math.Min(Pages - 1, Page + 1);
+		}
+		if (Selected < 0 || StorageView || HandleArmorSetClick() || HandleTrackButton())
+		{
+			return;
+		}
+		Item chosen = SelectedItem;
+		Recipe materialRecipe = SelectedRecipe;
+		float top = RecipeBlockTop(chosen);
+		if (materialRecipe == null)
+		{
+			if (chosen != null && !chosen.IsAir && BookGeometry.SelectedItemObtain(top).Contains(Mouse.X, Mouse.Y))
 			{
-				Item obtainItem = SelectedItem;
-				if (obtainItem != null && !obtainItem.IsAir && BookGeometry.SelectedItemObtain.Contains(Mouse.X, Mouse.Y))
-				{
-					OpenAcquisition(obtainItem.type, null);
-					return;
-				}
-			}
-			Recipe materialRecipe = SelectedRecipe;
-			if (materialRecipe != null)
-			{
-				if (HandleBatchChoiceClick(materialRecipe))
-				{
-					return;
-				}
-				List<Detail> details = Details(materialRecipe);
-				for (int row = 0; row < 3; row++)
-				{
-					int detail = DetailsPage * 3 + row;
-					if (detail >= details.Count)
-					{
-						continue;
-					}
-					Item material = details[detail].Icon;
-					if (material != null && !material.IsAir && BookGeometry.DetailRow(row).Contains(Mouse.X, Mouse.Y))
-					{
-						if (BookGeometry.DetailObtain(row).Contains(Mouse.X, Mouse.Y))
-						{
-							OpenAcquisition(material.type, details[detail].SourceTypes);
-						}
-						else
-						{
-							SetSample(material.type);
-						}
-						return;
-					}
-				}
-			}
-			if (BookGeometry.FavoriteAction.Contains(Mouse.X, Mouse.Y))
-			{
-				ToggleFavorite(SelectedItem);
-			}
-			if (BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
-			{
-				Recipe recipe = SelectedRecipe;
-				BookCrafting.TryCraft(recipe, Ru, PreviewBatches(recipe));
-				if (Chains && ChainCraftableOnly)
-				{
-					ApplyFilters(clearMessage: false);
-				}
+				OpenAcquisition(chosen.type, null);
 				return;
 			}
+		}
+		else
+		{
 			if ((Catalogue || ArmorFocus > 0) && VariantCount > 1)
 			{
-				if (BookGeometry.VariantPrevious.Contains(Mouse.X, Mouse.Y))
+				if (BookGeometry.VariantPrevious(top).Contains(Mouse.X, Mouse.Y))
 				{
 					Variant = Math.Max(0, Variant - 1);
 					DetailsPage = 0;
 					return;
 				}
-				if (BookGeometry.VariantNext.Contains(Mouse.X, Mouse.Y))
+				if (BookGeometry.VariantNext(top).Contains(Mouse.X, Mouse.Y))
 				{
 					Variant = Math.Min(VariantCount - 1, Variant + 1);
 					DetailsPage = 0;
 					return;
 				}
 			}
-			if (BookGeometry.DetailPrevious.Contains(Mouse.X, Mouse.Y))
+			if (HandleBatchChoiceClick(materialRecipe))
+			{
+				return;
+			}
+			List<Detail> details = Details(materialRecipe);
+			List<List<DetailSlot>> pages = DetailPages(materialRecipe, details.Count, top);
+			foreach (DetailSlot slot in pages[Math.Clamp(DetailsPage, 0, pages.Count - 1)])
+			{
+				if (slot.Detail < 0 || !slot.Rect.Contains(Mouse.X, Mouse.Y))
+				{
+					continue;
+				}
+				Item material = details[slot.Detail].Icon;
+				if (material != null && !material.IsAir)
+				{
+					if (BookGeometry.DetailListObtain(slot.Rect).Contains(Mouse.X, Mouse.Y))
+					{
+						OpenAcquisition(material.type, details[slot.Detail].SourceTypes);
+					}
+					else
+					{
+						SetSample(material.type);
+					}
+				}
+				return;
+			}
+			if (pages.Count > 1 && BookGeometry.DetailListPrevious.Contains(Mouse.X, Mouse.Y))
 			{
 				DetailsPage = Math.Max(0, DetailsPage - 1);
+				return;
 			}
-			if (BookGeometry.DetailNext.Contains(Mouse.X, Mouse.Y))
+			if (pages.Count > 1 && BookGeometry.DetailListNext.Contains(Mouse.X, Mouse.Y))
 			{
-				DetailsPage = Math.Min(MaxDetailsPage(), DetailsPage + 1);
+				DetailsPage = Math.Min(pages.Count - 1, DetailsPage + 1);
+				return;
 			}
 		}
+		if (BookGeometry.FavoriteAction.Contains(Mouse.X, Mouse.Y))
+		{
+			ToggleFavorite(chosen);
+			return;
+		}
+		if (materialRecipe != null && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
+		{
+			BookCrafting.TryCraft(materialRecipe, Ru, PreviewBatches(materialRecipe));
+			if (Chains && ChainCraftableOnly)
+			{
+				ApplyFilters(clearMessage: false);
+			}
+		}
+	}
+
+	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : BookGeometry.GridTop;
+
+	// Clearing the chain item only drops the sample; search and the other filters stay as they are.
+	private static void ClearSample()
+	{
+		SampleType = 0;
+		ChainHistory.Clear();
+		ArmorFocus = 0;
+		Selected = -1;
+		Page = (DetailsPage = (Variant = 0));
+		RefreshSampleRecipes();
+		ApplyFilters();
 	}
 
 	private static void ToggleFavorite(Item item)
@@ -4357,20 +4411,20 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool HandleKeys(KeyboardState keys)
 	{
-		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, ModMenu, StorageView, Chains);
+		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, MenuOpen, StorageView, Chains);
 		switch (action)
 		{
 		case BookHotkeys.Action.None:
 			return false;
 		case BookHotkeys.Action.Help:
 			SetTyping(value: false);
-			ModMenu = false;
+			ModMenu = (SortMenu = false);
 			HelpOpen = !HelpOpen;
 			break;
 		case BookHotkeys.Action.Search:
 			if (!TrackingView)
 			{
-				ModMenu = false;
+				ModMenu = (SortMenu = false);
 				SetTyping(value: true);
 			}
 			break;
@@ -4384,7 +4438,10 @@ public sealed class RecipeBookSystem : ModSystem
 			SwitchTab(2);
 			break;
 		case BookHotkeys.Action.Storage:
-			SwitchTab(3);
+			if (StorageTabVisible)
+			{
+				SwitchTab(3);
+			}
 			break;
 		case BookHotkeys.Action.Recent:
 			SwitchTab(4);
@@ -4394,8 +4451,12 @@ public sealed class RecipeBookSystem : ModSystem
 			break;
 		case BookHotkeys.Action.NextTab:
 		case BookHotkeys.Action.PreviousTab:
-			SwitchTab(((TrackingView ? 5 : (RecentView ? 4 : (StorageView ? 3 : (Chains ? 2 : ((!Catalogue) ? 1 : 0))))) + ((action == BookHotkeys.Action.NextTab) ? 1 : 5)) % 6);
+		{
+			List<int> tabs = VisibleTabs();
+			int current = Math.Max(0, tabs.IndexOf(CurrentTab));
+			SwitchTab(tabs[(current + ((action == BookHotkeys.Action.NextTab) ? 1 : (tabs.Count - 1))) % tabs.Count]);
 			break;
+		}
 		case BookHotkeys.Action.ResetFilters:
 			Query = (ModFilter = "");
 			StageFilter = BookStageFilter.All;
@@ -4450,12 +4511,95 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return 0;
 		}
-		int n = r.requiredItem.Count((Item i) => !i.IsAir) + r.requiredTile.Count((int t) => t >= 0) + r.Conditions.Count;
-		if (r.requiredTile.Count((int t) => t >= 0) == 0)
+		return DetailPages(r, DetailCount(r), RecipeBlockTop(SelectedItem)).Count - 1;
+	}
+
+	// Details(r) rows in order: ingredients, stations (or "By hand"), conditions.
+	private static int DetailCount(Recipe r)
+	{
+		return r.requiredItem.Count((Item i) => !i.IsAir) + Math.Max(1, r.requiredTile.Count((int t) => t >= 0)) + r.Conditions.Count;
+	}
+
+	private readonly record struct DetailSlot(BookRect Rect, int Detail, string Header);
+
+	// Lays the recipe rows out under section labels (Ingredients, Station, Conditions). Everything fits on
+	// one page when it can; otherwise pages leave room for the pager and repeat the section label.
+	private static List<List<DetailSlot>> DetailPages(Recipe r, int count, float top)
+	{
+		int materials = r.requiredItem.Count((Item i) => !i.IsAir);
+		int realStations = r.requiredTile.Count((int t) => t >= 0);
+		int stations = Math.Max(1, realStations);
+		List<List<DetailSlot>> pages = Place(BookGeometry.DetailListBottom);
+		if (pages.Count > 1)
 		{
-			n++;
+			pages = Place(BookGeometry.DetailListPagedBottom);
 		}
-		return Math.Max(0, (n - 1) / 3);
+		return pages;
+		int Kind(int index)
+		{
+			if (index >= materials)
+			{
+				if (index >= materials + stations)
+				{
+					return 2;
+				}
+				return 1;
+			}
+			return 0;
+		}
+		string Header(int kind)
+		{
+			return kind switch
+			{
+				0 => T("Ингредиенты", "Ingredients"),
+				1 => (realStations > 1) ? T("Станции", "Stations") : T("Станция", "Station"),
+				_ => T("Условия", "Conditions"),
+			};
+		}
+		List<List<DetailSlot>> Place(float bottom)
+		{
+			float listTop = top + 80f;
+			List<List<DetailSlot>> result = new List<List<DetailSlot>>
+			{
+				new List<DetailSlot>()
+			};
+			float y = listTop;
+			int lastKind = -1;
+			for (int i = 0; i < count; i++)
+			{
+				int kind = Kind(i);
+				bool header = kind != lastKind;
+				float need = (header ? (((y > listTop) ? 8f : 0f) + 22f) : 0f) + 32f;
+				if (y + need > bottom && result[^1].Count > 0)
+				{
+					result.Add(new List<DetailSlot>());
+					y = listTop;
+					header = true;
+				}
+				if (header)
+				{
+					if (y > listTop)
+					{
+						y += 8f;
+					}
+					result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, 18f), -1, Header(kind)));
+					y += 22f;
+				}
+				result[^1].Add(new DetailSlot(new BookRect(812f, y, 284f, 32f), i, null));
+				y += 36f;
+				lastKind = kind;
+			}
+			return result;
+		}
+	}
+
+	private static float RecipeBlockTop(Item chosen)
+	{
+		if (chosen == null || BookArmorSets.Get(chosen.type) == null)
+		{
+			return BookGeometry.RecipeTop;
+		}
+		return BookGeometry.ArmorRecipeTop;
 	}
 
 	internal static void CloseForStorage()
@@ -4553,7 +4697,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		Box(sb2, x2, y2, w2, h2, color, border: true, 8f, active ? new Color?(Accent) : ((Color?)null), (!active) ? 1 : 2);
 		float padding = ((w <= 48f) ? 4 : 8);
-		CenterLabel(sb, label, x + padding, y + 4f, w - padding * 2f, h - 8f, active ? Accent : TextColor, 1f, rightAligned: false, leftAligned: false, fitWidth || w <= 72f);
+		CenterLabel(sb, label, x + padding, y + 4f, w - padding * 2f, h - 8f, active ? Accent : TextColor, 0.9f, rightAligned: false, leftAligned: false, fitWidth || w <= 72f);
 	}
 
 	private static BookGlyphLayout.Bounds Ink(string value)
@@ -4626,7 +4770,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawTextPair(SpriteBatch sb, string name, string subtitle, float x, float y, float width, float height, Color titleColor, Color subColor)
 	{
 		BookTypography.Line title = BookTypography.Layout(BookRules.PlainText(name), width, 24f, 1f, TextScale, MeasureInk);
-		BookTypography.Line sub = BookTypography.Layout(BookRules.PlainText(subtitle), width, 20f, 0.78f, TextScale, MeasureInk);
+		BookTypography.Line sub = BookTypography.Layout(BookRules.PlainText(subtitle), width, 20f, 0.8f, TextScale, MeasureInk);
 		BookGlyphLayout.Bounds titleInk = Ink(title.Value);
 		BookGlyphLayout.Bounds subInk = Ink(sub.Value);
 		float titleHeight = titleInk.Height * title.Scale;
@@ -4648,6 +4792,235 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void Button(SpriteBatch sb, BookRect rect, string label, bool active = false, bool fitWidth = false)
 	{
 		Button(sb, rect.X, rect.Y, rect.Width, rect.Height, label, active, fitWidth);
+	}
+
+	private static readonly Color HoverFill = new Color(51, 67, 55);
+
+	private static readonly Color SelectedFill = new Color(50, 76, 59);
+
+	private static readonly Color FieldFill = new Color(19, 28, 22);
+
+	private static readonly Color Good = new Color(150, 220, 160);
+
+	private static readonly Color Bad = new Color(238, 151, 126);
+
+	private static readonly Color Caution = new Color(223, 185, 139);
+
+	private static bool MenuOpen => ModMenu || SortMenu;
+
+	private static bool StorageTabVisible => BookStorage.Installed;
+
+	private static float TextWidth(string value, float size)
+	{
+		return Ink(BookRules.PlainText(value)).Width * size * Math.Clamp(TextScale, 0.9f, 1.15f);
+	}
+
+	// Thin vector strokes for icons (chevrons, crosses, plus) so every glyph shares one weight.
+	private static void Line(SpriteBatch sb, float x1, float y1, float x2, float y2, Color color, float thickness = 2f)
+	{
+		Vector2 a = Origin + new Vector2(x1, y1) * Scale;
+		Vector2 b = Origin + new Vector2(x2, y2) * Scale;
+		Vector2 delta = b - a;
+		float length = delta.Length();
+		if (!(length <= 0f))
+		{
+			sb.Draw(TextureAssets.MagicPixel.Value, a, new Rectangle(0, 0, 1, 1), color * GraphicsOpacity, (float)Math.Atan2(delta.Y, delta.X), new Vector2(0f, 0.5f), new Vector2(length, Math.Max(1f, thickness * Scale)), SpriteEffects.None, 0f);
+		}
+	}
+
+	// direction: 0 down, 1 up, 2 left, 3 right
+	private static void Chevron(SpriteBatch sb, float cx, float cy, float size, int direction, Color color)
+	{
+		float h = size / 2f;
+		switch (direction)
+		{
+		case 0:
+			Line(sb, cx - size, cy - h, cx + 0.5f, cy + h + 0.5f, color);
+			Line(sb, cx - 0.5f, cy + h + 0.5f, cx + size, cy - h, color);
+			break;
+		case 1:
+			Line(sb, cx - size, cy + h, cx + 0.5f, cy - h - 0.5f, color);
+			Line(sb, cx - 0.5f, cy - h - 0.5f, cx + size, cy + h, color);
+			break;
+		case 2:
+			Line(sb, cx + h, cy - size, cx - h - 0.5f, cy + 0.5f, color);
+			Line(sb, cx - h - 0.5f, cy - 0.5f, cx + h, cy + size, color);
+			break;
+		default:
+			Line(sb, cx - h, cy - size, cx + h + 0.5f, cy + 0.5f, color);
+			Line(sb, cx + h + 0.5f, cy - 0.5f, cx - h, cy + size, color);
+			break;
+		}
+	}
+
+	private static void Cross(SpriteBatch sb, float cx, float cy, float size, Color color)
+	{
+		Line(sb, cx - size, cy - size, cx + size, cy + size, color);
+		Line(sb, cx - size, cy + size, cx + size, cy - size, color);
+	}
+
+	private static void Plus(SpriteBatch sb, float cx, float cy, float size, Color color)
+	{
+		Line(sb, cx - size, cy, cx + size, cy, color);
+		Line(sb, cx, cy - size, cx, cy + size, color);
+	}
+
+	// Search glyph: an octagon lens and a handle.
+	private static void Magnifier(SpriteBatch sb, float cx, float cy, Color color)
+	{
+		float x = cx - 1.5f;
+		float y = cy - 1.5f;
+		for (int i = 0; i < 8; i++)
+		{
+			double a = Math.PI / 4.0 * i + Math.PI / 8.0;
+			double b = Math.PI / 4.0 * (i + 1) + Math.PI / 8.0;
+			Line(sb, x + (float)Math.Cos(a) * 5f, y + (float)Math.Sin(a) * 5f, x + (float)Math.Cos(b) * 5f, y + (float)Math.Sin(b) * 5f, color);
+		}
+		Line(sb, x + 3.5f, y + 3.5f, x + 7.5f, y + 7.5f, color);
+	}
+
+	// Vanilla's defense shield followed by the number, as in the inventory.
+	private static void DefenseBadge(SpriteBatch sb, float centerX, float y, int defense, Color color)
+	{
+		string value = defense.ToString();
+		float width = TextWidth(value, 0.8f) + 4f;
+		float left = centerX - (16f + 4f + width) / 2f;
+		Texture2D shield = TextureAssets.Extra[58].Value;
+		float scale = 16f / Math.Max(shield.Width, shield.Height);
+		sb.Draw(shield, Origin + new Vector2(left + 8f, y + 8f) * Scale, null, Color.White * GraphicsOpacity, 0f, shield.Size() / 2f, scale * Scale, SpriteEffects.None, 0f);
+		CenterLabel(sb, value, left + 20f, y, width, 16f, color, 0.8f, rightAligned: false, leftAligned: true);
+	}
+
+	// Favorite marker: the Fallen Star icon, dimmed when off.
+	private static void Star(SpriteBatch sb, float x, float y, float size, bool on)
+	{
+		if (ContentSamples.ItemsByType.TryGetValue(75, out var star))
+		{
+			Main.instance.LoadItem(75);
+			Texture2D texture = TextureAssets.Item[75].Value;
+			Rectangle frame = Main.itemAnimations[75]?.GetFrame(texture) ?? texture.Bounds;
+			float s = Math.Min(size / (float)Math.Max(1, frame.Width), size / (float)Math.Max(1, frame.Height));
+			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, on ? Color.White : (Color.White * 0.3f), 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
+		}
+	}
+
+	// Square icon button frame (hover brighter, selected Accent, disabled flat). Returns hover.
+	private static bool IconButtonFrame(SpriteBatch sb, BookRect rect, bool active = false, bool enabled = true)
+	{
+		bool hover = enabled && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		Color fill = ((active || (hover && Main.mouseLeft)) ? SelectedFill : (hover ? HoverFill : (enabled ? Raised : Surface)));
+		Box(sb, rect, fill, border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
+		return hover;
+	}
+
+	// Primary: Accent fill with dark text. Secondary: outlined. Disabled: flat and muted, no hover.
+	private static void ActionButton(SpriteBatch sb, BookRect rect, string label, bool primary, bool enabled = true)
+	{
+		bool hover = enabled && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		if (primary && enabled)
+		{
+			Color fill = (hover ? (Main.mouseLeft ? new Color(158, 198, 171) : new Color(204, 236, 214)) : Accent);
+			Box(sb, rect, fill, border: false, 8f);
+			DrawPlainLabel(sb, label, rect, Panel, 0.9f);
+			return;
+		}
+		Box(sb, rect, enabled ? (hover ? (Main.mouseLeft ? SelectedFill : HoverFill) : Raised) : Surface, border: true, 8f);
+		CenterLabel(sb, label, rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, enabled ? TextColor : Muted, 0.9f);
+	}
+
+	// Centered text without the black outline, for dark text on a light fill.
+	private static void DrawPlainLabel(SpriteBatch sb, string label, BookRect rect, Color color, float size)
+	{
+		label = BookRules.PlainText(label);
+		BookTypography.Line line = BookTypography.Layout(label, rect.Width - 16f, rect.Height - 8f, size, TextScale, (string value) =>
+		{
+			BookGlyphLayout.Bounds bounds = Ink(value);
+			return (Width: bounds.Width, Height: bounds.Height);
+		}, centered: true);
+		BookGlyphLayout.Bounds ink = Ink(line.Value);
+		Vector2 pos = Origin + new Vector2(rect.X + 8f + line.X - ink.X * line.Scale, rect.Y + 4f + line.Y - ink.Y * line.Scale) * Scale;
+		sb.DrawString(FontAssets.MouseText.Value, line.Value, pos, color * GraphicsOpacity, 0f, Vector2.Zero, line.Scale * Scale, SpriteEffects.None, 0f);
+	}
+
+	// Segmented control: all options visible, the selected one highlighted. Natural widths fit each label.
+	private static BookRect[] SegmentRects(BookRect bounds, string[] labels, float size, bool natural, bool alignRight = false)
+	{
+		float[] widths = (natural ? labels.Select((string label) => TextWidth(label, size) + 24f).ToArray() : Enumerable.Repeat(bounds.Width / (float)labels.Length, labels.Length).ToArray());
+		float x = (alignRight ? (bounds.X + bounds.Width - widths.Sum()) : bounds.X);
+		BookRect[] rects = new BookRect[labels.Length];
+		for (int i = 0; i < labels.Length; i++)
+		{
+			rects[i] = new BookRect(x, bounds.Y, widths[i], bounds.Height);
+			x += widths[i];
+		}
+		return rects;
+	}
+
+	private static int SegmentAt(BookRect[] rects)
+	{
+		for (int i = 0; i < rects.Length; i++)
+		{
+			if (rects[i].Contains(Mouse.X, Mouse.Y))
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private static void Segmented(SpriteBatch sb, BookRect[] rects, string[] labels, int selected, float size, bool enabled = true)
+	{
+		BookRect first = rects[0];
+		BookRect last = rects[^1];
+		Box(sb, first.X, first.Y, last.X + last.Width - first.X, first.Height, FieldFill, border: true, 8f);
+		for (int i = 0; i < rects.Length; i++)
+		{
+			BookRect r = rects[i];
+			bool on = i == selected;
+			bool hover = enabled && !on && !MenuOpen && r.Contains(Mouse.X, Mouse.Y);
+			if (on)
+			{
+				Box(sb, r.X + 2f, r.Y + 2f, r.Width - 4f, r.Height - 4f, SelectedFill, border: true, 6f, Accent);
+			}
+			else if (hover)
+			{
+				Box(sb, r.X + 2f, r.Y + 2f, r.Width - 4f, r.Height - 4f, HoverFill, border: false, 6f);
+			}
+			else if (i > 0 && i - 1 != selected)
+			{
+				Box(sb, r.X, r.Y + 8f, 1f, r.Height - 16f, Border, border: false, 0f);
+			}
+			CenterLabel(sb, labels[i], r.X + 6f, r.Y + 2f, r.Width - 12f, r.Height - 4f, on ? Accent : (enabled ? TextColor : Muted), size);
+		}
+	}
+
+	// Dropdown (closed state): current value and a chevron; the list opens inside the book.
+	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true)
+	{
+		bool hover = enabled && !open && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		Box(sb, rect, hover ? HoverFill : (enabled ? Raised : Surface), border: true, 8f, open ? new Color?(Accent) : null, (!open) ? 1 : 2);
+		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, enabled ? TextColor : Muted, 0.85f, rightAligned: false, leftAligned: true);
+		if (enabled)
+		{
+			Chevron(sb, rect.X + rect.Width - 18f, rect.Y + rect.Height / 2f, 4f, open ? 1 : 0, Muted);
+		}
+	}
+
+	private static void SectionLabel(SpriteBatch sb, string text, float x, float y, float width)
+	{
+		CenterLabel(sb, text.ToUpperInvariant(), x, y, width, 18f, Muted, 0.8f, rightAligned: false, leftAligned: true);
+	}
+
+	// Empty state: one title line and one hint, centered in the area.
+	private static void EmptyState(SpriteBatch sb, BookRect area, string title, string hint)
+	{
+		float middle = area.Y + area.Height / 2f;
+		float titleY = ((hint.Length > 0) ? (middle - 30f) : (middle - 14f));
+		CenterLabel(sb, title, area.X + 16f, titleY, area.Width - 32f, 28f, TextColor, 1f);
+		if (hint.Length > 0)
+		{
+			CenterLabel(sb, hint, area.X + 16f, middle + 4f, area.Width - 32f, 24f, Muted, 0.85f);
+		}
 	}
 
 	private static void Icon(SpriteBatch sb, Item item, float x, float y, float size, bool tooltip = true)
@@ -4788,7 +5161,8 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static string MaterialTooltip(MaterialRequirement requirement, BookMaterialRules.Assessment assessment, int batches)
 	{
-		return MaterialSub(assessment) + T(" (есть/нужно; ", " (have/need; ") + Count(requirement.Ingredient.stack) + T(" за партию × ", " per batch × ") + batches + ")." + (assessment.Overlapping ? T(" Группы пересекаются: одни предметы могут учитываться в нескольких строках.", " Groups overlap: the same items may be counted in multiple rows.") : "");
+		string have = (assessment.Unknown ? "?" : (assessment.Infinite ? "∞" : Count(assessment.Available)));
+		return T("Есть ", "Have ") + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "");
 	}
 
 	private static List<Detail> Details(Recipe r)
@@ -4803,83 +5177,80 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				color = Muted;
 			}
+			else if (assessment.HasDeficit)
+			{
+				color = Bad;
+			}
 			else
 			{
-				color = ((assessment.HasDeficit || assessment.Overlapping) ? new Color(223, 185, 139) : Accent);
+				color = (assessment.Overlapping ? Caution : Good);
 			}
-			string name = requirement.Name;
-			list.Add(new Detail(requirement.Ingredient, name, MaterialSub(assessment), color, color, MaterialTooltip(requirement, assessment, batches) + T("\nОценка без скидок расхода; станции и условия проверяет игра.", "\nEstimate before consumption discounts; the game checks stations and conditions."), requirement.ItemTypes.OrderBy((int x) => x).ToArray()));
+			list.Add(new Detail(requirement.Ingredient, requirement.Name, MaterialSub(assessment), color, color, MaterialTooltip(requirement, assessment, batches), requirement.ItemTypes.OrderBy((int x) => x).ToArray()));
 		}
 		foreach (int tile in r.requiredTile.Where((int t) => t >= 0))
 		{
 			StationItems.TryGetValue(tile, out var station);
-			string name2 = (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile)));
-			list.Add(new Detail(station, name2, T("Рабочая станция", "Crafting station"), Muted, Muted, ""));
+			string name = (StationNames.TryGetValue(tile, out var value) ? value : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile)));
+			list.Add(new Detail(station, name, T("Станция", "Station"), Muted, Muted, ""));
 		}
 		if (!r.requiredTile.Any((int t) => t >= 0))
 		{
-			list.Add(new Detail(null, T("Создаётся вручную", "Crafted by hand"), T("Станция не требуется", "No station required"), Muted, Muted, ""));
+			list.Add(new Detail(null, T("Вручную", "By hand"), T("Станция не нужна", "No station needed"), Muted, Muted, ""));
 		}
 		foreach (Condition c in r.Conditions)
 		{
-			list.Add(new Detail(null, c.Description.Value, T("Условие рецепта", "Recipe condition"), new Color(223, 185, 139), Muted, ""));
+			list.Add(new Detail(null, c.Description.Value, T("Условие", "Condition"), Caution, Muted, ""));
 		}
 		return list;
 	}
 
+	// The chain item slot sits in the top-left corner of the Chains content: the slot and one line of text.
 	private static void DrawSample(SpriteBatch sb)
 	{
-		BookRect panel = BookGeometry.SamplePanel;
 		BookRect slot = BookGeometry.SampleSlot;
-		Box(sb, panel.X, panel.Y, panel.Width, panel.Height, Surface, border: true, 12f);
-		bool hasSample = SampleType > 0 && ContentSamples.ItemsByType.TryGetValue(SampleType, out var _);
-		Box(sb, slot.X, slot.Y, slot.Width, slot.Height, new Color(36, 51, 41), border: true, 10f, Accent, (!hasSample) ? 1 : 2);
+		bool hasSample = SampleType > 0 && ContentSamples.ItemsByType.ContainsKey(SampleType);
+		bool hover = !MenuOpen && slot.Contains(Mouse.X, Mouse.Y);
+		Box(sb, slot, hover ? HoverFill : new Color(36, 51, 41), border: true, 10f, Accent, (!hasSample) ? 1 : 2);
+		float labelWidth = ChainFilterRects()[0].X - 12f - (slot.X + slot.Width + 12f);
 		if (hasSample)
 		{
 			Item sample = ContentSamples.ItemsByType[SampleType];
 			Icon(sb, sample, slot.X + 8f, slot.Y + 8f, 32f, tooltip: false);
-			SpriteBatch sb2 = sb;
-			string name = sample.Name;
-			string subtitle;
-			if (Catalogue)
+			CenterLabel(sb, sample.Name, slot.X + slot.Width + 12f, slot.Y + 8f, labelWidth, 32f, TextColor, 1f, rightAligned: false, leftAligned: true);
+			BookRect clear = BookGeometry.SampleClear;
+			bool clearHover = !MenuOpen && clear.Contains(Mouse.X, Mouse.Y);
+			Box(sb, clear, clearHover ? Bad : Raised, border: true, 9f);
+			Cross(sb, clear.X + clear.Width / 2f, clear.Y + clear.Height / 2f, 3f, clearHover ? Panel : TextColor);
+			if (clearHover)
 			{
-				subtitle = T("Образец для цепочки · Shift+клик в каталоге", "Chain sample · Shift-click a catalogue item");
+				MouseTip(T("Убрать предмет", "Remove the item"));
 			}
-			else
+			else if (hover)
 			{
-				subtitle = (Chains ? T("Из него можно сделать · ПКМ — очистить", "Crafting uses · Right-click to clear") : T("Рецепты создания · X — сброс фильтра", "Crafting recipes · X clears the filter"));
+				MouseTip(sample.Name + "\n" + T("Клик предметом с курсора заменяет · ПКМ: убрать", "Click with an item to replace · Right-click removes"));
 			}
-			DrawTextPair(sb2, name, subtitle, 256f, panel.Y, 312f, panel.Height, TextColor, Muted);
-			if (!ModMenu && slot.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(sample.Name + "\n" + T("ЛКМ: заменить предметом с курсора или открыть цепочку. ПКМ: очистить. Это образец, не хранилище.", "Left-click: copy cursor item type or open its chain. Right-click: clear. This is a sample, not storage."));
-			}
+			return;
 		}
-		else
+		Plus(sb, slot.X + slot.Width / 2f, slot.Y + slot.Height / 2f, 7f, Accent);
+		CenterLabel(sb, T("Положите предмет сюда", "Place an item here"), slot.X + slot.Width + 12f, slot.Y + 8f, labelWidth, 32f, Muted, 0.9f, rightAligned: false, leftAligned: true);
+		if (hover)
 		{
-			CenterLabel(sb, "+", slot.X + 4f, slot.Y + 4f, slot.Width - 8f, slot.Height - 8f, Accent, 1.2f);
-			DrawTextPair(sb, T("Поместите предмет", "Place an item here"), T("С курсора — в ячейку · или Shift+клик", "Click with a held item · or Shift-click"), 256f, panel.Y, 312f, panel.Height, TextColor, Muted);
-			if (!ModMenu && slot.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Возьмите предмет из инвентаря на курсор и нажмите на эту ячейку. Сам предмет останется на курсоре. Можно также нажать Shift+ЛКМ по предмету в книге. Без предмета — открыть инвентарь.", "Pick up an inventory item and click this slot. The real stack stays on the cursor. Or Shift-click an item in the book. Empty click opens inventory."));
-			}
-		}
-		Button(sb, BookGeometry.SampleOpen, hasSample ? T("Цепочка", "Chain") : T("Выбрать", "Choose"));
-		Button(sb, BookGeometry.SampleClear, "X");
-		if (!ModMenu && BookGeometry.SampleClear.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Очистить образец и фильтр рецептов", "Clear sample and recipe filter"));
+			MouseTip(T("Нажмите предметом с курсора", "Click with an item held on the cursor") + "\n" + T("Пустой клик открывает инвентарь", "An empty click opens the inventory"));
 		}
 	}
 
-	private static void DrawRecentToolbar(SpriteBatch sb)
+	private static string[] ChainFilterLabels()
 	{
-		BookRect panel = BookGeometry.SamplePanel;
-		Box(sb, panel.X, panel.Y, panel.Width, panel.Height, Surface, border: true, 12f);
-		int count = Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Count;
-		Text(sb, T("Последние успешные крафты", "Most recent successful crafts"), 196f, 176f, TextColor, 0.98f, 462f, 24f);
-		Text(sb, T("История персонажа · максимум ", "Character history · up to ") + 40 + T(" рецептов · записываются только подтверждённые крафты", " recipes · only confirmed crafts are recorded"), 196f, 208f, Muted, 0.78f, 552f, 16f);
-		CenterLabel(sb, count + "/" + 40, 670f, 176f, 78f, 24f, Accent, 0.88f);
+		return new string[2]
+		{
+			T("Все", "All"),
+			T("Можно создать", "Craftable")
+		};
+	}
+
+	private static BookRect[] ChainFilterRects()
+	{
+		return SegmentRects(new BookRect(212f, 172f, 568f, 32f), ChainFilterLabels(), 0.85f, natural: true, alignRight: true);
 	}
 
 	private static ChainMaterialPreview PreviewChainMaterials(Recipe recipe, Item output)
@@ -4896,161 +5267,117 @@ public sealed class RecipeBookSystem : ModSystem
 		Color color;
 		if (assessed.Any(((MaterialRequirement Requirement, BookMaterialRules.Assessment Assessment) x) => x.Assessment.HasDeficit))
 		{
-			color = new Color(238, 151, 126);
+			color = Bad;
 		}
 		else
 		{
-			color = (assessed.Any(((MaterialRequirement Requirement, BookMaterialRules.Assessment Assessment) x) => x.Assessment.Unknown || x.Assessment.Overlapping) ? Muted : Accent);
+			color = (assessed.Any(((MaterialRequirement Requirement, BookMaterialRules.Assessment Assessment) x) => x.Assessment.Unknown || x.Assessment.Overlapping) ? Muted : Good);
 		}
-		string tooltip = output.Name + ((output.stack > 1) ? (" ×" + output.stack) : "") + "\n" + T("Потребности для ", "Materials for ") + batches + T(" партий:", " batches:");
-		if (assessed.Count == 0)
-		{
-			tooltip = tooltip + "\n" + T("Ингредиентов нет.", "No ingredient inputs.");
-		}
-		foreach (var entry in assessed)
-		{
-			tooltip = tooltip + "\n• " + entry.Item1.Name + ": " + MaterialTooltip(entry.Item1, entry.Item2, batches);
-		}
+		string materials = string.Join(", ", assessed.Take(3).Select(((MaterialRequirement, BookMaterialRules.Assessment) x) => x.Item1.Name + " " + MaterialSub(x.Item2))) + ((assessed.Count > 3) ? ", ..." : "");
+		string tooltip = output.Name + ((output.stack > 1) ? (" ×" + output.stack) : "") + "\n" + ((assessed.Count == 0) ? T("Без материалов", "No materials") : materials);
 		return new ChainMaterialPreview(summary, color, tooltip);
 	}
 
 	private static void DrawChains(SpriteBatch sb)
 	{
-		Button(sb, BookGeometry.ChainFilter(0), T("Все предметы", "All items"), !ChainCraftableOnly);
-		Button(sb, BookGeometry.ChainFilter(1), T("Можно скрафтить", "Craftable now"), ChainCraftableOnly);
-		if (!ModMenu && BookGeometry.ChainFilter(0).Contains(Mouse.X, Mouse.Y))
+		DrawSample(sb);
+		BookRect[] filters = ChainFilterRects();
+		Segmented(sb, filters, ChainFilterLabels(), ChainCraftableOnly ? 1 : 0, 0.85f);
+		int filterHover = MenuOpen ? (-1) : SegmentAt(filters);
+		if (filterHover >= 0)
 		{
-			MouseTip(T("Все рецепты текущего шага, даже если не хватает ресурсов или станции.", "All recipes at this step, even without the required materials or stations."));
-		}
-		if (!ModMenu && BookGeometry.ChainFilter(1).Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Только нативно доступные рецепты: материалы, группы замен, станции и условия. Список обновляется автоматически. Перед крафтом уберите предмет с курсора.", "Only natively available recipes: materials, recipe groups, stations and conditions. Updates automatically. Clear the cursor before crafting."));
+			MouseTip((filterHover == 0) ? T("Все рецепты с этим предметом", "Every recipe that uses this item") : T("Только то, что можно создать сейчас", "Only what you can craft right now"));
 		}
 		if (SampleType <= 0)
 		{
-			Text(sb, T("Начните с предмета", "Start with an item"), 200f, 292f, TextColor, 1.15f, 540f, 34f);
-			Text(sb, T("Поместите его в подписанную ячейку выше.", "Place it in the labeled slot above."), 200f, 340f, Muted, 0.92f, 540f, 28f);
-			Text(sb, T("Или Shift+клик по предмету во вкладке «Предметы».", "Or Shift-click an item in the Items tab."), 200f, 376f, Muted, 0.86f, 540f, 28f);
-			Text(sb, T("Предмет > что из него сделать > следующий шаг", "Item > what it makes > next step"), 200f, 432f, Accent, 0.9f, 540f, 28f);
+			EmptyState(sb, new BookRect(212f, 220f, 568f, 368f), T("Начните с предмета", "Start with an item"), T("Положите его в ячейку или Shift+клик в «Предметах»", "Drop it in the slot, or Shift+Click one in Items"));
 			return;
 		}
 		int first = Math.Max(0, ChainHistory.Count - 4);
-		for (int visible = 0; visible < Math.Min(4, ChainHistory.Count); visible++)
+		int crumbs = Math.Min(4, ChainHistory.Count);
+		for (int visible = 0; ChainHistory.Count > 1 && visible < crumbs; visible++)
 		{
 			int index = first + visible;
 			Item item = ContentSamples.ItemsByType[ChainHistory[index]];
 			BookRect crumb = BookGeometry.ChainCrumb(visible);
-			Button(sb, crumb, "", index == ChainHistory.Count - 1);
-			Icon(sb, item, crumb.X + 4f, crumb.Y + 4f, 24f, tooltip: false);
-			CenterLabel(sb, ((visible == 0 && first > 0) ? "... " : "") + item.Name, crumb.X + 36f, crumb.Y + 4f, 92f, 24f, TextColor, 0.78f);
-			if (!ModMenu && crumb.Contains(Mouse.X, Mouse.Y))
+			bool current = index == ChainHistory.Count - 1;
+			bool hover = !current && !MenuOpen && crumb.Contains(Mouse.X, Mouse.Y);
+			Box(sb, crumb, current ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, current ? new Color?(Accent) : null);
+			Icon(sb, item, crumb.X + 8f, crumb.Y + 6f, 20f, tooltip: false);
+			CenterLabel(sb, ((visible == 0 && first > 0) ? "... " : "") + item.Name, crumb.X + 34f, crumb.Y + 4f, crumb.Width - 42f, crumb.Height - 8f, current ? Accent : TextColor, 0.8f, rightAligned: false, leftAligned: true);
+			if (hover)
 			{
-				MouseTip(item.Name + "\n" + T("Вернуться к этому шагу", "Return to this step"));
+				MouseTip(item.Name + "\n" + T("Вернуться к этому шагу", "Back to this step"));
 			}
-			if (visible < Math.Min(4, ChainHistory.Count) - 1)
+			if (visible < crumbs - 1)
 			{
-				CenterLabel(sb, ">", crumb.X + crumb.Width, crumb.Y, 8f, 32f, Muted, 0.78f);
+				Chevron(sb, crumb.X + crumb.Width + 4f, crumb.Y + crumb.Height / 2f, 2.5f, 3, Muted);
 			}
 		}
+		SectionLabel(sb, T("Используется в", "Used in"), 212f, 264f, 400f);
 		if (Filtered.Count == 0)
 		{
 			bool terminal = SampleRecipes.Count == 0;
 			bool noCraftable = !terminal && ChainCraftableOnly && ChainEligibleCount > 0;
 			bool noStage = !terminal && !noCraftable && ChainStageExcludedCount > 0;
-			SpriteBatch sb2 = sb;
-			string text;
+			string title;
+			string hint;
 			if (terminal)
 			{
-				text = T("Конец цепочки", "End of this branch");
+				title = T("Конец ветки", "End of this branch");
+				hint = T("Этот предмет не используется в рецептах", "No recipe uses this item");
 			}
 			else if (noCraftable)
 			{
-				text = T("Сейчас нечего скрафтить", "Nothing craftable right now");
+				title = T("Сейчас нечего создать", "Nothing to craft right now");
+				hint = T("«Все» покажет и недоступные рецепты", "All also shows recipes you can't craft yet");
+			}
+			else if (noStage)
+			{
+				title = T("Нет рецептов этого этапа", "No recipes for this stage");
+				hint = T("Выберите «Все этапы», чтобы увидеть остальные", "Choose All stages to see the rest");
 			}
 			else
 			{
-				text = (noStage ? T("Нет рецептов выбранного этапа", "No recipes for the selected stage") : T("Ветки скрыты фильтрами", "Branches hidden by filters"));
+				title = T("Скрыто фильтрами", "Hidden by filters");
+				hint = T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters");
 			}
-			Text(sb2, text, 200f, 350f, TextColor, 1f, 540f, 30f);
-			SpriteBatch sb3 = sb;
-			string text2;
-			if (terminal)
-			{
-				text2 = T("Обычных рецептов с этим ингредиентом нет.", "No standard recipes use this ingredient.");
-			}
-			else if (noCraftable)
-			{
-				text2 = T("Проверьте ресурсы, станции и условия.", "Check materials, stations and conditions.");
-			}
-			else
-			{
-				text2 = (noStage ? T("Выберите «Этап: Все», чтобы увидеть остальные этапы.", "Choose Stage: All to see the other stages.") : T("Сбросьте поиск, категорию или фильтр мода.", "Clear the search, category or mod filter."));
-			}
-			Text(sb3, text2, 200f, 392f, Muted, 0.86f, 540f, 28f);
-			Text(sb, noCraftable ? T("«Все предметы» покажет и недоступные рецепты.", "All items also shows unavailable recipes.") : T("«Рецепты» сверху покажут, как получить сам предмет.", "The Recipes tab shows how to craft this item."), 200f, 434f, Muted, 0.86f, 540f, 28f);
+			EmptyState(sb, new BookRect(212f, 288f, 568f, 300f), title, hint);
 			return;
 		}
 		int onPage = Math.Min(12, Filtered.Count - Page * 12);
-		int cols = Math.Min(4, onPage);
-		float rootCenter = 256 + (Math.Min(4, ChainHistory.Count) - 1) * 144;
-		float left = Math.Min(rootCenter, 256f);
-		float right = Math.Max(rootCenter, 256 + (cols - 1) * 144);
-		Box(sb, rootCenter, 316f, 1f, 28f, Border, border: false, 0f);
-		Box(sb, left, 344f, Math.Max(1f, right - left), 1f, Border, border: false, 0f);
-		for (int col = 0; col < cols; col++)
-		{
-			Box(sb, 256 + col * 144, 344f, 1f, 4f, Border, border: false, 0f);
-		}
 		for (int n = 0; n < onPage; n++)
 		{
 			int index2 = Filtered[Page * 12 + n];
 			Item item2 = Result(index2);
 			Recipe recipe = Main.recipe[index2];
 			ChainMaterialPreview materialPreview = PreviewChainMaterials(recipe, item2);
-			bool flag = BookProgression.RecipeStage(index2) == BookStage.Unknown;
+			bool uncertain = BookProgression.RecipeStage(index2) == BookStage.Unknown;
 			BookRect cell = BookGeometry.ChainCell(n);
 			BookRect drill = BookGeometry.ChainDrill(n);
-			bool hover = !ModMenu && cell.Contains(Mouse.X, Mouse.Y);
+			bool hover = !MenuOpen && cell.Contains(Mouse.X, Mouse.Y);
 			bool active = Selected == index2;
-			SpriteBatch sb4 = sb;
-			float x = cell.X;
-			float y = cell.Y;
-			float width = cell.Width;
-			float height = cell.Height;
-			Color color;
-			if (hover)
+			Box(sb, cell, active ? SelectedFill : (hover ? HoverFill : Raised), border: true, 8f, active ? new Color?(Accent) : null, (!active) ? 1 : 2);
+			Icon(sb, item2, cell.X + 8f, cell.Y + 6f, 32f, tooltip: false);
+			if (uncertain)
 			{
-				color = new Color(61, 84, 67);
+				CenterLabel(sb, "?", cell.X + 30f, cell.Y + 24f, 14f, 16f, Caution, 0.8f);
 			}
-			else
+			float textWidth = drill.X - 8f - (cell.X + 48f);
+			CenterLabel(sb, item2.Name + ((item2.stack > 1) ? (" ×" + item2.stack) : ""), cell.X + 48f, cell.Y + 4f, textWidth, 18f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, materialPreview.Summary, cell.X + 48f, cell.Y + 24f, textWidth, 16f, materialPreview.Color, 0.8f, rightAligned: false, leftAligned: true);
+			IconButtonFrame(sb, drill);
+			Chevron(sb, drill.X + drill.Width / 2f + 1f, drill.Y + drill.Height / 2f, 4f, 3, TextColor);
+			if (!MenuOpen && drill.Contains(Mouse.X, Mouse.Y))
 			{
-				color = (active ? new Color(47, 66, 53) : Raised);
+				MouseTip(T("Следующий шаг: ", "Next step: ") + item2.Name);
 			}
-			Box(sb4, x, y, width, height, color, border: true, 10f, active ? new Color?(Accent) : ((Color?)null), (!active) ? 1 : 2);
-			Icon(sb, item2, cell.X + 8f, cell.Y + 8f, 32f, tooltip: false);
-			CenterLabel(sb, item2.Name, cell.X + 48f, cell.Y + 8f, 40f, 32f, TextColor, 0.72f);
-			if (flag)
-			{
-				CenterLabel(sb, "?", cell.X + 28f, cell.Y + 28f, 16f, 16f, new Color(211, 173, 74), 0.64f);
-			}
-			CenterLabel(sb, materialPreview.Summary, cell.X + 8f, cell.Y + 48f, cell.Width - 16f, 16f, materialPreview.Color, 0.7f);
-			Button(sb, drill, ">");
-			if (hover && !drill.Contains(Mouse.X, Mouse.Y))
+			else if (hover)
 			{
 				Main.HoverItem = new Item();
 				Main.hoverItemName = "";
-				MouseTip(materialPreview.Tooltip + "\n" + StageExplanation(item2, recipe));
+				MouseTip(materialPreview.Tooltip + (uncertain ? (" · " + T("этап не определён", "stage uncertain")) : ""));
 			}
-			if (!ModMenu && drill.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Продолжить цепочку от: ", "Continue chain from: ") + item2.Name + "\n" + materialPreview.Summary + "\n" + StageExplanation(item2, recipe));
-			}
-		}
-		string chainHint = ((ChainUnknownVisibleCount > 0) ? (T("С известным этапом: ", "Known stage: ") + (Filtered.Count - ChainUnknownVisibleCount) + T(" · Не определён (?): ", " · Uncertain (?): ") + ChainUnknownVisibleCount) : T("Клик — посмотреть рецепт    > — следующий шаг", "Click: inspect recipe    >: next step"));
-		Text(sb, chainHint, 184f, 588f, Muted, 0.8f, 576f, 16f);
-		if (Hit(184f, 588f, 576f, 16f))
-		{
-			MouseTip(T("Клик — посмотреть рецепт; > — следующий шаг.\n? — этап не определён: рецепт оставлен видимым, но не считается точным совпадением с этапом.\nCtrl+Backspace — сбросить фильтры.", "Click: inspect recipe; >: next step.\n? means uncertain stage: the recipe remains visible, not a confirmed stage match.\nCtrl+Backspace resets filters."));
 		}
 	}
 
@@ -5236,144 +5563,25 @@ public sealed class RecipeBookSystem : ModSystem
 			Main.LocalPlayer.cursorItemIconEnabled = false;
 		}
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
-		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f);
+		bool grabHint = !AcquisitionOpen && GrabHint;
+		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f, grabHint ? Accent : Border, grabHint ? 2f : 1f);
 		if (AcquisitionOpen)
 		{
 			DrawAcquisition(sb);
 			return;
 		}
-		Box(sb, 1f, 1f, 1118f, 90f, Surface, border: false, 17f);
-		Text(sb, T("Книга рецептов", "Recipe Book"), 24f, 16f, TextColor, 1.3f, 276f, 32f);
-		if (TrackingView)
-		{
-			Button(sb, BookGeometry.StageFilter, T("Целей: ", "Goals: ") + TrackedGoals.Count);
-		}
-		else
-		{
-			DrawStageFilter(sb);
-		}
-		Text(sb, T("Рецептов: ", "Recipes: ") + All.Count + T("  ·  Предметов: ", "  ·  Items: ") + AllItems.Count, 24f, 56f, Muted, 0.86f, 280f, 24f);
-		if (Hit(26f, 57f, 280f, 23f))
-		{
-			MouseTip(T("Просканировано ячеек: ", "Scanned recipe slots: ") + Recipe.numRecipes + "\n" + T("Зарегистрировано рецептов: ", "Registered recipes: ") + RegisteredRecipes + "\n" + T("Включено: ", "Enabled: ") + All.Count + T("  Отключено модами: ", "  Disabled by mods: ") + DisabledRecipes + "\n" + T("Загружено предметов: ", "Loaded item types: ") + AllItems.Count);
-		}
-		Box(sb, BookGeometry.TabPanel, new Color(22, 31, 25), border: false, 12f);
-		Button(sb, BookGeometry.Tab(0), T("Предметы", "Items"), Catalogue, fitWidth: true);
-		Button(sb, BookGeometry.Tab(1), T("Рецепты", "Recipes"), !Catalogue && !Chains && !StorageView && !RecentView && !TrackingView, fitWidth: true);
-		Button(sb, BookGeometry.Tab(2), T("Цепочки", "Chains"), Chains, fitWidth: true);
-		Button(sb, BookGeometry.Tab(3), T("Хранилище", "Storage"), StorageView, fitWidth: true);
-		Button(sb, BookGeometry.Tab(4), T("Недавние", "Recent"), RecentView, fitWidth: true);
-		Button(sb, BookGeometry.Tab(5), T("Трекер", "Tracking"), TrackingView, fitWidth: true);
-		if (BookGeometry.Tab(5).Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Отслеживание крафтов · Ctrl+6", "Tracked crafts · Ctrl+6"));
-		}
-		Button(sb, BookGeometry.HeaderClose, "X");
+		DrawHeader(sb);
 		if (TrackingView)
 		{
 			DrawTrackingTab(sb);
 		}
 		else
 		{
-			Box(sb, BookGeometry.CategoryPanel, new Color(23, 30, 26), border: false, 12f);
-			Text(sb, T("КАТЕГОРИИ", "CATEGORIES"), 12f, 100f, Muted, 0.78f, 140f, 20f);
-			for (int visible = 0; visible < 30; visible++)
-			{
-				int index = CategoryRow * 3 + visible;
-				if (index >= Categories.Count)
-				{
-					break;
-				}
-				BookCategory category = Categories[index];
-				BookRect rect = BookGeometry.CategoryCell(visible);
-				bool hover = rect.Contains(Mouse.X, Mouse.Y);
-				bool active = Category == index;
-				SpriteBatch sb2 = sb;
-				float x = rect.X;
-				float y = rect.Y;
-				float width = rect.Width;
-				float height = rect.Height;
-				Color color;
-				if (hover)
-				{
-					color = new Color(61, 84, 67);
-				}
-				else
-				{
-					color = (active ? new Color(50, 76, 59) : Raised);
-				}
-				Box(sb2, x, y, width, height, color, border: true, 8f, active ? new Color?(Accent) : ((Color?)null), (!active) ? 1 : 2);
-				if (ContentSamples.ItemsByType.TryGetValue(category.IconType, out var icon))
-				{
-					Icon(sb, icon, rect.X + 8f, rect.Y + 8f, 28f, tooltip: false);
-				}
-				if (hover)
-				{
-					MouseTip(category.Label(Ru) + "\n" + T("Нажмите для фильтра. Повторный клик — сброс.", "Click to filter. Click again to reset."));
-				}
-			}
-			if (MaxCategoryRow > 0)
-			{
-				float track = 476f;
-				float thumb = Math.Max(28f, track * 10f / (float)(MaxCategoryRow + 10));
-				Box(sb, 157f, 124f, 3f, track, Raised);
-				Box(sb, 157f, 124f + (track - thumb) * (float)CategoryRow / (float)MaxCategoryRow, 3f, thumb, Accent);
-			}
-			Button(sb, BookGeometry.CategoryPrevious, "^");
-			Label(sb, BookGeometry.CategoryPager, CategoryRow + 1 + "/" + (MaxCategoryRow + 1), Muted, 0.78f);
-			Button(sb, BookGeometry.CategoryNext, "v");
-			BookRect search = BookGeometry.Search;
-			Box(sb, search.X, search.Y, search.Width, search.Height, Typing ? new Color(35, 51, 40) : new Color(19, 28, 22), border: true, 10f, Typing ? new Color?(Accent) : ((Color?)null), (!Typing) ? 1 : 2);
-			BookRect searchText = BookGeometry.SearchText;
-			CenterLabel(sb, (Query.Length > 0) ? (Query + ((Typing && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Поиск предмета...", "Search items..."), searchText.X, searchText.Y, searchText.Width, searchText.Height, (Query.Length > 0) ? TextColor : Muted, 1f, rightAligned: false, leftAligned: true);
-			Button(sb, BookGeometry.SearchClear, "X");
-			Button(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? T("Все источники", "All sources") : ModName(ModFilter));
-			Button(sb, BookGeometry.FavoritesFilter, "", FavoritesOnly);
-			if (ContentSamples.ItemsByType.TryGetValue(75, out var star))
-			{
-				Icon(sb, star, BookGeometry.FavoritesFilter.X + 10f, BookGeometry.FavoritesFilter.Y + 12f, 24f, tooltip: false);
-			}
-			if (!TrackingView && BookGeometry.FavoritesFilter.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Только избранное", "Favorites only"));
-			}
-			Button(sb, BookGeometry.Refresh, "R");
-			if (!TrackingView && BookGeometry.Refresh.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(T("Обновить рецепты", "Refresh recipes"));
-			}
-			Button(sb, BookGeometry.Sort, RecentView ? T("Новые", "Newest") : SortLabel());
-			SpriteBatch sb3 = sb;
-			BookRect sortDirection = BookGeometry.SortDirection;
-			string label;
-			if (RecentView)
-			{
-				label = "--";
-			}
-			else
-			{
-				label = (SortDescending ? "Z>A" : "A>Z");
-			}
-			Button(sb3, sortDirection, label);
-			if (BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(RecentView ? T("Недавние всегда идут от новых к старым", "Recent recipes always appear newest first") : T("Сортировка: щёлкните для смены поля (имя, ID, мод)", "Sort: click to cycle field (name, ID, mod)"));
-			}
-			if (BookGeometry.SortDirection.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(RecentView ? T("Недавние всегда идут от новых к старым", "Recent recipes always appear newest first") : T("Направление сортировки", "Sort direction"));
-			}
+			DrawCategories(sb);
+			DrawFilterBar(sb);
 			if (StorageView)
 			{
 				DrawStorageToolbar(sb);
-			}
-			else if (RecentView)
-			{
-				DrawRecentToolbar(sb);
-			}
-			else
-			{
-				DrawSample(sb);
 			}
 			if (Chains)
 			{
@@ -5381,229 +5589,21 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 			else
 			{
-				for (int n = 0; n < 40; n++)
-				{
-					int f = Page * 40 + n;
-					if (f >= Filtered.Count)
-					{
-						break;
-					}
-					int num = Filtered[f];
-					Item item = Result(num);
-					BookRect cell = BookGeometry.RecipeCell(n);
-					int x2 = (int)cell.X;
-					int y2 = (int)cell.Y;
-					bool hovered = !ModMenu && cell.Contains(Mouse.X, Mouse.Y);
-					bool selected = num == Selected;
-					SpriteBatch sb4 = sb;
-					float x3 = x2;
-					float y3 = y2;
-					Color color2;
-					if (hovered)
-					{
-						color2 = new Color(61, 84, 67);
-					}
-					else
-					{
-						color2 = (selected ? new Color(47, 66, 53) : Raised);
-					}
-					Box(sb4, x3, y3, 64f, 64f, color2, border: true, 10f, selected ? new Color?(Accent) : ((Color?)null), (!selected) ? 1 : 2);
-					Icon(sb, item, x2 + 12, y2 + 12, 40f, tooltip: false);
-					if (hovered)
-					{
-						Main.HoverItem = item.Clone();
-						Main.hoverItemName = item.Name;
-					}
-					if ((!Catalogue || StorageView) && item.stack > 1)
-					{
-						Text(sb, item.stack.ToString(), x2 + 3, y2 + 42, TextColor, 0.8f, 58f, 20f);
-					}
-					if (Favorites.Contains(ItemKey(item)))
-					{
-						Text(sb, "+", x2 + 48, y2 + 1, Accent, 0.82f, 15f, 22f);
-					}
-				}
+				DrawGrid(sb);
 			}
-			if (!Chains && Filtered.Count == 0)
-			{
-				string emptyStorage;
-				if (!BookStorage.Connected || BookStorage.CraftInitializing)
-				{
-					emptyStorage = BookStorage.Status;
-				}
-				else
-				{
-					emptyStorage = ((BookStorage.Items.Count == 0) ? T("В этой сети пока нет предметов", "This network is empty") : T("Нет совпадений · Ctrl+Backspace — сбросить фильтры", "No matches · Ctrl+Backspace resets filters"));
-				}
-				string emptyRecent;
-				if (Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Count != 0)
-				{
-					emptyRecent = ((BookRecent.ResolveRecipeIndexes().Count == 0) ? T("Рецепты из истории сейчас не загружены", "Recipes in history are not currently loaded") : T("Нет совпадений · Ctrl+Backspace — сбросить фильтры", "No matches · Ctrl+Backspace resets filters"));
-				}
-				else
-				{
-					emptyRecent = T("Здесь появятся недавно созданные рецепты", "Successfully crafted recipes will appear here");
-				}
-				SpriteBatch sb5 = sb;
-				string text;
-				if (StorageView)
-				{
-					text = emptyStorage;
-				}
-				else
-				{
-					text = (RecentView ? emptyRecent : T("Ничего не найдено. Проверьте режим и фильтры.", "Nothing found. Check mode and filters."));
-				}
-				Text(sb5, text, 188f, 290f, Muted, 1f, 556f, 30f);
-			}
-			if (Chains)
-			{
-				Button(sb, BookGeometry.ChainBack, "<<", ChainHistory.Count > 1);
-				if (BookGeometry.ChainBack.Contains(Mouse.X, Mouse.Y))
-				{
-					MouseTip(T("На шаг назад по цепочке", "Go back one chain step"));
-				}
-				Button(sb, BookGeometry.ChainPrev, "<");
-			}
-			else
-			{
-				Button(sb, BookGeometry.PagePrevious, "<");
-			}
-			CenterLabel(sb, (StorageView ? T("Стопок: ", "Stacks: ") : (Catalogue ? T("Предметов: ", "Items: ") : (RecentView ? T("Недавние рецепты: ", "Recent recipes: ") : T("Рецептов: ", "Recipes: ")))) + Filtered.Count + "  ·  " + (Page + 1) + " / " + Pages, BookGeometry.PageLabel.X, BookGeometry.PageLabel.Y, BookGeometry.PageLabel.Width, BookGeometry.PageLabel.Height, Muted, 0.86f);
-			Button(sb, BookGeometry.PageNext, ">");
+			DrawPager(sb);
 			if (StorageView)
 			{
 				DrawStorageDetails(sb);
 			}
 			else
 			{
-				Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
-				Text(sb, RecentView ? T("НЕДАВНИЙ РЕЦЕПТ", "RECENT RECIPE") : T("ВЫБРАННЫЙ РЕЦЕПТ", "SELECTED RECIPE"), 812f, 108f, Muted, 0.82f, 284f, 24f);
-				Item chosen = SelectedItem;
-				if (chosen != null)
-				{
-					Recipe r = SelectedRecipe;
-					if (!DrawArmorSet(sb, chosen))
-					{
-						Icon(sb, chosen, 926f, 136f, 56f);
-					}
-					bool armorStats = HasArmorDefense(chosen);
-					BookRect nameRect = (armorStats ? BookGeometry.ArmorName : new BookRect(812f, 200f, 284f, 32f));
-					FixedLabel(sb, chosen.Name + ((r != null && r.createItem.stack > 1) ? (" x" + r.createItem.stack) : ""), nameRect.X, nameRect.Y, TextColor, armorStats ? 1f : 1.16f, nameRect.Width, nameRect.Height);
-					if (armorStats)
-					{
-						DrawArmorDefense(sb, chosen);
-					}
-					string itemStage = StageName(chosen, r);
-					BookRect sourceRect = (armorStats ? BookGeometry.ArmorSource : new BookRect(812f, 240f, 284f, 20f));
-					FixedLabel(sb, ModName((r != null) ? Owner(r) : (chosen.ModItem?.Mod.Name ?? "Terraria")) + " · " + itemStage, sourceRect.X, sourceRect.Y, Muted, 0.78f, sourceRect.Width, sourceRect.Height);
-					if (sourceRect.Contains(Mouse.X, Mouse.Y))
-					{
-						MouseTip(StageExplanation(chosen, r));
-					}
-					if ((Catalogue || ArmorFocus > 0) && VariantCount > 1)
-					{
-						Button(sb, BookGeometry.VariantPrevious, "<");
-						Button(sb, BookGeometry.VariantNext, ">");
-					}
-					if (r != null)
-					{
-						DrawBatchChoices(sb, r);
-						List<Detail> rows = Details(r);
-						DetailsPage = Math.Clamp(DetailsPage, 0, Math.Max(0, (rows.Count - 1) / 3));
-						for (int i = 0; i < 3; i++)
-						{
-							int j = DetailsPage * 3 + i;
-							if (j >= rows.Count)
-							{
-								break;
-							}
-							Detail d = rows[j];
-							BookRect row = BookGeometry.DetailRow(i);
-							float y4 = row.Y;
-							Box(sb, row, Raised);
-							BookRect icon2 = BookGeometry.DetailIcon(i);
-							if (d.Icon != null)
-							{
-								Icon(sb, d.Icon, icon2.X, icon2.Y, icon2.Width);
-							}
-							float tx = ((d.Icon != null) ? (icon2.X + icon2.Width + 8f) : (row.X + 8f));
-							bool num2 = d.Icon != null && !d.Icon.IsAir;
-							BookRect obtain = BookGeometry.DetailObtain(i);
-							DrawTextPair(width: (num2 ? (obtain.X - 8f) : (row.X + row.Width - 8f)) - tx, sb: sb, name: d.Name, subtitle: d.Sub, x: tx, y: y4, height: row.Height, titleColor: d.Color, subColor: d.SubColor);
-							if (num2)
-							{
-								Button(sb, obtain, "?");
-							}
-							if (num2 && obtain.Contains(Mouse.X, Mouse.Y))
-							{
-								MouseTip(T("Как получить: ", "How to obtain: ") + d.Name);
-							}
-							else if (row.Contains(Mouse.X, Mouse.Y))
-							{
-								MouseTip(d.Name + "\n" + ((d.Tooltip.Length > 0) ? d.Tooltip : (d.Sub + ((d.Icon != null) ? T("\nЛКМ — цепочка этого предмета", "\nLeft-click: this item's chain") : ""))));
-							}
-						}
-						Button(sb, BookGeometry.DetailPrevious, "<");
-						Label(sb, BookGeometry.DetailPager, DetailsPage + 1 + " / " + (MaxDetailsPage() + 1), Muted, 0.86f);
-						Button(sb, BookGeometry.DetailNext, ">");
-					}
-					else
-					{
-						Text(sb, T("Обычного рецепта нет", "No ordinary crafting recipe"), 812f, 285f, Muted, 1f, 284f, 30f);
-						Text(sb, T("Этот предмет получают иначе:", "Obtained by other means:"), 812f, 326f, Muted, 0.86f, 284f, 28f);
-						Text(sb, T("добыча, ловля, торговля и т. п.", "loot, catching, shops, etc."), 812f, 358f, Muted, 0.86f, 284f, 28f);
-						Text(sb, T("Книга не добавляет ему рецепт.", "The book does not add a recipe."), 812f, 404f, Muted, 0.86f, 284f, 28f);
-						Button(sb, BookGeometry.SelectedItemObtain, T("Как получить", "How to obtain"));
-						if (BookGeometry.SelectedItemObtain.Contains(Mouse.X, Mouse.Y))
-						{
-							MouseTip(T("Показать источники: ", "Show sources: ") + chosen.Name);
-						}
-					}
-					bool favorite = Favorites.Contains(ItemKey(chosen));
-					Button(sb, BookGeometry.FavoriteAction, favorite ? T("Избранное +", "Favorite +") : T("Избранное", "Favorite"), favorite);
-					Button(sb, BookGeometry.CraftAction, T("Создать", "Craft") + ((r != null) ? (" ×" + PreviewBatches(r)) : ""), BookCrafting.CanCraft(r));
-					if (BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
-					{
-						MouseTip(BookCrafting.Reason(r, Ru));
-					}
-					DrawTrackButton(sb, r);
-				}
+				DrawDetails(sb);
 			}
 		}
-		Box(sb, 0f, 648f, 1120f, 1f, Border);
-		Button(sb, BookGeometry.DragHandle, T("Двиг.", "Move"));
-		Button(sb, BookGeometry.WindowSizeDecrease, "-");
-		CenterLabel(sb, WindowScalePercent + "%", BookGeometry.WindowSizeLabel.X, BookGeometry.WindowSizeLabel.Y, BookGeometry.WindowSizeLabel.Width, BookGeometry.WindowSizeLabel.Height, Muted, 0.78f);
-		Button(sb, BookGeometry.WindowSizeIncrease, "+");
-		if (BookGeometry.DragHandle.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Перетащите, чтобы переместить окно", "Drag to move the window"));
-		}
-		if (BookGeometry.WindowSizeDecrease.Contains(Mouse.X, Mouse.Y) || BookGeometry.WindowSizeIncrease.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Размер окна относительно настройки масштаба клиента", "Window size relative to the existing client scale setting"));
-		}
-		Text(sb, TrackingView ? T("PgUp/PgDn страницы · Ctrl+6 трекер · F1 помощь", "PgUp/PgDn pages · Ctrl+6 tracking · F1 help") : T("Ctrl+F поиск · PgUp/PgDn страницы · F1 помощь", "Ctrl+F search · PgUp/PgDn pages · F1 help"), 204f, 660f, Muted, 0.8f, 336f, 24f);
-		Button(sb, BookGeometry.CraftSource, BookStorage.UseForCrafting ? T("Крафт: Magic Storage", "Craft: Magic Storage") : T("Крафт: инвентарь", "Craft: inventory"), BookStorage.UseForCrafting);
-		if (BookGeometry.CraftSource.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Нажмите для смены источника. Magic Storage требует подключённый интерфейс крафта и создаёт результат в хранилище. Инвентарь использует обычный крафт; источники не смешиваются.", "Click to change source. Magic Storage needs a connected Crafting Interface and deposits results into storage. Inventory uses native player crafting; sources are not mixed."));
-		}
+		DrawFooter(sb);
 		Button(sb, BookGeometry.Help, "?");
 		CenterLabel(sb, "MRB " + ModContent.GetInstance<ModernRecipeBook>().Version, 990f, 660f, BookGeometry.HeaderClose.X + BookGeometry.HeaderClose.Width - 990f, 24f, Muted, 0.8f, rightAligned: true);
-		if (!TrackingView && BookGeometry.Search.Contains(Mouse.X, Mouse.Y) && !Typing)
-		{
-			MouseTip(T("Ctrl+F · Поиск по названию, ID или моду", "Ctrl+F · Search name, ID or mod"));
-		}
-		if (!TrackingView && BookGeometry.Refresh.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("F5 · Обновить рецепты и сеть", "F5 · Refresh recipes and network"));
-		}
-		if (!TrackingView && BookGeometry.FavoritesFilter.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Только избранное · Alt+ЛКМ по предмету — добавить/убрать", "Favorites only · Alt+left-click an item to toggle"));
-		}
 		if (BookGeometry.Help.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(T("F1 · Все сочетания клавиш", "F1 · All keyboard shortcuts"));
@@ -5612,12 +5612,616 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			DrawModMenu(sb);
 		}
+		if (SortMenu)
+		{
+			DrawSortMenu(sb);
+		}
 		if (HelpOpen)
 		{
 			Main.HoverItem = new Item();
 			Main.hoverItemName = "";
 			DrawHelp(sb);
 		}
+	}
+
+	private static void DrawHeader(SpriteBatch sb)
+	{
+		BookRect title = new BookRect(16f, 16f, TitleRight() - 16f, 32f);
+		for (int dot = 0; dot < 6; dot++)
+		{
+			Box(sb, 20 + dot % 2 * 5, 25 + dot / 2 * 6, 2f, 2f, GrabHint ? Accent : (Muted * 0.8f), border: false, 0f);
+		}
+		CenterLabel(sb, TitleText, 34f, 16f, 260f, 32f, TextColor, 1.1f, rightAligned: false, leftAligned: true);
+		if (!MenuOpen && title.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Перетащите заголовок, чтобы переместить окно", "Drag the header to move the window"));
+		}
+		List<int> tabs = VisibleTabs();
+		BookRect firstTab = TabRect(tabs[0]);
+		Box(sb, firstTab.X - 4f, BookGeometry.TabTop - 4f, BookGeometry.TabRight - firstTab.X + 8f, BookGeometry.TabHeight + 8f, new Color(22, 31, 25), border: false, 12f);
+		foreach (int tab in tabs)
+		{
+			BookRect rect = TabRect(tab);
+			bool active = tab == CurrentTab;
+			bool hover = !active && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+			if (active)
+			{
+				Box(sb, rect, SelectedFill, border: true, 8f, Accent, 2);
+			}
+			else if (hover)
+			{
+				Box(sb, rect, HoverFill, border: false, 8f);
+			}
+			CenterLabel(sb, TabLabel(tab), rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, active ? Accent : TextColor, TabTextSize);
+			if (hover)
+			{
+				MouseTip(TabLabel(tab) + " · Ctrl+" + (tab + 1));
+			}
+		}
+		BookRect close = BookGeometry.HeaderClose;
+		IconButtonFrame(sb, close);
+		Cross(sb, close.X + close.Width / 2f, close.Y + close.Height / 2f, 6f, TextColor);
+		if (!MenuOpen && close.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Закрыть · Esc", "Close · Esc"));
+		}
+		Box(sb, 8f, 64f, 1104f, 1f, Border, border: false, 0f);
+	}
+
+	private static void DrawCategories(SpriteBatch sb)
+	{
+		Box(sb, BookGeometry.CategoryPanel, new Color(23, 30, 26), border: false, 12f);
+		SectionLabel(sb, T("Категории", "Categories"), 20f, 86f, 164f);
+		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
+		int rows = BookGeometry.VisibleCategoryRows;
+		for (int visible = 0; visible < rows; visible++)
+		{
+			int index = CategoryRow + visible;
+			if (index >= Categories.Count)
+			{
+				break;
+			}
+			BookCategory category = Categories[index];
+			BookRect rect = BookGeometry.CategoryCell(visible);
+			bool active = Category == index;
+			bool hover = !active && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+			if (active)
+			{
+				Box(sb, rect, SelectedFill, border: true, 8f, Accent);
+			}
+			else if (hover)
+			{
+				Box(sb, rect, HoverFill, border: false, 8f);
+			}
+			if (ContentSamples.ItemsByType.TryGetValue(category.IconType, out var icon))
+			{
+				Icon(sb, icon, rect.X + 8f, rect.Y + 4f, 20f, tooltip: false);
+			}
+			CenterLabel(sb, category.Label(Ru), rect.X + 36f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, active ? Accent : TextColor, 0.8f, rightAligned: false, leftAligned: true);
+		}
+		if (MaxCategoryRow > 0)
+		{
+			float track = rows * 28;
+			float thumb = Math.Max(28f, track * rows / Categories.Count);
+			Box(sb, 188f, 108f, 3f, track, Raised, border: false, 1f);
+			Box(sb, 188f, 108f + (track - thumb) * CategoryRow / MaxCategoryRow, 3f, thumb, Muted, border: false, 1f);
+		}
+	}
+
+	private static void DrawFilterBar(SpriteBatch sb)
+	{
+		BookRect search = BookGeometry.Search;
+		Box(sb, search, Typing ? new Color(35, 51, 40) : FieldFill, border: true, 8f, Typing ? new Color?(Accent) : null, (!Typing) ? 1 : 2);
+		Magnifier(sb, search.X + 20f, search.Y + search.Height / 2f, (Typing || Query.Length > 0) ? TextColor : Muted);
+		BookRect searchText = BookGeometry.SearchText;
+		string shown = ((Query.Length > 0) ? (Query + ((Typing && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Имя, ID или мод", "Name, ID or mod"));
+		CenterLabel(sb, shown, searchText.X, searchText.Y, searchText.Width, searchText.Height, (Query.Length > 0) ? TextColor : Muted, 0.85f, rightAligned: false, leftAligned: true);
+		BookRect clear = BookGeometry.SearchClear;
+		bool overClear = Query.Length > 0 && !MenuOpen && clear.Contains(Mouse.X, Mouse.Y);
+		if (Query.Length > 0)
+		{
+			if (overClear)
+			{
+				Box(sb, clear, HoverFill, border: false, 6f);
+				MouseTip(T("Очистить поиск", "Clear search"));
+			}
+			Cross(sb, clear.X + clear.Width / 2f, clear.Y + clear.Height / 2f, 4f, overClear ? TextColor : Muted);
+		}
+		if (!overClear && !Typing && !MenuOpen && search.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Поиск · Ctrl+F", "Search · Ctrl+F"));
+		}
+		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? T("Все моды", "All mods") : ModName(ModFilter), ModMenu);
+		if (!MenuOpen && BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + T("Фильтр по моду", "Filter by mod"));
+		}
+		Dropdown(sb, BookGeometry.Sort, RecentView ? T("Новые", "Newest") : SortLabel(), SortMenu, !RecentView);
+		if (!MenuOpen && BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(RecentView ? T("Недавние всегда от новых к старым", "Recent crafts are always newest first") : T("Порядок сортировки", "Sort order"));
+		}
+		BookRect favorites = BookGeometry.FavoritesFilter;
+		IconButtonFrame(sb, favorites, FavoritesOnly);
+		Star(sb, favorites.X + 8f, favorites.Y + 8f, 20f, FavoritesOnly);
+		if (!MenuOpen && favorites.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Только избранное", "Favorites only") + "\n" + T("Alt+клик по предмету добавляет", "Alt+Click an item to add it"));
+		}
+		DrawStageFilter(sb);
+		if (RecipeSampleFilter)
+		{
+			DrawSampleChip(sb);
+		}
+	}
+
+	// On Recipes a chain item narrows the list to the recipes that make it; the chip shows and clears it.
+	private static bool RecipeSampleFilter => !Catalogue && !Chains && !StorageView && !RecentView && !TrackingView && SampleType > 0 && ContentSamples.ItemsByType.ContainsKey(SampleType);
+
+	private static BookRect SampleChipRect()
+	{
+		BookRect[] stages = StageRects();
+		float left = stages[^1].X + stages[^1].Width + 12f;
+		Item sample = ContentSamples.ItemsByType[SampleType];
+		float width = Math.Min(780f - left, 72f + TextWidth(sample.Name, 0.8f));
+		if (width < 100f)
+		{
+			width = 56f;
+		}
+		return new BookRect(780f - width, BookGeometry.StageFilter.Y, width, BookGeometry.StageFilter.Height);
+	}
+
+	private static void DrawSampleChip(SpriteBatch sb)
+	{
+		BookRect chip = SampleChipRect();
+		Item sample = ContentSamples.ItemsByType[SampleType];
+		bool hover = !MenuOpen && chip.Contains(Mouse.X, Mouse.Y);
+		Box(sb, chip, hover ? HoverFill : Raised, border: true, 8f, Accent);
+		Icon(sb, sample, chip.X + 8f, chip.Y + 6f, 20f, tooltip: false);
+		if (chip.Width > 56f)
+		{
+			CenterLabel(sb, sample.Name, chip.X + 34f, chip.Y + 4f, chip.Width - 62f, chip.Height - 8f, TextColor, 0.8f, rightAligned: false, leftAligned: true);
+		}
+		Cross(sb, chip.X + chip.Width - 16f, chip.Y + chip.Height / 2f, 4f, hover ? TextColor : Muted);
+		if (hover)
+		{
+			MouseTip(T("Рецепты для: ", "Recipes for: ") + sample.Name + "\n" + T("Клик снимает фильтр", "Click to clear"));
+		}
+	}
+
+	private static void DrawGrid(SpriteBatch sb)
+	{
+		float top = GridTop;
+		int size = ActivePageSize;
+		for (int n = 0; n < size; n++)
+		{
+			int f = Page * size + n;
+			if (f >= Filtered.Count)
+			{
+				break;
+			}
+			int num = Filtered[f];
+			Item item = Result(num);
+			BookRect cell = BookGeometry.GridCell(n, top);
+			bool hovered = !MenuOpen && cell.Contains(Mouse.X, Mouse.Y);
+			bool selected = num == Selected;
+			Box(sb, cell, selected ? SelectedFill : (hovered ? HoverFill : Raised), border: true, 10f, selected ? new Color?(Accent) : null, (!selected) ? 1 : 2);
+			Icon(sb, item, cell.X + 12f, cell.Y + 12f, 40f, tooltip: false);
+			if (hovered)
+			{
+				Main.HoverItem = item.Clone();
+				Main.hoverItemName = item.Name;
+			}
+			if ((!Catalogue || StorageView) && item.stack > 1)
+			{
+				Text(sb, item.stack.ToString(), cell.X + 4f, cell.Y + 42f, TextColor, 0.8f, 56f, 20f);
+			}
+			if (Favorites.Contains(ItemKey(item)))
+			{
+				Star(sb, cell.X + 46f, cell.Y + 4f, 14f, on: true);
+			}
+		}
+		if (Filtered.Count > 0)
+		{
+			return;
+		}
+		BookRect area = new BookRect(212f, top, 568f, 596f - top);
+		if (StorageView)
+		{
+			string emptyStorage;
+			if (!BookStorage.Connected || BookStorage.CraftInitializing)
+			{
+				emptyStorage = BookStorage.Status;
+			}
+			else
+			{
+				emptyStorage = ((BookStorage.Items.Count == 0) ? T("В этой сети пока нет предметов", "This network is empty") : T("Нет совпадений · Ctrl+Backspace — сбросить фильтры", "No matches · Ctrl+Backspace resets filters"));
+			}
+			EmptyState(sb, area, emptyStorage, "");
+		}
+		else if (RecentView)
+		{
+			if (Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Count == 0)
+			{
+				EmptyState(sb, area, T("Пока нет крафтов", "No crafts yet"), T("Здесь появится то, что вы создадите", "Items you craft will appear here"));
+			}
+			else if (BookRecent.ResolveRecipeIndexes().Count == 0)
+			{
+				EmptyState(sb, area, T("Рецепты из истории не загружены", "Recipes from history aren't loaded"), T("Включите моды, которые их добавляют", "Enable the mods that add them"));
+			}
+			else
+			{
+				EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			}
+		}
+		else
+		{
+			EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+		}
+	}
+
+	private static void DrawPager(SpriteBatch sb)
+	{
+		BookRect previous = BookGeometry.PagePrevious;
+		BookRect next = BookGeometry.PageNext;
+		IconButtonFrame(sb, previous, active: false, Page > 0);
+		Chevron(sb, previous.X + previous.Width / 2f - 1f, previous.Y + previous.Height / 2f, 4f, 2, (Page > 0) ? TextColor : Border);
+		IconButtonFrame(sb, next, active: false, Page < Pages - 1);
+		Chevron(sb, next.X + next.Width / 2f + 1f, next.Y + next.Height / 2f, 4f, 3, (Page < Pages - 1) ? TextColor : Border);
+		string count;
+		if (StorageView)
+		{
+			count = T("Стопок: ", "Stacks: ") + Count(Filtered.Count);
+		}
+		else if (Catalogue)
+		{
+			count = T("Предметов: ", "Items: ") + Count(Filtered.Count);
+		}
+		else if (RecentView)
+		{
+			count = T("Недавние: ", "Recent: ") + Filtered.Count + "/" + 40;
+		}
+		else
+		{
+			count = T("Рецептов: ", "Recipes: ") + Count(Filtered.Count);
+		}
+		BookRect label = BookGeometry.PageLabel;
+		CenterLabel(sb, count + "  ·  " + (Page + 1) + " / " + Pages, label.X, label.Y, label.Width, label.Height, Muted, 0.85f);
+		if (!MenuOpen && previous.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Предыдущая страница · PgUp", "Previous page · PgUp"));
+		}
+		else if (!MenuOpen && next.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(T("Следующая страница · PgDn", "Next page · PgDn"));
+		}
+	}
+
+	private static void DrawDetails(SpriteBatch sb)
+	{
+		Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
+		Item chosen = SelectedItem;
+		if (chosen == null)
+		{
+			EmptyState(sb, BookGeometry.DetailsPanel, T("Ничего не выбрано", "Nothing selected"), T("Выберите предмет слева", "Pick an item on the left"));
+			return;
+		}
+		Recipe r = SelectedRecipe;
+		float top = RecipeBlockTop(chosen);
+		DrawDetailHeader(sb, chosen, r);
+		Box(sb, 812f, top - 12f, 284f, 1f, Border, border: false, 0f);
+		if (r != null)
+		{
+			DrawRecipeBlock(sb, chosen, r, top);
+		}
+		else
+		{
+			FixedLabel(sb, T("Нет рецепта крафта", "No crafting recipe"), 812f, top + 4f, TextColor, 1f, 284f, 28f);
+			FixedLabel(sb, T("Добыча, магазины, рыбалка и другое", "Get it from loot, shops, fishing and more"), 812f, top + 36f, Muted, 0.8f, 284f, 20f);
+			BookRect obtain = BookGeometry.SelectedItemObtain(top);
+			ActionButton(sb, obtain, T("Где взять", "How to Get"), primary: false);
+			if (!MenuOpen && obtain.Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(T("Все источники: ", "All sources: ") + chosen.Name);
+			}
+		}
+		bool favorite = Favorites.Contains(ItemKey(chosen));
+		BookRect favoriteRect = BookGeometry.FavoriteAction;
+		IconButtonFrame(sb, favoriteRect, favorite);
+		Star(sb, favoriteRect.X + 6f, favoriteRect.Y + 6f, 20f, favorite);
+		if (!MenuOpen && favoriteRect.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(favorite ? T("Убрать из избранного · Alt+клик", "Remove from favorites · Alt+Click") : T("В избранное · Alt+клик", "Add to favorites · Alt+Click"));
+		}
+		if (r != null)
+		{
+			ActionButton(sb, BookGeometry.CraftAction, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
+			if (!MenuOpen && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(BookCrafting.Reason(r, Ru) + "\nCtrl+Enter");
+			}
+		}
+		DrawTrackButton(sb, r);
+	}
+
+	// Header: icon, name and "<item's own mod> · stage". An armor set shows its three pieces instead.
+	private static void DrawDetailHeader(SpriteBatch sb, Item chosen, Recipe r)
+	{
+		string name = chosen.Name + ((r != null && r.createItem.stack > 1) ? (" ×" + r.createItem.stack) : "");
+		string mod = ModName(chosen.ModItem?.Mod.Name ?? "Terraria");
+		string stage = StageName(chosen, (Catalogue || ArmorFocus > 0) ? null : r);
+		Recipe stageRecipe = (Catalogue || ArmorFocus > 0) ? null : r;
+		if (DrawArmorSet(sb, chosen))
+		{
+			BookRect title = BookGeometry.ArmorTitle;
+			BookRect subtitle = BookGeometry.ArmorSubtitle;
+			FixedLabel(sb, name, title.X, title.Y, TextColor, 1.05f, title.Width, title.Height);
+			FixedLabel(sb, mod + " · " + stage, subtitle.X, subtitle.Y, Muted, 0.8f, subtitle.Width, subtitle.Height);
+			if (!MenuOpen && subtitle.Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(StageExplanation(chosen, stageRecipe));
+			}
+			DrawArmorDefense(sb, chosen);
+			return;
+		}
+		BookRect tile = BookGeometry.DetailHeaderIcon;
+		Box(sb, tile, Raised, border: true, 10f);
+		Icon(sb, chosen, tile.X + 8f, tile.Y + 8f, 40f);
+		bool armor = HasArmorDefense(chosen);
+		bool wrap = TextWidth(mod + " · " + stage, 0.8f) > BookGeometry.DetailHeaderSub.Width;
+		int lines = 1 + ((armor || wrap) ? 1 : 0) + ((armor && wrap) ? 1 : 0);
+		float y = tile.Y + (tile.Height - (26f + lines * 20f)) / 2f;
+		FixedLabel(sb, name, 880f, y, TextColor, 1.05f, 216f, 26f);
+		y += 26f;
+		BookRect sub = new BookRect(880f, y, 216f, wrap ? 40f : 20f);
+		if (wrap)
+		{
+			FixedLabel(sb, mod, 880f, y, Muted, 0.8f, 216f, 20f);
+			FixedLabel(sb, stage, 880f, y + 20f, Muted, 0.8f, 216f, 20f);
+			y += 40f;
+		}
+		else
+		{
+			FixedLabel(sb, mod + " · " + stage, 880f, y, Muted, 0.8f, 216f, 20f);
+			y += 20f;
+		}
+		if (!MenuOpen && sub.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(StageExplanation(chosen, stageRecipe));
+		}
+		if (armor)
+		{
+			DrawArmorDefenseAt(sb, chosen, new BookRect(880f, y, 216f, 20f));
+		}
+	}
+
+	private static void DrawRecipeBlock(SpriteBatch sb, Item chosen, Recipe r, float top)
+	{
+		bool variants = (Catalogue || ArmorFocus > 0) && VariantCount > 1;
+		string itemMod = chosen.ModItem?.Mod.Name ?? "Terraria";
+		string owner = Owner(r);
+		string line = T("Рецепт", "Recipe") + (variants ? (" " + (Variant + 1) + "/" + VariantCount) : "") + ((owner != itemMod) ? (": " + ModName(owner)) : "");
+		BookRect lineRect = BookGeometry.RecipeLine(top);
+		CenterLabel(sb, line, lineRect.X, lineRect.Y, variants ? lineRect.Width : 284f, lineRect.Height, Muted, 0.85f, rightAligned: false, leftAligned: true);
+		if (variants)
+		{
+			BookRect previous = BookGeometry.VariantPrevious(top);
+			BookRect next = BookGeometry.VariantNext(top);
+			IconButtonFrame(sb, previous, active: false, Variant > 0);
+			Chevron(sb, previous.X + previous.Width / 2f - 1f, previous.Y + previous.Height / 2f, 4f, 2, (Variant > 0) ? TextColor : Border);
+			IconButtonFrame(sb, next, active: false, Variant < VariantCount - 1);
+			Chevron(sb, next.X + next.Width / 2f + 1f, next.Y + next.Height / 2f, 4f, 3, (Variant < VariantCount - 1) ? TextColor : Border);
+			if (!MenuOpen && (previous.Contains(Mouse.X, Mouse.Y) || next.Contains(Mouse.X, Mouse.Y)))
+			{
+				MouseTip(T("Другие рецепты этого предмета", "Other recipes for this item"));
+			}
+		}
+		DrawBatchChoices(sb, r);
+		List<Detail> rows = Details(r);
+		int materials = r.requiredItem.Count((Item i) => !i.IsAir);
+		int stations = Math.Max(1, r.requiredTile.Count((int t) => t >= 0));
+		List<List<DetailSlot>> pages = DetailPages(r, rows.Count, top);
+		DetailsPage = Math.Clamp(DetailsPage, 0, pages.Count - 1);
+		foreach (DetailSlot slot in pages[DetailsPage])
+		{
+			if (slot.Detail < 0)
+			{
+				SectionLabel(sb, slot.Header, slot.Rect.X, slot.Rect.Y, slot.Rect.Width);
+				continue;
+			}
+			int kind = (slot.Detail < materials) ? 0 : ((slot.Detail < materials + stations) ? 1 : 2);
+			DrawDetailRow(sb, rows[slot.Detail], slot.Rect, kind);
+		}
+		if (pages.Count > 1)
+		{
+			BookRect previous2 = BookGeometry.DetailListPrevious;
+			BookRect next2 = BookGeometry.DetailListNext;
+			IconButtonFrame(sb, previous2, active: false, DetailsPage > 0);
+			Chevron(sb, previous2.X + previous2.Width / 2f - 1f, previous2.Y + previous2.Height / 2f, 4f, 2, (DetailsPage > 0) ? TextColor : Border);
+			IconButtonFrame(sb, next2, active: false, DetailsPage < pages.Count - 1);
+			Chevron(sb, next2.X + next2.Width / 2f + 1f, next2.Y + next2.Height / 2f, 4f, 3, (DetailsPage < pages.Count - 1) ? TextColor : Border);
+			Label(sb, BookGeometry.DetailListPager, DetailsPage + 1 + " / " + pages.Count, Muted, 0.85f);
+			if (!MenuOpen && (previous2.Contains(Mouse.X, Mouse.Y) || next2.Contains(Mouse.X, Mouse.Y)))
+			{
+				MouseTip(T("Остальные строки рецепта · колесо мыши", "More of this recipe · Mouse wheel"));
+			}
+		}
+	}
+
+	private static void DrawDetailRow(SpriteBatch sb, Detail d, BookRect row, int kind)
+	{
+		bool hasItem = d.Icon != null && !d.Icon.IsAir;
+		Box(sb, row, Raised, border: false, 8f);
+		float textX = row.X + 10f;
+		if (d.Icon != null)
+		{
+			Icon(sb, d.Icon, row.X + 6f, row.Y + 4f, 24f, tooltip: false);
+			textX = row.X + 38f;
+		}
+		BookRect obtain = BookGeometry.DetailListObtain(row);
+		float right = (hasItem ? (obtain.X - 8f) : (row.X + row.Width - 10f));
+		if (kind == 0)
+		{
+			float valueWidth = TextWidth(d.Sub, 0.85f) + 4f;
+			CenterLabel(sb, d.Sub, right - valueWidth, row.Y + 4f, valueWidth, row.Height - 8f, d.Color, 0.85f, rightAligned: true);
+			right -= valueWidth + 10f;
+		}
+		CenterLabel(sb, d.Name, textX, row.Y + 4f, right - textX, row.Height - 8f, (kind == 2) ? Caution : ((d.Icon == null) ? Muted : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		if (hasItem)
+		{
+			bool hover = IconButtonFrame(sb, obtain);
+			CenterLabel(sb, "?", obtain.X + 2f, obtain.Y + 2f, obtain.Width - 4f, obtain.Height - 4f, hover ? TextColor : Muted, 0.85f);
+			if (hover)
+			{
+				MouseTip(T("Где взять: ", "How to Get: ") + d.Name);
+				return;
+			}
+		}
+		if (!MenuOpen && row.Contains(Mouse.X, Mouse.Y))
+		{
+			string action = hasItem ? T("Клик: цепочка этого предмета", "Click: open its chain") : "";
+			string detail = (kind == 0) ? d.Tooltip : "";
+			MouseTip(d.Name + "\n" + string.Join(" · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)));
+		}
+	}
+
+	private static void DrawFooter(SpriteBatch sb)
+	{
+		Box(sb, 8f, 648f, 1104f, 1f, Border, border: false, 0f);
+		BookRect decrease = BookGeometry.WindowSizeDecrease;
+		BookRect increase = BookGeometry.WindowSizeIncrease;
+		IconButtonFrame(sb, decrease, active: false, WindowScalePercent > 70);
+		Line(sb, decrease.X + 7f, decrease.Y + 12f, decrease.X + 17f, decrease.Y + 12f, (WindowScalePercent > 70) ? TextColor : Border);
+		Label(sb, BookGeometry.WindowSizeLabel, WindowScalePercent + "%", Muted, 0.8f);
+		IconButtonFrame(sb, increase, active: false, WindowScalePercent < 130);
+		Plus(sb, increase.X + 12f, increase.Y + 12f, 5f, (WindowScalePercent < 130) ? TextColor : Border);
+		if (!MenuOpen && (decrease.Contains(Mouse.X, Mouse.Y) || increase.Contains(Mouse.X, Mouse.Y)))
+		{
+			MouseTip(T("Размер окна", "Window size"));
+		}
+		float hintRight = 924f;
+		if (StorageTabVisible)
+		{
+			BookRect[] sources = CraftSourceRects();
+			Segmented(sb, sources, CraftSourceLabels(), BookStorage.UseForCrafting ? 1 : 0, 0.8f);
+			string from = T("Крафт из", "Craft from");
+			float fromWidth = TextWidth(from, 0.8f) + 4f;
+			CenterLabel(sb, from, sources[0].X - 8f - fromWidth, 660f, fromWidth, 24f, Muted, 0.8f, rightAligned: true);
+			hintRight = sources[0].X - 24f - fromWidth;
+			if (!MenuOpen && SegmentAt(sources) >= 0)
+			{
+				MouseTip(T("Откуда брать материалы", "Where materials come from") + "\n" + T("Хранилищу нужен подключённый интерфейс крафта", "Storage needs a connected Crafting Interface"));
+			}
+		}
+		string message = BookCrafting.LastMessage ?? "";
+		CenterLabel(sb, (message.Length > 0) ? message : FooterHint(), 140f, 660f, hintRight - 140f, 24f, (message.Length > 0) ? Accent : Muted, 0.8f, rightAligned: false, leftAligned: true);
+	}
+
+	private static string FooterHint()
+	{
+		return CurrentTab switch
+		{
+			0 => T("Shift+клик: цепочка предмета · F1: справка", "Shift+Click an item for its chain · F1 Help"),
+			1 => T("Ctrl+Enter: создать · F1: справка", "Ctrl+Enter crafts · F1 Help"),
+			2 => T("Кнопка >: следующий шаг · Alt+←: назад", "> opens the next step · Alt+← goes back"),
+			3 => T("Shift+клик: стопку в инвентарь · F1: справка", "Shift+Click takes a stack · F1 Help"),
+			4 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
+			_ => T("PgUp/PgDn: страницы · F1: справка", "PgUp/PgDn pages · F1 Help"),
+		};
+	}
+
+	private static string[] CraftSourceLabels()
+	{
+		return new string[2]
+		{
+			T("Инвентарь", "Inventory"),
+			T("Хранилище", "Storage")
+		};
+	}
+
+	private static BookRect[] CraftSourceRects()
+	{
+		return SegmentRects(BookGeometry.CraftSource, CraftSourceLabels(), 0.8f, natural: false);
+	}
+
+	private static void DrawSortMenu(SpriteBatch sb)
+	{
+		BookRect panel = BookGeometry.SortMenuPanel;
+		Box(sb, panel, new Color(17, 25, 20), border: true, 10f, Accent);
+		for (int option = 0; option < 6; option++)
+		{
+			BookRect rect = BookGeometry.SortOption(option);
+			bool active = option == SortOptionIndex;
+			bool hover = rect.Contains(Mouse.X, Mouse.Y);
+			if (active)
+			{
+				Box(sb, rect, SelectedFill, border: false, 6f);
+			}
+			else if (hover)
+			{
+				Box(sb, rect, HoverFill, border: false, 6f);
+			}
+			CenterLabel(sb, SortOptionLabel(option), rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
+		}
+	}
+
+	private static string TitleText => T("Книга рецептов", "Recipe Book");
+
+	private static float TitleRight()
+	{
+		return 34f + TextWidth(TitleText, 1.1f);
+	}
+
+	private const float TabTextSize = 0.9f;
+
+	private static int CurrentTab => TrackingView ? 5 : (RecentView ? 4 : (StorageView ? 3 : (Chains ? 2 : ((!Catalogue) ? 1 : 0))));
+
+	private static string TabLabel(int tab)
+	{
+		return tab switch
+		{
+			0 => T("Предметы", "Items"),
+			1 => T("Рецепты", "Recipes"),
+			2 => T("Цепочки", "Chains"),
+			3 => T("Хранилище", "Storage"),
+			4 => T("Недавние", "Recent"),
+			_ => T("Отслеживание", "Tracking"),
+		};
+	}
+
+	// The Storage tab exists only when Magic Storage is loaded.
+	private static List<int> VisibleTabs()
+	{
+		List<int> tabs = new List<int>();
+		for (int tab = 0; tab < BookGeometry.TabCount; tab++)
+		{
+			if (tab != 3 || StorageTabVisible)
+			{
+				tabs.Add(tab);
+			}
+		}
+		return tabs;
+	}
+
+	// Tabs share the widest label's width when that fits next to the title, otherwise each gets its own.
+	private static BookRect TabRect(int tab)
+	{
+		List<int> tabs = VisibleTabs();
+		int slot = tabs.IndexOf(tab);
+		if (slot < 0)
+		{
+			return default(BookRect);
+		}
+		float[] widths = tabs.Select((int t) => TextWidth(TabLabel(t), TabTextSize) + 32f).ToArray();
+		float equal = Math.Max(96f, widths.Max());
+		bool same = equal * tabs.Count + 8f * (tabs.Count - 1) <= BookGeometry.TabRight - TitleRight() - 24f;
+		float x = BookGeometry.TabRight;
+		for (int i = tabs.Count - 1; i > slot; i--)
+		{
+			x -= (same ? equal : widths[i]) + 8f;
+		}
+		float width = (same ? equal : widths[slot]);
+		return new BookRect(x - width, BookGeometry.TabTop, width, BookGeometry.TabHeight);
 	}
 
 	// A key the way keyboards draw it: quiet fill, hairline border, the label centered.
