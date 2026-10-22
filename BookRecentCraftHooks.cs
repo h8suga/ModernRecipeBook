@@ -13,13 +13,13 @@ public sealed class BookRecentCraftHooks : ModSystem
 	[ThreadStatic]
 	private static bool StorageOutputObserved;
 
+	// The local player's crafts: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void Load()
 	{
-		if (!Main.dedServ)
-		{
-			On_Main.CraftItem += AfterInventoryCraft;
-			On_AchievementsHelper.NotifyItemCraft += ObserveStorageOutput;
-		}
+		On_Main.CraftItem += AfterInventoryCraft;
+		On_AchievementsHelper.NotifyItemCraft += ObserveStorageOutput;
 	}
 
 	public override void Unload()

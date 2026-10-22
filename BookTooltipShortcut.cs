@@ -14,6 +14,9 @@ public sealed class BookTooltipShortcut : GlobalItem
 	// Yoyos with the vanilla yoyo logo line, which adds 24 px below the text (Main.MouseText_DrawItemTooltip).
 	private static readonly HashSet<int> YoyoLogoItems = new HashSet<int> { 3262, 3282, 3283, 3284, 3285, 3286, 3316, 3315, 3317, 3291, 3389 };
 
+	// Tooltips only, no item data or net sync: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void ModifyTooltips(Item item, List<TooltipLine> tooltips)
 	{
 		BookInventoryShortcut.TryOpenTooltip(item);

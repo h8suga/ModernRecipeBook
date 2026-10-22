@@ -49,6 +49,9 @@ public sealed class BookInventoryShortcut : ModSystem
 		}
 	}
 
+	// Input and inventory UI only: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void PostUpdateInput()
 	{
 		if (Input.ResolveFrame())
@@ -78,7 +81,7 @@ public sealed class BookInventoryShortcut : ModSystem
 
 	private static bool CanSearchItem(Item item)
 	{
-		if (Main.dedServ || Main.gameMenu || item == null || item.IsAir)
+		if (Main.gameMenu || item == null || item.IsAir)
 		{
 			return false;
 		}

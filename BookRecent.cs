@@ -16,7 +16,7 @@ internal static class BookRecent
 
 	internal static void Record(Recipe recipe)
 	{
-		if (recipe != null && recipe.createItem != null && !recipe.createItem.IsAir && !Main.dedServ && !Main.gameMenu && Main.LocalPlayer != null)
+		if (recipe != null && recipe.createItem != null && !recipe.createItem.IsAir && !Main.gameMenu && Main.LocalPlayer != null)
 		{
 			string key = Key(recipe);
 			Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Record(key);
@@ -38,7 +38,7 @@ internal static class BookRecent
 
 	internal static List<int> ResolveRecipeIndexes()
 	{
-		if (Main.dedServ || Main.gameMenu || Main.LocalPlayer == null)
+		if (Main.gameMenu || Main.LocalPlayer == null)
 		{
 			return new List<int>();
 		}
