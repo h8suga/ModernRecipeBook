@@ -6,5 +6,7 @@ internal enum BookSortMode
 	ItemId,
 	Mod,
 	// Bestiary tab only: earliest stage first.
-	Stage
+	Stage,
+	// Bestiary tab only: by when the player first met the mob.
+	Met
 }

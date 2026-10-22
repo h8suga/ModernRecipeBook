@@ -3430,7 +3430,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static string SortLabel()
 	{
-		return SortOptionLabel(SortOptionIndex);
+		return BestiaryView ? MobSortShortLabel(SortOptionIndex) : SortOptionLabel(SortOptionIndex);
 	}
 
 	// One list for field and direction: Name, ID and Mod, each ascending then descending. The Bestiary tab has
