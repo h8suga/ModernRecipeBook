@@ -1763,7 +1763,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
 		int[] types = needs.SelectMany((BookBatchNeed n) => n.AcceptedTypes).Distinct().ToArray();
-		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || !BookStorage.CraftReady);
+		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || BookStorage.CraftInitializing);
 		goal.Counts = (goal.Storage ? BookStorage.PreviewCounts(types) : CountPlayerMaterials(types));
 		if (goal.Storage && !goal.Unknown)
 		{

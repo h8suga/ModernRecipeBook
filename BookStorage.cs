@@ -30,7 +30,41 @@ public sealed class BookStorage : ModSystem
 
 	private static readonly Dictionary<string, MethodInfo> Methods = new Dictionary<string, MethodInfo>();
 
-	private static readonly Dictionary<int, bool> RecipeCache = new Dictionary<int, bool>();
+	// Last known availability per recipe index, and which of them were checked since storage last changed. While MS
+	// refreshes, the book keeps showing the last answer instead of flashing "unavailable".
+	private static readonly Dictionary<int, bool> Availability = new Dictionary<int, bool>();
+
+	private static readonly HashSet<int> Checked = new HashSet<int>();
+
+	// Reflection resolved once in PostSetupContent; the two getters MS is asked about several times a frame are
+	// delegates (no boxing).
+	private static PropertyInfo LocalPlayerProperty;
+
+	private static Func<bool> IsRefreshing;
+
+	private static Func<bool> IsRefreshRequested;
+
+	private static FieldInfo InterfaceField;
+
+	private static FieldInfo CurrentMouseField;
+
+	private static FieldInfo OldMouseField;
+
+	private static PropertyInfo ActorProperty;
+
+	private static FieldInfo InfiniteField;
+
+	private static FieldInfo CreativeField;
+
+	private static FieldInfo StorageNameField;
+
+	// Updates in a row the adapter has been waiting on MS; the "Syncing" cue shows only past ShowSyncAfter, so the
+	// short refreshes MS runs after every change never blink the status.
+	private static int WaitingTicks;
+
+	private const int ShowSyncAfter = 30;
+
+	private static int ItemsSignature;
 
 	internal static readonly List<Item> Items = new List<Item>();
 
@@ -50,19 +84,13 @@ public sealed class BookStorage : ModSystem
 
 	private static bool Hooked;
 
-	private static bool WasBusy;
-
 	private static bool CraftCacheReady;
 
 	private static bool NativeUpdated;
 
 	private static int RefreshRevision;
 
-	private static int PendingRevision;
-
 	private static bool LogNextRefresh;
-
-	private static int TickCount;
 
 	private static int Cooldown;
 
@@ -102,7 +130,7 @@ public sealed class BookStorage : ModSystem
 
 	private static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
 
-	private static object Player => PlayerType?.GetProperty("LocalPlayer", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(null);
+	private static object Player => LocalPlayerProperty?.GetValue(null);
 
 	private static bool Busy
 	{
@@ -110,7 +138,7 @@ public sealed class BookStorage : ModSystem
 		{
 			if (Supported)
 			{
-				return (bool)UIType.GetProperty("CurrentlyRefreshing", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null);
+				return IsRefreshing();
 			}
 			return false;
 		}
@@ -148,7 +176,7 @@ public sealed class BookStorage : ModSystem
 		{
 			if (Supported)
 			{
-				return (bool)UIType.GetProperty("RefreshUI", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null);
+				return IsRefreshRequested();
 			}
 			return false;
 		}
@@ -166,13 +194,14 @@ public sealed class BookStorage : ModSystem
 		}
 	}
 
+	// Only until the first crafting counts arrive after connecting; later refreshes keep the previous counts.
 	internal static bool CraftInitializing
 	{
 		get
 		{
 			if (CraftingConnected)
 			{
-				return !CraftReady;
+				return !DisplayMaterials.HasValue;
 			}
 			return false;
 		}
@@ -188,19 +217,15 @@ public sealed class BookStorage : ModSystem
 				{
 					if (Connected)
 					{
-						if (Cooldown <= 0)
+						if (Updating || CraftInitializing)
 						{
-							if (!Busy && !IsPending && !RefreshRequested && (!CraftingConnected || CraftCacheReady))
-							{
-								if (!CraftingConnected)
-								{
-									return T("Для крафта нужен интерфейс крафта", "Needs a Crafting Interface to craft");
-								}
-								return T("Хранилище готово к крафту", "Storage ready for crafting");
-							}
 							return T("Обновление хранилища…", "Updating storage…");
 						}
-						return T("Синхронизация…", "Syncing…");
+						if (!CraftingConnected)
+						{
+							return T("Для крафта нужен интерфейс крафта", "Needs a Crafting Interface to craft");
+						}
+						return T("Хранилище готово к крафту", "Storage ready for crafting");
 					}
 					return T("Рядом нет сети хранилища", "No storage network nearby");
 				}
@@ -212,17 +237,14 @@ public sealed class BookStorage : ModSystem
 
 	internal static string ConnectionStatus => BookStoragePresentation.Connection(Installed, Supported, Connected, Ru);
 
+	// A busy cue for waits that last (half a second or more), never for MS's routine refreshes.
 	internal static bool Updating
 	{
 		get
 		{
 			if (Connected)
 			{
-				if (!Busy && !RefreshRequested && !IsPending && Cooldown <= 0)
-				{
-					return CraftInitializing;
-				}
-				return true;
+				return WaitingTicks > ShowSyncAfter;
 			}
 			return false;
 		}
@@ -274,7 +296,7 @@ public sealed class BookStorage : ModSystem
 				return ConnectionStatus + ((Message.Length > 0) ? ("\n" + Message) : "");
 			}
 			string text = ConnectionStatus + "\n" + AccessName + "\n" + AccessCoordinates;
-			string network = LastHeart?.GetType().GetField("storageName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(LastHeart) as string;
+			string network = ((LastHeart == null) ? null : (StorageNameField.GetValue(LastHeart) as string));
 			if (!string.IsNullOrWhiteSpace(network))
 			{
 				text = text + "\n" + T("Сеть: ", "Network: ") + network;
@@ -321,7 +343,7 @@ public sealed class BookStorage : ModSystem
 	private static void Invalidate()
 	{
 		SnapshotDirty = true;
-		RecipeCache.Clear();
+		Checked.Clear();
 		DataVersion++;
 	}
 
@@ -333,8 +355,8 @@ public sealed class BookStorage : ModSystem
 		{
 			object inventory = Call("inventory", null, false);
 			IEnumerable<(int, int)> counts = (IEnumerable<(int, int)>)Call("enumerate", inventory);
-			IEnumerable<int> infinite = (IEnumerable<int>)inventory.GetType().GetField("isItemInfinite", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).GetValue(inventory);
-			bool allInfinite = (bool)inventory.GetType().GetField("creativeUnitPresent", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).GetValue(inventory);
+			IEnumerable<int> infinite = (IEnumerable<int>)InfiniteField.GetValue(inventory);
+			bool allInfinite = (bool)CreativeField.GetValue(inventory);
 			DisplayMaterials.Publish(counts, infinite, allInfinite);
 		}
 		Invalidate();
@@ -378,10 +400,8 @@ public sealed class BookStorage : ModSystem
 			Type inputState = inputMod.Code.GetType("SerousCommonLib.API.Input.TextInputState", throwOnError: true);
 			Bind("focused", inputTracker, "GetFocusedState");
 			Bind("unfocus", inputState, "Unfocus");
-			if (inputState.GetProperty("Actor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) == null)
-			{
-				throw new MissingMemberException("TextInputState.Actor");
-			}
+			ActorProperty = Property(inputState, "Actor", Instance);
+			LocalPlayerProperty = Property(PlayerType, "LocalPlayer", Static);
 			Bind("heart", PlayerType, "GetStorageHeart");
 			Bind("permission", PlayerType, "CanAccessCurrentNetwork");
 			Bind("access", PlayerType, "ViewingStorage");
@@ -410,15 +430,15 @@ public sealed class BookStorage : ModSystem
 			Bind("heartPermission", Get("Components.TEStorageComponent"), "CanLocalClientAccess");
 			Type inventoryType = Get("Common.Systems.RecurrentRecipes.AvailableRecipeObjects");
 			Bind("enumerate", inventoryType, "EnumerateInventory");
-			if (inventoryType.GetField("isItemInfinite", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) == null || inventoryType.GetField("creativeUnitPresent", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) == null)
-			{
-				throw new MissingMemberException("Crafting inventory infinite item contract");
-			}
+			InfiniteField = Field(inventoryType, "isItemInfinite", Instance);
+			CreativeField = Field(inventoryType, "creativeUnitPresent", Instance);
 			Bind("quantity", Get("Common.Systems.RecurrentRecipes.AvailableRecipeObjects"), "GetIngredientQuantity", typeof(int));
-			if (UIType.GetField("uiInterface", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) == null || UIType.GetProperty("CurrentlyRefreshing", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) == null || UIType.GetProperty("RefreshUI", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) == null || StorageType.GetField("curMouse", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) == null || StorageType.GetField("oldMouse", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) == null)
-			{
-				throw new MissingMemberException("MagicUI interface contract changed");
-			}
+			StorageNameField = Field(Get("Components.TEStorageHeart"), "storageName", Instance);
+			InterfaceField = Field(UIType, "uiInterface", Static);
+			CurrentMouseField = Field(StorageType, "curMouse", Static);
+			OldMouseField = Field(StorageType, "oldMouse", Static);
+			IsRefreshing = Property(UIType, "CurrentlyRefreshing", Static).GetGetMethod(nonPublic: true).CreateDelegate<Func<bool>>();
+			IsRefreshRequested = Property(UIType, "RefreshUI", Static).GetGetMethod(nonPublic: true).CreateDelegate<Func<bool>>();
 			RefreshEvent = UIType.GetEvent("OnRefresh", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic) ?? throw new MissingMemberException("MagicUI.OnRefresh");
 			RefreshedHandler = OnRefreshed;
 			RefreshEvent.AddEventHandler(null, RefreshedHandler);
@@ -435,6 +455,14 @@ public sealed class BookStorage : ModSystem
 		Type Get(string name)
 		{
 			return mod.Code.GetType("MagicStorage." + name, throwOnError: true);
+		}
+		static FieldInfo Field(Type type, string name, BindingFlags flags)
+		{
+			return type.GetField(name, flags) ?? throw new MissingFieldException(type.FullName, name);
+		}
+		static PropertyInfo Property(Type type, string name, BindingFlags flags)
+		{
+			return type.GetProperty(name, flags) ?? throw new MissingMemberException(type.FullName, name);
 		}
 	}
 
@@ -469,14 +497,14 @@ public sealed class BookStorage : ModSystem
 
 	private static void UpdateNativeInterface(On_UserInterface.orig_Update orig, UserInterface self, GameTime time)
 	{
-		if (!HideNativeUI || self != UIType.GetField("uiInterface", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic).GetValue(null))
+		if (!HideNativeUI || self != InterfaceField.GetValue(null))
 		{
 			orig(self, time);
 			return;
 		}
 		(int, int, bool, bool, bool, bool, int, int) mouse = (Main.mouseX, Main.mouseY, Main.mouseLeft, Main.mouseRight, Main.mouseLeftRelease, Main.mouseRightRelease, PlayerInput.MouseX, PlayerInput.MouseY);
-		FieldInfo currentField = StorageType.GetField("curMouse", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-		FieldInfo oldField = StorageType.GetField("oldMouse", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+		FieldInfo currentField = CurrentMouseField;
+		FieldInfo oldField = OldMouseField;
 		object current = currentField.GetValue(null);
 		object old = oldField.GetValue(null);
 		MouseState quiet = new MouseState(-10000, -10000, 0, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released, ButtonState.Released);
@@ -505,17 +533,9 @@ public sealed class BookStorage : ModSystem
 		}
 		try
 		{
-			if (Cooldown > 0 && --Cooldown == 0)
+			if (Cooldown > 0)
 			{
-				RecipeCache.Clear();
-				DataVersion++;
-			}
-			bool busy = Busy;
-			if (busy != WasBusy)
-			{
-				WasBusy = busy;
-				RecipeCache.Clear();
-				DataVersion++;
+				Cooldown--;
 			}
 			object player = Player;
 			Point16 access = (Point16)Call("access", player);
@@ -536,19 +556,25 @@ public sealed class BookStorage : ModSystem
 				Message = "";
 				CraftCacheReady = false;
 				NativeUpdated = false;
+				Availability.Clear();
+				WaitingTicks = 0;
 				Invalidate();
 				if (connected)
 				{
+					// One ordinary refresh so the first counts arrive even when MS was opened (and refreshed) before
+					// the book; after that MS refreshes by itself whenever the storage changes.
 					LogNextRefresh = true;
-					Call("setRefresh", null, true);
+					Call("setRefresh", null, false);
 				}
 			}
 			if (!Connected)
 			{
 				return;
 			}
+			bool waiting = Busy || RefreshRequested || PendingCraft != null || CraftInitializing;
+			WaitingTicks = (waiting ? (WaitingTicks + 1) : 0);
 			object focused = Call("focused", null);
-			object actor = focused?.GetType().GetProperty("Actor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(focused);
+			object actor = ((focused == null) ? null : ActorProperty.GetValue(focused));
 			if (manageFocus && actor?.GetType().Assembly == OwnerMod.Code)
 			{
 				bool num = RecipeBookSystem.Typing && Main.blockInput;
@@ -559,10 +585,6 @@ public sealed class BookStorage : ModSystem
 				}
 			}
 			Call("pulse", null);
-			if (++TickCount % 120 == 0 && !Busy && !RefreshRequested && PendingCraft == null)
-			{
-				Call("setRefresh", null, true);
-			}
 			if (PendingCraft != null)
 			{
 				if (++PendingAge > 600)
@@ -571,26 +593,14 @@ public sealed class BookStorage : ModSystem
 					PendingBatches = 1;
 					BookCrafting.LastMessage = T("Хранилище не ответило; повторите", "Storage did not respond; try again");
 				}
-				else if (CraftReady && RefreshRevision > PendingRevision)
+				else if (CraftReady && Cooldown == 0)
 				{
 					FinishCraft();
 				}
 			}
-			if (!Busy && (SnapshotDirty || TickCount % 60 == 0))
+			if (SnapshotDirty && !Busy)
 			{
-				List<Item> snapshot = (from Item item in (IEnumerable)Call("stored", heart)
-					where item != null && !item.IsAir
-					select item.Clone()).OrderBy((Item item) => item.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy((Item item) => item.type).ThenBy((Item item) => item.prefix)
-					.ToList();
-				bool num2 = snapshot.Count != Items.Count || snapshot.Where((Item item, int i) => i >= Items.Count || item.type != Items[i].type || item.prefix != Items[i].prefix || item.stack != Items[i].stack || item.Name != Items[i].Name).Any();
-				Items.Clear();
-				Items.AddRange(snapshot);
-				SnapshotDirty = false;
-				if (num2)
-				{
-					DataVersion++;
-					ItemsVersion++;
-				}
+				RebuildItems(heart);
 			}
 		}
 		catch (Exception error)
@@ -599,19 +609,49 @@ public sealed class BookStorage : ModSystem
 		}
 	}
 
+	// Rebuilt only after MS refreshed (SnapshotDirty). Holds MS's own Item objects (no clones): the grid shows live
+	// stacks, and the signature says whether anything really changed before the list is re-sorted and re-filtered.
+	private static void RebuildItems(object heart)
+	{
+		SnapshotDirty = false;
+		List<Item> stored = new List<Item>();
+		int signature = 0;
+		foreach (Item item in (IEnumerable)Call("stored", heart))
+		{
+			if (item != null && !item.IsAir)
+			{
+				stored.Add(item);
+				signature = HashCode.Combine(signature, item.type, item.prefix, item.stack);
+			}
+		}
+		if (signature == ItemsSignature && stored.Count == Items.Count)
+		{
+			return;
+		}
+		ItemsSignature = signature;
+		Items.Clear();
+		Items.AddRange(stored.OrderBy((Item item) => item.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy((Item item) => item.type).ThenBy((Item item) => item.prefix));
+		DataVersion++;
+		ItemsVersion++;
+	}
+
+	// MS's answer is asked once per recipe after each storage change, and only while MS is ready; in between the
+	// last answer stands, so the Craft button and the craftable filters stay put while MS refreshes.
 	internal static bool IsAvailable(Recipe recipe)
 	{
-		if (!CraftReady || PendingCraft != null || Cooldown > 0 || recipe == null || recipe.Disabled)
+		if (!CraftingConnected || recipe == null || recipe.Disabled)
 		{
 			return false;
 		}
 		try
 		{
-			if (!RecipeCache.TryGetValue(recipe.RecipeIndex, out var value))
+			int index = recipe.RecipeIndex;
+			if (CraftReady && Checked.Add(index))
 			{
-				value = (RecipeCache[recipe.RecipeIndex] = (bool)Call("available", null, recipe, true));
+				Availability[index] = (bool)Call("available", null, recipe, true);
 			}
-			return value;
+			bool value;
+			return Availability.TryGetValue(index, out value) && value;
 		}
 		catch (Exception error)
 		{
@@ -690,24 +730,26 @@ public sealed class BookStorage : ModSystem
 		return counts;
 	}
 
+	// MS keeps its crafting cache current by itself, so the craft runs at once when MS is idle; during one of its
+	// refreshes the craft waits in Tick and runs as soon as MS is ready.
 	internal static void QueueCraft(Recipe recipe, bool ru, int batches = 1)
 	{
-		if (!Ready || !CraftReady || recipe == null || recipe.Disabled)
+		if (!CraftingConnected || PendingCraft != null || recipe == null || recipe.Disabled)
 		{
+			return;
+		}
+		PendingCraft = recipe;
+		PendingBatches = Math.Clamp(batches, 1, 100);
+		PendingRu = ru;
+		PendingAge = 0;
+		if (!CraftReady || Cooldown > 0)
+		{
+			BookCrafting.LastMessage = (ru ? "Ждём хранилище…" : "Waiting for storage…");
 			return;
 		}
 		try
 		{
-			PendingCraft = recipe;
-			PendingBatches = Math.Clamp(batches, 1, 100);
-			PendingRu = ru;
-			PendingAge = 0;
-			PendingRevision = RefreshRevision;
-			CraftCacheReady = false;
-			BookCrafting.LastMessage = (ru ? "Проверка материалов…" : "Checking materials…");
-			RecipeCache.Clear();
-			Call("setRefresh", null, true);
-			Call("refresh", null);
+			FinishCraft();
 		}
 		catch (Exception error)
 		{
@@ -751,7 +793,6 @@ public sealed class BookStorage : ModSystem
 		}
 		Cooldown = 30;
 		Invalidate();
-		Call("setRefresh", null, true);
 		string lastMessage;
 		if (Main.netMode != 1)
 		{
@@ -838,7 +879,6 @@ public sealed class BookStorage : ModSystem
 				Message = message;
 				Cooldown = 20;
 				Invalidate();
-				Call("setRefresh", null, true);
 			}
 			catch (Exception error)
 			{
@@ -884,7 +924,6 @@ public sealed class BookStorage : ModSystem
 			Message = message;
 			Cooldown = 4;
 			Invalidate();
-			Call("setRefresh", null, true);
 		}
 		catch (Exception error)
 		{
@@ -1032,10 +1071,6 @@ public sealed class BookStorage : ModSystem
 		AutoSourcePending = false;
 		CancelCraft();
 		UseForCrafting = storage;
-		if (storage)
-		{
-			RefreshStorage();
-		}
 	}
 
 	internal static void UpdateBookConnection()
@@ -1105,10 +1140,11 @@ public sealed class BookStorage : ModSystem
 	{
 		PendingCraft = null;
 		PendingBatches = 1;
-		Cooldown = (TickCount = 0);
+		Cooldown = (WaitingTicks = (ItemsSignature = 0));
 		UseForCrafting = false;
-		CraftCacheReady = (NativeUpdated = (WasBusy = (LogNextRefresh = false)));
-		RefreshRevision = (PendingRevision = 0);
+		CraftCacheReady = (NativeUpdated = (LogNextRefresh = false));
+		RefreshRevision = 0;
+		Availability.Clear();
 		Connected = (CraftingConnected = false);
 		LastAccess = (BookOpened = Point16.NegativeOne);
 		LastHeart = null;
