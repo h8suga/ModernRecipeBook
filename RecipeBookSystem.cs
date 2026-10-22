@@ -21,7 +21,7 @@ using Terraria.UI;
 
 namespace ModernRecipeBook;
 
-public sealed class RecipeBookSystem : ModSystem
+public sealed partial class RecipeBookSystem : ModSystem
 {
 	private readonly record struct BatchEstimate(int Count, ulong Tick, int AvailabilityVersion, int StorageVersion, bool Storage);
 
@@ -912,7 +912,6 @@ public sealed class RecipeBookSystem : ModSystem
 			DrawEnemyCard(sb);
 			return;
 		}
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		Box(sb, BookGeometry.AcquisitionPanel, Surface, border: true, 12f);
 		bool expanded = AcquisitionGroup >= 0;
 		BookAcquisitionGroup current = (expanded ? AcquisitionSources[AcquisitionGroup] : null);
@@ -997,7 +996,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}, centered: true);
 		BookGlyphLayout.Bounds ink = Ink(line.Value);
 		Vector2 pos = Origin + new Vector2(rect.X + 6f + line.X - ink.X * line.Scale, rect.Y + 4f + line.Y - ink.Y * line.Scale) * Scale;
-		sb.DrawString(FontAssets.MouseText.Value, line.Value, pos, Panel, 0f, Vector2.Zero, line.Scale * Scale, SpriteEffects.None, 0f);
+		sb.DrawString(FontAssets.MouseText.Value, line.Value, pos, Panel * ModalOpacity, 0f, Vector2.Zero, line.Scale * Scale, SpriteEffects.None, 0f);
 	}
 
 	// Shared header of the How to Get and enemy cards: [back] [icon] title / subtitle ... [variants] [X].
@@ -2425,7 +2424,6 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void DrawEnemyCard(SpriteBatch sb)
 	{
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		BookRect panel = BookGeometry.AcquisitionPanel;
 		Box(sb, panel, Surface, border: true, 12f);
 		NPC npc = ContentSamples.NpcsByNetId[EnemyVariants[EnemyVariant]];
@@ -5048,9 +5046,9 @@ public sealed class RecipeBookSystem : ModSystem
 		};
 		foreach (Vector2 offset in array)
 		{
-			sb.DrawString(font, value, pos + offset, Color.Black, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+			sb.DrawString(font, value, pos + offset, Color.Black * ModalOpacity, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
 		}
-		sb.DrawString(font, value, pos, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+		sb.DrawString(font, value, pos, color * ModalOpacity, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
 	}
 
 	private static void DrawTextPair(SpriteBatch sb, string name, string subtitle, float x, float y, float width, float height, Color titleColor, Color subColor)
@@ -5318,7 +5316,7 @@ public sealed class RecipeBookSystem : ModSystem
 			Texture2D texture = TextureAssets.Item[item.type].Value;
 			Rectangle frame = Main.itemAnimations[item.type]?.GetFrame(texture) ?? texture.Bounds;
 			float s = Math.Min(size / (float)Math.Max(1, frame.Width), size / (float)Math.Max(1, frame.Height));
-			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, Color.White, 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
+			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, Color.White * ModalOpacity, 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
 			if (Hit(x, y, size, size))
 			{
 				BookInventoryShortcut.TryOpenIcon(item);
@@ -5699,11 +5697,27 @@ public sealed class RecipeBookSystem : ModSystem
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
 		bool grabHint = !AcquisitionOpen && GrabHint;
 		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f, grabHint ? Accent : Border, grabHint ? 2f : 1f);
+		// Under a modal the book stays as it was, blurred and dimmed, and ignores the mouse.
+		float backdrop = BookBackdrop.Advance(ModalOpen);
+		if (!BookBackdrop.Covers(backdrop))
+		{
+			DrawBookContent(sb, ModalOpen);
+		}
+		DrawBackdrop(sb, backdrop);
 		if (AcquisitionOpen)
 		{
-			DrawAcquisition(sb);
-			return;
+			DrawModal(sb, backdrop, DrawAcquisition);
 		}
+		else if (HelpOpen)
+		{
+			Main.HoverItem = new Item();
+			Main.hoverItemName = "";
+			DrawModal(sb, backdrop, DrawHelp);
+		}
+	}
+
+	private static void DrawBookContent(SpriteBatch sb)
+	{
 		DrawHeader(sb);
 		if (TrackingView)
 		{
@@ -5746,12 +5760,6 @@ public sealed class RecipeBookSystem : ModSystem
 		if (StageMenu)
 		{
 			DrawStageMenu(sb);
-		}
-		if (HelpOpen)
-		{
-			Main.HoverItem = new Item();
-			Main.hoverItemName = "";
-			DrawHelp(sb);
 		}
 	}
 
@@ -6585,7 +6593,6 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawHelp(SpriteBatch sb)
 	{
 		PendingTip = null;
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		BookRect modal = BookGeometry.HelpPanel;
 		Box(sb, modal, Surface, border: true, 12f);
 		Text(sb, T("Горячие клавиши", "Shortcuts"), modal.X + 24f, modal.Y + 24f, TextColor, 1.1f, modal.Width - 112f, 32f);
