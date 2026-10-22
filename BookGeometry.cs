@@ -89,7 +89,10 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect TrackingDetailPager => new BookRect(TrackingDetailPrevious.X + 48f, TrackingDetailPrevious.Y, TrackingDetailNext.X - TrackingDetailPrevious.X - 96f, 28f);
 
-	internal static BookRect CraftSource => new BookRect(712f, 660f, 208f, 24f);
+	// With Magic Storage the craft row is [star][source chip][Craft]; without it, [star][Craft].
+	internal static BookRect CraftSourceChip => new BookRect(852f, 564f, 120f, 32f);
+
+	internal static BookRect CraftActionBesideSource => new BookRect(980f, 564f, 116f, 32f);
 
 	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons); the details
 	// panel holds the selected stack, the withdraw shortcuts and the network block at its bottom.

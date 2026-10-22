@@ -70,13 +70,17 @@ public sealed class BookStorage : ModSystem
 
 	internal static readonly List<Item> Items = new List<Item>();
 
-	internal static bool UseForCrafting;
+	// Craft source: Magic Storage while a Crafting Interface is connected, the inventory otherwise. While connected the
+	// player may pick the inventory instead; that lasts until the crafting connection drops or the book is reopened.
+	private static bool PreferInventory;
+
+	internal static bool UseForCrafting => CraftingConnected && !PreferInventory;
+
+	internal static bool CanChooseSource => CraftingConnected;
 
 	private static readonly BookStorageSnapshot DisplayMaterials = new BookStorageSnapshot();
 
 	private static bool AutoSuppressed;
-
-	private static bool AutoSourcePending;
 
 	private static int AutoDelay;
 
@@ -565,6 +569,7 @@ public sealed class BookStorage : ModSystem
 				NativeUpdated = false;
 				Availability.Clear();
 				WaitingTicks = 0;
+				PreferInventory &= crafting;
 				Invalidate();
 				if (connected)
 				{
@@ -1034,17 +1039,15 @@ public sealed class BookStorage : ModSystem
 
 	internal static void OnBookOpened()
 	{
-		AutoSuppressed = false;
-		AutoSourcePending = true;
+		AutoSuppressed = (PreferInventory = false);
 		AutoDelay = 0;
 		UpdateBookConnection();
 	}
 
 	internal static void ChooseCraftSource(bool storage)
 	{
-		AutoSourcePending = false;
 		CancelCraft();
-		UseForCrafting = storage;
+		PreferInventory = !storage;
 	}
 
 	internal static void UpdateBookConnection()
@@ -1063,11 +1066,6 @@ public sealed class BookStorage : ModSystem
 			{
 				Tick();
 			}
-		}
-		if (CraftingConnected && AutoSourcePending)
-		{
-			UseForCrafting = true;
-			AutoSourcePending = false;
 		}
 	}
 
@@ -1115,7 +1113,7 @@ public sealed class BookStorage : ModSystem
 		PendingCraft = null;
 		PendingBatches = 1;
 		Cooldown = (WaitingTicks = (ItemsSignature = 0));
-		UseForCrafting = false;
+		PreferInventory = false;
 		CraftCacheReady = (NativeUpdated = (LogNextRefresh = false));
 		RefreshRevision = 0;
 		Availability.Clear();
@@ -1126,7 +1124,7 @@ public sealed class BookStorage : ModSystem
 		ItemsVersion++;
 		DisplayMaterials.Clear();
 		Message = "";
-		AutoSuppressed = (AutoSourcePending = false);
+		AutoSuppressed = false;
 		AutoDelay = 0;
 		Invalidate();
 	}

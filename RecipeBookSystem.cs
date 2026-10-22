@@ -4316,17 +4316,6 @@ public sealed class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
-
-		int source = StorageTabVisible ? SegmentAt(CraftSourceRects()) : (-1);
-		if (source >= 0)
-		{
-			if ((source == 1) != BookStorage.UseForCrafting)
-			{
-				BookStorage.ChooseCraftSource(source == 1);
-				BookCrafting.Refresh(force: true);
-			}
-			return;
-		}
 		if (TrackingView)
 		{
 			HandleTrackingTabInput();
@@ -4566,7 +4555,14 @@ public sealed class RecipeBookSystem : ModSystem
 			ToggleFavorite(chosen);
 			return;
 		}
-		if (materialRecipe != null && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
+		if (materialRecipe != null && SourceShown && BookStorage.CanChooseSource && BookGeometry.CraftSourceChip.Contains(Mouse.X, Mouse.Y))
+		{
+			BookStorage.ChooseCraftSource(!BookStorage.UseForCrafting);
+			BookCrafting.Refresh(force: true);
+			InvalidateBatchEstimate();
+			return;
+		}
+		if (materialRecipe != null && CraftRect.Contains(Mouse.X, Mouse.Y))
 		{
 			BookCrafting.TryCraft(materialRecipe, Ru, PreviewBatches(materialRecipe));
 		}
@@ -5415,7 +5411,7 @@ public sealed class RecipeBookSystem : ModSystem
 	private static string MaterialTooltip(MaterialRequirement requirement, BookMaterialRules.Assessment assessment, int batches)
 	{
 		string have = (assessment.Unknown ? "?" : (assessment.Infinite ? "∞" : Count(assessment.Available)));
-		return T("Есть ", "Have ") + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "");
+		return (BookStorage.UseForCrafting ? T("В хранилище ", "In storage ") : T("Есть ", "Have ")) + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "");
 	}
 
 	private static List<Detail> Details(Recipe r)
@@ -6004,8 +6000,12 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (r != null)
 		{
-			ActionButton(sb, BookGeometry.CraftAction, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
-			if (!MenuOpen && BookGeometry.CraftAction.Contains(Mouse.X, Mouse.Y))
+			if (SourceShown)
+			{
+				DrawCraftSource(sb);
+			}
+			ActionButton(sb, CraftRect, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
+			if (!MenuOpen && CraftRect.Contains(Mouse.X, Mouse.Y))
 			{
 				MouseTip(BookCrafting.Reason(r, Ru) + "\nCtrl+Enter · " + T("максимум", "max") + ": Ctrl+Shift+Enter");
 			}
@@ -6414,19 +6414,6 @@ public sealed class RecipeBookSystem : ModSystem
 			MouseTip(T("Размер окна", "Window size"));
 		}
 		float hintRight = 924f;
-		if (StorageTabVisible)
-		{
-			BookRect[] sources = CraftSourceRects();
-			Segmented(sb, sources, CraftSourceLabels(), BookStorage.UseForCrafting ? 1 : 0, 0.8f);
-			string from = T("Крафт из", "Craft from");
-			float fromWidth = TextWidth(from, 0.8f) + 4f;
-			CenterLabel(sb, from, sources[0].X - 8f - fromWidth, 660f, fromWidth, 24f, Muted, 0.8f, rightAligned: true);
-			hintRight = sources[0].X - 24f - fromWidth;
-			if (!MenuOpen && SegmentAt(sources) >= 0)
-			{
-				MouseTip(T("Откуда брать материалы", "Where materials come from") + "\n" + T("Хранилищу нужен подключённый интерфейс крафта", "Storage needs a connected Crafting Interface"));
-			}
-		}
 		string message = BookCrafting.LastMessage ?? "";
 		CenterLabel(sb, (message.Length > 0) ? message : FooterHint(), 140f, 660f, hintRight - 140f, 24f, (message.Length > 0) ? Accent : Muted, 0.8f, rightAligned: false, leftAligned: true);
 	}
@@ -6443,18 +6430,24 @@ public sealed class RecipeBookSystem : ModSystem
 		};
 	}
 
-	private static string[] CraftSourceLabels()
-	{
-		return new string[2]
-		{
-			T("Инвентарь", "Inventory"),
-			T("Хранилище", "Storage")
-		};
-	}
+	// Craft source chip, between the star and Craft, only when Magic Storage support is on. The source follows the
+	// connection (a Crafting Interface means storage); the chip is clickable only while both sources work.
+	private static bool SourceShown => BookStorage.Supported;
 
-	private static BookRect[] CraftSourceRects()
+	private static BookRect CraftRect => SourceShown ? BookGeometry.CraftActionBesideSource : BookGeometry.CraftAction;
+
+	private static void DrawCraftSource(SpriteBatch sb)
 	{
-		return SegmentRects(BookGeometry.CraftSource, CraftSourceLabels(), 0.8f, natural: false);
+		BookRect rect = BookGeometry.CraftSourceChip;
+		bool storage = BookStorage.UseForCrafting;
+		bool choice = BookStorage.CanChooseSource;
+		bool over = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		Box(sb, rect, (choice && over) ? HoverFill : (storage ? SelectedFill : Surface), border: true, 8f, storage ? new Color?(Accent) : null);
+		CenterLabel(sb, storage ? T("Из хранилища", "From storage") : T("Из инвентаря", "From inventory"), rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, storage ? Accent : (choice ? TextColor : Muted), 0.8f);
+		if (over)
+		{
+			MouseTip(storage ? (T("Материалы и результат — в Magic Storage", "Materials and result: Magic Storage") + "\n" + T("Клик: из инвентаря", "Click: use the inventory")) : (T("Материалы из инвентаря", "Materials from your inventory") + "\n" + (choice ? T("Клик: из хранилища", "Click: use Magic Storage") : T("Хранилищу нужен интерфейс крафта рядом", "Storage needs a Crafting Interface in reach"))));
+		}
 	}
 
 	private static void DrawSortMenu(SpriteBatch sb)
