@@ -10,9 +10,13 @@ internal static class BookTrackerRules
 
 	internal const int PanelWidth = 300;
 
-	internal const int HeaderHeight = 28;
+	internal const int HeaderHeight = 32;
 
-	internal const int GoalHeight = 40;
+	internal const int GoalHeight = 44;
+
+	internal const int MaterialHeight = 24;
+
+	internal const int MaxMaterialLines = 8;
 
 	internal static bool CanAdd(int count, bool duplicate, bool resourcesOnly = false)
 	{
@@ -23,24 +27,42 @@ internal static class BookTrackerRules
 		return false;
 	}
 
-	internal static int DetailHeight(int rows)
+	// Expanded goal: one line per material, the last line becomes "+N more" when they do not fit.
+	internal static int MaterialLines(int materials)
 	{
-		return 24 + Math.Min(5, Math.Max(0, rows)) * 24 + ((rows > 5) ? 24 : 0);
+		return Math.Clamp(materials, 0, MaxMaterialLines);
 	}
 
-	internal static int PanelHeight(int[] rows, int active)
+	internal static int ExpandedHeight(int materials)
 	{
-		return 36 + rows.Length * 40 + ((active >= 0 && active < rows.Length) ? DetailHeight(rows[active]) : 0);
+		if (materials <= 0)
+		{
+			return 0;
+		}
+		return MaterialLines(materials) * MaterialHeight + 8;
 	}
 
-	internal static BookRect GoalRow(int[] rows, int active, int index)
+	internal static int ListHeight(int goals, int expanded, int expandedMaterials)
 	{
-		return new BookRect(0f, 28 + index * 40 + ((active >= 0 && active < index) ? DetailHeight(rows[active]) : 0), 300f, 40f);
+		return HeaderHeight + goals * GoalHeight + ((expanded >= 0 && expanded < goals) ? ExpandedHeight(expandedMaterials) : 0) + 4;
 	}
 
-	internal static BookGeometry PanelLayout(int[] rows, int active, int width, int height, bool custom, float x, float y, int sizePercent = 100, float uiScale = 1f)
+	internal static float GoalTop(int index, int expanded, int expandedMaterials)
 	{
-		return PanelLayoutHeight(PanelHeight(rows, active), width, height, custom, x, y, sizePercent, uiScale);
+		return HeaderHeight + index * GoalHeight + ((expanded >= 0 && expanded < index) ? ExpandedHeight(expandedMaterials) : 0);
+	}
+
+	internal static int GoalAt(float y, int goals, int expanded, int expandedMaterials)
+	{
+		for (int i = 0; i < goals; i++)
+		{
+			float top = GoalTop(i, expanded, expandedMaterials);
+			if (y >= top && y < top + GoalHeight + ((i == expanded) ? ExpandedHeight(expandedMaterials) : 0))
+			{
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	internal static BookGeometry PanelLayoutHeight(int panelHeight, int width, int height, bool custom, float x, float y, int sizePercent = 100, float uiScale = 1f)
@@ -89,21 +111,5 @@ internal static class BookTrackerRules
 			return false;
 		}
 		return BookBatchPlanner.MaxBatches(needs, counts, batches) >= batches;
-	}
-
-	internal static int PageCount(int rows)
-	{
-		return Math.Max(1, (rows + 4) / 5);
-	}
-
-	internal static int Height(int rows)
-	{
-		return 108 + Math.Min(5, rows) * 36 + ((rows > 5) ? 28 : 0);
-	}
-
-	internal static BookGeometry Layout(int rows, int width, int height)
-	{
-		float scale = Math.Max(0.1f, Math.Min(1f, Math.Min(((float)width - 32f) / 340f, ((float)height - 100f) / (float)Height(rows))));
-		return new BookGeometry(16f, Math.Max(16f, (float)(height - 16) - (float)Height(rows) * scale), scale);
 	}
 }

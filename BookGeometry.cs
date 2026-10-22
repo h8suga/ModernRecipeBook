@@ -62,9 +62,9 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect SelectedItemObtain => new BookRect(812f, 456f, 284f, 40f);
 
-	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 172f, 28f);
+	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 164f, 28f);
 
-	internal static BookRect TrackSetAction => new BookRect(992f, 604f, 104f, 28f);
+	internal static BookRect TrackSetAction => new BookRect(984f, 604f, 112f, 28f);
 
 	internal static BookRect TrackAction => new BookRect(812f, 604f, 284f, 28f);
 
@@ -88,19 +88,22 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect TrackingPanel => new BookRect(12f, 92f, 768f, 548f);
 
-	internal static BookRect TrackingClear => new BookRect(604f, 108f, 160f, 32f);
+	internal static BookRect TrackingClear => new BookRect(TrackingPanel.X + TrackingPanel.Width - 16f - 160f, TrackingPanel.Y + 12f, 160f, 32f);
 
-	internal static BookRect TrackingPrevious => new BookRect(28f, 608f, 44f, 28f);
+	internal static BookRect TrackingPrevious => new BookRect(TrackingPanel.X + 16f, TrackingPanel.Y + TrackingPanel.Height - 12f - 28f, 40f, 28f);
 
-	internal static BookRect TrackingNext => new BookRect(720f, 608f, 44f, 28f);
+	internal static BookRect TrackingNext => new BookRect(TrackingPanel.X + TrackingPanel.Width - 16f - 40f, TrackingPrevious.Y, 40f, 28f);
 
-	internal static BookRect TrackingPager => new BookRect(80f, 608f, 632f, 28f);
+	internal static BookRect TrackingPager => new BookRect(TrackingPrevious.X + 48f, TrackingPrevious.Y, TrackingNext.X - TrackingPrevious.X - 96f, 28f);
 
-	internal static BookRect TrackingRemove => new BookRect(812f, 568f, 284f, 28f);
+	// The selected goal lives in the same right-hand column as the item details on the other tabs.
+	internal static BookRect TrackingRemove => new BookRect(DetailsPanel.X + 16f, DetailsPanel.Y + DetailsPanel.Height - 16f - 32f, DetailsPanel.Width - 32f, 32f);
 
-	internal static BookRect TrackingStatus => new BookRect(812f, 604f, 284f, 28f);
+	internal static BookRect TrackingDetailPrevious => new BookRect(DetailsPanel.X + 16f, TrackingRemove.Y - 8f - 28f, 40f, 28f);
 
-	internal static BookRect TrackingQuantity => new BookRect(812f, 268f, 284f, 28f);
+	internal static BookRect TrackingDetailNext => new BookRect(DetailsPanel.X + DetailsPanel.Width - 16f - 40f, TrackingDetailPrevious.Y, 40f, 28f);
+
+	internal static BookRect TrackingDetailPager => new BookRect(TrackingDetailPrevious.X + 48f, TrackingDetailPrevious.Y, TrackingDetailNext.X - TrackingDetailPrevious.X - 96f, 28f);
 
 	internal static BookRect CraftSource => new BookRect(558f, 660f, 360f, 24f);
 
@@ -182,9 +185,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const int TabCount = 6;
 
-	internal const int TrackingColumns = 10;
-
-	internal const int TrackingPageSize = 60;
+	internal const int TrackingPageSize = 7;
 
 	internal static BookRect ArmorPart(int slot)
 	{
@@ -326,9 +327,9 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(480 + index * 94, 24f, 86f, 40f);
 	}
 
-	internal static BookRect TrackingCell(int index)
+	internal static BookRect TrackingRow(int index)
 	{
-		return new BookRect(40 + index % 10 * 72, 176 + index / 10 * 72, 64f, 64f);
+		return new BookRect(TrackingPanel.X + 16f, TrackingPanel.Y + 56f + (float)(index * 64), TrackingPanel.Width - 32f, 56f);
 	}
 
 	internal static BookRect BatchChoice(int index)
