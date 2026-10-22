@@ -6014,7 +6014,7 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		UsedInView view = VisibleUsedIn(chosen.type);
 		BookRect toggle = UsedInCraftableToggle(top);
-		SectionLabel(sb, T("Используется в", "Used in") + " · " + view.Rows.Count, 812f, top + 3f, toggle.X - 820f);
+		SectionLabel(sb, T("Рецептов: ", "Recipes: ") + view.Rows.Count, 812f, top + 3f, toggle.X - 820f);
 		bool toggleHover = !MenuOpen && toggle.Contains(Mouse.X, Mouse.Y);
 		Box(sb, toggle, UsedInCraftableOnly ? SelectedFill : (toggleHover ? HoverFill : Raised), border: true, 6f, UsedInCraftableOnly ? new Color?(Accent) : null);
 		CenterLabel(sb, T("Можно создать", "Craftable"), toggle.X + 6f, toggle.Y + 2f, toggle.Width - 12f, toggle.Height - 4f, UsedInCraftableOnly ? Accent : TextColor, 0.8f);
