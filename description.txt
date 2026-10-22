@@ -1,0 +1,11 @@
+Modern Recipe Book 1.4.2
+
+Mouse3 searches hovered items in native inventory/container/equipment/accessory/vanity/shop/guide/reforge/material slots. Mod-window tooltip fallback and book/tracker item icons are supported. No items are moved. Mouse4/Mouse5 navigate chain history; bindings can be changed in Controls.
+
+Compact draggable craft tracker: up to 5 independent goals. Click a goal to expand its materials. Configurable size (60-150%) and opacity (20-100%), per-character saved position, per-goal remove, one-shot readiness sound followed by fade-out. Full armor sets can be tracked as one goal, with aggregated material requirements. Tracker never auto-crafts or reserves items. Readiness means materials collected, not station/world-condition availability.
+
+Pre-hardmode/hardmode/post-Moon-Lord filter: recipe dependency graph, known vanilla and Calamity sources, registered late Calamity boss drops and bag contents. Unknown custom sources remain in All. Estimated ordinary progression, not an exhaustive guarantee for every mod.
+
+Russian/English recipe book: items, recipes, chains, optional Magic Storage, recent crafts, favorites, batch selection and material have/need counts. Armor set selector uses a stable title baseline. Native crafting APIs own consumption and outputs. Opening remains deferred to UpdateUI, outside gravity/draw hooks; duplicate-name crash fix preserved.
+
+Terraria 1.4.4.9 / tModLoader 2026.8.3.0. Optional Magic Storage 0.7.0.11 support.

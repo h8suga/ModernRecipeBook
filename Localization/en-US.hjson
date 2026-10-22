@@ -1,0 +1,45 @@
+Mods: {
+	ModernRecipeBook: {
+		Keybinds: {
+			ToggleBook.DisplayName: Open / close recipe book
+			ChainBack.DisplayName: Chain: back
+			ChainForward.DisplayName: Chain: forward
+		}
+
+		Configs: {
+			BookConfig: {
+				DisplayName: Recipe Book — interface
+
+				WindowScalePercent: {
+					Label: Window size, %
+					Tooltip: Default: 90%. Independent of Terraria UI scale. Automatically shrinks to fit smaller screens.
+				}
+
+				TextScalePercent: {
+					Label: Text size, %
+					Tooltip: Default: 100%. Changes text only, not the window, icons or hitboxes. Tight controls cap font size to their height. Long labels use an ellipsis; hover to read the full text.
+				}
+
+				InventoryAltRightClick: {
+					Label: Mouse3 — quick item search
+					Tooltip: Middle-click an item in any standard slot: inventory, chest, armor, accessories, vanity, dyes, banks, shops, Guide, reforge or materials. Custom mod windows are supported through tooltips when the mod exposes the hovered item to Terraria. No items are moved. Shift/Ctrl/Alt and gamepad remain untouched. Outside an item, Mouse3 toggles the book if assigned in Controls.
+				}
+
+				TrackerOpacityPercent: {
+					Label: Craft tracker opacity, %
+					Tooltip: Affects only backgrounds and borders. Icons, text and outlines stay opaque, even during dismissal. Resources-only style has no background panel.
+				}
+
+				TrackerScalePercent: {
+					Label: Craft tracker size, %
+					Tooltip: 100% is a compact 300-pixel-wide panel. Range: 60–150%. Independent of Terraria UI zoom; shrinks to fit the screen. Hover for full names; use arrows for long ingredient lists.
+				}
+
+				ResourceOnlyTracker: {
+					Label: Tracker style: resources only
+					Tooltip: Off: up to 5 objective cards. On: resource HUD with no goal count cap. Needs are summed; one sound only for the complete list. Remove individual goals in Tracking (Ctrl+6). With more than five goals, resource style remains active until excess goals are removed, even if this option is turned off.
+				}
+			}
+		}
+	}
+}
