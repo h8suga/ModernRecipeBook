@@ -167,8 +167,9 @@ public sealed partial class RecipeBookSystem
 		MobStats stats = EnemyStats;
 		NPC sample = ContentSamples.NpcsByNetId[netId];
 		int banner = Item.NPCtoBanner(sample.BannerID());
-		bool hasBanner = banner > 0 && banner < NPC.killCount.Length && !sample.ExcludedFromDeathTally();
-		int need = hasBanner ? Math.Max(1, ItemID.Sets.KillsToBanner[Item.BannerToItem(banner)]) : 1;
+		int bannerItem = (banner > 0) ? Item.BannerToItem(banner) : 0;
+		bool hasBanner = banner < NPC.killCount.Length && bannerItem > 0 && bannerItem < ItemID.Sets.KillsToBanner.Length && !sample.ExcludedFromDeathTally();
+		int need = hasBanner ? Math.Max(1, ItemID.Sets.KillsToBanner[bannerItem]) : 1;
 		int row = 0;
 		Row(T("Здоровье", "Life"), Count(stats.Life));
 		Row(T("Защита", "Defense"), Count(stats.Defense));
