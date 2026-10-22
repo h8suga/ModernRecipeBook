@@ -3,6 +3,13 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.6.1 — 2026-10-22
+
+### Fixed
+- With the inventory closed, a missed Mouse3 (no mob under the cursor) opened the book. In the world the book's
+  mouse button now only opens a mob's entry; with the inventory or the book open it toggles the book as before,
+  and a keyboard key bound to the book always toggles it.
+
 ## 1.6.0 — 2026-10-22
 
 ### Added

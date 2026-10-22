@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Terraria;
 using Terraria.GameInput;
 using Terraria.ID;
@@ -10,6 +11,27 @@ namespace ModernRecipeBook;
 // exclusions (a hidden mimic stays hidden), a worm segment counts as its head. Read only, nothing is sent.
 internal static class BookMobTarget
 {
+	// With the inventory and the book closed, a mouse-bound toggle is a click in the world: it opens a mob's card
+	// when it lands on a mob and does nothing otherwise (a missed middle click mid-fight must not pop the book up).
+	// Opened inventory, an open book or a keyboard binding keep the plain toggle.
+	internal static bool WorldClickMiss()
+	{
+		return !RecipeBookSystem.Open && !Main.playerInventory;
+	}
+
+	internal static bool ToggleFromMouse()
+	{
+		MouseState mouse = Mouse.GetState();
+		foreach (string key in ModernRecipeBook.ToggleBook?.GetAssignedKeys() ?? new System.Collections.Generic.List<string>())
+		{
+			if ((key == "Mouse1" && mouse.LeftButton == ButtonState.Pressed) || (key == "Mouse2" && mouse.RightButton == ButtonState.Pressed) || (key == "Mouse3" && mouse.MiddleButton == ButtonState.Pressed) || (key == "Mouse4" && mouse.XButton1 == ButtonState.Pressed) || (key == "Mouse5" && mouse.XButton2 == ButtonState.Pressed))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	internal static NPC UnderMouse()
 	{
 		Player player = Main.LocalPlayer;

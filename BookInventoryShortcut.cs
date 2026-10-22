@@ -16,6 +16,9 @@ public sealed class BookInventoryShortcut : ModSystem
 
 	private static int pendingItem;
 
+	// The toggle came from a mouse button (Mouse3 by default), not a keyboard key.
+	private static bool pendingFromMouse;
+
 	internal static void ProcessRequests()
 	{
 		int item = pendingItem;
@@ -26,13 +29,16 @@ public sealed class BookInventoryShortcut : ModSystem
 		{
 			return;
 		}
+		// A Mouse3 toggle reaches here a frame later (through the inventory router), so the flag is read only now.
+		bool fromMouse = pendingFromMouse;
+		pendingFromMouse = false;
 		try
 		{
 			if (item > 0)
 			{
 				RecipeBookSystem.OpenForInventoryItem(item);
 			}
-			else if (!RecipeBookSystem.OpenForMob(BookMobTarget.UnderMouse()))
+			else if (!RecipeBookSystem.OpenForMob(BookMobTarget.UnderMouse()) && !(fromMouse && BookMobTarget.WorldClickMiss()))
 			{
 				RecipeBookSystem.Toggle();
 			}
@@ -50,6 +56,7 @@ public sealed class BookInventoryShortcut : ModSystem
 
 	internal static void RequestToggle()
 	{
+		pendingFromMouse = BookMobTarget.ToggleFromMouse();
 		if (Mouse.GetState().MiddleButton == ButtonState.Pressed && ModernRecipeBook.ToggleBook.GetAssignedKeys().Contains("Mouse3"))
 		{
 			Input.QueueToggle();
