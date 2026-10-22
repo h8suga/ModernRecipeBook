@@ -3,6 +3,15 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.6.2 — 2026-10-22
+
+### Fixed
+- The mod filter lists only mods that have something on the open tab: items on Items, recipes on Recipes, mobs
+  on the Bestiary, what is stored on Storage, what was crafted on Recent. A chosen mod stays listed even when the
+  tab has nothing from it right now, so a saved filter never disappears by itself.
+- The window moves only by the grip (the dots left of the title); the frame and the empty header no longer drag
+  it or light up.
+
 ## 1.6.1 — 2026-10-22
 
 ### Fixed

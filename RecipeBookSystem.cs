@@ -254,10 +254,73 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly List<int> Filtered = new List<int>();
 
+	// Every mod with an item or a recipe: what a saved mod filter is checked against.
 	private static readonly List<string> ItemMods = new List<string>();
 
-	// The mod dropdown and the sidebar list what the open tab shows: items, or mobs on the Bestiary tab.
-	private static List<string> Mods => BestiaryView ? MobMods : ItemMods;
+	// Mods with an item in the catalogue, and mods with a recipe (its own or one for their item).
+	private static readonly List<string> CatalogueMods = new List<string>();
+
+	private static readonly List<string> RecipeMods = new List<string>();
+
+	private static readonly List<string> TabMods = new List<string>();
+
+	private static (int Tab, int Version, string Filter, int Count) TabModsKey = (-1, 0, null, -1);
+
+	// The mod dropdown lists only mods that have something on the open tab (a music mod that only adds recipes
+	// for other mods' items is not on Items or Bestiary). The chosen mod stays listed even when the tab has
+	// nothing from it right now (an emptied storage), so a saved filter never disappears by itself.
+	private static List<string> Mods
+	{
+		get
+		{
+			int version = StorageView ? BookStorage.ItemsVersion : (RecentView ? BookRecent.Version : 0);
+			int count = BestiaryView ? MobMods.Count : ItemMods.Count;
+			(int, int, string, int) key = (CurrentTab, version, ModFilter, count);
+			if (key == TabModsKey)
+			{
+				return TabMods;
+			}
+			TabModsKey = key;
+			TabMods.Clear();
+			IEnumerable<string> source;
+			if (BestiaryView)
+			{
+				source = MobMods;
+			}
+			else if (Catalogue)
+			{
+				source = CatalogueMods;
+			}
+			else if (StorageView)
+			{
+				source = BookStorage.Items.Select((Item item) => item.ModItem?.Mod.Name ?? "Terraria").Distinct();
+			}
+			else if (RecentView)
+			{
+				source = BookRecent.ResolveRecipeIndexes().SelectMany((int index) => new string[2]
+				{
+					Owner(Main.recipe[index]),
+					Main.recipe[index].createItem.ModItem?.Mod.Name ?? "Terraria"
+				}).Distinct();
+			}
+			else
+			{
+				source = RecipeMods;
+			}
+			TabMods.AddRange(source);
+			if (ModFilter.Length > 0 && !TabMods.Contains(ModFilter))
+			{
+				TabMods.Add(ModFilter);
+			}
+			TabMods.Sort((string a, string b) => StringComparer.CurrentCultureIgnoreCase.Compare(ModName(a), ModName(b)));
+			return TabMods;
+		}
+	}
+
+	private static bool KnownMod(string mod)
+	{
+		return ItemMods.Contains(mod, StringComparer.Ordinal) || MobMods.Contains(mod, StringComparer.Ordinal);
+	}
 
 	private static readonly Dictionary<int, Item> StationItems = new Dictionary<int, Item>();
 
@@ -3241,7 +3304,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		BookUiState.TabFilters source = (filters ?? new BookUiState.TabFilters()).Sanitize();
 		Query = source.Query;
-		ModFilter = (Mods.Contains(source.ModFilter, StringComparer.Ordinal) ? source.ModFilter : "");
+		ModFilter = (KnownMod(source.ModFilter) ? source.ModFilter : "");
 		Category = Math.Max(0, Categories.FindIndex((BookCategory value) => value.Key == source.CategoryKey));
 		if (Category < CategoryRow || Category >= CategoryRow + CategoryRows)
 		{
@@ -3300,26 +3363,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return false;
 	}
 
-	// The window is dragged by its frame (an 8 px band on every side, free of controls) or by any empty
-	// part of the header; tabs and the close button keep their clicks.
+	// The window moves only by the grip (the dots left of the title); the frame and the header don't drag.
 	private static bool HeaderGrab()
 	{
-		if (!BookGeometry.Frame.Contains(Mouse.X, Mouse.Y))
-		{
-			return false;
-		}
-		if (Mouse.X < BookGeometry.FrameGrip || Mouse.X >= BookGeometry.Frame.Width - BookGeometry.FrameGrip || Mouse.Y < BookGeometry.FrameGrip || Mouse.Y >= BookGeometry.Frame.Height - BookGeometry.FrameGrip)
-		{
-			return true;
-		}
-		if (!BookGeometry.Header.Contains(Mouse.X, Mouse.Y) || BookGeometry.HeaderClose.Contains(Mouse.X, Mouse.Y) || StageDropdownRect().Contains(Mouse.X, Mouse.Y))
-		{
-			return false;
-		}
-		return !VisibleTabs().Any((int tab) => TabRect(tab).Contains(Mouse.X, Mouse.Y));
+		return BookGeometry.WindowGrip.Contains(Mouse.X, Mouse.Y);
 	}
 
-	// Grab zones light the frame in Accent while hovered or dragged.
+	// The grip's dots light up while hovered or dragged; the frame lights only during a drag.
 	private static bool GrabHint => DraggingWindow || (!MenuOpen && !HelpOpen && HeaderGrab());
 
 	private static void MoveWindowWithPointer()
@@ -3475,6 +3525,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		All.Clear();
 		Filtered.Clear();
 		ItemMods.Clear();
+		CatalogueMods.Clear();
+		RecipeMods.Clear();
 		StationItems.Clear();
 		ItemCategoryList.Clear();
 		ItemCategories.Clear();
@@ -3595,6 +3647,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		AllItems.Clear();
 		RecipesByItem.Clear();
 		ItemMods.Clear();
+		CatalogueMods.Clear();
+		RecipeMods.Clear();
 		StationItems.Clear();
 		RegisteredRecipes = (DisabledRecipes = 0);
 		BookRecent.RefreshIndex();
@@ -3631,7 +3685,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 		}
 		ItemMods.AddRange(sources.OrderBy(ModName, StringComparer.CurrentCultureIgnoreCase));
-		if (ModFilter.Length > 0 && !Mods.Contains(ModFilter))
+		CatalogueMods.AddRange(AllItems.Select((int type) => ContentSamples.ItemsByType[type].ModItem?.Mod.Name ?? "Terraria").Distinct());
+		RecipeMods.AddRange(All.SelectMany((int index) => new string[2]
+		{
+			Owner(Main.recipe[index]),
+			Main.recipe[index].createItem.ModItem?.Mod.Name ?? "Terraria"
+		}).Distinct());
+		TabModsKey = (-1, 0, null, -1);
+		if (ModFilter.Length > 0 && !KnownMod(ModFilter))
 		{
 			ModFilter = "";
 		}
@@ -5762,7 +5823,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Main.LocalPlayer.mouseInterface = true;
 		}
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
-		bool grabHint = !AcquisitionOpen && GrabHint;
+		bool grabHint = !AcquisitionOpen && DraggingWindow;
 		Box(sb, 0f, 0f, 1120f, 696f, Panel, border: true, 18f, grabHint ? Accent : Border, grabHint ? 2f : 1f);
 		// Under a modal the book stays as it was, blurred and dimmed, and ignores the mouse.
 		float backdrop = BookBackdrop.Advance(ModalOpen);
@@ -5840,15 +5901,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static void DrawHeader(SpriteBatch sb)
 	{
-		BookRect title = new BookRect(16f, 16f, TitleRight() - 16f, 32f);
 		for (int dot = 0; dot < 6; dot++)
 		{
 			Box(sb, 20 + dot % 2 * 5, 25 + dot / 2 * 6, 2f, 2f, GrabHint ? Accent : (Muted * 0.8f), border: false, 0f);
 		}
 		CenterLabel(sb, TitleText, 34f, 16f, 260f, 32f, TextColor, 1.1f, rightAligned: false, leftAligned: true);
-		if (!MenuOpen && title.Contains(Mouse.X, Mouse.Y))
+		if (!MenuOpen && !DraggingWindow && HeaderGrab())
 		{
-			MouseTip(T("Перетащите заголовок, чтобы переместить окно", "Drag the header to move the window"));
+			MouseTip(T("Перетащите, чтобы переместить окно", "Drag to move the window"));
 		}
 		BookRect stage = StageDropdownRect();
 		Dropdown(sb, stage, StageLabels()[(int)StageFilter], StageMenu, enabled: true, highlight: StageFilter != BookStageFilter.All);
