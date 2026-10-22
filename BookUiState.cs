@@ -20,6 +20,9 @@ internal sealed class BookUiState
 
 		internal bool FavoritesOnly;
 
+		// Bestiary tab: only the mobs the player has met.
+		internal bool MetOnly;
+
 		internal BookSortMode SortMode;
 
 		internal bool SortDescending;
@@ -33,13 +36,15 @@ internal sealed class BookUiState
 				ModFilter = Clean(ModFilter, 128),
 				CategoryKey = ((key.Length > 0) ? key : "all"),
 				FavoritesOnly = FavoritesOnly,
+				MetOnly = MetOnly,
 				SortMode = (Enum.IsDefined(typeof(BookSortMode), SortMode) ? SortMode : BookSortMode.Name),
 				SortDescending = SortDescending
 			};
 		}
 	}
 
-	internal static readonly string[] FilterTabs = new string[4] { "items", "recipes", "storage", "recent" };
+	// Indexed by tab number (Tracking, the last tab, has no filters).
+	internal static readonly string[] FilterTabs = new string[5] { "items", "recipes", "bestiary", "storage", "recent" };
 
 	// Filters of every tab; the top-level Query..SortDescending below are the open tab's (and the only set
 	// version 3 saves had).
@@ -92,6 +97,7 @@ internal sealed class BookUiState
 		{
 		case "items":
 		case "recipes":
+		case "bestiary":
 		case "storage":
 		case "recent":
 		case "tracking":

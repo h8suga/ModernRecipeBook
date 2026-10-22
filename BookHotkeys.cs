@@ -14,6 +14,7 @@ internal static class BookHotkeys
 		Tab3,
 		Tab4,
 		Tab5,
+		Tab6,
 		NextTab,
 		PreviousTab,
 		ResetFilters,
@@ -88,6 +89,10 @@ internal static class BookHotkeys
 			if (Press(Keys.D5))
 			{
 				return Action.Tab5;
+			}
+			if (Press(Keys.D6))
+			{
+				return Action.Tab6;
 			}
 			if (Press(Keys.Tab))
 			{

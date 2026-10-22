@@ -49,6 +49,19 @@ internal static class BookProgression
 		return s;
 	}
 
+	private static Dictionary<int, BookStage> npcs = new Dictionary<int, BookStage>();
+
+	// The stage an NPC appears at: the curated tables, else what it always drops; anything left (critters,
+	// most town NPCs, mods' enemies without loot) is about from the start.
+	internal static BookStage NpcStage(int netId)
+	{
+		if (!npcs.TryGetValue(netId, out var s) || s == BookStage.Unknown)
+		{
+			return BookStage.PreHardmode;
+		}
+		return s;
+	}
+
 	internal static BookStage RecipeStage(int index)
 	{
 		if (!recipes.TryGetValue(index, out var s))
@@ -121,6 +134,7 @@ internal static class BookProgression
 		reasons.Clear();
 		modeExcludedItems.Clear();
 		modeExcludedRecipes.Clear();
+		npcs.Clear();
 	}
 
 	internal static void Rebuild(List<int> indexes, Dictionary<int, List<int>> recipesByItem)
@@ -393,6 +407,7 @@ internal static class BookProgression
 					stage = InferEnemyStage(drops.Where(d => Unconditional(d.Rate)).Select(d => d.Drop));
 					source = "enemy:" + npcName;
 				}
+				npcs[pair.Key] = stage;
 				foreach (var (rate, drop, floor) in drops)
 				{
 					if (stage != BookStage.Unknown)

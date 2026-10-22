@@ -32,7 +32,7 @@ public sealed class BookInventoryShortcut : ModSystem
 			{
 				RecipeBookSystem.OpenForInventoryItem(item);
 			}
-			else
+			else if (!RecipeBookSystem.OpenForMob(BookMobTarget.UnderMouse()))
 			{
 				RecipeBookSystem.Toggle();
 			}

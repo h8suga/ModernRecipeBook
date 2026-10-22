@@ -21,7 +21,7 @@ using Terraria.UI;
 
 namespace ModernRecipeBook;
 
-public sealed class RecipeBookSystem : ModSystem
+public sealed partial class RecipeBookSystem : ModSystem
 {
 	private readonly record struct BatchEstimate(int Count, ulong Tick, int AvailabilityVersion, int StorageVersion, bool Storage);
 
@@ -121,14 +121,6 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static float GraphicsOpacity = 1f;
 
-	private static bool EnemyOpen;
-
-	private static int[] EnemyVariants = Array.Empty<int>();
-
-	private static int EnemyVariant;
-
-	private static int EnemyPage;
-
 	private static int EnemyReadErrors;
 
 	private static string EnemyBiomes = "";
@@ -217,6 +209,8 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static bool TrackingView;
 
+	private static bool BestiaryView;
+
 	private static int AppliedStorageVersion = -1;
 
 	private static int AppliedRecentVersion = -1;
@@ -260,7 +254,10 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static readonly List<int> Filtered = new List<int>();
 
-	private static readonly List<string> Mods = new List<string>();
+	private static readonly List<string> ItemMods = new List<string>();
+
+	// The mod dropdown and the sidebar list what the open tab shows: items, or mobs on the Bestiary tab.
+	private static List<string> Mods => BestiaryView ? MobMods : ItemMods;
 
 	private static readonly Dictionary<int, Item> StationItems = new Dictionary<int, Item>();
 
@@ -278,7 +275,9 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static int CategoryRow;
 
-	private static List<BookCategory> Categories = new List<BookCategory>();
+	private static List<BookCategory> ItemCategoryList = new List<BookCategory>();
+
+	private static List<BookCategory> Categories => BestiaryView ? MobCategories : ItemCategoryList;
 
 	private static readonly Dictionary<int, HashSet<int>> ItemCategories = new Dictionary<int, HashSet<int>>();
 
@@ -409,7 +408,12 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static HashSet<string> Favorites => Main.LocalPlayer.GetModPlayer<BookPlayer>().Favorites;
 
-	private static int MaxCategoryRow => Math.Max(0, Categories.Count - BookGeometry.VisibleCategoryRows);
+	private static int MaxCategoryRow => Math.Max(0, Categories.Count - CategoryRows);
+
+	// The class row is about items: the Bestiary tab's sidebar has only its categories.
+	private static bool ClassRowShown => !BestiaryView;
+
+	private static int CategoryRows => ClassRowShown ? BookGeometry.VisibleCategoryRows : BookGeometry.VisibleCategoryRowsWithoutClass;
 
 	// The item the card shows with all its recipes: an armor piece picked in the set view, a step taken in the
 	// card, or the selected item on Items. 0 when the card shows the grid's selected recipe.
@@ -417,7 +421,7 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			if (StorageView || TrackingView)
+			if (StorageView || TrackingView || BestiaryView)
 			{
 				return 0;
 			}
@@ -437,7 +441,7 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			if (TrackingView)
+			if (TrackingView || BestiaryView)
 			{
 				return null;
 			}
@@ -458,7 +462,7 @@ public sealed class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			if (StorageView || TrackingView)
+			if (StorageView || TrackingView || BestiaryView)
 			{
 				return null;
 			}
@@ -483,7 +487,7 @@ public sealed class RecipeBookSystem : ModSystem
 			int type = CardItemType;
 			if (type <= 0)
 			{
-				return (Selected >= 0 && !StorageView && !TrackingView) ? 1 : 0;
+				return (Selected >= 0 && !StorageView && !TrackingView && !BestiaryView) ? 1 : 0;
 			}
 			if (!RecipesByItem.TryGetValue(type, out var variants))
 			{
@@ -509,7 +513,6 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void CloseAcquisition()
 	{
-		CloseEnemyCard();
 		AcquisitionOpen = false;
 		AcquisitionVariants = Array.Empty<int>();
 		AcquisitionSources.Clear();
@@ -694,7 +697,7 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			int type = Main.recipe[index].createItem.type;
 			CloseAcquisition();
-			if (StorageView || TrackingView)
+			if (StorageView || TrackingView || BestiaryView)
 			{
 				SwitchTab(0);
 			}
@@ -747,11 +750,6 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void HandleAcquisitionInput(bool click, KeyboardState keys)
 	{
-		if (EnemyOpen)
-		{
-			HandleEnemyInput(click, keys);
-			return;
-		}
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int delta = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
@@ -813,7 +811,7 @@ public sealed class RecipeBookSystem : ModSystem
 			}
 			else if (CanOpenEnemy(source))
 			{
-				OpenEnemyCard(source);
+				ShowMobFromSource(source);
 			}
 			else if (AcquisitionOpens(source))
 			{
@@ -846,19 +844,13 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void DrawAcquisitionIcon(SpriteBatch sb, BookAcquisitionEntry source, BookRect rect)
 	{
-		NPC npc;
 		if (source.ItemType > 0 && ContentSamples.ItemsByType.TryGetValue(source.ItemType, out var item))
 		{
 			Icon(sb, item, rect.X, rect.Y, rect.Width, tooltip: false);
 		}
-		else if (source.NpcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(source.NpcNetId, out npc) && npc.type > 0 && npc.type < TextureAssets.Npc.Length)
+		else if (source.NpcNetId != 0)
 		{
-			Main.instance.LoadNPC(npc.type);
-			Texture2D texture = TextureAssets.Npc[npc.type].Value;
-			int frames = Math.Max(1, Main.npcFrameCount[npc.type]);
-			Rectangle frame = new Rectangle(0, 0, texture.Width, Math.Max(1, texture.Height / frames));
-			float scale = Math.Min(rect.Width / (float)frame.Width, rect.Height / (float)frame.Height);
-			sb.Draw(texture, Origin + new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f) * Scale, frame, Color.White, 0f, frame.Size() / 2f, scale * Scale, SpriteEffects.None, 0f);
+			DrawNpcIcon(sb, source.NpcNetId, rect);
 		}
 		else
 		{
@@ -910,16 +902,11 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			return ((group.Source.Owner != "Terraria") ? (T("Рецепт: ", "Recipe: ") + ModName(group.Source.Owner) + "\n") : "") + T("Открыть рецепт", "Open recipe");
 		}
-		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? T("Открыть карточку врага", "Open enemy card") : T("Показать условия", "Show conditions"));
+		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? T("Открыть в бестиарии", "Open in Bestiary") : T("Показать условия", "Show conditions"));
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
 	{
-		if (EnemyOpen)
-		{
-			DrawEnemyCard(sb);
-			return;
-		}
 		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
 		Box(sb, BookGeometry.AcquisitionPanel, Surface, border: true, 12f);
 		bool expanded = AcquisitionGroup >= 0;
@@ -1400,6 +1387,8 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void ResetCard()
 	{
 		FocusType = 0;
+		MobFocus = -1;
+		LiveMob = 0;
 	}
 
 	// Shows another item in the card without touching the grid; History records the step.
@@ -1418,35 +1407,33 @@ public sealed class RecipeBookSystem : ModSystem
 
 	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, string EnemyVariants, int EnemyVariant, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage, int EnemyPage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
 	{
 		internal NavState WithoutPages => this with
 		{
 			Page = 0,
 			DetailsPage = 0,
 			AcquisitionPage = 0,
-			AcquisitionRulePage = 0,
-			EnemyPage = 0
+			AcquisitionRulePage = 0
 		};
 	}
 
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.SortMode, filters.SortDescending, StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, EnemyOpen ? string.Join(",", EnemyVariants) : "", EnemyVariant, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage, EnemyPage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.SortMode, filters.SortDescending, StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
 	}
 
 	private static void RestoreNav(NavState state)
 	{
 		int from = CurrentTab;
-		int tab = (state.Tab == 2 && !StorageTabVisible) ? 0 : state.Tab;
-		Catalogue = tab == 0;
-		StorageView = tab == 2;
-		RecentView = tab == 3;
-		TrackingView = tab == 4;
+		int tab = (state.Tab == 3 && !StorageTabVisible) ? 0 : state.Tab;
+		// The leaving tab's filters are read before the switch: the Bestiary has its own categories.
+		BookUiState.TabFilters leaving = LiveTabFilters();
+		SetTabFlags(tab);
 		if (from != tab && from < BookUiState.FilterTabs.Length)
 		{
-			TabFilterSlots[from] = LiveTabFilters();
+			TabFilterSlots[from] = leaving;
 		}
 		LoadTabFilters(new BookUiState.TabFilters
 		{
@@ -1454,6 +1441,7 @@ public sealed class RecipeBookSystem : ModSystem
 			ModFilter = state.ModFilter,
 			CategoryKey = state.CategoryKey,
 			FavoritesOnly = state.FavoritesOnly,
+			MetOnly = state.MetOnly,
 			SortMode = state.SortMode,
 			SortDescending = state.SortDescending
 		});
@@ -1467,6 +1455,8 @@ public sealed class RecipeBookSystem : ModSystem
 		Variant = state.Variant;
 		ArmorFocus = state.ArmorFocus;
 		FocusType = state.FocusType;
+		MobFocus = state.MobFocus;
+		LiveMob = state.LiveMob;
 		UsedInMode = state.UsedInMode;
 		Page = Math.Clamp(state.Page, 0, Pages - 1);
 		DetailsPage = state.DetailsPage;
@@ -1482,7 +1472,6 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (!AcquisitionOpen || string.Join(",", AcquisitionVariants) != state.AcquisitionVariants || AcquisitionVariant != state.AcquisitionVariant)
 		{
-			CloseEnemyCard();
 			AcquisitionVariants = state.AcquisitionVariants.Split(',').Select(int.Parse).ToArray();
 			AcquisitionVariant = Math.Clamp(state.AcquisitionVariant, 0, AcquisitionVariants.Length - 1);
 			AcquisitionOpen = true;
@@ -1491,19 +1480,6 @@ public sealed class RecipeBookSystem : ModSystem
 		AcquisitionGroup = (state.AcquisitionGroup < AcquisitionSources.Count) ? state.AcquisitionGroup : (-1);
 		AcquisitionPage = state.AcquisitionPage;
 		AcquisitionRulePage = state.AcquisitionRulePage;
-		if (state.EnemyVariants.Length == 0)
-		{
-			CloseEnemyCard();
-			return;
-		}
-		if (!EnemyOpen || string.Join(",", EnemyVariants) != state.EnemyVariants || EnemyVariant != state.EnemyVariant)
-		{
-			EnemyVariants = state.EnemyVariants.Split(',').Select(int.Parse).ToArray();
-			EnemyVariant = Math.Clamp(state.EnemyVariant, 0, EnemyVariants.Length - 1);
-			EnemyOpen = true;
-			ReadEnemyCard();
-		}
-		EnemyPage = state.EnemyPage;
 	}
 
 	// Runs after every UI update: a change the player made becomes a new entry. Typing into the search and
@@ -1560,8 +1536,13 @@ public sealed class RecipeBookSystem : ModSystem
 	// What Back returns to, for the back button's tooltip.
 	private static string HistoryLabel(NavState state)
 	{
-		int type = (state.EnemyVariants.Length == 0 && state.AcquisitionVariants.Length > 0) ? int.Parse(state.AcquisitionVariants.Split(',')[Math.Clamp(state.AcquisitionVariant, 0, state.AcquisitionVariants.Split(',').Length - 1)]) : ((state.ArmorFocus > 0) ? state.ArmorFocus : ((state.FocusType > 0) ? state.FocusType : 0));
-		if (type <= 0 && state.Selected >= 0 && (state.Tab == 0 || state.Tab == 1 || state.Tab == 3))
+		if (state.Tab == 2 && state.AcquisitionVariants.Length == 0)
+		{
+			int mob = (state.MobFocus >= 0) ? state.MobFocus : state.Selected;
+			return ((mob >= 0 && mob < BookBestiary.Mobs.Count) ? (BookBestiary.Mobs[mob].Sample.FullName + " · ") : "") + TabLabel(2);
+		}
+		int type = (state.AcquisitionVariants.Length > 0) ? int.Parse(state.AcquisitionVariants.Split(',')[Math.Clamp(state.AcquisitionVariant, 0, state.AcquisitionVariants.Split(',').Length - 1)]) : ((state.ArmorFocus > 0) ? state.ArmorFocus : ((state.FocusType > 0) ? state.FocusType : 0));
+		if (type <= 0 && state.Selected >= 0 && (state.Tab == 0 || state.Tab == 1 || state.Tab == 4))
 		{
 			type = (state.Tab == 0) ? state.Selected : ((state.Selected < Recipe.numRecipes) ? Main.recipe[state.Selected].createItem.type : 0);
 		}
@@ -2252,34 +2233,11 @@ public sealed class RecipeBookSystem : ModSystem
 		return false;
 	}
 
-	private static void CloseEnemyCard()
+	// Everything the mob card shows that is heavy to read (bestiary tags, the drop rules, the stats, the
+	// portrait): once per mob shown, never per frame.
+	private static void ReadMobCard(int id)
 	{
-		EnemyOpen = false;
-		EnemyVariants = Array.Empty<int>();
-		EnemyVariant = (EnemyPage = (EnemyReadErrors = 0));
-		EnemyLoot.Clear();
-		EnemyBiomes = (EnemySpawn = "");
-	}
-
-	private static void OpenEnemyCard(BookAcquisitionGroup group)
-	{
-		if (CanOpenEnemy(group))
-		{
-			EnemyVariants = BookEnemyRules.Variants(group.Source.NpcNetId, from x in @group.Rules.SelectMany((BookAcquisitionRule x) => x.Reports)
-				select x.NpcNetId).Where(ContentSamples.NpcsByNetId.ContainsKey).ToArray();
-			if (EnemyVariants.Length != 0)
-			{
-				EnemyOpen = true;
-				EnemyVariant = 0;
-				ReadEnemyCard();
-			}
-		}
-	}
-
-	private static void ReadEnemyCard()
-	{
-		EnemyPage = (EnemyReadErrors = 0);
-		int id = EnemyVariants[EnemyVariant];
+		EnemyReadErrors = 0;
 		NPC npc = ContentSamples.NpcsByNetId[id];
 		List<string> biomes = new List<string>();
 		List<string> spawn = new List<string>();
@@ -2328,169 +2286,18 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		EnemyBiomes = string.Join(" · ", biomes.Distinct(StringComparer.Ordinal));
 		EnemySpawn = string.Join(" · ", spawn.Distinct(StringComparer.Ordinal));
-		List<BookEnemyDrop> drops = new List<BookEnemyDrop>();
-		try
-		{
-			foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(id))
-			{
-				List<DropRateInfo> rates = new List<DropRateInfo>();
-				try
-				{
-					rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
-				}
-				catch (Exception)
-				{
-					EnemyReadErrors++;
-					continue;
-				}
-				foreach (DropRateInfo rate in rates)
-				{
-					if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir)
-					{
-						continue;
-					}
-					List<string> conditions = new List<string>();
-					List<string> keys = new List<string>();
-					foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
-					{
-						keys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
-						try
-						{
-							string description = condition.GetConditionDescription();
-							conditions.Add(DropConditionLabel(condition, string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description));
-						}
-						catch (Exception)
-						{
-							conditions.Add(T("Неизвестное условие", "Unknown condition"));
-							EnemyReadErrors++;
-						}
-					}
-					drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal))));
-				}
-			}
-		}
-		catch (Exception)
-		{
-			EnemyReadErrors++;
-		}
-		EnemyLoot = BookEnemyRules.Group(drops).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		ReadMobLoot(id);
+		ReadEnemyStats(id);
+		ReadEnemyPortrait(id);
 		if (EnemyReadErrors > 0)
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Enemy card for NPC net ID {id}: {EnemyReadErrors} reports/tags could not be read.");
 		}
 	}
 
-	// Esc and the back button return to How to Get; X and a click outside close the whole card.
-	private static void HandleEnemyInput(bool click, KeyboardState keys)
-	{
-		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
-		int delta = scrollWheelValue - LastWheel;
-		LastWheel = scrollWheelValue;
-		if (Press(Keys.Escape) || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y)))
-		{
-			CloseEnemyCard();
-			return;
-		}
-		if (click && (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)))
-		{
-			CloseAcquisition();
-			return;
-		}
-		int step = ((EnemyVariants.Length > 1) ? ((click && BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y)) ? (-1) : ((click && BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y)) ? 1 : 0)) : 0);
-		if (step != 0)
-		{
-			int next = Math.Clamp(EnemyVariant + step, 0, EnemyVariants.Length - 1);
-			if (next != EnemyVariant)
-			{
-				EnemyVariant = next;
-				ReadEnemyCard();
-			}
-			return;
-		}
-		int pageStep = ((Press(Keys.PageUp) || (delta > 0 && BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)) || (click && BookGeometry.AcquisitionPrevious.Contains(Mouse.X, Mouse.Y))) ? (-1) : ((Press(Keys.PageDown) || (delta < 0 && BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)) || (click && BookGeometry.AcquisitionNext.Contains(Mouse.X, Mouse.Y))) ? 1 : 0));
-		EnemyPage = BookEnemyRules.ClampPage(EnemyPage + pageStep, EnemyLoot.Count);
-		if (Press(Keys.Home))
-		{
-			EnemyPage = 0;
-		}
-		if (Press(Keys.End))
-		{
-			EnemyPage = BookEnemyRules.PageCount(EnemyLoot.Count) - 1;
-		}
-		bool Press(Keys key)
-		{
-			if (keys.IsKeyDown(key))
-			{
-				return !LastKeys.IsKeyDown(key);
-			}
-			return false;
-		}
-	}
-
 	private static string EnemyLootTooltip(BookEnemyLoot loot)
 	{
 		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : T("без условий", "no conditions"))));
-	}
-
-	private static void DrawEnemyCard(SpriteBatch sb)
-	{
-		Box(sb, 0f, 0f, 1120f, 696f, new Color(10, 16, 12, 235), border: false, 18f);
-		BookRect panel = BookGeometry.AcquisitionPanel;
-		Box(sb, panel, Surface, border: true, 12f);
-		NPC npc = ContentSamples.NpcsByNetId[EnemyVariants[EnemyVariant]];
-		DrawAcquisitionIcon(sb, new BookAcquisitionEntry(npc.FullName, "", BookAcquisitionKind.Drop, "", "", 0, EnemyVariants[EnemyVariant]), BookGeometry.EnemyPortrait);
-		string kind = (npc.friendly ? T("Существо", "Creature") : (npc.boss ? T("Босс", "Boss") : T("Враг", "Enemy")));
-		DrawCardHeader(sb, back: true, npc.FullName, kind + " · " + ModName(npc.ModNPC?.Mod.Name ?? "Terraria"), EnemyVariant, EnemyVariants.Length, T("Варианты этого врага", "Variants of this enemy"));
-		BookRect tags = BookGeometry.EnemyTags;
-		Box(sb, tags, Raised, border: false, 8f);
-		Text(sb, T("Биом", "Biome"), tags.X + 12f, tags.Y + 8f, Muted, 0.8f, 96f, 22f);
-		Text(sb, (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"), tags.X + 116f, tags.Y + 8f, TextColor, 0.85f, tags.Width - 128f, 22f);
-		Text(sb, T("Появление", "Spawns"), tags.X + 12f, tags.Y + 34f, Muted, 0.8f, 96f, 22f);
-		Text(sb, (EnemySpawn.Length > 0) ? EnemySpawn : T("Не указано", "Not listed"), tags.X + 116f, tags.Y + 34f, TextColor, 0.85f, tags.Width - 128f, 22f);
-		if (tags.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("По данным бестиария; может быть неполно", "From the Bestiary; may be incomplete"));
-		}
-		BookRect lootLabel = BookGeometry.EnemyLootLabel;
-		Text(sb, T("ДОБЫЧА", "LOOT") + " · " + EnemyLoot.Count, lootLabel.X, lootLabel.Y, Muted, 0.8f, lootLabel.Width, lootLabel.Height);
-		if (EnemyLoot.Count == 0)
-		{
-			BookRect first = BookGeometry.EnemyLootRow(0);
-			CenterLabel(sb, T("Добыча не указана", "No loot listed"), first.X, first.Y + 64f, first.Width, 28f, TextColor);
-		}
-		for (int row = 0; row < 5; row++)
-		{
-			int index = EnemyPage * 5 + row;
-			if (index >= EnemyLoot.Count)
-			{
-				break;
-			}
-			BookEnemyLoot loot = EnemyLoot[index];
-			Item item = ContentSamples.ItemsByType[loot.ItemType];
-			BookRect rect = BookGeometry.EnemyLootRow(row);
-			Box(sb, rect, Raised, border: true, 8f);
-			Icon(sb, item, rect.X + 8f, rect.Y + 8f, 32f, tooltip: false);
-			BookRect chance = BookGeometry.EnemyLootChance(row);
-			bool varies = loot.Rules.Length > 1;
-			string detail = (varies ? T("Зависит от условий", "Varies by condition") : loot.Rules[0].Conditions);
-			float nameWidth = chance.X - rect.X - 64f;
-			if (detail.Length > 0)
-			{
-				Text(sb, item.Name, rect.X + 52f, rect.Y + 4f, TextColor, 0.95f, nameWidth, 22f);
-				Text(sb, detail, rect.X + 52f, rect.Y + 26f, Muted, 0.85f, nameWidth, 18f);
-			}
-			else
-			{
-				Text(sb, item.Name, rect.X + 52f, rect.Y + 12f, TextColor, 0.95f, nameWidth, 24f);
-			}
-			AcquisitionBadge(sb, chance, varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance));
-			AcquisitionBadge(sb, BookGeometry.EnemyLootAmount(row), varies ? "" : loot.Amount);
-			if (varies && rect.Contains(Mouse.X, Mouse.Y))
-			{
-				MouseTip(item.Name + "\n" + EnemyLootTooltip(loot));
-			}
-		}
-		DrawCardFooter(sb, EnemyPage, BookEnemyRules.PageCount(EnemyLoot.Count), (EnemyReadErrors > 0) ? T("Часть данных не прочитана", "Some data could not be read") : "");
 	}
 
 	// An Unknown stage is either a source the current difficulty rules out or no regular source at all.
@@ -3183,6 +2990,7 @@ public sealed class RecipeBookSystem : ModSystem
 				["ModFilter"] = tab.Value.ModFilter,
 				["CategoryKey"] = tab.Value.CategoryKey,
 				["FavoritesOnly"] = tab.Value.FavoritesOnly,
+				["MetOnly"] = tab.Value.MetOnly,
 				["SortMode"] = tab.Value.SortMode.ToString(),
 				["SortDescending"] = tab.Value.SortDescending
 			}).ToList(),
@@ -3303,6 +3111,7 @@ public sealed class RecipeBookSystem : ModSystem
 						ModFilter = tab.GetString("ModFilter"),
 						CategoryKey = tab.GetString("CategoryKey"),
 						FavoritesOnly = tab.GetBool("FavoritesOnly"),
+						MetOnly = tab.GetBool("MetOnly"),
 						SortDescending = tab.GetBool("SortDescending")
 					};
 					if (Enum.TryParse<BookSortMode>(tab.GetString("SortMode"), ignoreCase: true, out var tabSort))
@@ -3348,7 +3157,7 @@ public sealed class RecipeBookSystem : ModSystem
 		return new BookUiState
 		{
 			Tabs = TabFilterSlots.Where((KeyValuePair<int, BookUiState.TabFilters> slot) => slot.Key < BookUiState.FilterTabs.Length).ToDictionary((KeyValuePair<int, BookUiState.TabFilters> slot) => BookUiState.FilterTabs[slot.Key], (KeyValuePair<int, BookUiState.TabFilters> slot) => slot.Value),
-			LastTab = (TrackingView ? "tracking" : (RecentView ? "recent" : (StorageView ? "storage" : (Catalogue ? "items" : "recipes")))),
+			LastTab = (TrackingView ? "tracking" : (RecentView ? "recent" : (StorageView ? "storage" : (BestiaryView ? "bestiary" : (Catalogue ? "items" : "recipes"))))),
 			Query = Query,
 			ModFilter = ModFilter,
 			StageFilter = (int)StageFilter,
@@ -3372,19 +3181,8 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void RestoreUiState(BookUiState source)
 	{
 		BookUiState state = source.Sanitize();
-		Catalogue = state.LastTab == "items";
-		StorageView = state.LastTab == "storage";
-		RecentView = state.LastTab == "recent";
-		TrackingView = state.LastTab == "tracking";
-		if (state.LastTab == "recipes")
-		{
-			Catalogue = false;
-		}
-		if (StorageView && !StorageTabVisible)
-		{
-			StorageView = false;
-			Catalogue = true;
-		}
+		int lastTab = Array.IndexOf(new string[6] { "items", "recipes", "bestiary", "storage", "recent", "tracking" }, state.LastTab);
+		SetTabFlags((lastTab < 0 || (lastTab == 3 && !StorageTabVisible)) ? 0 : lastTab);
 		// Version 3 saves had one filter set shared by all tabs: the tab that was open keeps it, the others
 		// keep only its sort order.
 		BookUiState.TabFilters shared = new BookUiState.TabFilters
@@ -3446,6 +3244,7 @@ public sealed class RecipeBookSystem : ModSystem
 			ModFilter = ModFilter,
 			CategoryKey = ((Category >= 0 && Category < Categories.Count) ? Categories[Category].Key : "all"),
 			FavoritesOnly = FavoritesOnly,
+			MetOnly = MetOnly,
 			SortMode = SortMode,
 			SortDescending = SortDescending
 		};
@@ -3457,22 +3256,23 @@ public sealed class RecipeBookSystem : ModSystem
 		Query = source.Query;
 		ModFilter = (Mods.Contains(source.ModFilter, StringComparer.Ordinal) ? source.ModFilter : "");
 		Category = Math.Max(0, Categories.FindIndex((BookCategory value) => value.Key == source.CategoryKey));
-		if (Category < CategoryRow || Category >= CategoryRow + BookGeometry.VisibleCategoryRows)
+		if (Category < CategoryRow || Category >= CategoryRow + CategoryRows)
 		{
-			CategoryRow = Math.Clamp(Category - BookGeometry.VisibleCategoryRows / 2, 0, MaxCategoryRow);
+			CategoryRow = Math.Clamp(Category - CategoryRows / 2, 0, MaxCategoryRow);
 		}
 		FavoritesOnly = source.FavoritesOnly;
+		MetOnly = source.MetOnly;
 		SortMode = source.SortMode;
 		SortDescending = source.SortDescending;
 	}
 
-	private static void ChangeFilterTab(int from, int to)
+	private static void ChangeFilterTab(int from, int to, BookUiState.TabFilters leaving)
 	{
 		if (from == to)
 		{
 			return;
 		}
-		TabFilterSlots[from] = LiveTabFilters();
+		TabFilterSlots[from] = leaving;
 		LoadTabFilters(TabFilterSlots.GetValueOrDefault(to));
 	}
 
@@ -3596,11 +3396,18 @@ public sealed class RecipeBookSystem : ModSystem
 		return SortOptionLabel(SortOptionIndex);
 	}
 
-	// One list for field and direction: Name, ID and Mod, each ascending then descending.
-	private static int SortOptionIndex => (int)SortMode * 2 + (SortDescending ? 1 : 0);
+	// One list for field and direction: Name, ID and Mod, each ascending then descending. The Bestiary tab has
+	// its own list (MobSortOptions).
+	private static int SortOptionIndex => BestiaryView ? MobSortOptionIndex : ((int)SortMode * 2 + (SortDescending ? 1 : 0));
+
+	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : 6;
 
 	private static string SortOptionLabel(int option)
 	{
+		if (BestiaryView)
+		{
+			return MobSortOptionLabel(option);
+		}
 		return option switch
 		{
 			0 => T("Имя А-Я", "Name A-Z"),
@@ -3614,8 +3421,15 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static void ApplySortOption(int option)
 	{
-		SortMode = (BookSortMode)Math.Clamp(option / 2, 0, 2);
-		SortDescending = option % 2 == 1;
+		if (BestiaryView)
+		{
+			(SortMode, SortDescending) = MobSortOptions[Math.Clamp(option, 0, MobSortOptions.Length - 1)];
+		}
+		else
+		{
+			SortMode = (BookSortMode)Math.Clamp(option / 2, 0, 2);
+			SortDescending = option % 2 == 1;
+		}
 		Page = 0;
 		ApplyFilters();
 	}
@@ -3673,11 +3487,12 @@ public sealed class RecipeBookSystem : ModSystem
 		RecipesByItem.Clear();
 		All.Clear();
 		Filtered.Clear();
-		Mods.Clear();
+		ItemMods.Clear();
 		StationItems.Clear();
 		StationNames.Clear();
-		Categories.Clear();
+		ItemCategoryList.Clear();
 		ItemCategories.Clear();
+		ClearBestiary();
 		Dirty = true;
 	}
 
@@ -3694,7 +3509,7 @@ public sealed class RecipeBookSystem : ModSystem
 		BookCrafting.Clear();
 		UsedInMode = (UsedInCraftableOnly = false);
 		AppliedAvailabilityVersion = -1;
-		Open = (MouseOver = (ModMenu = (StorageView = (RecentView = (TrackingView = false)))));
+		Open = (MouseOver = (ModMenu = (StorageView = (RecentView = (TrackingView = (BestiaryView = false))))));
 		Catalogue = true;
 		BookStorage.ClearView();
 		AppliedStorageVersion = -1;
@@ -3702,6 +3517,7 @@ public sealed class RecipeBookSystem : ModSystem
 		Variant = 0;
 		ResetCard();
 		History.Clear();
+		LiveMobStats.Clear();
 		UsedInCache.Clear();
 		BatchChoice = 0;
 		InvalidateBatchEstimate();
@@ -3769,7 +3585,7 @@ public sealed class RecipeBookSystem : ModSystem
 		Rebuild();
 		BookCrafting.Refresh(force: true);
 		RestorePendingPlayerUiState();
-		if (StorageView || TrackingView)
+		if (StorageView || TrackingView || BestiaryView)
 		{
 			SwitchTab(0);
 		}
@@ -3792,7 +3608,7 @@ public sealed class RecipeBookSystem : ModSystem
 		All.Clear();
 		AllItems.Clear();
 		RecipesByItem.Clear();
-		Mods.Clear();
+		ItemMods.Clear();
 		StationItems.Clear();
 		StationNames.Clear();
 		RegisteredRecipes = (DisabledRecipes = 0);
@@ -3829,7 +3645,7 @@ public sealed class RecipeBookSystem : ModSystem
 				sources.Add(item.ModItem?.Mod.Name ?? "Terraria");
 			}
 		}
-		Mods.AddRange(sources.OrderBy(ModName, StringComparer.CurrentCultureIgnoreCase));
+		ItemMods.AddRange(sources.OrderBy(ModName, StringComparer.CurrentCultureIgnoreCase));
 		if (ModFilter.Length > 0 && !Mods.Contains(ModFilter))
 		{
 			ModFilter = "";
@@ -3846,15 +3662,15 @@ public sealed class RecipeBookSystem : ModSystem
 		HashSet<int> usedStations = new HashSet<int>(from tile in All.SelectMany((int index) => Main.recipe[index].requiredTile)
 			where tile >= 0
 			select tile);
-		Categories = BookCategories.Create(usedStations);
+		ItemCategoryList = BookCategories.Create(usedStations);
 		Category = Math.Max(0, Categories.FindIndex((BookCategory bookCategory) => bookCategory.Key == selectedCategory));
 		ItemCategories.Clear();
 		foreach (Item item3 in list2)
 		{
 			HashSet<int> matches = new HashSet<int>();
-			for (int c = 0; c < Categories.Count; c++)
+			for (int c = 0; c < ItemCategoryList.Count; c++)
 			{
-				if (Categories[c].Matches(item3))
+				if (ItemCategoryList[c].Matches(item3))
 				{
 					matches.Add(c);
 				}
@@ -3910,6 +3726,10 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static Item Result(int index)
 	{
+		if (BestiaryView)
+		{
+			return new Item();
+		}
 		if (!StorageView)
 		{
 			if (!Catalogue)
@@ -3936,6 +3756,11 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			Selected = -1;
 			Page = Math.Clamp(Page, 0, TrackingGoalPages - 1);
+			return;
+		}
+		if (BestiaryView)
+		{
+			ApplyMobFilters();
 			return;
 		}
 
@@ -3996,14 +3821,27 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Tabs: 0 Items, 1 Recipes, 2 Bestiary, 3 Storage, 4 Recent, 5 Tracking.
+	private static void SetTabFlags(int tab)
+	{
+		Catalogue = tab == 0;
+		BestiaryView = tab == 2;
+		StorageView = tab == 3;
+		RecentView = tab == 4;
+		TrackingView = tab == 5;
+		if (BestiaryView)
+		{
+			EnsureBestiary();
+		}
+	}
+
 	private static void SwitchTab(int index)
 	{
 		int from = CurrentTab;
-		Catalogue = index == 0;
-		StorageView = index == 2;
-		RecentView = index == 3;
-		TrackingView = index == 4;
-		ChangeFilterTab(from, index);
+		// The leaving tab's filters are read before the switch: the Bestiary has its own categories.
+		BookUiState.TabFilters leaving = LiveTabFilters();
+		SetTabFlags(index);
+		ChangeFilterTab(from, index, leaving);
 		ResetCard();
 		if (StorageView)
 		{
@@ -4082,6 +3920,8 @@ public sealed class RecipeBookSystem : ModSystem
 		(float, float) local = geometry.ToLocal(Main.MouseScreen.X, Main.MouseScreen.Y);
 		Mouse = new Vector2(local.Item1, local.Item2);
 		MouseOver = Hit(0f, 0f, 1120f, 696f);
+		// The Bestiary tab's filter bar makes room for its Encountered toggle.
+		BookGeometry.FilterInset = BestiaryView ? 44f : 0f;
 	}
 
 	private static bool Hit(float x, float y, float w, float h)
@@ -4158,6 +3998,10 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 
 		Layout();
+		if (BestiaryView && !AcquisitionOpen)
+		{
+			UpdateMobCard();
+		}
 		if (MouseOver)
 		{
 			Main.LocalPlayer.mouseInterface = true;
@@ -4342,7 +4186,7 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		if (SortMenu)
 		{
-			for (int option = 0; option < 6; option++)
+			for (int option = 0; option < SortOptionCount; option++)
 			{
 				if (BookGeometry.SortOption(option).Contains(Mouse.X, Mouse.Y))
 				{
@@ -4483,18 +4327,25 @@ public sealed class RecipeBookSystem : ModSystem
 			ApplyFilters();
 			return;
 		}
-		if (HandleClassClick())
+		if (!BestiaryView && HandleClassClick())
 		{
 			return;
 		}
-		for (int visible = 0; visible < BookGeometry.VisibleCategoryRows; visible++)
+		if (BestiaryView && BookGeometry.MetFilter.Contains(Mouse.X, Mouse.Y))
+		{
+			MetOnly = !MetOnly;
+			Page = 0;
+			ApplyFilters();
+			return;
+		}
+		for (int visible = 0; visible < CategoryRows; visible++)
 		{
 			int index2 = CategoryRow + visible;
 			if (index2 >= Categories.Count)
 			{
 				break;
 			}
-			if (BookGeometry.CategoryCell(visible).Contains(Mouse.X, Mouse.Y))
+			if (BookGeometry.CategoryCell(visible, ClassRowShown).Contains(Mouse.X, Mouse.Y))
 			{
 				Category = ((Category != index2) ? index2 : 0);
 				Page = (DetailsPage = 0);
@@ -4502,7 +4353,11 @@ public sealed class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
-		for (int n3 = 0; n3 < ActivePageSize; n3++)
+		if (BestiaryView && HandleMobGridClick())
+		{
+			return;
+		}
+		for (int n3 = 0; n3 < ActivePageSize && !BestiaryView; n3++)
 		{
 			int index3 = Page * ActivePageSize + n3;
 			if (index3 >= Filtered.Count)
@@ -4543,6 +4398,11 @@ public sealed class RecipeBookSystem : ModSystem
 		if (BookGeometry.PageNext.Contains(Mouse.X, Mouse.Y))
 		{
 			Page = Math.Min(Pages - 1, Page + 1);
+		}
+		if (BestiaryView)
+		{
+			HandleMobCardClick();
+			return;
 		}
 		if (StorageView || SelectedItem == null || HandleCardNavClick() || HandleArmorSetClick() || HandleTrackButton())
 		{
@@ -4719,6 +4579,7 @@ public sealed class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.Tab3:
 		case BookHotkeys.Action.Tab4:
 		case BookHotkeys.Action.Tab5:
+		case BookHotkeys.Action.Tab6:
 		{
 			List<int> visible = VisibleTabs();
 			int position = action - BookHotkeys.Action.Tab1;
@@ -4738,12 +4599,12 @@ public sealed class RecipeBookSystem : ModSystem
 		}
 		case BookHotkeys.Action.ResetFilters:
 			Query = (ModFilter = "");
-			FavoritesOnly = false;
+			FavoritesOnly = (MetOnly = false);
 			Category = (CategoryRow = (Page = 0));
 			ApplyFilters();
 			break;
 		case BookHotkeys.Action.Craft:
-			if (!TrackingView)
+			if (!TrackingView && !BestiaryView)
 			{
 				BookCrafting.TryCraft(SelectedRecipe, Ru, PreviewBatches(SelectedRecipe));
 			}
@@ -4765,6 +4626,10 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				ToggleFavorite(SelectedItem);
 			}
+			else if (CardMob != null)
+			{
+				ToggleMobFavorite(CardMob);
+			}
 			break;
 		case BookHotkeys.Action.HowToGet:
 			if (CardShown)
@@ -4777,6 +4642,10 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				UsedInMode = !UsedInMode;
 				DetailsPage = 0;
+			}
+			else if (CardMob != null)
+			{
+				MobStatsMode = !MobStatsMode;
 			}
 			break;
 		case BookHotkeys.Action.Stage1:
@@ -4838,6 +4707,10 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private static int MaxDetailsPage()
 	{
+		if (BestiaryView)
+		{
+			return MobMaxDetailsPage();
+		}
 		if (UsedInMode && SelectedItem != null)
 		{
 			float top = RecipeBlockTop(SelectedItem);
@@ -5900,6 +5773,9 @@ public sealed class RecipeBookSystem : ModSystem
 			Main.HoverItem = new Item();
 			Main.hoverItemName = "";
 			Main.LocalPlayer.cursorItemIconEnabled = false;
+			// The game names what is under the cursor in a later layer ("Zombie: 45/45" over the book) unless
+			// the mouse is taken by an interface.
+			Main.LocalPlayer.mouseInterface = true;
 		}
 		Box(sb, -4f, -4f, 1128f, 704f, new Color(0, 0, 0, 170), border: false, 22f);
 		bool grabHint = !AcquisitionOpen && GrabHint;
@@ -5927,6 +5803,10 @@ public sealed class RecipeBookSystem : ModSystem
 			if (StorageView)
 			{
 				DrawStorageDetails(sb);
+			}
+			else if (BestiaryView)
+			{
+				DrawMobCard(sb);
 			}
 			else
 			{
@@ -6017,10 +5897,13 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawCategories(SpriteBatch sb)
 	{
 		Box(sb, BookGeometry.CategoryPanel, new Color(23, 30, 26), border: false, 12f);
-		DrawClassRow(sb);
-		SectionLabel(sb, T("Категории", "Categories"), 20f, BookGeometry.CategoryLabelTop, 164f);
+		if (ClassRowShown)
+		{
+			DrawClassRow(sb);
+		}
+		SectionLabel(sb, T("Категории", "Categories"), 20f, ClassRowShown ? BookGeometry.CategoryLabelTop : BookGeometry.ClassLabelTop, 164f);
 		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
-		int rows = BookGeometry.VisibleCategoryRows;
+		int rows = CategoryRows;
 		for (int visible = 0; visible < rows; visible++)
 		{
 			int index = CategoryRow + visible;
@@ -6029,7 +5912,7 @@ public sealed class RecipeBookSystem : ModSystem
 				break;
 			}
 			BookCategory category = Categories[index];
-			BookRect rect = BookGeometry.CategoryCell(visible);
+			BookRect rect = BookGeometry.CategoryCell(visible, ClassRowShown);
 			bool active = Category == index;
 			bool hover = !active && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 			if (active)
@@ -6040,17 +5923,14 @@ public sealed class RecipeBookSystem : ModSystem
 			{
 				Box(sb, rect, HoverFill, border: false, 8f);
 			}
-			if (ContentSamples.ItemsByType.TryGetValue(category.IconType, out var icon))
-			{
-				Icon(sb, icon, rect.X + 8f, rect.Y + 4f, 20f, tooltip: false);
-			}
-			CenterLabel(sb, category.Label(Ru), rect.X + 36f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, active ? Accent : TextColor, 0.8f, rightAligned: false, leftAligned: true);
+			DrawCategoryIcon(sb, category, rect);
+			CenterLabel(sb, category.Label(Ru), rect.X + 36f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, active ? Accent : TextColor, CategoryLabelSize(category.Label(Ru), rect.Width - 40f), rightAligned: false, leftAligned: true);
 		}
 		if (MaxCategoryRow > 0)
 		{
 			float track = rows * 28;
 			float thumb = Math.Max(28f, track * rows / Categories.Count);
-			float top = BookGeometry.CategoryCell(0).Y;
+			float top = BookGeometry.CategoryCell(0, ClassRowShown).Y;
 			Box(sb, 188f, top, 3f, track, Raised, border: false, 1f);
 			Box(sb, 188f, top + (track - thumb) * CategoryRow / MaxCategoryRow, 3f, thumb, Muted, border: false, 1f);
 		}
@@ -6139,12 +6019,21 @@ public sealed class RecipeBookSystem : ModSystem
 		Star(sb, favorites.X + 8f, favorites.Y + 8f, 20f, FavoritesOnly);
 		if (!MenuOpen && favorites.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Только избранное", "Favorites only") + "\n" + T("Alt+клик по предмету добавляет", "Alt+Click an item to add it"));
+			MouseTip(T("Только избранное", "Favorites only") + "\n" + (BestiaryView ? T("Alt+клик по мобу добавляет", "Alt+Click a mob to add it") : T("Alt+клик по предмету добавляет", "Alt+Click an item to add it")));
+		}
+		if (BestiaryView)
+		{
+			DrawMetFilter(sb);
 		}
 	}
 
 	private static void DrawGrid(SpriteBatch sb)
 	{
+		if (BestiaryView)
+		{
+			DrawMobGrid(sb);
+			return;
+		}
 		float top = GridTop;
 		int size = ActivePageSize;
 		for (int n = 0; n < size; n++)
@@ -6237,6 +6126,10 @@ public sealed class RecipeBookSystem : ModSystem
 		else if (Catalogue)
 		{
 			count = T("Предметов: ", "Items: ") + Count(Filtered.Count);
+		}
+		else if (BestiaryView)
+		{
+			count = T("Мобов: ", "Mobs: ") + Count(Filtered.Count);
 		}
 		else if (RecentView)
 		{
@@ -6725,8 +6618,9 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			0 => T("Shift+клик: где используется · F1: справка", "Shift+Click: where it's used · F1 Help"),
 			1 => T("Ctrl+Enter: создать · F1: справка", "Ctrl+Enter crafts · F1 Help"),
-			2 => T("Shift+клик: стопку в инвентарь · F1: справка", "Shift+Click takes a stack · F1 Help"),
-			3 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
+			2 => T("Mouse3 по мобу в мире: его карточка · F1: справка", "Mouse3 on a mob in the world: its card · F1 Help"),
+			3 => T("Shift+клик: стопку в инвентарь · F1: справка", "Shift+Click takes a stack · F1 Help"),
+			4 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
 			_ => T("PgUp/PgDn: страницы · F1: справка", "PgUp/PgDn pages · F1 Help"),
 		};
 	}
@@ -6754,8 +6648,8 @@ public sealed class RecipeBookSystem : ModSystem
 	private static void DrawSortMenu(SpriteBatch sb)
 	{
 		BookRect panel = BookGeometry.SortMenuPanel;
-		Box(sb, panel, new Color(17, 25, 20), border: true, 10f, Accent);
-		for (int option = 0; option < 6; option++)
+		Box(sb, panel.X, panel.Y, panel.Width, 8f + SortOptionCount * 32f, new Color(17, 25, 20), border: true, 10f, Accent);
+		for (int option = 0; option < SortOptionCount; option++)
 		{
 			BookRect rect = BookGeometry.SortOption(option);
 			bool active = option == SortOptionIndex;
@@ -6781,7 +6675,7 @@ public sealed class RecipeBookSystem : ModSystem
 
 	private const float TabTextSize = 0.9f;
 
-	private static int CurrentTab => TrackingView ? 4 : (RecentView ? 3 : (StorageView ? 2 : ((!Catalogue) ? 1 : 0)));
+	private static int CurrentTab => TrackingView ? 5 : (RecentView ? 4 : (StorageView ? 3 : (BestiaryView ? 2 : ((!Catalogue) ? 1 : 0))));
 
 	private static string TabLabel(int tab)
 	{
@@ -6789,13 +6683,14 @@ public sealed class RecipeBookSystem : ModSystem
 		{
 			0 => T("Предметы", "Items"),
 			1 => T("Рецепты", "Recipes"),
-			2 => T("Хранилище", "Storage"),
-			3 => T("Недавние", "Recent"),
+			2 => T("Бестиарий", "Bestiary"),
+			3 => T("Хранилище", "Storage"),
+			4 => T("Недавние", "Recent"),
 			_ => T("Отслеживание", "Tracking"),
 		};
 	}
 
-	private static int TrackingTabNumber => VisibleTabs().IndexOf(4) + 1;
+	private static int TrackingTabNumber => VisibleTabs().IndexOf(5) + 1;
 
 	// The Storage tab exists only when Magic Storage is loaded.
 	private static List<int> VisibleTabs()
@@ -6803,7 +6698,7 @@ public sealed class RecipeBookSystem : ModSystem
 		List<int> tabs = new List<int>();
 		for (int tab = 0; tab < BookGeometry.TabCount; tab++)
 		{
-			if (tab != 2 || StorageTabVisible)
+			if (tab != 3 || StorageTabVisible)
 			{
 				tabs.Add(tab);
 			}
@@ -6821,10 +6716,17 @@ public sealed class RecipeBookSystem : ModSystem
 			return default(BookRect);
 		}
 		// Equal tabs keep 16 px of air each side; when they do not fit (long Russian labels), each tab hugs its
-		// label with 12 px.
-		float[] widths = tabs.Select((int t) => TextWidth(TabLabel(t), TabTextSize) + 24f).ToArray();
-		float equal = Math.Max(96f, widths.Max() + 8f);
-		bool same = equal * tabs.Count + 8f * (tabs.Count - 1) <= BookGeometry.TabRight - StageDropdownRect().X - StageDropdownRect().Width - 24f;
+		// label with 12 px, down to 6 px when six tabs still crowd the stage dropdown.
+		float room = BookGeometry.TabRight - StageDropdownRect().X - StageDropdownRect().Width - 24f;
+		float[] labels = tabs.Select((int t) => TextWidth(TabLabel(t), TabTextSize)).ToArray();
+		float pad = 24f;
+		while (pad > 12f && labels.Sum() + pad * tabs.Count + 8f * (tabs.Count - 1) > room)
+		{
+			pad -= 4f;
+		}
+		float[] widths = labels.Select((float w) => w + pad).ToArray();
+		float equal = Math.Max(96f, labels.Max() + 32f);
+		bool same = equal * tabs.Count + 8f * (tabs.Count - 1) <= room;
 		float x = BookGeometry.TabRight;
 		for (int i = tabs.Count - 1; i > slot; i--)
 		{
