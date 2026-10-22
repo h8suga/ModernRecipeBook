@@ -16,6 +16,7 @@ patch for fixes, minor for features.
   dozens of post-Moon Lord weapons as Astrum Aureus drops.
 - Present contents inherited the Snow Globe's hardmode gate from vanilla's sequential drop report.
 - Long hover hints ran off the screen; every hint in the book now wraps to a readable width.
+- The footer and the UI error log showed a hard-coded "MRB 1.4.7"; they read the mod's version now.
 
 ### Changed
 - The stage is the earliest point an item can be obtained, the best of:

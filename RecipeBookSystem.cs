@@ -2764,7 +2764,7 @@ public sealed class RecipeBookSystem : ModSystem
 		Open = (MouseOver = (ModMenu = (HelpOpen = false)));
 		CloseAcquisition();
 		BookStorage.CancelCraft();
-		ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB 1.4.7 UI failure (" + phase + "). Book closed safely.", error);
+		ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB " + ModContent.GetInstance<ModernRecipeBook>().Version + " UI failure (" + phase + "). Book closed safely.", error);
 		Main.NewText(T("Книга рецептов: ошибка интерфейса. Подробности в client.log.", "Recipe Book: UI error. Details in client.log."), 240, 160, 100);
 	}
 
@@ -5383,7 +5383,7 @@ public sealed class RecipeBookSystem : ModSystem
 			MouseTip(T("Нажмите для смены источника. Magic Storage требует подключённый интерфейс крафта и создаёт результат в хранилище. Инвентарь использует обычный крафт; источники не смешиваются.", "Click to change source. Magic Storage needs a connected Crafting Interface and deposits results into storage. Inventory uses native player crafting; sources are not mixed."));
 		}
 		Button(sb, BookGeometry.Help, "?");
-		CenterLabel(sb, "MRB 1.4.7", 990f, 660f, BookGeometry.HeaderClose.X + BookGeometry.HeaderClose.Width - 990f, 24f, Muted, 0.8f, rightAligned: true);
+		CenterLabel(sb, "MRB " + ModContent.GetInstance<ModernRecipeBook>().Version, 990f, 660f, BookGeometry.HeaderClose.X + BookGeometry.HeaderClose.Width - 990f, 24f, Muted, 0.8f, rightAligned: true);
 		if (!TrackingView && BookGeometry.Search.Contains(Mouse.X, Mouse.Y) && !Typing)
 		{
 			MouseTip(T("Ctrl+F · Поиск по названию, ID или моду", "Ctrl+F · Search name, ID or mod"));
