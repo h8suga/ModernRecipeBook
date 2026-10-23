@@ -433,7 +433,7 @@ public sealed class BookNearbyServer : ModSystem
 			Restore(delivery.Items);
 			return Status.Invalid;
 		}
-		ReportHearts(p, delivery.Items, deposited: null);
+		SafeReport(p, delivery.Items, deposited: null);
 		foreach ((Item item, Origin _) in delivery.Items)
 		{
 			delivered.Add(item);
@@ -589,11 +589,13 @@ public sealed class BookNearbyServer : ModSystem
 		if (!Admit(p, client, out var refusal))
 		{
 			leftovers.AddRange(items);
+			Hold(p, client, id, leftovers);
 			return refusal;
 		}
 		if (items.Count == 0 || items.Count > MaxDeposit)
 		{
 			leftovers.AddRange(items);
+			Hold(p, client, id, leftovers);
 			return Status.Invalid;
 		}
 		Player player = Main.player[p];
@@ -664,20 +666,49 @@ public sealed class BookNearbyServer : ModSystem
 				}
 			}
 		}
-		ReportHearts(p, new List<(Item, Origin)>(), deposited);
-		if (Main.netMode == NetmodeID.Server && leftovers.Count > 0)
-		{
-			// Not yet back in the client's inventory: a disconnect drops it where the player stood.
-			Delivery delivery = new Delivery { Id = id };
-			Point point = center.ToTileCoordinates();
-			foreach (Item item in leftovers)
-			{
-				delivery.Items.Add((item, new Origin(-2, (short)point.X, (short)point.Y, Point16.NegativeOne)));
-			}
-			client.InFlight.Add(delivery);
-		}
+		SafeReport(p, new List<(Item, Origin)>(), deposited);
+		Hold(p, client, id, leftovers);
 		Cycle(p);
 		return (placed == 0) ? Status.Nothing : ((leftovers.Count > 0) ? Status.Partial : Status.Done);
+	}
+
+	// Leftovers of a deposit, refused ones included, are not yet back in the client's inventory: until the client
+	// acknowledges them, a disconnect drops them where the player stood. A client that never acknowledges gets them on
+	// the ground at once past MaxHeld, so the list cannot grow without bound.
+	private const int MaxHeld = 64;
+
+	private static void Hold(int p, Client client, int id, List<Item> leftovers)
+	{
+		if (Main.netMode != NetmodeID.Server || leftovers.Count == 0)
+		{
+			return;
+		}
+		Point point = Main.player[p].Center.ToTileCoordinates();
+		Delivery delivery = new Delivery { Id = id };
+		foreach (Item item in leftovers)
+		{
+			delivery.Items.Add((item, new Origin(-2, (short)point.X, (short)point.Y, Point16.NegativeOne)));
+		}
+		if (client.InFlight.Count >= MaxHeld)
+		{
+			Restore(delivery.Items);
+			leftovers.Clear();
+			return;
+		}
+		client.InFlight.Add(delivery);
+	}
+
+	// Magic Storage's refresh and audit after a change: the items have already moved, so a failure here is only logged.
+	private static void SafeReport(int p, List<(Item Item, Origin From)> withdrawn, List<(Item Item, Point16 Heart)> deposited)
+	{
+		try
+		{
+			ReportHearts(p, withdrawn, deposited);
+		}
+		catch (Exception error)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Magic Storage refresh after a nearby change failed.", error);
+		}
 	}
 
 	private static void Place(Item item, List<int> chests, List<float> chestDistance, List<BookMagicStorage.Network> networks, List<HashSet<int>> holds, List<(Item, Point16)> deposited)
