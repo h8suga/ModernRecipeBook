@@ -3,6 +3,14 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.11.1 — 2026-10-24
+
+### Fixed
+- The class filter missed Calamity's reworks of vanilla gear. Monk and Shinobi Infiltrator armor now count for
+  summoner and rogue (not melee), Gladiator armor for rogue, weapon imbue flasks for melee, whips and rogue, and Ale
+  and Sake for melee. 22 items changed; a check of every armor piece, accessory and potion against its full
+  tooltip found no others.
+
 ## 1.11.0 — 2026-10-24
 
 ### Changed
