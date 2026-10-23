@@ -73,8 +73,7 @@ Mods: {
 
 				MapTeleport: {
 					Label: Map Teleport
-					Tooltip: "Mouse3 / middle click on an explored spot of the full map teleports you there.
-Rebindable in Controls."
+					Tooltip: "Mouse3 / middle click on an explored spot of the full map teleports you there.\nRebindable in Controls."
 				}
 			}
 		}
