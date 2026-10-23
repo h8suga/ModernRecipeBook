@@ -27,16 +27,6 @@ internal static class BookNearbyConfig
 // (docs/nearby-storage.md §4).
 public sealed class BookNearbyServer : ModSystem
 {
-	internal enum Packet : byte
-	{
-		Subscribe,
-		ChestSync,
-		Pull,
-		Give,
-		Ack,
-		Deposit
-	}
-
 	internal enum Status : byte
 	{
 		Done,
@@ -942,7 +932,7 @@ public sealed class BookNearbyServer : ModSystem
 	}
 
 	// Packets (multiplayer only; single player calls the functions above directly).
-	internal static ModPacket NewPacket(Packet type)
+	internal static ModPacket NewPacket(BookMessage type)
 	{
 		ModPacket packet = ModContent.GetInstance<ModernRecipeBook>().GetPacket();
 		packet.Write((byte)type);
@@ -955,7 +945,7 @@ public sealed class BookNearbyServer : ModSystem
 		int at = 0;
 		do
 		{
-			ModPacket packet = NewPacket(Packet.ChestSync);
+			ModPacket packet = NewPacket(BookMessage.NearbyChestSync);
 			packet.Write((at == 0) ? flags : (byte)(flags & ~1));
 			packet.Write((ushort)locked);
 			packet.Write((ushort)inUse);
@@ -997,7 +987,7 @@ public sealed class BookNearbyServer : ModSystem
 
 	private static void SendGive(int p, int id, Status status, List<Item> items)
 	{
-		ModPacket packet = NewPacket(Packet.Give);
+		ModPacket packet = NewPacket(BookMessage.NearbyGive);
 		packet.Write(id);
 		packet.Write((byte)status);
 		packet.Write((ushort)items.Count);
@@ -1010,13 +1000,15 @@ public sealed class BookNearbyServer : ModSystem
 
 	// What each message cost on the side that received it: count and bytes, payload plus tML's 4-byte header (length,
 	// message 250, mod id). Read on the stand: c call p=ModernRecipeBook.BookNearbyServer.Traffic
-	internal static readonly int[] Received = new int[8];
+	private const int Kinds = BookMessage.NearbyDeposit - BookMessage.NearbySubscribe + 1;
 
-	internal static readonly long[] ReceivedBytes = new long[8];
+	internal static readonly int[] Received = new int[Kinds];
+
+	internal static readonly long[] ReceivedBytes = new long[Kinds];
 
 	internal static string Traffic()
 	{
-		return string.Join(" ", Enum.GetValues<Packet>().Select((Packet t) => $"{t}={Received[(int)t]}/{ReceivedBytes[(int)t]}B"));
+		return string.Join(" ", Enumerable.Range(0, Kinds).Select((int i) => $"{(BookMessage)((int)BookMessage.NearbySubscribe + i)}={Received[i]}/{ReceivedBytes[i]}B"));
 	}
 
 	internal static string ResetTraffic()
@@ -1026,25 +1018,23 @@ public sealed class BookNearbyServer : ModSystem
 		return "ok";
 	}
 
-	internal static void HandlePacket(BinaryReader reader, int whoAmI)
+	// From ModernRecipeBook.HandlePacket, which has read the message byte.
+	internal static void Receive(BookMessage type, BinaryReader reader, int whoAmI)
 	{
-		long start = reader.BaseStream.Position;
-		Packet type = (Packet)reader.ReadByte();
+		long start = reader.BaseStream.Position - 1;
 		try
 		{
 			Handle(type, reader, whoAmI);
 		}
 		finally
 		{
-			if ((int)type < Received.Length)
-			{
-				Received[(int)type]++;
-				ReceivedBytes[(int)type] += reader.BaseStream.Position - start + 4;
-			}
+			int kind = type - BookMessage.NearbySubscribe;
+			Received[kind]++;
+			ReceivedBytes[kind] += reader.BaseStream.Position - start + 4;
 		}
 	}
 
-	private static void Handle(Packet type, BinaryReader reader, int whoAmI)
+	private static void Handle(BookMessage type, BinaryReader reader, int whoAmI)
 	{
 		if (Main.netMode == NetmodeID.MultiplayerClient)
 		{
@@ -1057,10 +1047,10 @@ public sealed class BookNearbyServer : ModSystem
 		}
 		switch (type)
 		{
-		case Packet.Subscribe:
+		case BookMessage.NearbySubscribe:
 			Subscribe(whoAmI, reader.ReadBoolean());
 			break;
-		case Packet.Pull:
+		case BookMessage.NearbyPull:
 		{
 			int id = reader.ReadInt32();
 			int n = reader.ReadByte();
@@ -1074,7 +1064,7 @@ public sealed class BookNearbyServer : ModSystem
 			Reply(whoAmI, id, status, items);
 			break;
 		}
-		case Packet.Deposit:
+		case BookMessage.NearbyDeposit:
 		{
 			int id = reader.ReadInt32();
 			int n = reader.ReadByte();
@@ -1088,7 +1078,7 @@ public sealed class BookNearbyServer : ModSystem
 			Reply(whoAmI, id, status, leftovers);
 			break;
 		}
-		case Packet.Ack:
+		case BookMessage.NearbyAck:
 			Ack(whoAmI, reader.ReadInt32());
 			break;
 		}

@@ -27,7 +27,8 @@ public sealed class BookPlayer : ModPlayer
 	public override void ProcessTriggers(TriggersSet triggersSet)
 	{
 		ModKeybind toggleBook = ModernRecipeBook.ToggleBook;
-		if (toggleBook != null && toggleBook.JustPressed && !Main.gameMenu)
+		// Both keys are Mouse3 by default: on the open map the press is the teleport's (no book, no mob or item lookup).
+		if (toggleBook != null && toggleBook.JustPressed && !Main.gameMenu && !BookMapTeleport.TakesPress)
 		{
 			BookInventoryShortcut.RequestToggle();
 		}
@@ -251,6 +252,7 @@ public sealed class BookPlayer : ModPlayer
 		{
 			RecipeBookSystem.ResetView();
 			RecipeBookSystem.QueuePlayerUiRestore(SavedUiState);
+			BookMapMarkers.RequestList();
 		}
 	}
 }

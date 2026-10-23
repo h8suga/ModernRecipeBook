@@ -341,7 +341,7 @@ public sealed class BookSources : ModSystem
 		{
 			AwaitingSnapshot = on;
 			AwaitingTicks = 0;
-			ModPacket packet = BookNearbyServer.NewPacket(BookNearbyServer.Packet.Subscribe);
+			ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbySubscribe);
 			packet.Write(on);
 			packet.Send();
 		}
@@ -1232,7 +1232,7 @@ public sealed class BookSources : ModSystem
 			OnGive(id, status, leftovers);
 			return;
 		}
-		ModPacket packet = BookNearbyServer.NewPacket(BookNearbyServer.Packet.Deposit);
+		ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbyDeposit);
 		packet.Write(id);
 		packet.Write((byte)items.Count);
 		foreach (Item item in items)
@@ -1294,7 +1294,7 @@ public sealed class BookSources : ModSystem
 			OnGive(id, status, items);
 			return;
 		}
-		ModPacket packet = BookNearbyServer.NewPacket(BookNearbyServer.Packet.Pull);
+		ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbyPull);
 		packet.Write(id);
 		packet.Write((byte)entries.Count);
 		foreach (BookNearbyServer.Entry entry in entries)
@@ -1360,7 +1360,7 @@ public sealed class BookSources : ModSystem
 		{
 			if (Main.netMode == NetmodeID.MultiplayerClient)
 			{
-				ModPacket packet = BookNearbyServer.NewPacket(BookNearbyServer.Packet.Ack);
+				ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbyAck);
 				packet.Write(id);
 				packet.Send();
 			}
@@ -1465,11 +1465,11 @@ public sealed class BookSources : ModSystem
 		MirrorVersion++;
 	}
 
-	internal static void HandlePacket(BookNearbyServer.Packet type, BinaryReader reader)
+	internal static void HandlePacket(BookMessage type, BinaryReader reader)
 	{
 		switch (type)
 		{
-		case BookNearbyServer.Packet.ChestSync:
+		case BookMessage.NearbyChestSync:
 		{
 			byte flags = reader.ReadByte();
 			int locked = reader.ReadUInt16();
@@ -1497,7 +1497,7 @@ public sealed class BookSources : ModSystem
 			ApplyChests(flags, locked, inUse, upserts, removes);
 			break;
 		}
-		case BookNearbyServer.Packet.Give:
+		case BookMessage.NearbyGive:
 		{
 			int id = reader.ReadInt32();
 			BookNearbyServer.Status status = (BookNearbyServer.Status)reader.ReadByte();

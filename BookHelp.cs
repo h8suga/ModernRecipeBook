@@ -1,10 +1,15 @@
+using System;
+
 namespace ModernRecipeBook;
 
 // F1 cheat sheet: three columns by task (moving around, the item card, finding things); every row is a keycap
-// and a short action.
+// and a short action. A row with Shown is listed only while it returns true (a feature the config can turn off).
 internal static class BookHelp
 {
-	internal readonly record struct Entry(string KeyRu, string KeyEn, string Ru, string En);
+	internal readonly record struct Entry(string KeyRu, string KeyEn, string Ru, string En, Func<bool> Shown = null)
+	{
+		internal bool Visible => Shown?.Invoke() ?? true;
+	}
 
 	internal readonly record struct Section(int Column, string Ru, string En, Entry[] Rows);
 
@@ -20,7 +25,7 @@ internal static class BookHelp
 
 	internal const float SectionGap = 16f;
 
-	internal static readonly Section[] Sections = new Section[4]
+	internal static readonly Section[] Sections = new Section[5]
 	{
 		new Section(0, "НАВИГАЦИЯ", "MOVING AROUND", new Entry[9]
 		{
@@ -33,6 +38,12 @@ internal static class BookHelp
 			new Entry("Home · End", "Home · End", "Первая · последняя", "First · last page"),
 			new Entry("Esc", "Esc", "Закрыть верхнее окно", "Close the top window"),
 			new Entry("F1", "F1", "Эта справка", "This help")
+		}),
+		new Section(0, "КАРТА · КОЛЁСИКО МЕНЯЕТСЯ", "FULL MAP · MOUSE3 REBINDABLE", new Entry[3]
+		{
+			new Entry("Колёсико (Mouse3)", "Mouse3 / middle", "Телепорт туда", "Teleport there", () => BookMapTeleport.Enabled),
+			new Entry("ПКМ", "RMB", "Поставить метку", "Place a marker", () => BookMapMarkers.Enabled),
+			new Entry("ПКМ по метке", "RMB on a marker", "Изменить, удалить", "Edit or delete it", () => BookMapMarkers.Enabled)
 		}),
 		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[11]
 		{
@@ -58,14 +69,17 @@ internal static class BookHelp
 		}),
 		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
 		{
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack"),
-			new Entry("ПКМ", "RMB", "Взять одну", "Take one"),
-			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack"),
-			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock"),
-			new Entry("Shift+ЛКМ в инв.", "Shift+LMB in inv.", "Сложить стопку", "Put a stack in"),
-			new Entry("ЛКМ с предметом", "LMB holding item", "Сложить с курсора", "Put the held item in")
+			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack", Nearby),
+			new Entry("ПКМ", "RMB", "Взять одну", "Take one", Nearby),
+			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack", Nearby),
+			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock", Nearby),
+			new Entry("Shift+ЛКМ в инв.", "Shift+LMB in inv.", "Сложить стопку", "Put a stack in", Nearby),
+			new Entry("ЛКМ с предметом", "LMB holding item", "Сложить с курсора", "Put the held item in", Nearby)
 		})
 	};
+
+	// The Storage rows go while the host has nearby storage off.
+	private static bool Nearby() => BookNearbyConfig.Enabled;
 
 	internal static BookRect Column(int column)
 	{

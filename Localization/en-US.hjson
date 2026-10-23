@@ -4,6 +4,7 @@ Mods: {
 			ToggleBook.DisplayName: Open Recipe Book
 			ChainBack.DisplayName: Back
 			ChainForward.DisplayName: Forward
+			MapTeleport.DisplayName: Map Teleport
 		}
 
 		Configs: {
@@ -64,7 +65,20 @@ Mods: {
 
 				MapTeleport: {
 					Label: Map Teleport
-					Tooltip: "Mouse3 / middle click on an explored spot of the full map teleports you there.\nRebindable in Controls."
+					Tooltip:
+						'''
+						Mouse3 / middle click on an explored spot of the full map teleports you there.
+						Rebindable in Controls.
+						'''
+				}
+
+				MapMarkers: {
+					Label: Shared Map Markers
+					Tooltip:
+						'''
+						Markers everyone on the server sees, kept with the world.
+						Right-click the full map to place one, right-click a marker to edit or delete it.
+						'''
 				}
 			}
 		}

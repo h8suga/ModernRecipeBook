@@ -127,6 +127,12 @@ public sealed class BookInventoryShortcut : ModSystem
 		}
 	}
 
+	// Someone else used this middle-button press (the map teleport): no slot or tooltip may still take it.
+	internal static void TakeMousePress()
+	{
+		Input.TakeInventory(eligible: true);
+	}
+
 	internal static void TryOpenTooltip(Item item)
 	{
 		if (Main.HoverItem != null && !Main.HoverItem.IsAir && Main.HoverItem.type == item?.type && !string.IsNullOrEmpty(Main.hoverItemName))
