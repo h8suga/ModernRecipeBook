@@ -66,7 +66,7 @@ internal static class BookCrafting
 			return;
 		}
 		NextAvailable.Clear();
-		if (!Main.gameMenu && !Main.dedServ && Main.LocalPlayer.active && !Main.LocalPlayer.dead && Main.guideItem.IsAir)
+		if (!Main.gameMenu && Main.LocalPlayer.active && !Main.LocalPlayer.dead && Main.guideItem.IsAir)
 		{
 			Main.LocalPlayer.AdjTiles();
 			Recipe.FindRecipes();
@@ -244,7 +244,7 @@ internal static class BookCrafting
 	private static bool SafeForNextBatch(Recipe recipe, Player player)
 	{
 		int index = recipe?.RecipeIndex ?? (-1);
-		if (!Main.gameMenu && !Main.dedServ && player == Main.LocalPlayer && player.active && !player.dead && !player.ghost && player.ItemTimeIsZero && player.itemAnimation == 0 && !player.HasLockedInventory() && Main.guideItem.IsAir && Main.mouseItem.IsAir && !BookStorage.UseForCrafting && recipe != null && !recipe.Disabled && index >= 0 && index < Recipe.numRecipes)
+		if (!Main.gameMenu && player == Main.LocalPlayer && player.active && !player.dead && !player.ghost && player.ItemTimeIsZero && player.itemAnimation == 0 && !player.HasLockedInventory() && Main.guideItem.IsAir && Main.mouseItem.IsAir && !BookStorage.UseForCrafting && recipe != null && !recipe.Disabled && index >= 0 && index < Recipe.numRecipes)
 		{
 			return Main.recipe[index] == recipe;
 		}

@@ -56,6 +56,26 @@ Mods: {
 					Tooltip: The open book joins the nearest storage in reach. Off: connect with a button.
 				}
 			}
+
+			BookServerConfig: {
+				DisplayName: Recipe Book: Server
+				Headers.QualityOfLife: Quality of Life
+
+				NearbyStorage: {
+					Label: Nearby Storage
+					Tooltip: The book shows, counts and crafts from chests and Magic Storage within the radius.
+				}
+
+				NearbyRadius: {
+					Label: Nearby Storage Radius (tiles)
+					Tooltip: Default 30 tiles around the player.
+				}
+
+				MapTeleport: {
+					Label: Map Teleport
+					Tooltip: "Mouse3 / middle click on an explored spot of the full map teleports you there.\nRebindable in Controls."
+				}
+			}
 		}
 	}
 }

@@ -47,7 +47,7 @@ internal static class BookWorldSources
 	// Tile sources of one item; the index is built the first time an item is looked up in a world.
 	internal static IEnumerable<BookItemSource> For(int type)
 	{
-		if (tiles == null && !Main.gameMenu && !Main.dedServ && Main.tile.Width > 64 && Main.maxTilesX > 64 && Main.maxTilesY > 64)
+		if (tiles == null && !Main.gameMenu && Main.tile.Width > 64 && Main.maxTilesX > 64 && Main.maxTilesY > 64)
 		{
 			Build();
 		}

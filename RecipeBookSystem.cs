@@ -1707,7 +1707,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	public override void PostUpdatePlayers()
 	{
-		if (Main.dedServ || Main.gameMenu || TrackedGoals.Count == 0 || Main.LocalPlayer == null || !Main.LocalPlayer.active || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
+		if (Main.gameMenu || TrackedGoals.Count == 0 || Main.LocalPlayer == null || !Main.LocalPlayer.active || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
 		{
 			return;
 		}
@@ -3537,7 +3537,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static void Toggle()
 	{
-		if (!Main.dedServ && !Main.gameMenu)
+		if (!Main.gameMenu)
 		{
 			bool flag = !Open;
 			SetTyping(value: false);
@@ -3568,7 +3568,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static bool OpenForInventoryItem(int type)
 	{
-		if (Main.dedServ || Main.gameMenu || type <= 0 || !ContentSamples.ItemsByType.TryGetValue(type, out var sample) || sample.IsAir)
+		if (Main.gameMenu || type <= 0 || !ContentSamples.ItemsByType.TryGetValue(type, out var sample) || sample.IsAir)
 		{
 			return false;
 		}
@@ -3935,6 +3935,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return new BookRect(x, y, w, h).Contains(Mouse.X, Mouse.Y);
 	}
+
+	// The book is the local player's UI: a dedicated server never loads it, nor builds its catalogue.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
 
 	public override void PostUpdateInput()
 	{

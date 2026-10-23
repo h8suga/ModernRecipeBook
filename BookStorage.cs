@@ -370,9 +370,12 @@ public sealed class BookStorage : ModSystem
 		return $"connected={Connected}, crafting={CraftingConnected}, nativeUpdated={NativeUpdated}, busy={Busy}, requested={RefreshRequested}, ready={CraftCacheReady}, revision={RefreshRevision}, storedStacks={physicalStacks}, cachedTypes={cachedTypes}";
 	}
 
+	// The book's side of Magic Storage's UI: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void PostSetupContent()
 	{
-		if (Main.dedServ || !ModLoader.TryGetMod("MagicStorage", out var mod))
+		if (!ModLoader.TryGetMod("MagicStorage", out var mod))
 		{
 			return;
 		}

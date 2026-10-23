@@ -64,22 +64,17 @@ internal sealed class BookBackdrop : ModSystem
 	// 0 without a modal, 1 with one fully shown; moves linearly, Advance returns it eased.
 	internal static float Fade { get; private set; }
 
+	// Drawing only: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void Load()
 	{
-		if (Main.dedServ)
-		{
-			return;
-		}
 		Main.OnPreDraw += PreDraw;
 		Main.instance.GraphicsDevice.DeviceReset += DeviceReset;
 	}
 
 	public override void Unload()
 	{
-		if (Main.dedServ)
-		{
-			return;
-		}
 		Main.OnPreDraw -= PreDraw;
 		Main.instance.GraphicsDevice.DeviceReset -= DeviceReset;
 		Main.QueueMainThreadAction(Release);

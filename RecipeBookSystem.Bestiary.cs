@@ -874,7 +874,7 @@ public sealed partial class RecipeBookSystem
 	// Mouse3 on a mob in the world: the book opens on the Bestiary tab with that mob, showing its own numbers.
 	internal static bool OpenForMob(NPC npc)
 	{
-		if (npc == null || Main.dedServ || Main.gameMenu || !ContentSamples.NpcsByNetId.ContainsKey(npc.netID))
+		if (npc == null || Main.gameMenu || !ContentSamples.NpcsByNetId.ContainsKey(npc.netID))
 		{
 			return false;
 		}
