@@ -473,7 +473,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Storage keeps its toolbar above a 5-row grid; the other tabs show 6 rows.
 	private static int ActivePageSize => StorageView ? 40 : 48;
 
-	private static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+	internal static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
 
 	private static HashSet<string> Favorites => Main.LocalPlayer.GetModPlayer<BookPlayer>().Favorites;
 
@@ -3492,6 +3492,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static void ResetView()
 	{
+		CloseMarkerPanel();
 		CloseAcquisition();
 		StopTracker();
 		BlockTrackerPress = false;
@@ -3946,6 +3947,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	public override void UpdateUI(GameTime gameTime)
 	{
+		UpdateMarkerInput();
 		MouseState mouse = Microsoft.Xna.Framework.Input.Mouse.GetState();
 		KeyboardState keys = Keyboard.GetState();
 		bool acted = (mouse.LeftButton == ButtonState.Pressed && HistoryMouse.LeftButton != ButtonState.Pressed) || (mouse.RightButton == ButtonState.Pressed && HistoryMouse.RightButton != ButtonState.Pressed) || (mouse.MiddleButton == ButtonState.Pressed && HistoryMouse.MiddleButton != ButtonState.Pressed) || mouse.ScrollWheelValue != HistoryMouse.ScrollWheelValue || keys.GetPressedKeys().Any((Keys key) => !HistoryKeys.IsKeyDown(key));

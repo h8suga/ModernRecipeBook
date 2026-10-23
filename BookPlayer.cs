@@ -239,6 +239,7 @@ public sealed class BookPlayer : ModPlayer
 		{
 			RecipeBookSystem.ResetView();
 			RecipeBookSystem.QueuePlayerUiRestore(SavedUiState);
+			BookMapMarkers.RequestList();
 		}
 	}
 }

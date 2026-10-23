@@ -7,7 +7,15 @@ namespace ModernRecipeBook;
 // Packets between a client and the server; the first byte says which.
 internal enum BookMessage : byte
 {
-	MapSections
+	MapSections,
+	// Map markers (BookMapMarkers): a client asks for the list or a change, the server answers to all or to one.
+	MarkerList,
+	MarkerCreate,
+	MarkerEdit,
+	MarkerDelete,
+	MarkerSet,
+	MarkerRemoved,
+	MarkerRefused
 }
 
 public sealed class ModernRecipeBook : Mod
@@ -35,10 +43,14 @@ public sealed class ModernRecipeBook : Mod
 
 	public override void HandlePacket(BinaryReader reader, int whoAmI)
 	{
-		switch ((BookMessage)reader.ReadByte())
+		BookMessage kind = (BookMessage)reader.ReadByte();
+		switch (kind)
 		{
 		case BookMessage.MapSections:
 			BookMapTeleport.SendSections(reader, whoAmI);
+			break;
+		case >= BookMessage.MarkerList and <= BookMessage.MarkerRefused:
+			BookMapMarkers.Receive(kind, reader, whoAmI);
 			break;
 		}
 	}

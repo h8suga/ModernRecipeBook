@@ -39,9 +39,11 @@ internal static class BookHelp
 			new Entry("Esc", "Esc", "Закрыть верхнее окно", "Close the top window"),
 			new Entry("F1", "F1", "Эта справка", "This help")
 		}),
-		new Section(0, "КАРТА · КЛАВИША В УПРАВЛЕНИИ", "FULL MAP · REBINDABLE IN CONTROLS", new Entry[1]
+		new Section(0, "КАРТА · КОЛЁСИКО МЕНЯЕТСЯ", "FULL MAP · MOUSE3 REBINDABLE", new Entry[3]
 		{
-			new Entry("Колёсико (Mouse3)", "Mouse3 / middle", "Телепорт туда", "Teleport there", () => BookMapTeleport.Enabled)
+			new Entry("Колёсико (Mouse3)", "Mouse3 / middle", "Телепорт туда", "Teleport there", () => BookMapTeleport.Enabled),
+			new Entry("ПКМ", "RMB", "Поставить метку", "Place a marker", () => BookMapMarkers.Enabled),
+			new Entry("ПКМ по метке", "RMB on a marker", "Изменить, удалить", "Edit or delete it", () => BookMapMarkers.Enabled)
 		}),
 		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[11]
 		{

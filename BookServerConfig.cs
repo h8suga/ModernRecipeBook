@@ -20,6 +20,9 @@ public sealed class BookServerConfig : ModConfig
 	[DefaultValue(true)]
 	public bool MapTeleport = true;
 
+	[DefaultValue(true)]
+	public bool MapMarkers = true;
+
 	public override ConfigScope Mode => ConfigScope.ServerSide;
 
 	// tModLoader lets any client change a server config by default; only the host may (single player is always the host).

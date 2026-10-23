@@ -66,7 +66,7 @@ internal sealed class BookMapTeleport : ModSystem
 
 	public override void PostDrawFullscreenMap(ref string mouseText)
 	{
-		if (ModernRecipeBook.MapTeleport.JustPressed && PressTick != Main.GameUpdateCount && Enabled && !Main.LocalPlayer.dead)
+		if (ModernRecipeBook.MapTeleport.JustPressed && PressTick != Main.GameUpdateCount && Enabled && !Main.LocalPlayer.dead && !RecipeBookSystem.MarkerPanelOpen)
 		{
 			PressTick = Main.GameUpdateCount;
 			// The book's Mouse3 item search watches the raw button: this press is taken.
@@ -117,7 +117,7 @@ internal sealed class BookMapTeleport : ModSystem
 
 	// The map point under the cursor in tiles, as vanilla computes a ping: the map is drawn centred on mapFullscreenPos in
 	// unscaled screen pixels, and this hook runs with the UI zoom applied, so the unscaled mouse is read.
-	private static Vector2 CursorTile()
+	internal static Vector2 CursorTile()
 	{
 		Vector2 half = new Vector2((int)PlayerInput.OriginalScreenSize.X / 2, (int)PlayerInput.OriginalScreenSize.Y / 2);
 		return (new Vector2(PlayerInput.MouseX, PlayerInput.MouseY) - half) / Main.mapFullscreenScale + Main.mapFullscreenPos;
@@ -249,7 +249,7 @@ internal sealed class BookMapTeleport : ModSystem
 		return !Collision.SolidCollision(position, width, height) && CombinedHooks.CanBeTeleportedTo(player, position, left, top, "MapTeleport");
 	}
 
-	private static void Say(string message)
+	internal static void Say(string message)
 	{
 		Message = message;
 		MessageTick = Main.GameUpdateCount;
