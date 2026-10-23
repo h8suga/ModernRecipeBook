@@ -141,9 +141,12 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect MetFilter => new BookRect(700f, 76f, 36f, 36f);
 
+	// Items and Recipes: the station filter takes the slot the Bestiary gives its Encountered toggle.
+	internal static BookRect StationFilter => MetFilter;
+
 	internal static BookRect Sort => new BookRect(620f - FilterInset, 76f, 116f, 36f);
 
-	internal static BookRect SortMenuPanel => new BookRect(604f - FilterInset, 116f, 176f, 200f);
+	internal static BookRect SortMenuPanel => new BookRect(584f - FilterInset, 116f, 196f, 264f);
 
 	// Storage keeps a toolbar between the filter bar and its grid.
 	internal static BookRect StorageToolbar => new BookRect(212f, GridTop, 568f, 68f);
