@@ -718,6 +718,23 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// Difficulty conditions get a one-word label; anything else keeps the mod's own description.
+	// A drop condition its mod left without a text (Calamity's AddIf lambdas, e.g. Hadarian Wings once Astrum Aureus is
+	// dead) cannot be named, but it can be asked whether it holds in this world now.
+	private static string HiddenConditionLabel(IItemDropRuleCondition condition, int npcNetId)
+	{
+		string name = T("Особое условие", "Special condition");
+		try
+		{
+			NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
+			DropAttemptInfo info = new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand };
+			return name + (condition.CanDrop(info) ? T(" · выполнено", " · met") : T(" · пока не выполнено", " · not met yet"));
+		}
+		catch (Exception)
+		{
+			return name;
+		}
+	}
+
 	private static string DropConditionLabel(IItemDropRuleCondition condition, string full)
 	{
 		if (condition is Conditions.IsExpert)

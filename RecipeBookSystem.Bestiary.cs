@@ -503,9 +503,13 @@ public sealed partial class RecipeBookSystem
 		return Math.Max(0, (MobLootLines.Count - 1) / BookGeometry.MobLootRows);
 	}
 
+	// The mob whose loot is being read: a condition without a text is checked against it (HiddenConditionLabel).
+	private static int LootNpc;
+
 	// The mob's own rules, as the Bestiary reads them (no global drops), most likely first; then the global ones.
 	private static void ReadMobLoot(int id)
 	{
+		LootNpc = id;
 		List<IItemDropRule> own = new List<IItemDropRule>();
 		List<IItemDropRule> global = new List<IItemDropRule>();
 		try
@@ -552,7 +556,7 @@ public sealed partial class RecipeBookSystem
 					try
 					{
 						string description = condition.GetConditionDescription();
-						conditions.Add(DropConditionLabel(condition, string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description));
+						conditions.Add(string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, LootNpc) : DropConditionLabel(condition, description));
 					}
 					catch (Exception)
 					{
