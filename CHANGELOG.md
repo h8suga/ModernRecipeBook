@@ -3,6 +3,18 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.9.2 — 2026-10-23
+
+### Changed
+- Storage tab cells work like a vanilla chest slot. A click takes the stack onto the cursor, or adds to the same
+  item already on the cursor. Holding right-click takes more and more with the game's own speed-up. Shift+Click
+  sends the stack to the inventory, Ctrl+Click to the trash (when quick trash is on), Alt+Click marks a favorite.
+  A click with an item on the cursor puts it into storage. In multiplayer the repeats are batched, so holding
+  right-click never runs into the server's rate limit.
+- The details panel follows the hovered cell instead of a selection click. Ctrl+Enter takes the selected stack
+  to the inventory.
+- The cell tooltip, the footer and F1 list the take gestures.
+
 ## 1.9.1 — 2026-10-23
 
 ### Fixed
