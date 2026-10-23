@@ -44,8 +44,15 @@ public sealed partial class RecipeBookSystem
 
 	private static bool MarkerOwnBlock;
 
-	// The left button, hidden from the map this update because the cursor is on the panel.
+	// The left button, hidden from the map this update because the press belongs to the panel.
 	private static bool MarkerHeldLeft;
+
+	// A left press that starts on the panel is the panel's until the button is let go, also after its click closed the panel:
+	// the map takes its drag anchor only when it sees a press (Main.DrawMap, grabMapX), so a press it never saw dragged the
+	// map from a stale anchor on the next held frame.
+	private static bool MarkerOwnsLeft;
+
+	private static bool MarkerLastLeft;
 
 	private static Vector2 MarkerAnchor;
 
@@ -60,7 +67,7 @@ public sealed partial class RecipeBookSystem
 
 	private static float MarkerHeight => (MarkerMode == MarkerPanel.View) ? 196f : 284f;
 
-	// The map drags and pings with the left button at the start of its draw: not while the cursor is on the panel.
+	// The map drags, pings and clicks pylons with the left button while it draws: not with a press that belongs to the panel.
 	// Runs last in the update, so the map then draws with these values.
 	public override void PostUpdateEverything()
 	{
@@ -68,7 +75,14 @@ public sealed partial class RecipeBookSystem
 		{
 			MarkerLastRight = Main.mouseRight;
 		}
-		if (MarkerMode != MarkerPanel.None && Main.mapFullscreen && Main.mouseLeft && MarkerPixels.Contains(PlayerInput.MouseX, PlayerInput.MouseY))
+		bool left = Main.mouseLeft;
+		if (left && !MarkerLastLeft)
+		{
+			MarkerOwnsLeft = MarkerMode != MarkerPanel.None && Main.mapFullscreen && MarkerPixels.Contains(PlayerInput.MouseX, PlayerInput.MouseY);
+		}
+		MarkerOwnsLeft &= left;
+		MarkerLastLeft = left;
+		if (MarkerOwnsLeft && Main.mapFullscreen)
 		{
 			MarkerHeldLeft = true;
 			Main.mouseLeft = false;
