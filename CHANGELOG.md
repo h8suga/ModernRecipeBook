@@ -3,6 +3,15 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.9.3 — 2026-10-23
+
+### Fixed
+- The Demon/Crimson Altar showed as "Tile 26" on recipe cards. Stations that no item places now use the game's own
+  name for them, as the crafting list does ("Crimson Altar", Calamity's "Altar of the Accursed").
+- A recipe condition another mod left untranslated showed its raw key; Magic Storage's campfire condition now reads
+  "Near a campfire (Magic Storage)".
+- Tooltips of station, condition and "By hand" rows no longer have an empty line under the name.
+
 ## 1.9.2 — 2026-10-23
 
 ### Changed

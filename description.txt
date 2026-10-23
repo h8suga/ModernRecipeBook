@@ -1,4 +1,4 @@
-Modern Recipe Book 1.9.2
+Modern Recipe Book 1.9.3
 
 A recipe book and bestiary for every item and mob in the game and its mods, in English and Russian. Open it with Mouse3 (rebindable in Controls).
 

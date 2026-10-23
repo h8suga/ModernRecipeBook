@@ -331,10 +331,32 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly Dictionary<int, Item> StationItems = new Dictionary<int, Item>();
 
-	// Read live: Item.Name follows the game's language, a name cached at index time would not.
+	// Read live: Item.Name follows the game's language, a name cached at index time would not. A station no item places
+	// (the Demon or Crimson Altar) takes its map name in the style vanilla's crafting list uses (Recipe.GetRequiredTileStyle).
 	private static string StationName(int tile)
 	{
-		return StationItems.TryGetValue(tile, out var station) ? station.Name : (TileLoader.GetTile(tile)?.Name ?? ("Tile " + tile));
+		return StationItems.TryGetValue(tile, out var station) ? station.Name : MapTileName(tile, Recipe.GetRequiredTileStyle(tile));
+	}
+
+	// A recipe condition's text. A mod that never translated its key shows the key itself
+	// ("Mods.MagicStorage.CookedMarshmallowCondition"): known ones get their meaning, others the key's last part in words.
+	private static string ConditionName(Condition condition)
+	{
+		string text = condition.Description.Value;
+		if (text != condition.Description.Key)
+		{
+			return text;
+		}
+		if (text == "Mods.MagicStorage.CookedMarshmallowCondition")
+		{
+			return T("Рядом костёр (Magic Storage)", "Near a campfire (Magic Storage)");
+		}
+		string last = text[(text.LastIndexOf('.') + 1)..];
+		if (last.EndsWith("Condition", StringComparison.Ordinal) && last.Length > "Condition".Length)
+		{
+			last = last[..^"Condition".Length];
+		}
+		return System.Text.RegularExpressions.Regex.Replace(last, "(?<=[a-z])(?=[A-Z])", " ");
 	}
 
 	private static int Selected = -1;
@@ -626,7 +648,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				IEnumerable<string> materials = recipe.requiredItem.Select((Item i, int slot) => (i, slot)).Where(((Item i, int slot) x) => !x.i.IsAir).Select(((Item i, int slot) x) => ((alternatives != null && x.slot == alternativeSlot) ? AlternativesName(alternatives, x.i.type) : GroupName(recipe, x.i, out var _)) + " ×" + x.i.stack);
 				List<string> stations = recipe.requiredTile.Where((int t) => t >= 0).Select(StationName).ToList();
 				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
-				string conditionText = string.Join("; ", recipe.Conditions.Select((Condition c) => c.Description.Value));
+				string conditionText = string.Join("; ", recipe.Conditions.Select(ConditionName));
 				int stationItem = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) => StationItems.TryGetValue(t, out var station) ? station.type : 0).FirstOrDefault((int t) => t > 0);
 				Add(new BookAcquisitionEntry((stations.Count == 0) ? T("Вручную", "By hand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText));
 			}
@@ -2896,7 +2918,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			lines.Add(new TrackingLine(null, T("Вручную", "By hand"), "", Muted, Muted));
 		}
 		string[] conditions = (from c in goal.Recipes.SelectMany((Recipe r) => r.Conditions)
-			select c.Description.Value).Distinct().ToArray();
+			select ConditionName(c)).Distinct().ToArray();
 		if (conditions.Length > 0)
 		{
 			lines.Add(new TrackingLine(null, T("УСЛОВИЯ", "CONDITIONS"), "", Muted, Muted, null, Section: true));
@@ -5382,7 +5404,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		foreach (Condition c in r.Conditions)
 		{
-			list.Add(new Detail(null, c.Description.Value, T("Условие", "Condition"), Caution, Muted, ""));
+			list.Add(new Detail(null, ConditionName(c), T("Условие", "Condition"), Caution, Muted, ""));
 		}
 		return list;
 	}
@@ -6535,7 +6557,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 				where = detail.Substring(cut);
 				detail = detail.Substring(0, cut);
 			}
-			MouseTip(d.Name + "\n" + string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)) + where);
+			string body = string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0));
+			MouseTip(d.Name + ((body.Length > 0) ? ("\n" + body) : "") + where);
 		}
 	}
 
