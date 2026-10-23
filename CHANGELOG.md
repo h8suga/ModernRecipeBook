@@ -3,6 +3,13 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.11.0 — 2026-10-24
+
+### Changed
+- The Storage tab has its own stage filter. Picking Hardmode to browse the catalogue no longer hides the
+  Pre-Hardmode materials in your chests; Items, Recipes, Bestiary, Recent and Tracking still share one. Both are
+  remembered; Storage starts at All stages.
+
 ## 1.10.0 — 2026-10-23
 
 ### Added
