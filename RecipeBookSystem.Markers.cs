@@ -82,6 +82,14 @@ public sealed partial class RecipeBookSystem
 			Main.mouseLeft = true;
 			MarkerHeldLeft = false;
 		}
+		// The chat draws after the map and calls HandleIME with PlayerInput.WritingText, which the update has reset since
+		// (Main.DoDraw); a disabled IME drops every typed character (ReLogic WinImm32Ime). The book's search does the same in
+		// its interface layer, which draws after the chat.
+		if (MarkerTyping)
+		{
+			PlayerInput.WritingText = true;
+			Main.instance.HandleIME();
+		}
 		bool rightPressed = Main.mouseRight && !MarkerLastRight;
 		MarkerLastRight = Main.mouseRight;
 		// The teleport may have closed the map in this same draw (a Map Teleport key rebound to the right button).
