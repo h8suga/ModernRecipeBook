@@ -80,7 +80,7 @@ internal sealed class BookMapMarkerLayer : ModMapLayer
 		if (key != TipKey)
 		{
 			TipKey = key;
-			Tip = $"[i:{BookMarkerBadges.Get(marker.Badge).Item}] {marker.Name}\n{BookMapMarkers.Placed(marker)}";
+			Tip = $"[i:{BookMarkerBadges.Get(marker.Badge).Item}] {BookMapMarkers.Title(marker)}\n{BookMapMarkers.Placed(marker)}";
 		}
 		return Tip;
 	}
