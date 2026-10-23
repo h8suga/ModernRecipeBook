@@ -52,7 +52,8 @@ public sealed partial class RecipeBookSystem
 	private static readonly List<LootLine> MobLootLines = new List<LootLine>();
 
 	// What the card's caches (loot, tags, stats, portrait) were read for.
-	private static (int NetId, bool Live, string Culture) MobCardKey;
+	// The player count is part of the key: Expert and Master scale a boss's numbers with it (RecipeBookSystem.MobCard).
+	private static (int NetId, bool Live, string Culture, int Players) MobCardKey;
 
 	private static int MobCardNetId => MobCardKey.NetId;
 
@@ -475,7 +476,7 @@ public sealed partial class RecipeBookSystem
 			return;
 		}
 		int netId = CardVariantNetId(mob);
-		(int, bool, string) key = (netId, netId == LiveMob, Language.ActiveCulture.Name);
+		(int, bool, string, int) key = (netId, netId == LiveMob, Language.ActiveCulture.Name, NPC.GetActivePlayerCount());
 		if (MobCardKey != key)
 		{
 			MobCardKey = key;
