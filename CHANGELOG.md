@@ -3,6 +3,15 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.9.4 — 2026-10-23
+
+### Fixed
+- The inventory key closes the book too. With the book open it used to do nothing. An open layer (help, a menu,
+  typing, How to Get) still takes the press first, and with the inventory closed the key only closes the book
+  instead of opening the inventory.
+- A boss card opened before a friend joined kept the one-player numbers. In Expert and Master the card now reads
+  them again whenever someone joins or leaves, and its tooltip says how many players they are for.
+
 ## 1.9.3 — 2026-10-23
 
 ### Fixed

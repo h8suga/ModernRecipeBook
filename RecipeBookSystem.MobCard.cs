@@ -22,13 +22,30 @@ public sealed partial class RecipeBookSystem
 	private static MobStats EnemyStats;
 
 	private static bool EnemyStatsLive;
+
+	// Expert and Master give a boss more life per player in the world (NPC.ScaleStats); the card is read again when
+	// someone joins or leaves (EnsureMobCard keys it on the player count).
+	private static int EnemyStatsPlayers;
+
 	private static void ReadEnemyStats(int netId)
 	{
+		EnemyStatsPlayers = NPC.GetActivePlayerCount();
 		EnemyStatsLive = netId == LiveMob && LiveMobStats.TryGetValue(netId, out EnemyStats);
 		if (!EnemyStatsLive)
 		{
 			EnemyStats = FreshMobStats(netId);
 		}
+	}
+
+	// "For this world · Expert · 2 players": the player count only where it changes the numbers.
+	private static string StatsScope()
+	{
+		string scope = (EnemyStatsLive ? T("Этот моб в мире", "This mob in the world") : T("Для этого мира", "For this world")) + " · " + WorldModeName();
+		if (Main.netMode == NetmodeID.MultiplayerClient && Main.expertMode && EnemyStatsPlayers > 1)
+		{
+			scope += " · " + BookSourceRules.Count(EnemyStatsPlayers, Ru, "player", "players", "игрок", "игрока", "игроков");
+		}
+		return scope;
 	}
 
 	// The Bestiary's way: a new NPC set up for this world, so the game mode, the player count, Calamity's modes and
@@ -144,7 +161,7 @@ public sealed partial class RecipeBookSystem
 		}
 		if (box.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip((EnemyStatsLive ? T("Этот моб в мире", "This mob in the world") : T("Для этого мира", "For this world")) + " · " + WorldModeName());
+			MouseTip(StatsScope());
 		}
 		MobStats stats = EnemyStats;
 		int banner = Item.NPCtoBanner(sample.BannerID());

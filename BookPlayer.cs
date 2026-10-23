@@ -54,6 +54,13 @@ public sealed class BookPlayer : ModPlayer
 
 	public override void SetControls()
 	{
+		// Right before vanilla's inventory toggle (Player.Update): a press GuardInventoryKey kept from the inventory
+		// must not toggle it, whatever trigger state reached the player.
+		if (Player.whoAmI == Main.myPlayer && InventoryPressBlocked)
+		{
+			Player.controlInv = false;
+			Player.releaseInventory = false;
+		}
 		if (RecipeBookSystem.BlockTrackerPress)
 		{
 			Player.controlUseItem = (Player.controlUseTile = false);
@@ -63,7 +70,6 @@ public sealed class BookPlayer : ModPlayer
 		{
 			return;
 		}
-		Player.controlInv = false;
 		if (RecipeBookSystem.MouseOver || RecipeBookSystem.Typing)
 		{
 			Player.controlUseItem = false;
@@ -84,6 +90,7 @@ public sealed class BookPlayer : ModPlayer
 	// (quick buff, loadout switch) run before SetControls, so clearing them there is too late.
 	internal static void GuardTriggers()
 	{
+		GuardInventoryKey();
 		if (Main.gameMenu || !RecipeBookSystem.Open)
 		{
 			DigitWithModifier = false;
@@ -118,6 +125,39 @@ public sealed class BookPlayer : ModPlayer
 			BlockHotbarTriggers();
 		}
 	}
+
+	private static readonly string[] InventoryTrigger = new string[1] { "Inventory" };
+
+	// The inventory key (Esc by default) closes the book the way Esc does: an open layer (help, a menu, typing,
+	// How to Get) takes the press and the inventory stays; otherwise the book closes and the inventory with it.
+	// With the inventory closed the press only closes the book, so it never opens the inventory instead.
+	// Decided on the book as the player saw it before the press (RecipeBookSystem.OpenAtUpdate): when the key is Esc
+	// the book has already acted on it; another key reaches the book on the next update through InventoryKeyPressed,
+	// except while typing.
+	// A blocked press stays blocked until the key is let go: vanilla toggles on the first update it sees the key down
+	// after seeing it up (Player.releaseInventory), so blocking only the first update would toggle on the second.
+	private static void GuardInventoryKey()
+	{
+		if (!PlayerInput.Triggers.Current.Inventory)
+		{
+			InventoryPressBlocked = false;
+		}
+		bool pressed = !Main.gameMenu && RecipeBookSystem.OpenAtUpdate && PlayerInput.Triggers.JustPressed.Inventory;
+		// The keyboard the triggers were read from (Main.keyState is refreshed after this hook).
+		bool escape = Main.keyState.IsKeyDown(Keys.Escape);
+		RecipeBookSystem.InventoryKeyPressed = pressed && !escape && !RecipeBookSystem.TypingAtUpdate;
+		if (pressed && (RecipeBookSystem.LayerAtUpdate || !Main.playerInventory))
+		{
+			InventoryPressBlocked = true;
+		}
+		if (InventoryPressBlocked)
+		{
+			BlockTriggers(InventoryTrigger);
+		}
+	}
+
+	private static bool InventoryPressBlocked;
+
 
 	private static readonly string[] CapturedTriggers = new string[7] { "QuickHeal", "QuickMana", "QuickBuff", "QuickMount", "Grapple", "Throw", "Inventory" };
 

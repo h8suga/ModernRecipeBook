@@ -69,6 +69,28 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static bool AcquisitionOpen;
 
+	// The inventory key was pressed this update with a key other than Esc (BookPlayer.GuardTriggers): it acts as Esc.
+	internal static bool InventoryKeyPressed;
+
+	// Something above the book that Esc closes first.
+	internal static bool LayerOpen => Typing || HelpOpen || AcquisitionOpen || MenuOpen;
+
+	// The book as the player saw it before pressing the inventory key: the end of the update before last. The book
+	// reacts to Esc on the live keyboard (the help and the search field while drawing, the rest in UpdateUI), but the
+	// game's triggers read the keyboard one update late (Main.keyState is refreshed after PlayerInput.UpdateInput), so
+	// when BookPlayer.GuardTriggers sees the key, the last update's state may already show Esc's effect.
+	internal static bool OpenAtUpdate;
+
+	internal static bool LayerAtUpdate;
+
+	internal static bool TypingAtUpdate;
+
+	private static bool OpenLastUpdate;
+
+	private static bool LayerLastUpdate;
+
+	private static bool TypingLastUpdate;
+
 	private static int[] AcquisitionVariants = Array.Empty<int>();
 
 	private static int AcquisitionVariant;
@@ -737,12 +759,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int delta = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
 		bool expanded = AcquisitionGroup >= 0;
-		if (expanded && (Press(Keys.Escape) || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y))))
+		if (expanded && (Press(Keys.Escape) || InventoryKeyPressed || (click && BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y))))
 		{
 			BackAcquisitionGroup();
 			return;
 		}
-		if (Press(Keys.Escape) || (click && (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y))))
+		if (Press(Keys.Escape) || InventoryKeyPressed || (click && (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y) || !BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y))))
 		{
 			CloseAcquisition();
 			return;
@@ -4041,7 +4063,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		KeyboardState keys = Keyboard.GetState();
 		bool escape = keys.IsKeyDown(Keys.Escape);
-		if (escape && !LastEscape)
+		if ((escape && !LastEscape) || InventoryKeyPressed)
 		{
 			if (HelpOpen)
 			{
