@@ -97,7 +97,7 @@ public sealed partial class RecipeBookSystem
 		var rows = Ordered(requirement.Alternatives, requirement.Ingredient.type).Select(delegate(int type)
 		{
 			HashSet<int> types = new HashSet<int> { type };
-			BookMaterialRules.Assessment assessment = BookMaterialRules.Evaluate(requirement.Ingredient.stack, batches, Owned(types), BookStorage.UseForCrafting && BookStorage.IsInfinite(types), overlapping: false);
+			BookMaterialRules.Assessment assessment = BookMaterialRules.Evaluate(requirement.Ingredient.stack, batches, Owned(types), BookSources.IsInfinite(types), overlapping: false);
 			return (Line: ContentSamples.ItemsByType[type].Name + " " + MaterialSub(assessment), Owned: assessment.Infinite || assessment.Available > 0, Ratio: MaterialSub(assessment));
 		}).ToList();
 		if (rows.Count <= 4)

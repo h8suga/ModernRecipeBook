@@ -6,7 +6,7 @@ internal static class BookHelp
 {
 	internal readonly record struct Entry(string KeyRu, string KeyEn, string Ru, string En);
 
-	internal readonly record struct Section(int Column, string Ru, string En, Entry[] Rows, bool StorageOnly = false);
+	internal readonly record struct Section(int Column, string Ru, string En, Entry[] Rows);
 
 	internal const int Columns = 3;
 
@@ -60,11 +60,11 @@ internal static class BookHelp
 		{
 			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack"),
 			new Entry("ПКМ", "RMB", "Взять одну", "Take one"),
-			new Entry("Ctrl+D", "Ctrl+D", "Положить с курсора", "Deposit held item"),
 			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack"),
-			new Entry("Ctrl+Shift+D", "Ctrl+Shift+D", "Сложить всё", "Deposit all"),
-			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock")
-		}, StorageOnly: true)
+			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock"),
+			new Entry("Shift+ЛКМ в инв.", "Shift+LMB in inv.", "Сложить стопку", "Put a stack in"),
+			new Entry("ЛКМ с предметом", "LMB holding item", "Сложить с курсора", "Put the held item in")
+		})
 	};
 
 	internal static BookRect Column(int column)

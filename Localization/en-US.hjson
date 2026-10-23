@@ -47,15 +47,6 @@ Mods: {
 					Tooltip: Double-tap left or right to dash; Calamity's dash key keeps working.
 				}
 			}
-
-			BookStorageConfig: {
-				DisplayName: Recipe Book: Magic Storage
-
-				AutoConnect: {
-					Label: Auto-connect Magic Storage
-					Tooltip: The open book joins the nearest storage in reach. Off: connect with a button.
-				}
-			}
 		}
 	}
 }

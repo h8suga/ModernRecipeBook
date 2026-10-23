@@ -25,4 +25,9 @@ public sealed class ModernRecipeBook : Mod
 	{
 		ToggleBook = (ChainBack = (ChainForward = null));
 	}
+
+	public override void HandlePacket(System.IO.BinaryReader reader, int whoAmI)
+	{
+		BookNearbyServer.HandlePacket(reader, whoAmI);
+	}
 }

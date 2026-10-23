@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework.Input;
 using Terraria;
+using Terraria.UI;
 using Terraria.GameInput;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -35,7 +36,19 @@ public sealed class BookPlayer : ModPlayer
 
 	public override bool HoverSlot(Item[] inventory, int context, int slot)
 	{
+		// Shift over an inventory item with the Storage tab open: vanilla's "into the chest" cursor.
+		if (ItemSlot.ShiftInUse && BookSources.CanShiftDeposit(Player, inventory, context, slot))
+		{
+			Main.cursorOverride = 9;
+			return true;
+		}
 		return BookInventoryShortcut.TryOpen(inventory, context, slot);
+	}
+
+	// Shift+click with the Storage tab open moves the whole stack into nearby storage, as into an open chest.
+	public override bool ShiftClickSlot(Item[] inventory, int context, int slot)
+	{
+		return BookSources.ShiftDeposit(Player, inventory, context, slot);
 	}
 
 	public override void SetControls()
