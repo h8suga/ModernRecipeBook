@@ -3,6 +3,23 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.10.0 — 2026-10-23
+
+### Added
+- Station filter on the Items and Recipes tabs: the anvil button next to the sort lists the crafting stations of
+  what the other filters show, with how many items need each. Untick the ones you lack, as many as you like, and
+  whatever only they make is hidden; an item stays while one of its recipes needs none of them. The badge counts
+  the unticked stations, the tooltip names them, Show all or Ctrl+Backspace brings everything back. Each tab
+  remembers its own choice.
+- Station sort on the Items and Recipes tabs: weakest first or strongest first, by the station the easiest recipe
+  needs (by hand, Work Bench and Iron Anvil up to Mythril Anvil, Ancient Manipulator and Calamity's forges).
+
+### Fixed
+- A drop condition without a text (Calamity's Hadarian Wings after Astrum Aureus and many more) now says whether
+  it holds in your world: "Special condition · met" or "not met yet".
+- Filtering no longer churns memory: every search, category or sort change used to throw away about 8 MB on Items
+  and 4.5 MB on Recipes. Typing in the search is also several times faster.
+
 ## 1.9.4 — 2026-10-23
 
 ### Fixed
