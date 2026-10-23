@@ -84,6 +84,11 @@ public sealed partial class RecipeBookSystem
 		}
 		bool rightPressed = Main.mouseRight && !MarkerLastRight;
 		MarkerLastRight = Main.mouseRight;
+		// The teleport may have closed the map in this same draw (a Map Teleport key rebound to the right button).
+		if (!Main.mapFullscreen)
+		{
+			return;
+		}
 		if (MarkerMode == MarkerPanel.None)
 		{
 			if (rightPressed && BookMapMarkers.Enabled && !Main.LocalPlayer.dead)
