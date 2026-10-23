@@ -800,6 +800,29 @@ public sealed class BookNearbyServer : ModSystem
 		Clients[p]?.InFlight.RemoveAll((Delivery d) => d.Id == id);
 	}
 
+	// tML swallows exceptions from HandlePacket (ModNet.HandleModPacket): a reply that cannot be sent puts what it
+	// carried back at once instead of leaving it in flight while the player stays.
+	private static void Reply(int p, int id, Status status, List<Item> items)
+	{
+		try
+		{
+			SendGive(p, id, status, items);
+		}
+		catch (Exception error)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Nearby reply failed; its items went back.", error);
+			Client client = Clients[p];
+			if (client != null)
+			{
+				foreach (Delivery delivery in client.InFlight.Where((Delivery d) => d.Id == id).ToList())
+				{
+					Restore(delivery.Items);
+					client.InFlight.Remove(delivery);
+				}
+			}
+		}
+	}
+
 	// Back where it came from: the same chest if it is still there, the same network, else on the ground at that spot.
 	private static void Restore(List<(Item Item, Origin From)> items)
 	{
@@ -964,7 +987,7 @@ public sealed class BookNearbyServer : ModSystem
 			}
 			List<Item> items = new List<Item>();
 			Status status = Pull(whoAmI, id, entries, items);
-			SendGive(whoAmI, id, status, items);
+			Reply(whoAmI, id, status, items);
 			break;
 		}
 		case Packet.Deposit:
@@ -978,7 +1001,7 @@ public sealed class BookNearbyServer : ModSystem
 			}
 			List<Item> leftovers = new List<Item>();
 			Status status = Deposit(whoAmI, id, items, leftovers);
-			SendGive(whoAmI, id, status, leftovers);
+			Reply(whoAmI, id, status, leftovers);
 			break;
 		}
 		case Packet.Ack:

@@ -1330,7 +1330,17 @@ public sealed class BookSources : ModSystem
 					Main.mouseItem = item;
 					continue;
 				}
-				Item rest = player.GetItem(Main.myPlayer, item, GetItemSettings.InventoryUIToInventorySettingsShowAsNew);
+				Item rest;
+				try
+				{
+					rest = player.GetItem(Main.myPlayer, item, GetItemSettings.InventoryUIToInventorySettingsShowAsNew);
+				}
+				catch (Exception error)
+				{
+					// A mod's pickup hook failed: the stack lands at the player's feet rather than nowhere.
+					ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Could not put " + item.Name + " into the inventory.", error);
+					rest = item;
+				}
 				if (rest.IsAir)
 				{
 					continue;
