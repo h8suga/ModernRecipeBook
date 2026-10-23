@@ -92,7 +92,7 @@ public sealed partial class RecipeBookSystem
 			return DropEntry(s);
 		case BookAcquisitionKind.Shop:
 		{
-			string[] conditions = s.Entry.Conditions.Select((Condition c) => c.Description.Value).ToArray();
+			string[] conditions = s.Entry.Conditions.Select(ConditionName).ToArray();
 			return new BookAcquisitionEntry(Lang.GetNPCNameValue(s.Npc), string.Join("; ", conditions), BookAcquisitionKind.Shop, "", "", 0, s.Npc, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), s.Shop.Name);
 		}
 		case BookAcquisitionKind.Banner:
@@ -359,7 +359,23 @@ public sealed partial class RecipeBookSystem
 		{
 			return item.Name;
 		}
-		string map = Lang.GetMapObjectName(MapHelper.TileToLookup(tile, 0));
+		return MapTileName(tile, 0);
+	}
+
+	// Stand check: every recipe station that no item places, and every recipe condition, with the text the card shows.
+	internal static string StationAudit()
+	{
+		IEnumerable<string> stations = from t in Main.recipe.Take(Recipe.numRecipes).SelectMany((Recipe r) => r.requiredTile).Where((int t) => t >= 0).Distinct()
+			where !StationItems.ContainsKey(t)
+			select t + "=" + StationName(t);
+		IEnumerable<string> conditions = Main.recipe.Take(Recipe.numRecipes).SelectMany((Recipe r) => r.Conditions).Select(ConditionName).Distinct();
+		return "stations without an item: " + string.Join(" | ", stations) + "\nconditions: " + string.Join(" | ", conditions);
+	}
+
+	// The map legend of a tile style, else a modded tile's name.
+	private static string MapTileName(int tile, int style)
+	{
+		string map = Lang.GetMapObjectName(MapHelper.TileToLookup(tile, style));
 		return string.IsNullOrWhiteSpace(map) ? (TileLoader.GetTile(tile)?.Name ?? ("#" + tile)) : map;
 	}
 
