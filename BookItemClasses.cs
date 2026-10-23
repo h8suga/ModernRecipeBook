@@ -33,6 +33,11 @@ internal static class BookItemClasses
 {
 	private readonly record struct Stat(Func<Player, float> Read, BookClass Class, bool Secondary = false, bool LowerIsBetter = false);
 
+	// A plain melee weapon whose size the probe reads.
+	private static Item scaleSample;
+
+	private static Item ScaleSample => scaleSample ??= new Item(ItemID.CopperBroadsword);
+
 	private static readonly Dictionary<int, BookClass> classes = new Dictionary<int, BookClass>();
 
 	private static bool built;
@@ -155,18 +160,7 @@ internal static class BookItemClasses
 				{
 					BookClass value = probe.Classes(delegate(Player p)
 					{
-						if (item.accessory)
-						{
-							p.armor[3] = item;
-							p.GrantArmorBenefits(item);
-							p.ApplyEquipFunctional(item, hideVisual: true);
-						}
-						else
-						{
-							p.buffType[0] = item.buffType;
-							p.buffTime[0] = 60;
-							p.UpdateBuffs(p.whoAmI);
-						}
+						Use(p, item);
 					});
 					if (value == BookClass.None && !probe.Generic && sample.ModItem != null)
 					{
@@ -320,7 +314,12 @@ internal static class BookItemClasses
 		{
 			return BookClass.None;
 		}
-		string text = string.Join("\n", Enumerable.Range(0, tooltip.Lines).Select(tooltip.GetLine)).ToLowerInvariant();
+		return ClassesIn(string.Join("\n", Enumerable.Range(0, tooltip.Lines).Select(tooltip.GetLine)));
+	}
+
+	private static BookClass ClassesIn(string text)
+	{
+		text = text.ToLowerInvariant();
 		BookClass value = BookClass.None;
 		foreach (var (cls, words) in TooltipWords)
 		{
@@ -422,6 +421,113 @@ internal static class BookItemClasses
 			select new int[3] { head, body, legs }).Take(64);
 	}
 
+	// Stand check: what the probe sees for one potion or accessory.
+	internal static string Explain(int type)
+	{
+		BookClass[] byDamage = new BookClass[DamageClassLoader.DamageClassCount];
+		for (int t = 0; t < byDamage.Length; t++)
+		{
+			byDamage[t] = Of(DamageClassLoader.GetDamageClass(t));
+		}
+		Item item = Copy(ContentSamples.ItemsByType[type]);
+		return new Probe(byDamage).Deltas(delegate(Player p)
+		{
+			Use(p, item);
+		});
+	}
+
+	// An accessory worn, or a potion's buff taken.
+	private static void Use(Player p, Item item)
+	{
+		if (item.accessory)
+		{
+			p.armor[3] = item;
+			p.GrantArmorBenefits(item);
+			p.ApplyEquipFunctional(item, hideVisual: true);
+			return;
+		}
+		// The probe is immune to every buff (see Prepare), and HasBuff reads false under an immunity: mods that check
+		// for the buff (Calamity's Ale and Sake, +25% melee weapon size) would see none. Undress puts it back.
+		p.buffImmune[item.buffType] = false;
+		p.buffType[0] = item.buffType;
+		p.buffTime[0] = 60;
+		p.UpdateBuffs(p.whoAmI);
+	}
+
+	// Stand check: every classified item, "type, name, classes" a line, to diff two builds of the probe.
+	internal static string Dump()
+	{
+		BookArmorSets.Rebuild();
+		Clear();
+		Build();
+		return string.Join("\n", from pair in classes
+			orderby pair.Key
+			select pair.Key + "\t" + Lang.GetItemNameValue(pair.Key) + "\t" + pair.Value);
+	}
+
+	// Stand check: armor, accessories and potions whose full tooltip (the game's lines with every mod's edits, plus the set
+	// bonus for armor) names a class the book does not give them. A list to look at, not a list of errors: a
+	// tooltip may name a class it takes from.
+	internal static string TooltipAudit()
+	{
+		BookArmorSets.Rebuild();
+		Clear();
+		Build();
+		List<string> found = new List<string>();
+		int checkedCount = 0;
+		foreach (Item sample in ContentSamples.ItemsByType.Values)
+		{
+			if (sample == null || sample.IsAir || sample.vanity || !(sample.accessory || sample.headSlot >= 0 || sample.bodySlot >= 0 || sample.legSlot >= 0 || (sample.buffType > 0 && sample.consumable)))
+			{
+				continue;
+			}
+			checkedCount++;
+			string text;
+			try
+			{
+				text = FullTooltip(sample);
+				BookArmorSets.Set set = BookArmorSets.Get(sample.type);
+				if (set != null)
+				{
+					text += "\n" + string.Join("\n", Combinations(set).Where((int[] combination) => combination.Contains(sample.type)).Select(SetBonus));
+				}
+			}
+			catch (Exception error)
+			{
+				found.Add(sample.type + "\t" + sample.Name + "\ttooltip failed: " + error.Message);
+				continue;
+			}
+			BookClass named = ClassesIn(text);
+			BookClass book = Get(sample.type);
+			// Missing: the tooltip names a class the book leaves out. Extra: the tooltip names classes, the book adds
+			// one it never mentions (Monk's melee before the probe ran Calamity's rework).
+			string kind = ((named & ~book) != BookClass.None) ? "missing" : ((named != BookClass.None && (book & ~named) != BookClass.None) ? "extra" : null);
+			if (kind != null)
+			{
+				found.Add(kind + "\t" + sample.type + "\t" + (sample.ModItem?.Mod.Name ?? "Terraria") + "\t" + sample.Name + "\tbook: " + book + "\ttooltip: " + named);
+			}
+		}
+		return $"{found.Count} of {checkedCount} to look at\n" + string.Join("\n", found.OrderBy((string line) => line, StringComparer.Ordinal));
+	}
+
+	private static string FullTooltip(Item sample)
+	{
+		Item item = sample.Clone();
+		int yoyoLogo = -1;
+		int researchLine = -1;
+		int oneDropLogo = -1;
+		int numLines = 1;
+		string[] text = new string[60];
+		bool[] modifier = new bool[60];
+		bool[] badModifier = new bool[60];
+		string[] names = new string[60];
+		Main.MouseText_DrawItemTooltip_GetLinesInfo(item, ref yoyoLogo, ref researchLine, item.knockBack, ref numLines, text, modifier, badModifier, names, out var prefixLine);
+		List<TooltipLine> lines = ItemLoader.ModifyTooltips(item, ref numLines, names, ref text, ref modifier, ref badModifier, ref oneDropLogo, out _, prefixLine);
+		return string.Join("\n", from line in lines
+			where line.Visible
+			select line.Text);
+	}
+
 	private static void Audit(long milliseconds, int weapons, int equipment, int potions, int tooltipOnly, int failures)
 	{
 		ModernRecipeBook mod = ModContent.GetInstance<ModernRecipeBook>();
@@ -453,6 +559,9 @@ internal static class BookItemClasses
 			Check(Find("CalamityMod/SilencingSheath"), BookClass.Rogue);
 			Check(Find("CalamityMod/RogueEmblem"), BookClass.Rogue);
 			Check(Find("CalamityMod/GildedDagger"), BookClass.Rogue);
+			// Calamity's reworks, applied in its ModPlayer.UpdateEquips: Monk turns rogue, flasks work on rogue attacks.
+			Check(ItemID.MonkShirt, BookClass.Summon | BookClass.Rogue);
+			Check(ItemID.FlaskofIchor, BookClass.Melee | BookClass.Summon | BookClass.Rogue);
 		}
 		mod.Logger.Info("Class audit spot checks: " + ((wrong.Count == 0) ? "all as expected" : ("unexpected " + string.Join(", ", wrong))));
 		static int Find(string name)
@@ -537,6 +646,7 @@ internal static class BookItemClasses
 			}
 			Array.Clear(p.buffType);
 			Array.Clear(p.buffTime);
+			Array.Fill(p.buffImmune, true);
 			p.head = (p.body = (p.legs = -1));
 			// Twice: the first pass clears flags the previous item left that ResetEffects itself reads.
 			p.ResetEffects();
@@ -545,6 +655,18 @@ internal static class BookItemClasses
 
 		// Whether the last item raised a bonus for every class (then it is generic, not unknown).
 		internal bool Generic { get; private set; }
+
+		// Stand check: every stat the equip moves, "index class gain".
+		internal string Deltas(Action<Player> equip)
+		{
+			float[] now = Read(equip);
+			return string.Join("\n", from i in Enumerable.Range(0, stats.Count)
+				let gain = stats[i].LowerIsBetter ? (baseline[i] - now[i]) : (now[i] - baseline[i])
+				where Math.Abs(gain) > 0.0001f
+				select i + "\t" + stats[i].Class + (stats[i].Secondary ? " (secondary)" : "") + "\t" + gain) + "\nbuffs after: " + string.Join(",", from i in Enumerable.Range(0, player.buffType.Length)
+				where player.buffTime[i] > 0
+				select player.buffType[i] + ":" + player.buffTime[i]);
+		}
 
 		internal BookClass Classes(Action<Player> equip)
 		{
@@ -592,6 +714,9 @@ internal static class BookItemClasses
 			try
 			{
 				equip?.Invoke(p);
+				// As the game does after the equipment: mods' ModPlayer.UpdateEquips. Calamity applies its reworks of
+				// vanilla armor there (Monk: rogue instead of melee, +stealth) and the effects of many of its flags.
+				PlayerLoader.UpdateEquips(p);
 			}
 			finally
 			{
@@ -635,8 +760,17 @@ internal static class BookItemClasses
 			list.Add(new Stat((Player p) => p.dd2Accessory ? 1 : 0, BookClass.Summon));
 			list.Add(new Stat((Player p) => (p.ammoCost80 || p.ammoCost75 || p.huntressAmmoCost90 || p.chloroAmmoCost80 || p.ammoPotion || p.magicQuiver || p.hasMoltenQuiver || p.archery || p.scope) ? 1 : 0, BookClass.Ranged));
 			list.Add(new Stat((Player p) => p.arrowDamage.ApplyTo(100f) + p.bulletDamage.ApplyTo(100f) + p.specialistDamage.ApplyTo(100f), BookClass.Ranged));
-			// Glove autoswing and knockback (applied after the equip loop), yoyo gear, magma stone, weapon imbues.
-			list.Add(new Stat((Player p) => (p.autoReuseGlove || p.kbGlove || p.meleeScaleGlove || p.yoyoGlove || p.yoyoString || p.counterWeight > 0 || p.magmaStone || p.meleeEnchant > 0) ? 1 : 0, BookClass.Melee));
+			// Glove autoswing and knockback (applied after the equip loop), yoyo gear, magma stone.
+			list.Add(new Stat((Player p) => (p.autoReuseGlove || p.kbGlove || p.meleeScaleGlove || p.yoyoGlove || p.yoyoString || p.counterWeight > 0 || p.magmaStone) ? 1 : 0, BookClass.Melee));
+			// Melee weapon size, through the mods' ModifyItemScale too: Calamity's Ale and Sake give +25% for -10% speed.
+			list.Add(new Stat(delegate(Player p)
+			{
+				float scale = ScaleSample.scale;
+				CombinedHooks.ModifyItemScale(p, ScaleSample, ref scale);
+				return scale;
+			}, BookClass.Melee, Secondary: true));
+			// Weapon imbues (flasks) work on melee and whips, and with Calamity on rogue attacks as well.
+			list.Add(new Stat((Player p) => (p.meleeEnchant > 0) ? 1 : 0, BookClass.Melee | BookClass.Summon | (RogueShown ? BookClass.Rogue : BookClass.None)));
 			if (RogueShown && ModContent.TryFind<ModPlayer>("CalamityMod/CalamityPlayer", out var calamity))
 			{
 				foreach (string name in new string[4] { "rogueStealthMax", "rogueVelocity", "stealthGenStandstill", "stealthGenMoving" })
