@@ -499,7 +499,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			if (Typing || HelpOpen || AcquisitionOpen)
+			// The station menu takes the arrows, Enter and Space while it is open.
+			if (Typing || HelpOpen || AcquisitionOpen || StationMenu)
 			{
 				return true;
 			}
@@ -641,7 +642,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (AcquisitionVariants.Length != 0)
 		{
 			SetTyping(value: false);
-			ModMenu = (HelpOpen = false);
+			ModMenu = (StationMenu = (HelpOpen = false));
 			AcquisitionVariant = (AcquisitionPage = 0);
 			AcquisitionOpen = true;
 			ReadAcquisitionSources();
@@ -1451,7 +1452,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, BookSortMode SortMode, bool SortDescending, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1465,7 +1466,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.SortMode, filters.SortDescending, StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1487,13 +1488,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 			FavoritesOnly = state.FavoritesOnly,
 			MetOnly = state.MetOnly,
 			SortMode = state.SortMode,
-			SortDescending = state.SortDescending
+			SortDescending = state.SortDescending,
+			ExcludedStations = ((state.Stations.Length == 0) ? Array.Empty<string>() : state.Stations.Split('|'))
 		});
 		StageFilter = state.Stage;
 		ClassFilter = state.Class;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		SetTyping(value: false);
-		ModMenu = (SortMenu = (StageMenu = (HelpOpen = false)));
+		ModMenu = (SortMenu = (StageMenu = (StationMenu = (HelpOpen = false))));
 		ApplyFilters(clearMessage: false);
 		Selected = state.Selected;
 		Variant = state.Variant;
@@ -3013,7 +3015,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 				["FavoritesOnly"] = tab.Value.FavoritesOnly,
 				["MetOnly"] = tab.Value.MetOnly,
 				["SortMode"] = tab.Value.SortMode.ToString(),
-				["SortDescending"] = tab.Value.SortDescending
+				["SortDescending"] = tab.Value.SortDescending,
+				["ExcludedStations"] = tab.Value.ExcludedStations.ToList()
 			}).ToList(),
 			["LastTab"] = state.LastTab,
 			["Query"] = state.Query,
@@ -3133,7 +3136,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 						CategoryKey = tab.GetString("CategoryKey"),
 						FavoritesOnly = tab.GetBool("FavoritesOnly"),
 						MetOnly = tab.GetBool("MetOnly"),
-						SortDescending = tab.GetBool("SortDescending")
+						SortDescending = tab.GetBool("SortDescending"),
+						// Saves before version 6 have none.
+						ExcludedStations = (tab.ContainsKey("ExcludedStations") ? tab.GetList<string>("ExcludedStations").ToArray() : Array.Empty<string>())
 					};
 					if (Enum.TryParse<BookSortMode>(tab.GetString("SortMode"), ignoreCase: true, out var tabSort))
 					{
@@ -3244,7 +3249,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		TrackerPositionY = state.TrackerY;
 		LoadTabFilters(TabFilterSlots.GetValueOrDefault(CurrentTab));
 		SetTyping(value: false);
-		ModMenu = (HelpOpen = false);
+		ModMenu = (StationMenu = (HelpOpen = false));
 		ArmorFocus = 0;
 		Selected = -1;
 		Page = (DetailsPage = (Variant = 0));
@@ -3267,7 +3272,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			FavoritesOnly = FavoritesOnly,
 			MetOnly = MetOnly,
 			SortMode = SortMode,
-			SortDescending = SortDescending
+			SortDescending = SortDescending,
+			ExcludedStations = ExcludedStations
 		};
 	}
 
@@ -3285,6 +3291,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		MetOnly = source.MetOnly;
 		SortMode = source.SortMode;
 		SortDescending = source.SortDescending;
+		SetExcludedStations(source.ExcludedStations);
 	}
 
 	private static void ChangeFilterTab(int from, int to, BookUiState.TabFilters leaving)
@@ -3356,6 +3363,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static int CompareFilteredIndexes(int left, int right)
 	{
+		if (StationSort)
+		{
+			return CompareStationRank(left, right);
+		}
 		Item a = Result(left);
 		Item b = Result(right);
 		int comparison;
@@ -3401,14 +3412,30 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static string SortLabel()
 	{
-		return BestiaryView ? MobSortShortLabel(SortOptionIndex) : SortOptionLabel(SortOptionIndex);
+		if (BestiaryView)
+		{
+			return MobSortShortLabel(SortOptionIndex);
+		}
+		// The closed dropdown has room for about ten letters: the station orders keep an arrow there, as Met does.
+		return SortOptionIndex switch
+		{
+			6 => T("Станция ↑", "Station ↑"),
+			7 => T("Станция ↓", "Station ↓"),
+			_ => SortOptionLabel(SortOptionIndex),
+		};
 	}
 
-	// One list for field and direction: Name, ID and Mod, each ascending then descending. The Bestiary tab has
-	// its own list (MobSortOptions).
-	private static int SortOptionIndex => BestiaryView ? MobSortOptionIndex : ((int)SortMode * 2 + (SortDescending ? 1 : 0));
+	// One list for field and direction: Name, ID and Mod, each ascending then descending, then Station on Items and
+	// Recipes. The Bestiary tab has its own list (MobSortOptions). A mode a tab does not offer reads as Name.
+	private static int SortOptionIndex => BestiaryView ? MobSortOptionIndex : (SortMode switch
+	{
+		BookSortMode.ItemId => 2,
+		BookSortMode.Mod => 4,
+		BookSortMode.Station when StationFilterTab => 6,
+		_ => 0,
+	} + (SortDescending ? 1 : 0));
 
-	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : 6;
+	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : (StationFilterTab ? 8 : 6);
 
 	private static string SortOptionLabel(int option)
 	{
@@ -3423,7 +3450,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 			2 => "ID 1-9",
 			3 => "ID 9-1",
 			4 => T("Мод А-Я", "Mod A-Z"),
-			_ => T("Мод Я-А", "Mod Z-A"),
+			5 => T("Мод Я-А", "Mod Z-A"),
+			6 => T("Станция: от слабой", "Station: weakest first"),
+			_ => T("Станция: от сильной", "Station: strongest first"),
 		};
 	}
 
@@ -3435,7 +3464,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else
 		{
-			SortMode = (BookSortMode)Math.Clamp(option / 2, 0, 2);
+			SortMode = (option / 2) switch
+			{
+				1 => BookSortMode.ItemId,
+				2 => BookSortMode.Mod,
+				3 => BookSortMode.Station,
+				_ => BookSortMode.Name,
+			};
 			SortDescending = option % 2 == 1;
 		}
 		Page = 0;
@@ -3561,8 +3596,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			bool flag = !Open;
 			SetTyping(value: false);
-			// Help and the How to Get / enemy cards survive closing the book; only the mod dropdown folds.
-			ModMenu = false;
+			// Help and the How to Get / enemy cards survive closing the book; only the dropdowns fold.
+			ModMenu = (StationMenu = false);
 			if (!flag)
 			{
 				Open = (MouseOver = false);
@@ -3593,7 +3628,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return false;
 		}
 		SetTyping(value: false);
-		ModMenu = (HelpOpen = false);
+		ModMenu = (StationMenu = (HelpOpen = false));
 		CloseAcquisition();
 		BookSources.OnBookOpened();
 		Rebuild();
@@ -3710,6 +3745,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			StageFilter = BookStageFilter.All;
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB progression index failed; showing unfiltered catalogue.", exception);
 		}
+		// After the stages: the Station sort ranks stations by them.
+		BuildStationIndex();
 		try
 		{
 			BookArmorSets.Rebuild();
@@ -3768,6 +3805,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		Filtered.Clear();
 		ClassHidden = 0;
+		StationCandidates.Clear();
+		StationCandidatesVersion++;
+		StationHidden = 0;
 
 		AppliedAvailabilityVersion = BookCrafting.AvailabilityVersion;
 		if (clearMessage)
@@ -3786,6 +3826,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return;
 		}
 
+		bool stations = StationFilterActive;
 		IEnumerable<int> enumerable2;
 		if (!StorageView)
 		{
@@ -3832,10 +3873,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 				ClassHidden++;
 				continue;
 			}
+			StationCandidates.Add(index);
+			if (stations && !StationAllowed(index))
+			{
+				StationHidden++;
+				continue;
+			}
 			Filtered.Add(index);
 		}
 		if (!RecentView)
 		{
+			if (StationSort)
+			{
+				PrepareStationSort();
+			}
 			Filtered.Sort(CompareFilteredIndexes);
 		}
 
@@ -3876,7 +3927,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			AppliedStorageVersion = BookSources.ItemsVersion;
 		}
 		SetTyping(value: false);
-		ModMenu = false;
+		ModMenu = (StationMenu = false);
 		ArmorFocus = 0;
 		Selected = -1;
 		Page = (DetailsPage = (Variant = 0));
@@ -3947,8 +3998,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		(float, float) local = geometry.ToLocal(Main.MouseScreen.X, Main.MouseScreen.Y);
 		Mouse = new Vector2(local.Item1, local.Item2);
 		MouseOver = Hit(0f, 0f, 1120f, 696f);
-		// The Bestiary tab's filter bar makes room for its Encountered toggle.
-		BookGeometry.FilterInset = BestiaryView ? 44f : 0f;
+		// The filter bar makes room for one more toggle: the Bestiary's Encountered, the station filter on Items and Recipes.
+		BookGeometry.FilterInset = (BestiaryView || StationFilterTab) ? 44f : 0f;
 	}
 
 	private static bool Hit(float x, float y, float w, float h)
@@ -4102,6 +4153,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				StageMenu = false;
 			}
+			else if (StationMenu)
+			{
+				StationMenu = false;
+			}
 			else
 			{
 				Open = false;
@@ -4116,7 +4171,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			LastKeys = keys;
 			return;
 		}
-		bool flag = HandleKeys(keys);
+		bool flag = (StationMenu && HandleStationMenuKeys(keys)) || HandleKeys(keys);
 		LastKeys = keys;
 		if (flag | escape)
 		{
@@ -4162,6 +4217,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			else if (ModMenu)
 			{
 				ModOffset = Math.Clamp(ModOffset + step, 0, Math.Max(0, Mods.Count + 1 - 9));
+			}
+			else if (StationMenu)
+			{
+				StationOffset = Math.Clamp(StationOffset + step, 0, Math.Max(0, StationRowCount - StationVisibleRows));
 			}
 			else if (!SortMenu && !StageMenu && BookGeometry.CategoryPanel.Contains(Mouse.X, Mouse.Y))
 			{
@@ -4209,7 +4268,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (StageDropdownRect().Contains(Mouse.X, Mouse.Y))
 		{
 			SetTyping(value: false);
-			ModMenu = (SortMenu = false);
+			ModMenu = (SortMenu = (StationMenu = false));
 			StageMenu = true;
 			return;
 		}
@@ -4250,6 +4309,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (TrackingView)
 		{
 			HandleTrackingTabInput();
+			return;
+		}
+		// A row ticks or unticks its station and the menu stays open for more; a click elsewhere only closes it.
+		if (StationMenu)
+		{
+			if (StationMenuPanel.Contains(Mouse.X, Mouse.Y))
+			{
+				int row = StationRowAt();
+				if (row >= 0)
+				{
+					ActivateStationRow(row);
+				}
+				return;
+			}
+			StationMenu = false;
 			return;
 		}
 		if (ModMenu)
@@ -4304,6 +4378,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			ModMenu = true;
 			ModOffset = 0;
+			return;
+		}
+		if (StationFilterTab && BookGeometry.StationFilter.Contains(Mouse.X, Mouse.Y))
+		{
+			OpenStationMenu();
 			return;
 		}
 		if (BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
@@ -4627,13 +4706,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return false;
 		case BookHotkeys.Action.Help:
 			SetTyping(value: false);
-			ModMenu = (SortMenu = (StageMenu = false));
+			ModMenu = (SortMenu = (StageMenu = (StationMenu = false)));
 			HelpOpen = !HelpOpen;
 			break;
 		case BookHotkeys.Action.Search:
 			if (!TrackingView)
 			{
-				ModMenu = (SortMenu = (StageMenu = false));
+				ModMenu = (SortMenu = (StageMenu = (StationMenu = false)));
 				SetTyping(value: true);
 			}
 			break;
@@ -4663,6 +4742,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.ResetFilters:
 			Query = (ModFilter = "");
 			FavoritesOnly = (MetOnly = false);
+			SetExcludedStations(Array.Empty<string>());
 			Category = (CategoryRow = (Page = 0));
 			ApplyFilters();
 			break;
@@ -5082,7 +5162,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly Color Caution = new Color(223, 185, 139);
 
-	private static bool MenuOpen => ModMenu || SortMenu || StageMenu;
+	private static bool MenuOpen => ModMenu || SortMenu || StageMenu || StationMenu;
 
 	private static float TextWidth(string value, float size)
 	{
@@ -5809,6 +5889,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			DrawStageMenu(sb);
 		}
+		if (StationMenu)
+		{
+			DrawStationMenu(sb);
+		}
 	}
 
 	private static void DrawHeader(SpriteBatch sb)
@@ -5992,6 +6076,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			DrawMetFilter(sb);
 		}
+		if (StationFilterTab)
+		{
+			DrawStationButton(sb);
+		}
 	}
 
 	private static void DrawGrid(SpriteBatch sb)
@@ -6053,6 +6141,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (ClassHidden > 0)
 		{
 			EmptyState(sb, area, T("Скрыто фильтром класса", "Hidden by the class filter"), T("Нажмите «Все классы» над категориями", "Pick All classes above the categories"));
+		}
+		else if (StationHidden > 0)
+		{
+			EmptyState(sb, area, T("Скрыто фильтром станций", "Hidden by the station filter"), T("Меню наковальни: «Показать все»", "The anvil menu: Show all"));
 		}
 		else if (StorageView)
 		{

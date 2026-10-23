@@ -8,5 +8,7 @@ internal enum BookSortMode
 	// Bestiary tab only: earliest stage first.
 	Stage,
 	// Bestiary tab only: by when the player first met the mob.
-	Met
+	Met,
+	// Items and Recipes: by the strongest station the easiest recipe needs.
+	Station
 }

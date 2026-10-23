@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ModernRecipeBook;
 
 internal sealed class BookUiState
 {
-	// 5: the global class filter.
-	internal const int CurrentVersion = 5;
+	// 5: the global class filter. 6: per-tab excluded stations.
+	internal const int CurrentVersion = 6;
 
 	// Search, mod, category, favorites and sort belong to one tab and stay until the player changes them;
 	// the stage filter is shared by every tab.
@@ -27,6 +28,9 @@ internal sealed class BookUiState
 
 		internal bool SortDescending;
 
+		// Items and Recipes: stations the player lacks, as stable keys (Terraria/<tile id>, or Mod/TileName).
+		internal string[] ExcludedStations = Array.Empty<string>();
+
 		internal TabFilters Sanitize()
 		{
 			string key = Clean(CategoryKey, 128);
@@ -38,7 +42,8 @@ internal sealed class BookUiState
 				FavoritesOnly = FavoritesOnly,
 				MetOnly = MetOnly,
 				SortMode = (Enum.IsDefined(typeof(BookSortMode), SortMode) ? SortMode : BookSortMode.Name),
-				SortDescending = SortDescending
+				SortDescending = SortDescending,
+				ExcludedStations = (ExcludedStations ?? Array.Empty<string>()).Select((string station) => Clean(station, 128)).Where((string station) => station.Length > 0).Distinct(StringComparer.Ordinal).OrderBy((string station) => station, StringComparer.Ordinal).Take(64).ToArray()
 			};
 		}
 	}
