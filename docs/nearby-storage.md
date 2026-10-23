@@ -227,16 +227,16 @@ Rejected:
 
 ### 4.2 Packets
 
-One `byte` message id after tML's mod header, handled in `ModernRecipeBook.HandlePacket(reader, whoAmI)` (`TML:Terraria.ModLoader/Mod.cs:540`). "7b" = `Write7BitEncodedInt`.
+One `byte` message id after tML's mod header: the mod's one `BookMessage` enum and its one `ModernRecipeBook.HandlePacket(reader, whoAmI)` switch (`TML:Terraria.ModLoader/Mod.cs:540`), shared with the map teleport (0) and the map markers (1..7); nearby storage appends 8..13 and `BookNearbyServer.Receive` handles them. "7b" = `Write7BitEncodedInt`.
 
 | Id | Name | Dir | Fields |
 |---|---|---|---|
-| 0 | `Subscribe` | C→S | `byte on` (1 = send me nearby chests, 0 = stop) |
-| 1 | `ChestSync` | S→C | `byte flags` (bit0 Reset = clear mirror first, bit1 MsOk = server's MS adapter works, bit2 PullsOff = SSC server); `ushort skippedLocked`; `ushort skippedInUse`; `ushort upserts` → per chest `short index, short x, short y, byte n`, then n × (`7b type`, `7b prefix`, `7b count`) merged per (type, prefix); `ushort removes` → `short index` each |
-| 2 | `Pull` | C→S | `int id`; `byte n` (1..32); n × (`7b type`, `7b prefixPlusOne` (0 = any prefix), `7b amount` (1..999,999)) |
-| 3 | `Give` | S→C | `int id`; `byte status` (0 Done, 1 Partial, 2 Nothing, 3 Off, 4 Busy, 5 Invalid); `ushort n` (≤ 256); n × `ItemIO.Send(item, w, writeStack: true)` (V18, keeps modded data) |
-| 4 | `Ack` | C→S | `int id` |
-| 5 | `Deposit` | C→S | `int id`; `byte n` (1..60); n × `ItemIO.Send(item, w, writeStack: true)`. The server places them (§4.9) and answers with a `Give` holding what did not fit. |
+| 8 | `NearbySubscribe` | C→S | `byte on` (1 = send me nearby chests, 0 = stop) |
+| 9 | `NearbyChestSync` | S→C | `byte flags` (bit0 Reset = clear mirror first, bit1 MsOk = server's MS adapter works, bit2 PullsOff = SSC server); `ushort skippedLocked`; `ushort skippedInUse`; `ushort upserts` → per chest `short index, short x, short y, byte n`, then n × (`7b type`, `7b prefix`, `7b count`) merged per (type, prefix); `ushort removes` → `short index` each |
+| 10 | `NearbyPull` | C→S | `int id`; `byte n` (1..32); n × (`7b type`, `7b prefixPlusOne` (0 = any prefix), `7b amount` (1..999,999)) |
+| 11 | `NearbyGive` | S→C | `int id`; `byte status` (0 Done, 1 Partial, 2 Nothing, 3 Off, 4 Busy, 5 Invalid); `ushort n` (≤ 256); n × `ItemIO.Send(item, w, writeStack: true)` (V18, keeps modded data) |
+| 12 | `NearbyAck` | C→S | `int id` |
+| 13 | `NearbyDeposit` | C→S | `int id`; `byte n` (1..60); n × `ItemIO.Send(item, w, writeStack: true)`. The server places them (§4.9) and answers with a `Give` holding what did not fit. |
 
 The config change needs no packet: tML broadcasts it (V17). Clients clear the mirror and unsubscribe when `NearbyStorage` turns off; the server stops scanning.
 
@@ -920,19 +920,36 @@ Deposit Held, the deposit hotkeys, the tracker's two pools, `TrackingSource`.
 Amortised: about 8 µs per tick with the book open (7.7 of them the craftable pass, as before); about 0.2 µs per
 tick per subscriber on the server; nothing with the book closed and no tracked goals.
 
-Network bytes: not measured yet (multiplayer waits for `feature/server-side`).
+Network bytes (multiplayer, counted on the receiving side: payload plus tML's 4-byte header; `BookNearbyServer.Traffic`):
+
+| Message | Bytes |
+|---|---|
+| `NearbySubscribe` | 6 |
+| `NearbyChestSync`, first snapshot (the fixture: 3 chests, 7 stacks) | 64 |
+| `NearbyChestSync`, one chest changed | 35 |
+| `NearbyPull`, one entry | 14 |
+| `NearbyGive`, one stack | 52 |
+| `NearbyAck` | 9 |
+| `NearbyDeposit`, one stack | about 30 (2 messages, 59 B) |
+
+Idle (subscribed, nothing changing): 0 B over 10 s. Active (a pull, a craft and chest changes every few seconds):
+340 B over 10.3 s, about 33 B/s per subscriber.
 
 ### 12.4 Deviations from this design
 
 1. **Deposit** (owner, after review): §4.9, the `Deposit` packet, the toolbar `[Deposit All] [Quick Stack] [Restock]`, no Deposit Held, no deposit hotkeys.
 2. **Craftable is vanilla's exact rule.** Each ingredient is counted as its own type or as the last accepted group holding it, and all required tiles and conditions must hold (`Recipe.CreateRequiredItemQuickLookups`, `CollectedEnoughItemsToCraftRecipeNew`). The design's extra flow check for overlapping rows is dropped, so that with the feature off the set is vanilla's by construction (review fix d). The craft plan still uses the flow to split materials over the layers.
-3. **Settings** are read through `BookNearbyConfig` (two stand-in fields) until `BookServerConfig` exists; multiplayer is gated by `BookNearbyConfig.MultiplayerReady = false` while the mod is `side = Client`.
+3. **Settings** come from `BookServerConfig.NearbyStorage` and `NearbyRadius` (the host's values, synced by tML), read through `BookNearbyConfig`: it stays as the one accessor so a missing config reads the defaults and a hand-edited radius is clamped to 10..50 before any tile scan.
 4. **Rate limit** 32 burst / 16 per second instead of 16 / 8, and deposits may overlap, so Shift+click works as fast as in vanilla.
 5. **Restock** tops up partial stacks (coins excepted) like vanilla's chest Restock, but does not move ammo into empty slots as vanilla does.
 6. **Deposit All coins** follow vanilla's condition (only where coins already are) without exchanging them into higher coins.
 7. **Messages fade** after five seconds; cell counts above 99,999 read "399K" / "12M".
 8. **Long names** in the details panel shrink to 80 % and then cut; the stack's tooltip repeats the name.
 9. **The Craft tooltip** counts only the chests that hold what the craft pulls ("From: inventory, 1 chest").
+10. **Messages keep both languages.** The Storage tab line and the craft line store a formatter, not a finished string, so a message made in English reads in Russian after a language switch (`nb-17`).
+11. **One packet switch.** After `feature/ui-redesign` the six messages are `BookMessage` 8..13, appended after the map messages, and go through `ModernRecipeBook.HandlePacket`; there is no second dispatcher.
+12. **Stand hooks** live in the shipped code, internal and unused by the game: `Traffic` / `ResetTraffic` (message counts and bytes), `TestPull`, `TestBurst`, `TestDeposit` (a request whose reply is never sent), `OnGround`, `InFlight`, `Subscribed`; `BookCrafting.VanillaDiff` and `CraftRecipe` as before.
+13. **F1 help:** the Storage rows use the help's `Shown` rule and go while the host has nearby storage off.
 
 ### 12.5 Screenshots (stand 14, cropped to the book)
 
@@ -941,11 +958,40 @@ Network bytes: not measured yet (multiplayer waits for `feature/server-side`).
 `nb-03-long-name`, `nb-03b-long-name-tip`, `nb-04-toolbar-0/1/2-tip` (Deposit All, Quick Stack, Restock),
 `nb-05-summary-tip`, `nb-06-notcounted-tip`, `nb-07-craft-tip` ("From:"), `nb-08-card`, `nb-09-material-tip`,
 `nb-10-help`, `nb-11-off`, `nb-12-nothing`, `nb-13-empty`, `nb-14-full`, `nb-15-inventory-full`; and
-`nb-16-ms-window-under-book-en.png` (full screen: a player-opened MS window hidden under the book).
+`nb-16-ms-window-under-book-en.png` (full screen: a player-opened MS window hidden under the book);
+`nb-17-message-after-switch-ru-c.png` (a deposit made in English, its message read in Russian).
+`nb-01` to `nb-06` and `nb-10` were retaken after the merge of `feature/ui-redesign` (the help has the map section).
 
-### 12.6 Left for the multiplayer phase
+Multiplayer, `<stand>\shots-15\` (client A): `nb-20-mp-in-use` (EN, RU: B has a chest open,
+"Not counted: 1 in use"), `nb-21-syncing` (EN, RU: the server held back, the pill reads Syncing), `nb-22-mp-off-en`
+(the host turned it off), `nb-mp-pull-after-merge-en` (a Shift+click take after the merge).
 
-- Merge `feature/server-side`; switch `BookNearbyConfig` to `BookServerConfig` and set `MultiplayerReady = true`.
-- MP cases P1–P15 of §10 plus: deposit to a chest with no MS; two players depositing into the last free slot; a disconnect mid-deposit.
-- Bytes per message and bytes/s idle and active; the "Syncing" state on screen.
-- Magic Storage server-side withdraw and deposit on a dedicated server (`Writable` there), audit entries, viewers' refresh.
+### 12.6 Verified in multiplayer (dedicated server 14, clients A = 15 and B = 16, Magic Storage `Writable` on the server)
+
+| Case | Result |
+|---|---|
+| P1 A opens the book | counts listed; one `Reset` snapshot of 64 B; `NearbySubscribe` 6 B; idle 0 B over 10 s |
+| P2 a chest filled on the server | one upsert to A, 35 B |
+| P3 A and B take the same stack in one tick | A got all 25; B: "No longer nearby"; nothing delivered twice |
+| P4 B has a chest open | A: "Not counted: 1 in use"; a forged pull for that chest: `Nothing`, chest unchanged |
+| P5 A killed with a pull in flight | restored into the same chest, 949 → 999; A's in-flight list and subscription cleared |
+| P6 A acks, then Save and Quit | one copy: 999 in A's saved inventory, the chest at 0 |
+| P7 A's inventory full during the round trip | "Inventory full: rest on cursor" |
+| P8 radius 10 | listed at 9.5 tiles, not at 10.5; forged pulls: 15 tiles `Done`, 19 and 20 tiles `Nothing` (R + 8 slack) |
+| P9 locked chest, forged pull | `Nothing`, chest unchanged |
+| P10 50 forged pulls in one tick | 32 processed, 18 `Busy` (deviation 4) |
+| P11 craft from a chest and Magic Storage | Iron Pickaxe from chest iron and network wood; network wood 500 → 497 |
+| P12 B watches the network A pulls from | B's counts follow |
+| P13 host turns `NearbyStorage` off | both clients off and unsubscribed; a pull answers `Off`; `VanillaDiff` 0; back on works |
+| D1 deposit with no network that takes it (MS writes off on the server) | the diamond went into the nearest chest's free slot |
+| D2 A and B deposit into the last free slot | A's ruby took it; B: "Nearby storage is full: 5 left", the topaz back on B's cursor |
+| D3 A killed with a deposit leftover in flight | the 5 amber dropped at A's position (B, standing there, picked them up); in-flight 0 |
+| Restore of a forged pull on A's kill | 4 sapphires back in the chest, 3 → 7 |
+| After merging `feature/ui-redesign` | single player: Storage tab counts, `VanillaDiff` off 0, on with nothing in range 0, `SelfCheck` ok; multiplayer: a Shift+click take of 750 wood through the shared switch (Subscribe 6 B, Pull 14 B, Give 52 B, Ack 9 B) |
+
+Stand note: a teleport set through the harness reaches the server only after `NetMessage.SendData(13)`.
+
+### 12.7 Left
+
+- P14 (Calamity's own locked chests) not run; vanilla locked chests are covered (P9).
+- P11 with two networks in multiplayer, and Magic Storage's audit entries for A, not checked on the stand.
