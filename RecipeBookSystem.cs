@@ -4069,6 +4069,25 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			return;
 		}
+		// Storage: no click selects. The details panel follows the hovered cell and keeps the last one when the mouse
+		// leaves the grid; it changes only when another cell is hovered, so the arrow keys still move it.
+		if (StorageView && !MenuOpen)
+		{
+			int hoveredCell = StorageCellAt();
+			if (hoveredCell >= 0)
+			{
+				Item hoveredItem = Result(Filtered[hoveredCell]);
+				if ((hoveredItem.type, hoveredItem.prefix) != StorageHoverKey)
+				{
+					StorageHoverKey = (hoveredItem.type, hoveredItem.prefix);
+					Selected = Filtered[hoveredCell];
+				}
+			}
+			else if (!BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y))
+			{
+				StorageHoverKey = (0, 0);
+			}
+		}
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int wheel = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
@@ -4097,23 +4116,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 		}
 
-		if (rightClick && StorageView && !ModMenu)
+		if (Main.mouseRight && StorageView && !MenuOpen)
 		{
-			for (int n = 0; n < ActivePageSize; n++)
+			int cell = StorageCellAt();
+			if (cell >= 0)
 			{
-				int index = Page * ActivePageSize + n;
-				if (index >= Filtered.Count)
-				{
-					break;
-				}
-				if (BookGeometry.GridCell(n, BookGeometry.StorageGridTop).Contains(Mouse.X, Mouse.Y))
-				{
-					if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, leftPressed: false, rightClick, shift: false) == BookStorageGesture.Transfer.One)
-					{
-						BookSources.Take(Result(Filtered[index]), single: true);
-					}
-					return;
-				}
+				StorageRightClick(Result(Filtered[cell]), rightClick);
+				return;
 			}
 		}
 
@@ -4278,11 +4287,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return;
 		}
-		// An item on the cursor dropped onto the Storage grid goes into nearby storage, as into an open chest.
-		if (StorageView && !Main.mouseItem.IsAir && BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y))
+		if (StorageView)
 		{
-			BookSources.DepositCursor();
-			return;
+			int cell = StorageCellAt();
+			if (cell >= 0)
+			{
+				StorageLeftClick(Result(Filtered[cell]));
+				return;
+			}
+			// An item on the cursor dropped onto the grid's empty part goes into nearby storage, as into an empty
+			// chest slot.
+			if (!Main.mouseItem.IsAir && BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y))
+			{
+				BookSources.DepositCursor();
+				return;
+			}
 		}
 		for (int n3 = 0; n3 < ActivePageSize && !BestiaryView; n3++)
 		{
@@ -4297,12 +4316,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 				if (keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt))
 				{
 					ToggleFavorite(Result(Filtered[index3]));
-					return;
-				}
-				if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, click, rightPressed: false, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) == BookStorageGesture.Transfer.Stack)
-				{
-					Selected = Filtered[index3];
-					BookSources.Take(Result(Selected), single: false);
 					return;
 				}
 				ArmorFocus = 0;
@@ -4419,6 +4432,78 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : BookGeometry.GridTop;
+
+	// The last hovered Storage cell's kind: the selection follows the mouse only when it moves to another cell.
+	private static (int Type, int Prefix) StorageHoverKey;
+
+	// The Filtered position of the Storage cell under the mouse, or -1.
+	private static int StorageCellAt()
+	{
+		for (int n = 0; n < ActivePageSize; n++)
+		{
+			int index = Page * ActivePageSize + n;
+			if (index >= Filtered.Count)
+			{
+				break;
+			}
+			if (BookGeometry.GridCell(n, BookGeometry.StorageGridTop).Contains(Mouse.X, Mouse.Y))
+			{
+				return index;
+			}
+		}
+		return -1;
+	}
+
+	// A Storage cell clicked as a chest slot (Terraria.UI/ItemSlot.cs): Shift to the inventory (OverrideLeftClick,
+	// :572-617), Ctrl to the trash when vanilla's quick trash is on (LeftClick_SellOrTrash, :973-1050), otherwise the
+	// slot's left click (:663-750). Alt marks a book favorite, as in the other tabs.
+	private static void StorageLeftClick(Item item)
+	{
+		KeyboardState keyboard = Keyboard.GetState();
+		if (keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt))
+		{
+			ToggleFavorite(item);
+		}
+		else if (ItemSlot.ShiftInUse)
+		{
+			BookSources.TakeToInventory(item);
+		}
+		else if (ItemSlot.ControlInUse && BookSources.QuickTrashOn)
+		{
+			BookSources.Trash(item);
+		}
+		else
+		{
+			BookSources.LeftClick(item);
+		}
+	}
+
+	// Right-click as on a chest slot (ItemSlot.RightClick, :1373-1419): one onto the cursor, again whenever
+	// Main.stackSplit runs out while the button is held; Main shortens the delay the way it does for every slot.
+	// An unstackable item comes onto the cursor once per press (vanilla equips it from a chest instead).
+	private static void StorageRightClick(Item item, bool pressed)
+	{
+		if (item.maxStack <= 1)
+		{
+			if (pressed && BookSources.TakeOne(item))
+			{
+				SoundEngine.PlaySound(in SoundID.MenuTick);
+			}
+			return;
+		}
+		if (Main.stackSplit > 1)
+		{
+			return;
+		}
+		for (int i = 0; i <= Main.superFastStack; i++)
+		{
+			if (BookSources.TakeOne(item))
+			{
+				SoundEngine.PlaySound(in SoundID.MenuTick);
+				ItemSlot.RefreshStackSplitCooldown();
+			}
+		}
+	}
 
 	// The item card is on screen (Items, Recipes, Recent) with an item in it.
 	private static bool CardShown => !StorageView && !TrackingView && SelectedItem != null;
@@ -4590,6 +4675,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 			break;
 		case BookHotkeys.Action.Restock:
 			PressStorageButton(StorageButton.Restock);
+			break;
+		case BookHotkeys.Action.TakeSelected:
+			BookSources.TakeToInventory(SelectedItem);
 			break;
 		case BookHotkeys.Action.Refresh:
 			RefreshView();
@@ -5522,7 +5610,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		else if (selected != null && stack.Contains(Mouse.X, Mouse.Y))
 		{
 			string cut = (TextWidth(selected.Name, 0.8f) > content.Width - 60f) ? (selected.Name + "\n") : "";
-			MouseTip(cut + T("Shift+клик: взять стопку · ПКМ: взять одну", "Shift+Click: take a stack · Right-click: take one") + "\n" + T("Alt+клик: в избранное", "Alt+Click: favorite"));
+			MouseTip(cut + BookSources.TakeHint + "\n" + T("Ctrl+клик — в корзину · Alt+клик — в избранное", "Ctrl+Click: trash · Alt+Click: favorite"));
 		}
 	}
 
@@ -5875,6 +5963,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 				if (StorageView)
 				{
 					StorageHover = item;
+					// Vanilla's chest-slot cursors: to the inventory, to the trash.
+					if (ItemSlot.ShiftInUse)
+					{
+						Main.cursorOverride = 8;
+					}
+					else if (ItemSlot.ControlInUse && BookSources.QuickTrashOn)
+					{
+						Main.cursorOverride = 6;
+					}
 				}
 			}
 			if ((!Catalogue || StorageView) && item.stack > 1)
@@ -6468,7 +6565,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			0 => T("Shift+клик: где используется · F1: справка", "Shift+Click: where it's used · F1 Help"),
 			1 => T("Ctrl+Enter: создать · F1: справка", "Ctrl+Enter crafts · F1 Help"),
 			2 => T("Mouse3 по мобу в мире: его карточка · F1: справка", "Mouse3 on a mob in the world: its card · F1 Help"),
-			3 => T("Shift+клик: стопку в инвентарь · F1: справка", "Shift+Click takes a stack · F1 Help"),
+			3 => T("Клик: взять стопку · ПКМ: одну · F1: справка", "Click takes a stack · Right-click takes one · F1 Help"),
 			4 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
 			_ => T("PgUp/PgDn: страницы · F1: справка", "PgUp/PgDn pages · F1 Help"),
 		};

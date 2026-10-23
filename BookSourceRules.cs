@@ -102,6 +102,18 @@ internal static class BookSourceRules
 		return (int)Math.Clamp(needed - empty, 0L, int.MaxValue);
 	}
 
+	// A left click on a chest slot holding `slot` of the cursor's kind (Terraria.UI/ItemSlot.cs:696-739): with the item
+	// unstackable or either side full the two swap, otherwise the cursor tops the slot up. Returns what the cursor holds
+	// afterwards; an empty cursor (0) picks the slot up.
+	internal static int CursorAfterLeftClick(int slot, int cursor, int maxStack)
+	{
+		if (cursor == 0 || slot == 0 || maxStack <= 1 || slot >= maxStack || cursor >= maxStack)
+		{
+			return slot;
+		}
+		return cursor - Math.Min(cursor, maxStack - slot);
+	}
+
 	internal static string SelfCheck()
 	{
 		List<string> failures = new List<string>();
@@ -122,6 +134,12 @@ internal static class BookSourceRules
 		Expect(Plural(1, "a", "b", "c") == "a" && Plural(2, "a", "b", "c") == "b" && Plural(5, "a", "b", "c") == "c", "plural 1/2/5");
 		Expect(Plural(11, "a", "b", "c") == "c" && Plural(12, "a", "b", "c") == "c" && Plural(21, "a", "b", "c") == "a" && Plural(22, "a", "b", "c") == "b" && Plural(111, "a", "b", "c") == "c", "plural 11/12/21/22/111");
 		Expect(Count(1, ru: false, "chest", "chests", "", "", "") == "1 chest" && Count(7, ru: true, "", "", "сундук", "сундука", "сундуков") == "7 сундуков", "count text");
+		Expect(CursorAfterLeftClick(750, 0, 9999) == 750, "click: an empty cursor picks the slot up");
+		Expect(CursorAfterLeftClick(9999, 10, 9999) == 9999, "click: a full slot swaps, the cursor ends full");
+		Expect(CursorAfterLeftClick(50, 10, 9999) == 0, "click: a partial slot takes the whole cursor");
+		Expect(CursorAfterLeftClick(9990, 20, 9999) == 11, "click: the slot fills, the rest stays on the cursor");
+		Expect(CursorAfterLeftClick(50, 9999, 9999) == 50, "click: a full cursor swaps");
+		Expect(CursorAfterLeftClick(1, 1, 1) == 1 && CursorAfterLeftClick(0, 5, 99) == 0, "click: unstackable, empty slot");
 
 		// Layers: inventory first, then banks, then remote.
 		Dictionary<int, long>[] plan = BookBatchPlanner.PlanLayers(new long[1] { 10 }, new IReadOnlyCollection<int>[1] { new int[1] { 9 } }, new IReadOnlyDictionary<int, long>[3]

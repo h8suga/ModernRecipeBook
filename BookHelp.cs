@@ -67,12 +67,14 @@ internal static class BookHelp
 			new Entry("Кнопки класса", "Class buttons", "Фильтр по классу", "Filter by class"),
 			new Entry("F5", "F5", "Обновить", "Refresh")
 		}),
-		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[6]
+		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[8]
 		{
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Взять стопку", "Take a stack", Nearby),
-			new Entry("ПКМ", "RMB", "Взять одну", "Take one", Nearby),
-			new Entry("Ctrl+Q", "Ctrl+Q", "Быстрый стак", "Quick stack", Nearby),
-			new Entry("Ctrl+R", "Ctrl+R", "Пополнить", "Restock", Nearby),
+			new Entry("ЛКМ", "LMB", "Взять стопку", "Take a stack", Nearby),
+			new Entry("ПКМ, держать", "RMB, hold", "По одной", "One at a time", Nearby),
+			new Entry("Shift+ЛКМ", "Shift+LMB", "Стопку в инвентарь", "Stack to inventory", Nearby),
+			new Entry("Ctrl+ЛКМ", "Ctrl+LMB", "В корзину", "To the trash", Nearby),
+			new Entry("Ctrl+Enter", "Ctrl+Enter", "Взять выбранное", "Selected to inventory", Nearby),
+			new Entry("Ctrl+Q · Ctrl+R", "Ctrl+Q · Ctrl+R", "Стак · пополнить", "Quick stack · restock", Nearby),
 			new Entry("Shift+ЛКМ в инв.", "Shift+LMB in inv.", "Сложить стопку", "Put a stack in", Nearby),
 			new Entry("ЛКМ с предметом", "LMB holding item", "Сложить с курсора", "Put the held item in", Nearby)
 		})
