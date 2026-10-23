@@ -158,9 +158,32 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static List<BookEnemyLoot> EnemyLoot = new List<BookEnemyLoot>();
 
-	private static BookStageFilter StageFilter;
+	// Two stage filters: the Storage tab's own (what lies in the chests is there whatever its stage), and one shared
+	// by every other tab. StageFilter is the open tab's.
+	private static BookStageFilter ListStageFilter;
 
-	// Global like the stage filter (the sidebar's class row); ClassHidden counts what it alone hid last time.
+	private static BookStageFilter StorageStageFilter;
+
+	private static BookStageFilter StageFilter
+	{
+		get
+		{
+			return StorageView ? StorageStageFilter : ListStageFilter;
+		}
+		set
+		{
+			if (StorageView)
+			{
+				StorageStageFilter = value;
+			}
+			else
+			{
+				ListStageFilter = value;
+			}
+		}
+	}
+
+	// Global, for every tab (the sidebar's class row); ClassHidden counts what it alone hid last time.
 	private static BookClass ClassFilter;
 
 	private static int ClassHidden;
@@ -2390,7 +2413,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		BookSkin.Panel(Main.spriteBatch, bounds, Panel * 0.96f, 8f, Border);
 	}
 
-	// The stage filter is global, so it sits in the header next to the title, not in a tab's filter bar.
+	// The stage filter spans tabs (one for Storage, one for the rest), so it sits in the header next to the title, not in a tab's filter bar.
 	// Its width fits the longest option, so picking another stage never moves the tabs.
 	private static BookRect StageDropdownRect()
 	{
@@ -3022,6 +3045,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			["Query"] = state.Query,
 			["ModFilter"] = state.ModFilter,
 			["StageFilter"] = state.StageFilter,
+			["StorageStageFilter"] = state.StorageStageFilter,
 			["ClassFilter"] = state.ClassFilter,
 			["CategoryKey"] = state.CategoryKey,
 
@@ -3061,6 +3085,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (tag.ContainsKey("StageFilter"))
 			{
 				state.StageFilter = tag.GetInt("StageFilter");
+			}
+			// Saves before version 7 have one stage filter for every tab; Storage starts at All stages.
+			if (tag.ContainsKey("StorageStageFilter"))
+			{
+				state.StorageStageFilter = tag.GetInt("StorageStageFilter");
 			}
 			// Saves before version 5 have no class filter: all classes.
 			if (tag.ContainsKey("ClassFilter"))
@@ -3186,7 +3215,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			LastTab = (TrackingView ? "tracking" : (RecentView ? "recent" : (StorageView ? "storage" : (BestiaryView ? "bestiary" : (Catalogue ? "items" : "recipes"))))),
 			Query = Query,
 			ModFilter = ModFilter,
-			StageFilter = (int)StageFilter,
+			StageFilter = (int)ListStageFilter,
+			StorageStageFilter = (int)StorageStageFilter,
 			ClassFilter = (int)ClassFilter,
 			CategoryKey = categoryKey,
 			FavoritesOnly = FavoritesOnly,
@@ -3236,7 +3266,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 				});
 			}
 		}
-		StageFilter = (BookStageFilter)state.StageFilter;
+		ListStageFilter = (BookStageFilter)state.StageFilter;
+		StorageStageFilter = (BookStageFilter)state.StorageStageFilter;
 		ClassFilter = (BookClass)state.ClassFilter;
 		UsedInMode = state.UsedInMode;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
@@ -3571,7 +3602,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		BatchChoice = 0;
 		InvalidateBatchEstimate();
 		Query = (ModFilter = "");
-		StageFilter = BookStageFilter.All;
+		ListStageFilter = (StorageStageFilter = BookStageFilter.All);
 		ClassFilter = BookClass.None;
 		TabFilterSlots.Clear();
 		Page = (DetailsPage = (Category = (CategoryRow = 0)));
@@ -3742,7 +3773,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		catch (Exception exception)
 		{
 			BookProgression.Clear();
-			StageFilter = BookStageFilter.All;
+			ListStageFilter = (StorageStageFilter = BookStageFilter.All);
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB progression index failed; showing unfiltered catalogue.", exception);
 		}
 		// After the stages: the Station sort ranks stations by them.
@@ -6463,7 +6494,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private readonly record struct UsedInView(List<int> Rows, int StageHidden, int NotCraftable, int Total);
 
-	// Recipes that take the item, earliest stage first. Only the global stage filter and the Craftable toggle
+	// Recipes that take the item, earliest stage first. Only the open tab's stage filter and the Craftable toggle
 	// narrow the list: the grid's search, mod and category filters do not reach the card.
 	private static List<int> UsedInRecipes(int type)
 	{

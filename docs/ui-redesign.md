@@ -34,7 +34,8 @@ Owner (2nd round): the whole current layout is ugly and unintuitive — rearrang
 Owner (3rd round, after the zones merged):
 - Filters never reset by themselves. Search, mod, category, favorites and sort are kept per tab (saved,
   UI state v4); only the player clears them (search ✕, Ctrl+Backspace for the open tab, picking a value).
-- The stage filter is global: a dropdown in the header next to the title, applied to every tab, saved, and
+- The stage filter is a dropdown in the header next to the title: one value for the Storage tab, one shared by
+  every other tab (UI state v7; until 1.10 it was one for all), saved, and
   untouched by Ctrl+Backspace or jumps.
 - No Chains tab ("зачем для цепочек отдельная вкладка?"). The item card has a Recipe | Used in switch; Used in
   lists the recipes that take the item (earliest stage first, global stage filter + Craftable toggle only).
