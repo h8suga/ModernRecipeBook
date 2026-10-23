@@ -1,8 +1,10 @@
 # Nearby storage: design (phase 1)
 
 Date: 2026-10-23. Branch `feature/nearby-storage`, cut from `feature/ui-redesign` @ `ecc449d` (1.8.0).
-This is a design only; no production code changed. Phase 2 starts after the owner's review and after
-`feature/server-side` (`side = Both`, `BookServerConfig`, MP stand commands) is merged into this branch.
+Phase 1 was this design. Phase 2 (implementation) is under way: single player is built and verified on the
+stand; the multiplayer part waits for `feature/server-side` (`side = Both`, `BookServerConfig`, MP stand commands).
+The owner's decisions after review are folded in below; §12 has the phase 2 status, the measured numbers and the
+deviations from this design.
 
 Path roots:
 
@@ -36,6 +38,8 @@ MS 0.7.0.11 loaded); everything else is **[code]**, read in the files cited.
 | MS adapter | Rewritten: no MS UI session is ever opened by the book. It reads hearts, units and Crafting Interface stations and withdraws server-side through `TEStorageHeart.Withdraw`. |
 | Vanilla crafting column | Not built. Section 6 says what it would take. |
 | Radius | `BookServerConfig.NearbyRadius` (10–50, default 30) tiles, circle from the player centre to the container centre. `NearbyStorage` switches the whole feature. The host decides in MP. |
+| Deposit (owner, after review) | The Storage tab is one big chest, as in vanilla: Shift+click an inventory item puts the whole stack in; an item on the cursor dropped onto the grid goes in; Deposit All works like a chest's. Placement: onto matching stacks first (nearest container that holds the item: chest or Magic Storage), then the nearest Magic Storage network, then the nearest chest with a free slot; the rest stays with the player. Banks are not targets. No deposit hotkeys (§4.9). |
+| Results and stations (owner) | Crafted items always go to the inventory, and the room check covers them. Stations: vanilla adjacency plus Crafting Interface stations only; placed stations in the radius do not count. |
 
 ---
 
@@ -232,6 +236,7 @@ One `byte` message id after tML's mod header, handled in `ModernRecipeBook.Handl
 | 2 | `Pull` | C→S | `int id`; `byte n` (1..32); n × (`7b type`, `7b prefixPlusOne` (0 = any prefix), `7b amount` (1..999,999)) |
 | 3 | `Give` | S→C | `int id`; `byte status` (0 Done, 1 Partial, 2 Nothing, 3 Off, 4 Busy, 5 Invalid); `ushort n` (≤ 256); n × `ItemIO.Send(item, w, writeStack: true)` (V18, keeps modded data) |
 | 4 | `Ack` | C→S | `int id` |
+| 5 | `Deposit` | C→S | `int id`; `byte n` (1..60); n × `ItemIO.Send(item, w, writeStack: true)`. The server places them (§4.9) and answers with a `Give` holding what did not fit. |
 
 The config change needs no packet: tML broadcasts it (V17). Clients clear the mirror and unsubscribe when `NearbyStorage` turns off; the server stops scanning.
 
@@ -325,9 +330,42 @@ A malicious client could withhold `Ack` and leave to duplicate a pull. Without S
 
 ### 4.8 Rate limits and sizes
 
-- **Pulls:** 16 burst, 8/s, ≤ 8 in flight, ≤ 32 entries, ≤ 256 stacks per reply.
+- **Pulls and deposits:** 32 burst, 16/s (vanilla lets a player Shift+click as fast as they like), ≤ 8 unacknowledged replies with items, ≤ 32 pull entries, ≤ 256 stacks per reply, ≤ 60 items per deposit.
 - **Mirror:** cadence fixed at 30 ticks; a subscribe toggle costs one snapshot.
 - **Client side:** one pull per gesture. Craft and take buttons are disabled while a pull is pending (no double submission).
+
+### 4.9 Deposit: the Storage tab as one big chest (owner, after review)
+
+> «давать ещё возможность закидывать предметы, так же, как и в сундук… Shift — весь стак сразу, курсором
+> переносишь и складываешь в хранилище, а оно само решает, в какой сундук закинуть»
+
+**Gestures**, copied from vanilla's open-chest behaviour (`TML:Terraria.UI/ItemSlot.cs`):
+
+| Gesture | Vanilla with a chest open | Storage tab |
+|---|---|---|
+| Shift+click an inventory, coin or ammo slot | the whole stack into the chest; never a favorite (`ItemSlot.cs:387-424` sets cursor 9 only for `!favorited`; `OverrideLeftClick` runs `PlayerLoader.ShiftClickSlot` first, `:572`) | the whole stack into nearby storage, through `ModPlayer.ShiftClickSlot`; same contexts (0, 1, 2), same favorite rule, the same "into the chest" cursor (`HoverSlot` sets `Main.cursorOverride = 9`) |
+| Left click a chest slot holding an item | the cursor stack goes into the slot; a favorite loses its mark (`ItemSlot.cs:958-961`) | the cursor stack dropped anywhere on the grid goes in; the mark is cleared the same way |
+| Right click a chest slot with an item held | takes one from the slot to the cursor, never puts one in (`ItemSlot.cs:1383-1420`) | right click stays "take one"; nothing put in |
+| Deposit All | slots 10..49 except favorites; coins from every slot only into a container that already has coins (`Terraria.UI/ChestUI.cs:456-500, 1025-1110`) | the same slot set and the same coin condition (coins are not exchanged into higher coins) |
+
+A player with a chest of their own open uses that chest (vanilla's path); the book's Shift+click steps aside.
+With a Magic Storage window open, MS's own `ShiftClickSlot` runs first (it loads first) and deposits into that
+network. There are no deposit hotkeys (owner: «Ctrl+D отдельной комбинацией супер неудобно»).
+
+**Placement rule** (server or single player, per item, `BookNearbyServer.Deposit`):
+1. Onto stacks of the same item, nearest container first: a chest that holds it (vanilla's quick-stack rule, `Chest.PutItemInNearbyChest`, `TML:Terraria/Chest.cs:392-458`: fill its stacks, then one of its free slots), or a Magic Storage network that holds the type (`heart.DepositItem`).
+2. The rest into the nearest Magic Storage network.
+3. Else the nearest chest with a free slot.
+4. What does not fit comes back: "Nearby storage is full: 50 left" / «Рядом нет места: осталось 50».
+
+Chests follow the pull rules: in range (server position + slack), not locked, open by nobody. Banks are not
+targets: a player does not expect items to land in a Piggy Bank they did not open.
+
+**Multiplayer.** As in MS's own deposit (`MS:MagicStorage.Components/TEStorageHeart.cs:693-703`), the items leave
+the client's slots when it sends them; the server places them and returns the leftover in a `Give`. One handler
+call does it all (V14). An exception keeps what was already placed (it is in storage) and returns the rest. A
+leftover the client never acknowledges drops where the player stood when the player leaves (§4.6). The chest mirror
+and Magic Storage's own sync carry the change to every client.
 
 ---
 
@@ -361,7 +399,7 @@ Change detection is a per-heart signature over its units' items, computed every 
 
 ### 5.3 Withdraw
 
-Server or SP only: `TEStorageHeart.Withdraw` (§4.4 step 6). This is the same function MS's packet handler calls (M4). The book adds the range and access checks that MS's handler does not have. Deposits are not part of this feature (§7.4).
+Server or SP only: `TEStorageHeart.Withdraw` (§4.4 step 6). This is the same function MS's packet handler calls (M4). The book adds the range and access checks that MS's handler does not have. Deposits: §4.9.
 
 ### 5.4 Crafting with MS stations
 
@@ -465,7 +503,7 @@ The book's visual language stays: palette, `Box`/`CardButton`/`Dropdown`/`EmptyS
 ### 7.1 Storage tab layout
 
 - **Tab.** Always visible: `StorageTabVisible` becomes `true`, because chests count without MS. Players without MS will see Ctrl+4 move from Recent to Storage.
-- **Toolbar.** Two equal buttons replace four (`BookGeometry.StorageToolbarButton`): `[Quick Stack] [Restock]`.
+- **Toolbar.** Vanilla's chest buttons in vanilla's order, minus Loot All: `[Deposit All] [Quick Stack] [Restock]` (owner). Deposit Held is gone: dropping from the cursor replaces it.
 - **Grid.** `BookSources.Items` with the existing search, mod filter, categories, class filter, stage filter, sort and favourites (`MOD:RecipeBookSystem.cs:3747-3826`).
 - **Details panel**, top to bottom:
   1. Section label + pill.
@@ -501,9 +539,11 @@ The result goes into the inventory, and the rest onto the cursor (as today, `MOD
 
 **Quick Stack** calls `Main.LocalPlayer.QuickStackAllChests()`. That is the inventory's own button: vanilla's radius, server-side in MP, and extended to networks by MS (V10, M10).
 
+**Putting items in:** §4.9 (Shift+click in the inventory, the cursor dropped onto the grid, Deposit All).
+
 **Hotkeys:**
 - Ctrl+Q and Ctrl+R stay;
-- Ctrl+D and Ctrl+Shift+D are removed (`MOD:BookHotkeys.cs:120-137`).
+- Ctrl+D and Ctrl+Shift+D are removed (`MOD:BookHotkeys.cs:120-137`); the owner wants no deposit keys.
 
 ### 7.3 Strings (EN Title Case for buttons; RU sentence case)
 
@@ -568,9 +608,19 @@ Notes on the details panel:
 
 The off states name the config option. Its label belongs to `feature/server-side`; proposed "Nearby Storage" / «Хранилища рядом».
 
-**Not carried over** (open question 1):
-- Deposit All and Deposit Held: they targeted "the connected network", which no longer exists.
+**Not carried over:**
+- Deposit Held: dropping the cursor stack onto the grid does it (owner).
 - Open Magic Storage: the player right-clicks the access point.
+
+**Toolbar and grid strings** (owner):
+
+| Where | EN | RU |
+|---|---|---|
+| Deposit All button | Deposit All | Сложить всё |
+| Deposit All tooltip | Deposit to nearby storage, except hotbar and favorites<br>Onto matching stacks first, then Magic Storage, then a free chest | Сложить в хранилища рядом, кроме панели и избранного<br>Сначала к таким же, потом Magic Storage, потом сундук |
+| without Magic Storage installed | …<br>Onto matching stacks first, then a free chest | …<br>Сначала к таким же, потом в свободный сундук |
+| nothing to deposit into | Deposit to nearby storage<br>Nothing nearby to deposit into | Сложить в хранилища рядом<br>Рядом некуда складывать |
+| Storage cell tooltip, last line | Shift+Click an inventory item or drop it here: put into storage | Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище |
 
 ### 7.5 Messages (Storage tab message line)
 
@@ -587,6 +637,12 @@ The off states name the config option. Its label belongs to `feature/server-side
 | restock done (existing) | Stacks topped up | Стопки пополнены |
 | restock nothing | Nothing to top up | Нечего пополнять |
 | quick stack | Stacked into nearby chests | Сложено в сундуки рядом |
+| deposit done | Stored nearby | Сложено рядом |
+| deposit, no room for all | Nearby storage is full: 50 left | Рядом нет места: осталось 50 |
+| deposit, nothing to put into | Nothing nearby to deposit into | Рядом некуда складывать |
+| Deposit All, nothing to move | Nothing to deposit | Нечего складывать |
+
+Messages fade after five seconds.
 
 ### 7.6 Craft row, card rows and tracker
 
@@ -611,11 +667,13 @@ In `docs/ui-redesign.md` §1, the "crafting source" row becomes "nearby containe
 
 ### 7.7 Help (F1)
 
-The STORAGE section drops Ctrl+D and Ctrl+Shift+D and loses its `StorageOnly` flag (`MOD:BookHelp.cs:59-67`). It keeps:
+The STORAGE section drops Ctrl+D and Ctrl+Shift+D and loses its `StorageOnly` flag (`MOD:BookHelp.cs:59-67`). It lists:
 - Shift+LMB: take a stack
 - RMB: take one
 - Ctrl+Q: quick stack
 - Ctrl+R: restock
+- Shift+LMB in the inventory: put a stack in
+- LMB holding an item: put the held item in
 
 ---
 
@@ -801,8 +859,93 @@ Elsewhere:
 5. **MS's "Use Inventory" and Journey infinite modules are not reflected** in the book's counts (M12, §5.4). The Creative Storage Unit is.
 6. **SSC servers:** pulls are off, with a clear state (§7.4).
 
-### Open questions for the owner
+### Owner decisions (after review)
 
-1. **Deposit All, Deposit Held and Open Magic Storage are dropped.** They acted on "the connected network". Quick Stack (into chests and networks) and Restock stay. If you want them back, they would act on "the nearest Magic Storage" without changing anything else here.
-2. **Crafted items go to the inventory, also when ingredients came from Magic Storage.** Today a craft through MS put the result into the storage.
-3. **Stations stay "next to you" (vanilla) plus the Crafting Interface stations in range.** A workbench 20 tiles away does not count. Counting placed stations in the radius would be easy, but it would change how crafting feels; not proposed unless you want it.
+1. Deposit stays and works with chests too (§4.9); the deposit hotkeys and the Deposit Held button go.
+2. Crafted items always go to the inventory; the room check covers the results (§5.5 step 3).
+3. Stations: vanilla adjacency plus Crafting Interface stations only.
+
+---
+
+## 12. Phase 2 status
+
+### 12.1 Built
+
+| File | What |
+|---|---|
+| `BookSourceRules.cs` | pure rules and `SelfCheck()`: range, centres, banks, RU plurals, inventory room (`Shortage`); with `BookBatchPlanner.PlanLayers` (layered max-flow: inventory, then banks, then remote) |
+| `BookSources.cs` | the client aggregate, the chest mirror, local containers, take / restock / quick stack / deposit gestures, craft pulls, `Give` handling, the Storage tab texts |
+| `BookNearbyServer.cs` | the authority (server or single player): subscriptions, the mirror cycle, `Pull`, `Deposit`, in-flight restore, packets; `BookNearbyConfig`, the one accessor for the two settings |
+| `BookMagicStorage.cs` | the rewritten MS adapter: three bind groups (read, write, hide), networks in range, stored items, Crafting Interface stations and the station scope, the hidden MS window |
+| `BookCrafting.cs` | `Refresh` = vanilla's availability rule over the book's sources; pull-then-craft; `VanillaDiff` and `CraftRecipe` stand hooks |
+
+Deleted: `BookStorage.cs`, `BookStorageSnapshot.cs`, `BookStorageConfig.cs` (and its localization),
+`BookStoragePresentation.cs`, the craft-source chip, the network picker, Connect/Disconnect, Open Magic Storage,
+Deposit Held, the deposit hotkeys, the tracker's two pools, `TrackingSource`.
+
+### 12.2 Verified on stand 14 (single player, Calamity 2.2.4 + Magic Storage 0.7.0.11, 5,015 recipes)
+
+| Case | Result |
+|---|---|
+| `BookSourceRules.SelfCheck` | `ok` (range edge to the pixel, centres, banks, plurals 1/2/5/11/21/22/111, layered plan incl. the overlap case, room) |
+| Craftable equals vanilla, feature off, containers in range | `VanillaDiff`: diff=0 (vanilla=99, book=99; another run 114/114) |
+| Craftable equals vanilla, feature on, nothing in range | diff=0 (114/114) |
+| Feature on, Tin Bars only in a chest | diff=10, all of them the book's (tin tools at the anvil), none vanilla-only |
+| Crafting Interface station | a Loom only in the Crafting Interface: Silk becomes craftable in the book only; crafted ×2; afterwards `adjTile[86]` is false and vanilla's list has no Silk (scope restored) |
+| Craft from a chest | Tin Pickaxe ×2: chest tin 50 → 34, no tin left in the inventory |
+| Craft from Magic Storage | ×3: network tin 65 → 41 |
+| Room check covers results | 0 free slots: "Inventory full: free 2 slots"; 1 free: "free 1 slot"; 2 free: crafted |
+| Take | right click 500 → 499; Shift+click took `min(maxStack, total)` = 750 from two chests; from MS 40 → 39 → 0 |
+| Restock | torch stack 9,900 → 9,999 from a chest (500 → 401) |
+| Deposit placement | stone went to the far chest that holds stone (999 → 1,099), not the near chest with a free slot; glass (held nowhere) to the nearest chest with a free slot; wood to the nearest chest holding wood; with MS: tin held nowhere → MS; tin again → MS (holds it); stone → its chest |
+| Deposit leftover | chests full: "Nearby storage is full: 50 left", the cursor keeps 50; 9 of 30 fit: 21 come back |
+| Shift+click (real UI click) | the stack went in; a favorite was not deposited (vanilla picks it up instead) |
+| Deposit All | slots 10..49 except the favorite went in; hotbar and coin slots stayed (no coins nearby) |
+| Cursor dropped on the grid (real UI click) | the stack went in, its favorite mark cleared |
+| An MS window the player opened | hidden under the book (`HideNativeUI` true), its network counted |
+
+### 12.3 Measured (harness `bench`)
+
+| Call | Time | Allocated |
+|---|---|---|
+| `BookSources.Quantity(int)`, the per-frame read | 0.0 µs | 24 B: the harness boxes the `int` result; `Breakdown`, `BreakdownRows`, `Summary`, `NotCounted`, `RadiusLine` (cached) all read 0 B |
+| `BookSources.Refresh(false)`, nothing changed | 0.4 µs | 3 B |
+| `CheckLocal`, every 10 ticks | 0.5 µs | 218 B |
+| `Scan`, every 30 ticks (R = 30, one network) | 15.8 µs | 1,456 B |
+| `Rebuild`, only on change | 3.9 µs | 3,512 B |
+| `BookCrafting.Refresh(true)`, every 20 ticks with the book open | 153.9 µs | 438 B |
+| vanilla `Recipe.FindRecipes`, for comparison | 154.7 µs | 617 B |
+| server mirror cycle, one subscriber, every 30 ticks | 5.4 µs | 9 B |
+
+Amortised: about 8 µs per tick with the book open (7.7 of them the craftable pass, as before); about 0.2 µs per
+tick per subscriber on the server; nothing with the book closed and no tracked goals.
+
+Network bytes: not measured yet (multiplayer waits for `feature/server-side`).
+
+### 12.4 Deviations from this design
+
+1. **Deposit** (owner, after review): §4.9, the `Deposit` packet, the toolbar `[Deposit All] [Quick Stack] [Restock]`, no Deposit Held, no deposit hotkeys.
+2. **Craftable is vanilla's exact rule.** Each ingredient is counted as its own type or as the last accepted group holding it, and all required tiles and conditions must hold (`Recipe.CreateRequiredItemQuickLookups`, `CollectedEnoughItemsToCraftRecipeNew`). The design's extra flow check for overlapping rows is dropped, so that with the feature off the set is vanilla's by construction (review fix d). The craft plan still uses the flow to split materials over the layers.
+3. **Settings** are read through `BookNearbyConfig` (two stand-in fields) until `BookServerConfig` exists; multiplayer is gated by `BookNearbyConfig.MultiplayerReady = false` while the mod is `side = Client`.
+4. **Rate limit** 32 burst / 16 per second instead of 16 / 8, and deposits may overlap, so Shift+click works as fast as in vanilla.
+5. **Restock** tops up partial stacks (coins excepted) like vanilla's chest Restock, but does not move ammo into empty slots as vanilla does.
+6. **Deposit All coins** follow vanilla's condition (only where coins already are) without exchanging them into higher coins.
+7. **Messages fade** after five seconds; cell counts above 99,999 read "399K" / "12M".
+8. **Long names** in the details panel shrink to 80 % and then cut; the stack's tooltip repeats the name.
+9. **The Craft tooltip** counts only the chests that hold what the craft pulls ("From: inventory, 1 chest").
+
+### 12.5 Screenshots (stand 14, cropped to the book)
+
+`<stand>\shots-14\`, each in EN and RU (`-en-c.png`, `-ru-c.png`):
+`nb-01-tab` (summary, not counted, breakdown rows), `nb-02-cell-tip` (where it is + how to put in),
+`nb-03-long-name`, `nb-03b-long-name-tip`, `nb-04-toolbar-0/1/2-tip` (Deposit All, Quick Stack, Restock),
+`nb-05-summary-tip`, `nb-06-notcounted-tip`, `nb-07-craft-tip` ("From:"), `nb-08-card`, `nb-09-material-tip`,
+`nb-10-help`, `nb-11-off`, `nb-12-nothing`, `nb-13-empty`, `nb-14-full`, `nb-15-inventory-full`; and
+`nb-16-ms-window-under-book-en.png` (full screen: a player-opened MS window hidden under the book).
+
+### 12.6 Left for the multiplayer phase
+
+- Merge `feature/server-side`; switch `BookNearbyConfig` to `BookServerConfig` and set `MultiplayerReady = true`.
+- MP cases P1–P15 of §10 plus: deposit to a chest with no MS; two players depositing into the last free slot; a disconnect mid-deposit.
+- Bytes per message and bytes/s idle and active; the "Syncing" state on screen.
+- Magic Storage server-side withdraw and deposit on a dedicated server (`Writable` there), audit entries, viewers' refresh.
