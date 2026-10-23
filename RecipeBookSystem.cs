@@ -3974,6 +3974,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookInventoryShortcut.RequestToggle();
 		}
 		LastMiddle = middle;
+		// The fullscreen map covers the book and the tracker: a click there is the map's.
+		if (Main.mapFullscreen)
+		{
+			return;
+		}
 		HandleTrackerInput();
 		if (!Open)
 		{
