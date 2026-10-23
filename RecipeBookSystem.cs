@@ -473,7 +473,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Storage keeps its toolbar above a 5-row grid; the other tabs show 6 rows.
 	private static int ActivePageSize => StorageView ? 40 : 48;
 
-	private static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+	internal static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
 
 	private static HashSet<string> Favorites => Main.LocalPlayer.GetModPlayer<BookPlayer>().Favorites;
 
@@ -3423,7 +3423,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ApplyFilters();
 	}
 
-	private static string T(string ru, string en)
+	internal static string T(string ru, string en)
 	{
 		if (!Ru)
 		{
@@ -3492,6 +3492,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static void ResetView()
 	{
+		CloseMarkerPanel();
 		CloseAcquisition();
 		StopTracker();
 		BlockTrackerPress = false;
@@ -3946,6 +3947,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	public override void UpdateUI(GameTime gameTime)
 	{
+		UpdateMarkerInput();
 		MouseState mouse = Microsoft.Xna.Framework.Input.Mouse.GetState();
 		KeyboardState keys = Keyboard.GetState();
 		bool acted = (mouse.LeftButton == ButtonState.Pressed && HistoryMouse.LeftButton != ButtonState.Pressed) || (mouse.RightButton == ButtonState.Pressed && HistoryMouse.RightButton != ButtonState.Pressed) || (mouse.MiddleButton == ButtonState.Pressed && HistoryMouse.MiddleButton != ButtonState.Pressed) || mouse.ScrollWheelValue != HistoryMouse.ScrollWheelValue || keys.GetPressedKeys().Any((Keys key) => !HistoryKeys.IsKeyDown(key));
@@ -3974,6 +3976,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookInventoryShortcut.RequestToggle();
 		}
 		LastMiddle = middle;
+		// The fullscreen map covers the book and the tracker: a click there is the map's.
+		if (Main.mapFullscreen)
+		{
+			return;
+		}
 		HandleTrackerInput();
 		if (!Open)
 		{
@@ -6818,7 +6825,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		foreach (BookHelp.Section section in BookHelp.Sections)
 		{
-			if (section.StorageOnly && !BookStorage.Installed)
+			if ((section.StorageOnly && !BookStorage.Installed) || !Array.Exists(section.Rows, (BookHelp.Entry row) => row.Visible))
 			{
 				continue;
 			}
@@ -6828,6 +6835,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			y += BookHelp.HeaderStep;
 			foreach (BookHelp.Entry row in section.Rows)
 			{
+				if (!row.Visible)
+				{
+					continue;
+				}
 				HelpKeycap(sb, new BookRect(column.X, y, BookHelp.KeyWidth, BookHelp.KeyHeight), T(row.KeyRu, row.KeyEn));
 				Text(sb, T(row.Ru, row.En), column.X + BookHelp.KeyWidth + 12f, y, TextColor, 0.85f, column.Width - BookHelp.KeyWidth - 12f, BookHelp.KeyHeight);
 				y += BookHelp.RowStep;
