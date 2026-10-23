@@ -23,7 +23,7 @@ namespace ModernRecipeBook;
 
 public sealed partial class RecipeBookSystem : ModSystem
 {
-	private readonly record struct BatchEstimate(int Count, ulong Tick, int AvailabilityVersion, int StorageVersion, bool Storage);
+	private readonly record struct BatchEstimate(int Count, ulong Tick, int AvailabilityVersion, int SourcesVersion);
 
 	private sealed class TrackedGoal
 	{
@@ -40,8 +40,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		internal int Possible;
 
 		internal int ResourcePage;
-
-		internal bool Storage;
 
 		internal bool Ready;
 
@@ -98,6 +96,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static bool PendingForward;
 
 	private static readonly List<TrackedGoal> TrackedGoals = new List<TrackedGoal>();
+
+	internal static bool HasTrackedGoals => TrackedGoals.Count > 0;
+
+	internal static bool StorageTabOpen => Open && StorageView;
+
+	// The Storage tab cell under the mouse this frame; its tooltip gets the "Chests ×3: 120" line.
+	internal static Item StorageHover;
 
 	private static TrackedGoal ActiveGoal;
 
@@ -275,7 +280,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			int version = StorageView ? BookStorage.ItemsVersion : (RecentView ? BookRecent.Version : 0);
+			int version = StorageView ? BookSources.ItemsVersion : (RecentView ? BookRecent.Version : 0);
 			int count = BestiaryView ? MobMods.Count : ItemMods.Count;
 			(int, int, string, int) key = (CurrentTab, version, ModFilter, count);
 			if (key == TabModsKey)
@@ -295,7 +300,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			else if (StorageView)
 			{
-				source = BookStorage.Items.Select((Item item) => item.ModItem?.Mod.Name ?? "Terraria").Distinct();
+				source = BookSources.Items.Select((Item item) => item.ModItem?.Mod.Name ?? "Terraria").Distinct();
 			}
 			else if (RecentView)
 			{
@@ -363,8 +368,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static bool StageMenu;
 
 	// Storage tab: the list of networks in reach, open under the "Network: …" dropdown.
-	private static bool NetworkMenu;
-
 	private static bool Dirty = true;
 
 	private static bool LastLeft;
@@ -473,7 +476,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Storage keeps its toolbar above a 5-row grid; the other tabs show 6 rows.
 	private static int ActivePageSize => StorageView ? 40 : 48;
 
-	private static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+	internal static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
 
 	private static HashSet<string> Favorites => Main.LocalPlayer.GetModPlayer<BookPlayer>().Favorites;
 
@@ -519,7 +522,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				return ContentSamples.ItemsByType[type];
 			}
-			if (Selected < 0 || (StorageView && Selected >= BookStorage.Items.Count))
+			if (Selected < 0 || (StorageView && Selected >= BookSources.Items.Count))
 			{
 				return null;
 			}
@@ -1252,10 +1255,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static int CachedAvailableBatches(Recipe recipe)
 	{
 		ulong tick = Main.GameUpdateCount;
-		bool storage = BookStorage.UseForCrafting;
 		int availabilityVersion = BookCrafting.AvailabilityVersion;
-		int storageVersion = (storage ? BookStorage.DataVersion : (-1));
-		if (BatchEstimates.TryGetValue(recipe, out var cached) && cached.Storage == storage && cached.AvailabilityVersion == availabilityVersion && cached.StorageVersion == storageVersion && tick >= cached.Tick && tick - cached.Tick < 10)
+		int sourcesVersion = BookSources.Version;
+		if (BatchEstimates.TryGetValue(recipe, out var cached) && cached.AvailabilityVersion == availabilityVersion && cached.SourcesVersion == sourcesVersion && tick >= cached.Tick && tick - cached.Tick < 10)
 		{
 			return cached.Count;
 		}
@@ -1264,7 +1266,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			BatchEstimates.Clear();
 		}
-		BatchEstimates[recipe] = new BatchEstimate(estimate, tick, availabilityVersion, storageVersion, storage);
+		BatchEstimates[recipe] = new BatchEstimate(estimate, tick, availabilityVersion, sourcesVersion);
 		return estimate;
 	}
 
@@ -1294,24 +1296,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int[] relevantTypes = (from type in needs.SelectMany((BookBatchNeed need) => need.AcceptedTypes)
 			where type > 0
 			select type).Distinct().ToArray();
-		Dictionary<int, int> counts = (BookStorage.UseForCrafting ? BookStorage.PreviewCounts(relevantTypes) : CountPlayerMaterials(relevantTypes));
+		Dictionary<int, int> counts = BookSources.CountsFor(relevantTypes);
 		return BookBatchPlanner.MaxBatches(needs, counts, 100);
-	}
-
-	private static Dictionary<int, int> CountPlayerMaterials(IEnumerable<int> relevantTypes)
-	{
-		HashSet<int> relevant = new HashSet<int>(relevantTypes);
-		Dictionary<int, int> counts = new Dictionary<int, int>();
-		HashSet<Item> seen = new HashSet<Item>(ReferenceEqualityComparer.Instance);
-		foreach (Item item in BookCrafting.Materials())
-		{
-			if (item != null && !item.IsAir && relevant.Contains(item.type) && seen.Add(item))
-			{
-				counts.TryGetValue(item.type, out var previous);
-				counts[item.type] = (int)Math.Min(2147483647L, (long)previous + (long)item.stack);
-			}
-		}
-		return counts;
 	}
 
 	private static bool HandleBatchChoiceClick(Recipe recipe)
@@ -1424,7 +1410,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static void RestoreNav(NavState state)
 	{
 		int from = CurrentTab;
-		int tab = (state.Tab == 3 && !StorageTabVisible) ? 0 : state.Tab;
+		int tab = state.Tab;
 		// The leaving tab's filters are read before the switch: the Bestiary has its own categories.
 		BookUiState.TabFilters leaving = LiveTabFilters();
 		SetTabFlags(tab);
@@ -1595,7 +1581,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Parts = parts,
 			Key = key,
 			Batches = batches,
-			Storage = BookStorage.UseForCrafting,
 			Materials = materials
 		};
 		TrackedGoals.Add(goal);
@@ -1656,7 +1641,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			if (recipe == null)
 			{
-				BookCrafting.LastMessage = T("Нет рецепта: ", "No recipe: ") + part.Name;
+				BookCrafting.Say((bool r) => (r ? "Нет рецепта: " : "No recipe: ") + part.Name);
 				return false;
 			}
 			recipes.Add(recipe);
@@ -1669,7 +1654,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		catch (ArgumentOutOfRangeException)
 		{
-			BookCrafting.LastMessage = T("Слишком много материалов для одной цели", "Too many materials for one goal");
+			BookCrafting.Say("Слишком много материалов для одной цели", "Too many materials for one goal");
 			return false;
 		}
 		List<MaterialRequirement> materials = new List<MaterialRequirement>();
@@ -1699,7 +1684,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (BatchChoice == 3)
 		{
 			int[] types = merged.SelectMany((BookBatchNeed n) => n.AcceptedTypes).Distinct().ToArray();
-			Dictionary<int, int> counts = (BookStorage.UseForCrafting ? BookStorage.PreviewCounts(types) : CountPlayerMaterials(types));
+			Dictionary<int, int> counts = BookSources.CountsFor(types);
 			batches = Math.Max(1, BookBatchPlanner.MaxBatches(merged, counts, 100));
 		}
 		return AddTrackerGoal(recipes.ToArray(), parts, SetGoalKey(parts), materials, batches);
@@ -1707,7 +1692,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	public override void PostUpdatePlayers()
 	{
-		if (Main.dedServ || Main.gameMenu || TrackedGoals.Count == 0 || Main.LocalPlayer == null || !Main.LocalPlayer.active || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
+		if (Main.gameMenu || TrackedGoals.Count == 0 || Main.LocalPlayer == null || !Main.LocalPlayer.active || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
 		{
 			return;
 		}
@@ -1744,26 +1729,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 			RemoveGoal(goal);
 			return false;
 		}
-		if (goal.Storage)
-		{
-			BookStorage.Tick(manageFocus: false);
-		}
 		int[] types = goal.Materials.SelectMany((MaterialRequirement m) => m.Alternatives ?? (IEnumerable<int>)m.ItemTypes).Distinct().ToArray();
-		goal.Unknown = goal.Storage && (!BookStorage.CraftingConnected || BookStorage.CraftInitializing);
-		goal.Counts = (goal.Storage ? BookStorage.PreviewCounts(types) : CountPlayerMaterials(types));
+		// Until the first chest snapshot arrives in multiplayer the counts are only local: not ready yet.
+		goal.Unknown = BookSources.Syncing;
+		goal.Counts = BookSources.CountsFor(types);
 		goal.Materials = NarrowAlternatives(goal.Materials, goal.Counts);
 		BookBatchNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookBatchNeed(m.Ingredient.stack, m.ItemTypes)).ToArray();
-		if (goal.Storage && !goal.Unknown)
-		{
-			int[] array = types;
-			foreach (int type in array)
-			{
-				if (BookStorage.IsInfinite(new int[1] { type }))
-				{
-					goal.Counts[type] = int.MaxValue;
-				}
-			}
-		}
 		goal.Unknown |= goal.Counts.Values.Any((int n) => n < 0);
 		goal.Ready = !goal.Unknown && BookTrackerRules.Ready(needs, goal.Counts, goal.Batches);
 		goal.Progress = AssessTrackedGoal(goal);
@@ -1859,7 +1830,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		wholeSet &= parts != null;
 		if (!wholeSet && recipe == null)
 		{
-			BookCrafting.LastMessage = T("У предмета нет рецепта", "This item has no recipe");
+			BookCrafting.Say("У предмета нет рецепта", "This item has no recipe");
 			return;
 		}
 		string key;
@@ -1875,18 +1846,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (existing != null)
 		{
 			RemoveGoal(existing);
-			BookCrafting.LastMessage = T("Больше не отслеживается", "No longer tracked");
+			BookCrafting.Say("Больше не отслеживается", "No longer tracked");
 			return;
 		}
 		if (!ResourceTrackerStyle && TrackedGoals.Count >= 5)
 		{
-			BookCrafting.LastMessage = T("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
+			BookCrafting.Say("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
 			return;
 		}
 		// Track is a toggle like Untrack: the book stays open so several goals can be added in a row.
 		if (wholeSet ? StartSetTracker(parts) : StartTracker(recipe))
 		{
-			BookCrafting.LastMessage = wholeSet ? T("Сет отслеживается", "Tracking the set") : (T("Отслеживается: ", "Tracking: ") + recipe.createItem.Name);
+			BookCrafting.Say((bool r) => wholeSet ? (r ? "Сет отслеживается" : "Tracking the set") : ((r ? "Отслеживается: " : "Tracking: ") + recipe.createItem.Name));
 		}
 	}
 
@@ -2211,13 +2182,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static BookResourceProgress[] AssessTrackedGoal(TrackedGoal goal)
 	{
-		BookResourceNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookResourceNeed(goal.Storage, (long)m.Ingredient.stack * (long)goal.Batches, m.ItemTypes)).ToArray();
+		BookResourceNeed[] needs = goal.Materials.Select((MaterialRequirement m) => new BookResourceNeed((long)m.Ingredient.stack * (long)goal.Batches, m.ItemTypes)).ToArray();
 		HashSet<int> infinite = new HashSet<int>();
-		if (goal.Storage && !goal.Unknown)
+		if (!goal.Unknown)
 		{
 			foreach (int type in needs.SelectMany((BookResourceNeed n) => n.Types).Distinct())
 			{
-				if (BookStorage.IsInfinite(new int[1] { type }))
+				if (BookSources.IsInfinite(type))
 				{
 					infinite.Add(type);
 				}
@@ -2442,29 +2413,27 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			foreach (MaterialRequirement material in goal.Materials)
 			{
-				string key = BookResourceTrackerRules.Key(goal.Storage, material.ItemTypes);
+				string key = BookResourceTrackerRules.Key(material.ItemTypes);
 				ResourceTrackerMaterials.TryAdd(key, material);
-				raw.Add(new BookResourceNeed(goal.Storage, (long)material.Ingredient.stack * (long)goal.Batches, material.ItemTypes));
+				raw.Add(new BookResourceNeed((long)material.Ingredient.stack * (long)goal.Batches, material.ItemTypes));
 			}
 		}
 		BookResourceNeed[] needs = BookResourceTrackerRules.Merge(raw);
-		Dictionary<int, long> inventory = new Dictionary<int, long>();
-		Dictionary<int, long> storage = new Dictionary<int, long>();
+		Dictionary<int, long> counts = new Dictionary<int, long>();
 		foreach (TrackedGoal goal2 in TrackedGoals)
 		{
 			foreach (KeyValuePair<int, int> pair in goal2.Counts)
 			{
-				Dictionary<int, long> pool = (goal2.Storage ? storage : inventory);
-				pool[pair.Key] = Math.Max(pool.GetValueOrDefault(pair.Key), Math.Max(0, pair.Value));
+				counts[pair.Key] = Math.Max(counts.GetValueOrDefault(pair.Key), Math.Max(0, pair.Value));
 			}
 		}
-		bool unknown = TrackedGoals.Any((TrackedGoal g) => g.Storage && g.Unknown);
+		bool unknown = TrackedGoals.Any((TrackedGoal g) => g.Unknown);
 		HashSet<int> infinite = new HashSet<int>();
-		if (!unknown && TrackedGoals.Any((TrackedGoal g) => g.Storage))
+		if (!unknown)
 		{
-			foreach (int type in needs.Where((BookResourceNeed n) => n.Storage).SelectMany((BookResourceNeed n) => n.Types).Distinct())
+			foreach (int type in needs.SelectMany((BookResourceNeed n) => n.Types).Distinct())
 			{
-				if (BookStorage.IsInfinite(new int[1] { type }))
+				if (BookSources.IsInfinite(type))
 				{
 					infinite.Add(type);
 				}
@@ -2473,9 +2442,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		long totalDemand = needs.Sum((BookResourceNeed n) => n.Quantity);
 		foreach (int type2 in infinite)
 		{
-			storage[type2] = totalDemand;
+			counts[type2] = totalDemand;
 		}
-		ResourceTrackerRows = BookResourceTrackerRules.Assess(needs, inventory, storage, unknown, infinite);
+		ResourceTrackerRows = BookResourceTrackerRules.Assess(needs, counts, unknown, infinite);
 		if (!BookResourceTrackerRules.Ready(ResourceTrackerRows, TrackedGoals.Count > 0, TrackedGoals.All((TrackedGoal g) => !g.Unknown)))
 		{
 			ResourceTrackerDismiss.Reset();
@@ -2526,14 +2495,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		float maxWidth = ru ? 265f : 215f;
 		int room = Math.Max(1, (Main.screenHeight - 24 - top) / step - line);
 		float fade = 1f - ResourceTrackerDismiss.Progress;
-		bool mixed = ResourceTrackerRows.Any((BookResourceProgress r) => r.Need.Storage) && ResourceTrackerRows.Any((BookResourceProgress r) => !r.Need.Storage);
 		int[] order = MissingFirst(ResourceTrackerRows);
 		int shown = (order.Length > room) ? (room - 1) : order.Length;
 		for (int n = 0; n < shown; n++)
 		{
 			BookResourceProgress row = ResourceTrackerRows[order[n]];
-			MaterialRequirement material = ResourceTrackerMaterials[BookResourceTrackerRules.Key(row.Need.Storage, row.Need.Types)];
-			string name = MaterialName(material) + ((!mixed) ? "" : (row.Need.Storage ? T(" · хранилище", " · storage") : T(" · инвентарь", " · inventory")));
+			MaterialRequirement material = ResourceTrackerMaterials[BookResourceTrackerRules.Key(row.Need.Types)];
+			string name = MaterialName(material);
 			DrawInfoLine(sb, material.Ingredient, name, " " + ProgressRatio(row), x, top + (line + n) * step, maxWidth, row.Met ? InfoDoneColor : Color.White, fade);
 		}
 		if (shown < order.Length)
@@ -2718,20 +2686,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static string TrackingSource(TrackedGoal goal)
-	{
-		if (!goal.Storage)
-		{
-			return T("Инвентарь", "Inventory");
-		}
-		return T("Хранилище", "Storage");
-	}
-
 	private static string TrackingStatus(TrackedGoal goal)
 	{
 		if (goal.Unknown)
 		{
-			return T("Хранилище недоступно", "Storage unavailable");
+			return T("Синхронизация…", "Syncing…");
 		}
 		if (goal.Ready)
 		{
@@ -2824,7 +2783,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		FixedLabel(sb, title, d.X + 76f, d.Y + 17f, TextColor, titleSize, d.Width - 92f, 26f);
 		FixedLabel(sb, TrackingOrigin(goal), d.X + 76f, d.Y + 45f, Muted, 0.8f, d.Width - 92f, 20f);
 		FixedLabel(sb, T("Крафтов: ", "Crafts: ") + CraftsRatio(goal), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
-		CenterLabel(sb, TrackingSource(goal), d.X + d.Width - 16f - 120f, d.Y + 76f, 120f, 20f, Muted, 0.85f, rightAligned: true);
 		DrawProgressBar(sb, d.X + 16f, d.Y + 102f, d.Width - 32f, 6f, goal);
 		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
 		goal.ResourcePage = Math.Clamp(goal.ResourcePage, 0, pages.Count - 1);
@@ -2955,7 +2913,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		SetTyping(value: false);
 		Open = (MouseOver = (ModMenu = (HelpOpen = false)));
 		CloseAcquisition();
-		BookStorage.CancelCraft();
+		BookSources.CancelCraft();
 		ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB " + ModContent.GetInstance<ModernRecipeBook>().Version + " UI failure (" + phase + "). Book closed safely.", error);
 		Main.NewText(T("Книга рецептов: ошибка интерфейса. Подробности в client.log.", "Recipe Book: UI error. Details in client.log."), 240, 160, 100);
 	}
@@ -3184,7 +3142,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		BookUiState state = source.Sanitize();
 		int lastTab = Array.IndexOf(new string[6] { "items", "recipes", "bestiary", "storage", "recent", "tracking" }, state.LastTab);
-		SetTabFlags((lastTab < 0 || (lastTab == 3 && !StorageTabVisible)) ? 0 : lastTab);
+		SetTabFlags((lastTab < 0) ? 0 : lastTab);
 		// Version 3 saves had one filter set shared by all tabs: the tab that was open keeps it, the others
 		// keep only its sort order.
 		BookUiState.TabFilters shared = new BookUiState.TabFilters
@@ -3423,7 +3381,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ApplyFilters();
 	}
 
-	private static string T(string ru, string en)
+	internal static string T(string ru, string en)
 	{
 		if (!Ru)
 		{
@@ -3492,6 +3450,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static void ResetView()
 	{
+		CloseMarkerPanel();
 		CloseAcquisition();
 		StopTracker();
 		BlockTrackerPress = false;
@@ -3505,7 +3464,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		AppliedAvailabilityVersion = -1;
 		Open = (MouseOver = (ModMenu = (StorageView = (RecentView = (TrackingView = (BestiaryView = false))))));
 		Catalogue = true;
-		BookStorage.ClearView();
+		BookSources.Clear();
 		AppliedStorageVersion = -1;
 		AppliedRecentVersion = -1;
 		Variant = 0;
@@ -3537,7 +3496,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static void Toggle()
 	{
-		if (!Main.dedServ && !Main.gameMenu)
+		if (!Main.gameMenu)
 		{
 			bool flag = !Open;
 			SetTyping(value: false);
@@ -3546,7 +3505,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (!flag)
 			{
 				Open = (MouseOver = false);
-				BookStorage.CancelCraft();
+				BookSources.CancelCraft();
 			}
 			LastMiddle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
 			LastLeft = Main.mouseLeft;
@@ -3558,7 +3517,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Rebuild();
 				RestorePendingPlayerUiState();
-				BookStorage.OnBookOpened();
+				BookSources.OnBookOpened();
 				BookCrafting.Refresh(force: true);
 				ApplyFilters();
 				Open = true;
@@ -3568,14 +3527,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static bool OpenForInventoryItem(int type)
 	{
-		if (Main.dedServ || Main.gameMenu || type <= 0 || !ContentSamples.ItemsByType.TryGetValue(type, out var sample) || sample.IsAir)
+		if (Main.gameMenu || type <= 0 || !ContentSamples.ItemsByType.TryGetValue(type, out var sample) || sample.IsAir)
 		{
 			return false;
 		}
 		SetTyping(value: false);
 		ModMenu = (HelpOpen = false);
 		CloseAcquisition();
-		BookStorage.OnBookOpened();
+		BookSources.OnBookOpened();
 		Rebuild();
 		BookCrafting.Refresh(force: true);
 		RestorePendingPlayerUiState();
@@ -3740,8 +3699,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			return ContentSamples.ItemsByType[index];
 		}
-		// Disconnect or a refresh can shrink the stored list before the grid re-filters on the next update.
-		return (index >= 0 && index < BookStorage.Items.Count) ? BookStorage.Items[index] : new Item();
+		// A refresh can shrink the list before the grid re-filters on the next update.
+		return (index >= 0 && index < BookSources.Items.Count) ? BookSources.Items[index] : new Item();
 	}
 
 	private static void ApplyFilters(bool clearMessage = true)
@@ -3787,7 +3746,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else
 		{
-			enumerable2 = Enumerable.Range(0, BookStorage.Items.Count);
+			enumerable2 = Enumerable.Range(0, BookSources.Items.Count);
 		}
 		foreach (int index in enumerable2)
 		{
@@ -3852,8 +3811,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ResetCard();
 		if (StorageView)
 		{
-			BookStorage.Tick();
-			AppliedStorageVersion = BookStorage.ItemsVersion;
+			BookSources.Refresh(force: true);
+			AppliedStorageVersion = BookSources.ItemsVersion;
 		}
 		SetTyping(value: false);
 		ModMenu = false;
@@ -3936,6 +3895,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return new BookRect(x, y, w, h).Contains(Mouse.X, Mouse.Y);
 	}
 
+	// The book is the local player's UI: a dedicated server never loads it, nor builds its catalogue.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void PostUpdateInput()
 	{
 		BookPlayer.GuardTriggers();
@@ -3943,6 +3905,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	public override void UpdateUI(GameTime gameTime)
 	{
+		UpdateMarkerInput();
 		MouseState mouse = Microsoft.Xna.Framework.Input.Mouse.GetState();
 		KeyboardState keys = Keyboard.GetState();
 		bool acted = (mouse.LeftButton == ButtonState.Pressed && HistoryMouse.LeftButton != ButtonState.Pressed) || (mouse.RightButton == ButtonState.Pressed && HistoryMouse.RightButton != ButtonState.Pressed) || (mouse.MiddleButton == ButtonState.Pressed && HistoryMouse.MiddleButton != ButtonState.Pressed) || mouse.ScrollWheelValue != HistoryMouse.ScrollWheelValue || keys.GetPressedKeys().Any((Keys key) => !HistoryKeys.IsKeyDown(key));
@@ -3971,6 +3934,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookInventoryShortcut.RequestToggle();
 		}
 		LastMiddle = middle;
+		// The fullscreen map covers the book and the tracker: a click there is the map's.
+		if (Main.mapFullscreen)
+		{
+			return;
+		}
 		HandleTrackerInput();
 		if (!Open)
 		{
@@ -3984,12 +3952,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Item previousStorageItem = (StorageView ? SelectedItem : null);
 		int selectedType = previousStorageItem?.type ?? 0;
 		int selectedPrefix = previousStorageItem?.prefix ?? 0;
-		BookStorage.UpdateBookConnection();
-		NetworkMenu &= StorageView && NetworkPickerShown;
-		if (StorageView && AppliedStorageVersion != BookStorage.ItemsVersion)
+		if (StorageView && AppliedStorageVersion != BookSources.ItemsVersion)
 		{
-			AppliedStorageVersion = BookStorage.ItemsVersion;
-			Selected = ((selectedType > 0) ? BookStorage.Items.FindIndex((Item item) => item.type == selectedType && item.prefix == selectedPrefix) : (-1));
+			AppliedStorageVersion = BookSources.ItemsVersion;
+			Selected = ((selectedType > 0) ? BookSources.Items.FindIndex((Item item) => item.type == selectedType && item.prefix == selectedPrefix) : (-1));
 			ApplyFilters(clearMessage: false);
 		}
 		BookCrafting.Refresh();
@@ -4075,14 +4041,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				StageMenu = false;
 			}
-			else if (NetworkMenu)
-			{
-				NetworkMenu = false;
-			}
 			else
 			{
 				Open = false;
-				BookStorage.CancelCraft();
+				BookSources.CancelCraft();
 			}
 		}
 		LastEscape = escape;
@@ -4148,7 +4110,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				{
 					if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, leftPressed: false, rightClick, shift: false) == BookStorageGesture.Transfer.One)
 					{
-						BookStorage.Withdraw(Result(Filtered[index]), single: true);
+						BookSources.Take(Result(Filtered[index]), single: true);
 					}
 					return;
 				}
@@ -4157,20 +4119,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 		if (!click)
 		{
-			return;
-		}
-		if (NetworkMenu)
-		{
-			IReadOnlyList<BookStorage.NetworkChoice> networks = BookStorage.Networks;
-			for (int option = 0; option < networks.Count; option++)
-			{
-				if (NetworkOption(option).Contains(Mouse.X, Mouse.Y))
-				{
-					BookStorage.PickNetwork(networks[option]);
-					break;
-				}
-			}
-			NetworkMenu = false;
 			return;
 		}
 		if (StageMenu)
@@ -4218,7 +4166,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			SetTyping(value: false);
 			Open = (MouseOver = false);
-			BookStorage.CancelCraft();
+			BookSources.CancelCraft();
 			return;
 		}
 		foreach (int tab in VisibleTabs())
@@ -4259,52 +4207,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (StorageView)
 		{
-			(BookRect networkRow, BookRect actionRow, float _) = StorageRows();
-			if (networkRow.Contains(Mouse.X, Mouse.Y))
+			foreach (StorageButton button in StorageButtons)
 			{
-				SetTyping(value: false);
-				NetworkMenu = true;
-				return;
-			}
-			// The one button (see StorageAction): Disconnect while connected, Connect when an access point is in
-			// reach. A network that wants a password opens in MS's window (the book steps aside) to type it there.
-			if (actionRow.Contains(Mouse.X, Mouse.Y))
-			{
-				SetTyping(value: false);
-				if (BookStorage.Connected)
+				if (StorageButtonRect(button).Contains(Mouse.X, Mouse.Y))
 				{
-					BookStorage.Disconnect();
+					SetTyping(value: false);
+					PressStorageButton(button);
+					return;
 				}
-				else if (BookStorage.CanConnect && BookStorage.ConnectNearby() && !BookStorage.Connected)
-				{
-					CloseForStorage();
-				}
-				return;
-			}
-			if (BookGeometry.StorageQuickStack.Contains(Mouse.X, Mouse.Y))
-			{
-				BookStorage.InventoryAction(true);
-				return;
-			}
-			if (BookGeometry.StorageRestock.Contains(Mouse.X, Mouse.Y))
-			{
-				BookStorage.InventoryAction(null);
-				return;
-			}
-			if (BookGeometry.StorageDepositAll.Contains(Mouse.X, Mouse.Y))
-			{
-				BookStorage.InventoryAction(false);
-				return;
-			}
-			if (BookGeometry.StorageDeposit.Contains(Mouse.X, Mouse.Y))
-			{
-				BookStorage.DepositCursor();
-				return;
-			}
-			if (BookStorage.Connected && BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
-			{
-				CloseForStorage();
-				return;
 			}
 		}
 		if (Query.Length > 0 && BookGeometry.SearchClear.Contains(Mouse.X, Mouse.Y))
@@ -4368,6 +4278,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return;
 		}
+		// An item on the cursor dropped onto the Storage grid goes into nearby storage, as into an open chest.
+		if (StorageView && !Main.mouseItem.IsAir && BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y))
+		{
+			BookSources.DepositCursor();
+			return;
+		}
 		for (int n3 = 0; n3 < ActivePageSize && !BestiaryView; n3++)
 		{
 			int index3 = Page * ActivePageSize + n3;
@@ -4386,7 +4302,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				if (BookStorageGesture.Read(StorageView, hovered: true, ModMenu, click, rightPressed: false, keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)) == BookStorageGesture.Transfer.Stack)
 				{
 					Selected = Filtered[index3];
-					BookStorage.Withdraw(Result(Selected), single: false);
+					BookSources.Take(Result(Selected), single: false);
 					return;
 				}
 				ArmorFocus = 0;
@@ -4496,13 +4412,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ToggleFavorite(chosen);
 			return;
 		}
-		if (materialRecipe != null && SourceShown && BookStorage.CanChooseSource && BookGeometry.CraftSourceChip.Contains(Mouse.X, Mouse.Y))
-		{
-			BookStorage.ChooseCraftSource(!BookStorage.UseForCrafting);
-			BookCrafting.Refresh(force: true);
-			InvalidateBatchEstimate();
-			return;
-		}
 		if (materialRecipe != null && CraftRect.Contains(Mouse.X, Mouse.Y))
 		{
 			BookCrafting.TryCraft(materialRecipe, Ru, PreviewBatches(materialRecipe));
@@ -4557,10 +4466,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static void RefreshView()
 	{
-		if (BookStorage.Connected)
-		{
-			BookStorage.RefreshStorage();
-		}
+		BookSources.Refresh(force: true);
 		Rebuild();
 		BookCrafting.Refresh(force: true);
 		ApplyFilters(clearMessage: false);
@@ -4679,17 +4585,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.MoveDown:
 			MoveSelection(8);
 			break;
-		case BookHotkeys.Action.DepositCursor:
-			BookStorage.DepositCursor();
-			break;
-		case BookHotkeys.Action.DepositAll:
-			BookStorage.InventoryAction(false);
-			break;
 		case BookHotkeys.Action.QuickStack:
-			BookStorage.InventoryAction(true);
+			PressStorageButton(StorageButton.QuickStack);
 			break;
 		case BookHotkeys.Action.Restock:
-			BookStorage.InventoryAction(null);
+			PressStorageButton(StorageButton.Restock);
 			break;
 		case BookHotkeys.Action.Refresh:
 			RefreshView();
@@ -4829,15 +4729,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return BookGeometry.ArmorRecipeTop;
 	}
 
-	internal static void CloseForStorage()
-	{
-		SetTyping(value: false);
-		CloseAcquisition();
-		Open = (MouseOver = (ModMenu = (HelpOpen = false)));
-		BookStorage.CancelCraft();
-		BookStorage.HandOff();
-	}
-
 	public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
 	{
 		InsertTrackerLayer(layers);
@@ -4845,7 +4736,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return;
 		}
-		if (BookStorage.HideNativeUI)
+		if (BookMagicStorage.HideNativeUI)
 		{
 			layers.RemoveAll((GameInterfaceLayer layer) =>
 			{
@@ -5042,9 +4933,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly Color Caution = new Color(223, 185, 139);
 
-	private static bool MenuOpen => ModMenu || SortMenu || StageMenu || NetworkMenu;
-
-	private static bool StorageTabVisible => BookStorage.Installed;
+	private static bool MenuOpen => ModMenu || SortMenu || StageMenu;
 
 	private static float TextWidth(string value, float size)
 	{
@@ -5295,26 +5184,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return ingredient.Name;
 	}
 
+	// Every counted source (BookSources): a dictionary read, no allocation.
 	private static int Owned(HashSet<int> acceptedTypes)
 	{
-		if (BookStorage.UseForCrafting)
-		{
-			if (!BookStorage.CraftingConnected)
-			{
-				return -1;
-			}
-			return BookStorage.Quantity(acceptedTypes);
-		}
-		long total = 0L;
-		HashSet<Item> seen = new HashSet<Item>(ReferenceEqualityComparer.Instance);
-		foreach (Item item in BookCrafting.Materials())
-		{
-			if (item != null && !item.IsAir && acceptedTypes.Contains(item.type) && seen.Add(item))
-			{
-				total = Math.Min(2147483647L, total + item.stack);
-			}
-		}
-		return (int)total;
+		return BookSources.Quantity(acceptedTypes);
 	}
 
 	private static string Count(long value)
@@ -5366,7 +5239,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static BookMaterialRules.Assessment Assess(MaterialRequirement requirement, int batches)
 	{
-		return BookMaterialRules.Evaluate(requirement.Ingredient.stack, batches, Owned(requirement.ItemTypes), BookStorage.UseForCrafting && BookStorage.IsInfinite(requirement.ItemTypes), requirement.Overlapping);
+		return BookMaterialRules.Evaluate(requirement.Ingredient.stack, batches, Owned(requirement.ItemTypes), BookSources.IsInfinite(requirement.ItemTypes), requirement.Overlapping);
 	}
 
 	private static string MaterialSub(BookMaterialRules.Assessment assessment)
@@ -5377,7 +5250,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static string MaterialTooltip(MaterialRequirement requirement, BookMaterialRules.Assessment assessment, int batches)
 	{
 		string have = (assessment.Unknown ? "?" : (assessment.Infinite ? "∞" : Count(assessment.Available)));
-		return (BookStorage.UseForCrafting ? T("В хранилище ", "In storage ") : T("Есть ", "Have ")) + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "");
+		string where = (requirement.ItemTypes.Count == 1) ? BookSources.Breakdown(requirement.Ingredient.type) : "";
+		return T("Есть ", "Have ") + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "") + ((where.Length > 0) ? ("\n" + where) : "");
 	}
 
 	private static List<Detail> Details(Recipe r)
@@ -5449,75 +5323,134 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return new MaterialPreview(summary, color, (assessed.Count == 0) ? T("Без материалов", "No materials") : materials);
 	}
 
-	// Bulk inventory actions: four equal buttons, disabled until a network is connected.
+	// The Storage tab's toolbar: vanilla's chest buttons in vanilla's order, minus Loot All. The tab is one big chest:
+	// what goes in is placed by BookNearbyServer.Deposit's rule.
+	private enum StorageButton
+	{
+		DepositAll,
+		QuickStack,
+		Restock
+	}
+
+	private static readonly StorageButton[] StorageButtons = new StorageButton[3]
+	{
+		StorageButton.DepositAll,
+		StorageButton.QuickStack,
+		StorageButton.Restock
+	};
+
+	private static BookRect StorageButtonRect(StorageButton button)
+	{
+		return BookGeometry.StorageToolbarButton(Array.IndexOf(StorageButtons, button), StorageButtons.Length);
+	}
+
+	private static bool StorageButtonEnabled(StorageButton button)
+	{
+		return button switch
+		{
+			StorageButton.DepositAll => BookSources.CanDeposit,
+			StorageButton.QuickStack => !Main.LocalPlayer.HasLockedInventory(),
+			_ => BookSources.Enabled && !BookSources.Busy,
+		};
+	}
+
+	private static void PressStorageButton(StorageButton button)
+	{
+		if (!StorageButtonEnabled(button))
+		{
+			return;
+		}
+		switch (button)
+		{
+		case StorageButton.DepositAll:
+			BookSources.DepositAll();
+			break;
+		case StorageButton.QuickStack:
+			BookSources.QuickStack();
+			break;
+		default:
+			BookSources.Restock();
+			break;
+		}
+	}
+
+	private static string StorageButtonLabel(StorageButton button)
+	{
+		return button switch
+		{
+			StorageButton.DepositAll => T("Сложить всё", "Deposit All"),
+			StorageButton.QuickStack => T("Быстрый стак", "Quick Stack"),
+			_ => T("Пополнить", "Restock"),
+		};
+	}
+
+	private static string StorageButtonTip(StorageButton button)
+	{
+		switch (button)
+		{
+		case StorageButton.QuickStack:
+			return BookMagicStorage.Installed ? T("Сложить в сундуки и хранилища рядом · Ctrl+Q", "Quick stack to nearby chests and storages · Ctrl+Q") : T("Сложить в сундуки рядом · Ctrl+Q", "Quick stack to nearby chests · Ctrl+Q");
+		case StorageButton.Restock:
+			return BookSources.Enabled ? T("Дополнить стопки в инвентаре из того, что рядом · Ctrl+R", "Top up inventory stacks from nearby · Ctrl+R") : StorageOffTitle;
+		}
+		if (!BookSources.Enabled)
+		{
+			return StorageOffTitle;
+		}
+		if (!BookSources.CanDeposit)
+		{
+			return T("Сложить в хранилища рядом", "Deposit to nearby storage") + "\n" + T("Рядом некуда складывать", "Nothing nearby to deposit into");
+		}
+		return T("Сложить в хранилища рядом, кроме панели и избранного", "Deposit to nearby storage, except hotbar and favorites") + "\n" + (BookMagicStorage.Installed ? T("Сначала к таким же, потом Magic Storage, потом сундук", "Onto matching stacks first, then Magic Storage, then a free chest") : T("Сначала к таким же, потом в свободный сундук", "Onto matching stacks first, then a free chest"));
+	}
+
 	private static void DrawStorageToolbar(SpriteBatch sb)
 	{
 		Box(sb, BookGeometry.StorageToolbar, Surface, border: true, 10f);
-		bool ready = BookStorage.Connected;
-		CardButton(sb, BookGeometry.StorageQuickStack, T("Быстрый стак", "Quick Stack"), ready);
-		CardButton(sb, BookGeometry.StorageDepositAll, T("Сложить всё", "Deposit All"), ready);
-		CardButton(sb, BookGeometry.StorageRestock, T("Пополнить", "Restock"), ready);
-		CardButton(sb, BookGeometry.StorageDeposit, T("Положить", "Deposit Held"), ready && !Main.mouseItem.IsAir);
+		foreach (StorageButton button in StorageButtons)
+		{
+			CardButton(sb, StorageButtonRect(button), StorageButtonLabel(button), StorageButtonEnabled(button));
+		}
 		if (ModMenu)
 		{
 			return;
 		}
-		if (BookGeometry.StorageQuickStack.Contains(Mouse.X, Mouse.Y))
+		foreach (StorageButton button in StorageButtons)
 		{
-			MouseTip(T("Сложить то, что уже есть в хранилище · Ctrl+Q", "Store items already in storage · Ctrl+Q"));
-		}
-		if (BookGeometry.StorageDepositAll.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Сложить инвентарь, кроме панели и избранного · Ctrl+Shift+D", "Store inventory except hotbar and favorites · Ctrl+Shift+D"));
-		}
-		if (BookGeometry.StorageRestock.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Дополнить стопки инвентаря из хранилища · Ctrl+R", "Top up inventory stacks from storage · Ctrl+R"));
-		}
-		if (BookGeometry.StorageDeposit.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Положить предмет с курсора · Ctrl+D", "Store the item on your cursor · Ctrl+D"));
+			if (StorageButtonRect(button).Contains(Mouse.X, Mouse.Y))
+			{
+				MouseTip(StorageButtonTip(button));
+			}
 		}
 	}
 
-	// Details panel, one status for the whole tab: label + pill (the state); one line saying what the book is (or
-	// could be) connected to and how far; one hint; a button only when the player has to act (Connect / Disconnect
-	// when auto-connect is off in the config, Enter Password for a locked network); the selected stack; the last
-	// action; "Open Magic Storage" at the bottom. Gestures are in the stack's tooltip and in F1.
+	private static string StorageOffTitle => BookSources.PullsOff ? T("Недоступно на этом сервере", "Not available on this server") : T("Хранилища рядом выключены", "Nearby storage is off");
+
+	private static string StorageOffHint => BookSources.PullsOff ? T("Сервер сам хранит инвентари", "The server keeps inventories itself") : ((Main.netMode == NetmodeID.MultiplayerClient) ? T("Хост выключил эту функцию", "The host turned it off") : T("Включите в настройках мода", "Turn it on in the mod settings"));
+
+	// Details panel, top to bottom: label + pill (the state); what is nearby; the radius; what was not counted; the
+	// selected stack and where it is; the last action. Gestures are in the stack's tooltip and in F1.
 	private static void DrawStorageDetails(SpriteBatch sb)
 	{
 		Box(sb, BookGeometry.DetailsPanel, Surface, border: false, 12f);
 		BookRect content = BookGeometry.StorageContent;
-		bool supported = BookStorage.Supported;
-		bool connected = BookStorage.Connected;
-		bool crafting = BookStorage.CraftingConnected;
-		bool locked = supported && BookStorage.NeedsPassword;
+		bool on = BookSources.Enabled;
 		string state;
 		Color stateColor;
-		if (!supported)
+		if (!on)
 		{
-			state = T("Недоступно", "Unavailable");
-			stateColor = Bad;
+			state = T("Выключено", "Off");
+			stateColor = Muted;
 		}
-		else if (connected && BookStorage.Updating)
+		else if (BookSources.Syncing)
 		{
 			state = T("Синхронизация", "Syncing");
 			stateColor = Caution;
 		}
-		else if (connected)
-		{
-			state = crafting ? T("Подключено", "Connected") : T("Только хранилище", "Storage only");
-			stateColor = crafting ? Accent : Caution;
-		}
-		else if (locked)
-		{
-			state = T("Сеть под паролем", "Network locked");
-			stateColor = Caution;
-		}
 		else
 		{
-			state = T("Не подключено", "Not connected");
-			stateColor = Muted;
+			state = T("Готово", "Ready");
+			stateColor = Accent;
 		}
 		BookRect status = BookGeometry.StorageStatus;
 		float pillWidth = TextWidth(state, 0.8f) + 34f;
@@ -5525,102 +5458,46 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Box(sb, pill, FieldFill, border: true, 12f);
 		Box(sb, pill.X + 10f, pill.Y + 8f, 8f, 8f, stateColor, border: false, 4f);
 		CenterLabel(sb, state, pill.X + 24f, pill.Y + 2f, pill.Width - 30f, pill.Height - 4f, stateColor, 0.8f, rightAligned: false, leftAligned: true);
-		SectionLabel(sb, "Magic Storage", content.X, content.Y + 1f, pill.X - content.X - 8f);
+		SectionLabel(sb, T("Рядом", "Nearby"), content.X, content.Y + 1f, pill.X - content.X - 8f);
 		BookRect source = BookGeometry.StorageSource;
-		string line;
-		string lineTip;
-		if (!supported)
+		FixedLabel(sb, on ? BookSources.Summary : StorageOffTitle, source.X, source.Y, on ? TextColor : Muted, 0.9f, source.Width, source.Height);
+		BookRect hint = BookGeometry.StorageHint;
+		FixedLabel(sb, on ? BookSources.RadiusLine : StorageOffHint, hint.X, hint.Y, Muted, 0.8f, hint.Width, hint.Height);
+		BookRect skipped = BookGeometry.StorageSkipped;
+		string skippedText = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? T("Связь с Magic Storage отключена (client.log)", "Magic Storage support is off (see client.log)") : (on ? BookSources.NotCounted : "");
+		if (skippedText.Length > 0)
 		{
-			line = BookStorage.ConnectionStatus;
-			lineTip = "";
+			FixedLabel(sb, skippedText, skipped.X, skipped.Y, Caution, 0.8f, skipped.Width, skipped.Height);
 		}
-		else if (connected)
-		{
-			line = BookStorage.AccessName + " · " + BookStoragePresentation.Tiles(BookStorage.ConnectedTiles, Ru);
-			string network = BookStorage.NetworkName;
-			lineTip = ((network.Length > 0) ? (T("Сеть: ", "Network: ") + network + "\n") : "") + BookStorage.AccessCoordinates;
-		}
-		else
-		{
-			line = BookStorage.NearbyText;
-			lineTip = (BookStorage.Manual ? T("Подключение — кнопкой ниже", "Connect with the button below") : T("Книга сама подключается к точке доступа рядом", "The book connects to an access point in reach")) + "\n" + T("Для крафта из хранилища нужен интерфейс крафта", "Crafting from storage needs a Crafting Interface");
-		}
-		FixedLabel(sb, line, source.X, source.Y, supported ? TextColor : Muted, 0.9f, source.Width, source.Height);
-		BookStorage.NearbyPoint? nearby = (supported && !connected) ? BookStorage.Nearest : null;
-		string hint = "";
-		Color hintColor = Muted;
-		if (!supported)
-		{
-			hint = "";
-		}
-		else if (connected && !crafting)
-		{
-			hint = T("Для крафта нужен интерфейс крафта", "Crafting needs a Crafting Interface");
-			hintColor = Caution;
-		}
-		else if (connected)
-		{
-			hint = BookStorage.UseForCrafting ? T("Книга крафтит из этого хранилища", "The book crafts from this storage") : T("Сейчас книга крафтит из инвентаря", "The book crafts from the inventory now");
-		}
-		else if (locked)
-		{
-			hint = T("Пароль вводится в окне Magic Storage", "Enter the password in Magic Storage");
-		}
-		else if (nearby.HasValue && !nearby.Value.InReach)
-		{
-			hint = T("Подойдите ближе", "Walk closer to connect");
-		}
-		else if (nearby.HasValue && BookStorage.Paused && !BookStorage.Manual)
-		{
-			hint = BookStorage.InventoryClosed ? T("Откройте инвентарь", "Open the inventory to connect") : T("Закройте сундук или диалог", "Close the chest or dialog to connect");
-		}
-		if (hint.Length > 0)
-		{
-			BookRect hintRect = BookGeometry.StorageHint;
-			FixedLabel(sb, hint, hintRect.X, hintRect.Y, hintColor, 0.8f, hintRect.Width, hintRect.Height);
-		}
-		(BookRect networkRow, BookRect toggle, float rowsBottom) = StorageRows();
-		string action = StorageAction();
-		if (networkRow.Width > 0f)
-		{
-			Dropdown(sb, networkRow, T("Сеть: ", "Network: ") + CurrentNetworkName(), NetworkMenu);
-		}
-		if (action.Length > 0)
-		{
-			CardButton(sb, toggle, action, connected || BookStorage.CanConnect, !connected);
-		}
-		if (supported)
-		{
-			CardButton(sb, BookGeometry.StorageNative, T("Открыть Magic Storage", "Open Magic Storage"), connected);
-		}
-		// The optional rows (network, button) push the divider and the stack block down; without them it moves up.
-		BookRect slot = BookGeometry.StorageConnect;
-		float shift = slot.Y + slot.Height + 8f - rowsBottom;
-		Box(sb, content.X, rowsBottom + 8f, content.Width, 1f, Border);
+		Box(sb, content.X, skipped.Y + skipped.Height + 8f, content.Width, 1f, Border);
 		BookRect icon = BookGeometry.StorageItemIcon;
-		icon = new BookRect(icon.X, icon.Y - shift, icon.Width, icon.Height);
-		BookRect stack = new BookRect(icon.X + 60f, icon.Y, content.Width - 60f, icon.Height);
-		if (connected)
+		BookRect stack = new BookRect(icon.X, icon.Y, content.Width, icon.Height);
+		Item selected = on ? SelectedItem : null;
+		if (selected != null)
 		{
-			Item selected = SelectedItem;
-			if (selected != null)
+			Box(sb, icon, Raised, border: false, 8f);
+			Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
+			// A long name shrinks to fit before it is cut; the stack's tooltip then repeats it whole.
+			float nameSize = Math.Clamp((content.Width - 60f) / Math.Max(1f, TextWidth(selected.Name, 1f)), 0.8f, 1f);
+			FixedLabel(sb, selected.Name, icon.X + 60f, icon.Y + (1f - nameSize) * 12f, TextColor, nameSize, content.Width - 60f, 26f);
+			FixedLabel(sb, "×" + Count(selected.stack) + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria"), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
+			string[] rows = BookSources.BreakdownRows(selected.type);
+			for (int row = 0; row < rows.Length && row < 5; row++)
 			{
-				Box(sb, icon, Raised, border: false, 8f);
-				Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
-				FixedLabel(sb, selected.Name, stack.X, icon.Y, TextColor, 1f, stack.Width, 26f);
-				FixedLabel(sb, "×" + selected.stack + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria"), stack.X, icon.Y + 28f, Muted, 0.85f, stack.Width, 20f);
-			}
-			else
-			{
-				stack = new BookRect(icon.X, icon.Y, content.Width, icon.Height);
-				FixedLabel(sb, T("Предмет не выбран", "No item selected"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
-				FixedLabel(sb, T("Нажмите на предмет в сетке", "Click an item in the grid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+				BookRect where = BookGeometry.StorageWhere(row);
+				FixedLabel(sb, rows[row], where.X, where.Y, TextColor, 0.85f, where.Width, where.Height);
 			}
 		}
-		if (BookStorage.Message.Length > 0)
+		else if (on)
 		{
-			BookRect message = BookGeometry.StorageMessage;
-			FixedLabel(sb, BookStorage.Message, message.X, message.Y - shift, TextColor, 0.85f, message.Width, message.Height);
+			FixedLabel(sb, T("Предмет не выбран", "No item selected"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
+			FixedLabel(sb, T("Нажмите на предмет в сетке", "Click an item in the grid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+		}
+		string message = BookSources.TakingShown ? T("Забираю…", "Taking…") : BookSources.Message;
+		if (message.Length > 0)
+		{
+			BookRect line = BookGeometry.StorageMessage;
+			FixedLabel(sb, message, line.X, line.Y, TextColor, 0.85f, line.Width, line.Height);
 		}
 		if (MenuOpen)
 		{
@@ -5628,119 +5505,24 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (pill.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(connected ? T("Перечитать хранилище · F5", "Reload storage · F5") : (supported ? T("Для крафта из хранилища нужен интерфейс крафта", "Crafting from storage needs a Crafting Interface") : BookStorage.ConnectionStatus));
+			MouseTip(on ? T("Перечитать · F5", "Refresh · F5") : StorageOffHint);
 		}
-		else if (lineTip.Length > 0 && source.Contains(Mouse.X, Mouse.Y))
+		else if (on && source.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(lineTip);
-		}
-		else if (networkRow.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Сети рядом с вами", "Networks in reach") + "\n" + T("Книга считает и крафтит только из выбранной", "The book counts and crafts only from this one"));
-		}
-		else if (action.Length > 0 && toggle.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(connected ? T("Отключиться от хранилища", "Disconnect from the storage") : (locked ? T("Окно Magic Storage для пароля; книга закроется", "Magic Storage's window for the password; closes the book") : (BookStorage.CanConnect ? T("Подключиться к точке доступа рядом", "Connect to the access point in reach") : T("Подойдите к точке доступа", "Walk up to an access point"))));
-		}
-		else if (supported && BookGeometry.StorageNative.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(connected ? T("Окно Magic Storage; книга закроется", "Magic Storage's own window; closes the book") : T("Сначала подключитесь", "Connect first"));
-		}
-		else if (connected && stack.Contains(Mouse.X, Mouse.Y))
-		{
-			MouseTip(T("Shift+клик: взять стопку · ПКМ: взять одну", "Shift+Click: take a stack · Right-click: take one") + "\n" + T("Alt+клик: в избранное", "Alt+Click: favorite"));
-		}
-	}
-
-	// The Storage tab's one button, or "" when the player has nothing to do: Connect / Disconnect with auto-connect
-	// off, Enter Password when the network in reach is locked.
-	private static string StorageAction()
-	{
-		if (!BookStorage.Supported)
-		{
-			return "";
-		}
-		if (BookStorage.Manual)
-		{
-			return BookStorage.Connected ? T("Отключить", "Disconnect") : T("Подключить", "Connect");
-		}
-		return BookStorage.NeedsPassword ? T("Ввести пароль", "Enter Password") : "";
-	}
-
-	// More than one network in reach: the Storage tab offers a choice. Access points of one network count as one.
-	private static bool NetworkPickerShown
-	{
-		get
-		{
-			if (BookStorage.Connected)
+			string tip = BookSources.SummaryTip;
+			if (tip.Length > 0)
 			{
-				return BookStorage.Networks.Count > 1;
-			}
-			return false;
-		}
-	}
-
-	// Optional rows under the hint, top to bottom: the network dropdown and the one button. Shared by drawing and
-	// clicks; a row that isn't shown is an empty rect. Bottom is where the next block starts.
-	private static (BookRect Network, BookRect Action, float Bottom) StorageRows()
-	{
-		BookRect slot = BookGeometry.StorageConnect;
-		float y = slot.Y;
-		BookRect network = default(BookRect);
-		BookRect action = default(BookRect);
-		if (NetworkPickerShown)
-		{
-			network = new BookRect(slot.X, y, slot.Width, slot.Height);
-			y += slot.Height + 8f;
-		}
-		if (StorageAction().Length > 0)
-		{
-			action = new BookRect(slot.X, y, slot.Width, slot.Height);
-			y += slot.Height + 8f;
-		}
-		return (network, action, y);
-	}
-
-	private static string CurrentNetworkName()
-	{
-		foreach (BookStorage.NetworkChoice network in BookStorage.Networks)
-		{
-			if (BookStorage.IsCurrent(network))
-			{
-				return network.Name;
+				MouseTip(tip);
 			}
 		}
-		string name = BookStorage.NetworkName;
-		return (name.Length > 0) ? name : BookStorage.AccessName;
-	}
-
-	private static BookRect NetworkOption(int option)
-	{
-		BookRect anchor = StorageRows().Network;
-		return new BookRect(anchor.X + 4f, anchor.Y + anchor.Height + 8f + option * 48, anchor.Width - 8f, 44f);
-	}
-
-	// Each network in reach on two lines: its name, then what the book would use there and how far; the connected
-	// one selected.
-	private static void DrawNetworkMenu(SpriteBatch sb)
-	{
-		IReadOnlyList<BookStorage.NetworkChoice> networks = BookStorage.Networks;
-		BookRect anchor = StorageRows().Network;
-		Box(sb, anchor.X, anchor.Y + anchor.Height + 4f, anchor.Width, 8f + networks.Count * 48, new Color(17, 25, 20), border: true, 10f, Accent);
-		for (int option = 0; option < networks.Count; option++)
+		else if (on && skippedText.Length > 0 && skipped.Contains(Mouse.X, Mouse.Y))
 		{
-			BookRect rect = NetworkOption(option);
-			bool active = BookStorage.IsCurrent(networks[option]);
-			if (active)
-			{
-				Box(sb, rect, SelectedFill, border: false, 6f);
-			}
-			else if (rect.Contains(Mouse.X, Mouse.Y))
-			{
-				Box(sb, rect, HoverFill, border: false, 6f);
-			}
-			FixedLabel(sb, networks[option].Name, rect.X + 12f, rect.Y + 2f, active ? Accent : TextColor, 0.85f, rect.Width - 24f, 22f);
-			FixedLabel(sb, networks[option].Access + " · " + BookStoragePresentation.Tiles(networks[option].Tiles, Ru), rect.X + 12f, rect.Y + 22f, Muted, 0.8f, rect.Width - 24f, 20f);
+			MouseTip(BookSources.NotCountedTip);
+		}
+		else if (selected != null && stack.Contains(Mouse.X, Mouse.Y))
+		{
+			string cut = (TextWidth(selected.Name, 0.8f) > content.Width - 60f) ? (selected.Name + "\n") : "";
+			MouseTip(cut + T("Shift+клик: взять стопку · ПКМ: взять одну", "Shift+Click: take a stack · Right-click: take one") + "\n" + T("Alt+клик: в избранное", "Alt+Click: favorite"));
 		}
 	}
 
@@ -5830,6 +5612,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static void DrawBookContent(SpriteBatch sb)
 	{
+		StorageHover = null;
 		DrawHeader(sb);
 		if (TrackingView)
 		{
@@ -5876,10 +5659,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (StageMenu)
 		{
 			DrawStageMenu(sb);
-		}
-		if (NetworkMenu)
-		{
-			DrawNetworkMenu(sb);
 		}
 	}
 
@@ -6093,10 +5872,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Main.HoverItem = item.Clone();
 				Main.hoverItemName = item.Name;
+				if (StorageView)
+				{
+					StorageHover = item;
+				}
 			}
 			if ((!Catalogue || StorageView) && item.stack > 1)
 			{
-				Text(sb, item.stack.ToString(), cell.X + 4f, cell.Y + 42f, TextColor, 0.8f, 56f, 20f);
+				// Nearby totals can pass what a cell holds: 399,960 reads "399K".
+				Text(sb, (item.stack >= 100000) ? ((item.stack >= 10000000) ? (item.stack / 1000000 + "M") : (item.stack / 1000 + "K")) : item.stack.ToString(), cell.X + 4f, cell.Y + 42f, TextColor, 0.8f, 56f, 20f);
 			}
 			if (Favorites.Contains(ItemKey(item)))
 			{
@@ -6114,18 +5898,27 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (StorageView)
 		{
-			// The status itself lives in the details panel; the empty grid only says what to do.
-			if (!BookStorage.Connected)
+			// The state itself lives in the details panel; the empty grid only says what to do.
+			if (!BookSources.Enabled)
 			{
-				EmptyState(sb, area, T("Здесь будут предметы хранилища", "Storage items show up here"), (!BookStorage.Supported) ? "" : (BookStorage.Manual ? T("Подключитесь к точке доступа", "Connect to an access point") : T("Подойдите к точке доступа", "Walk up to a storage access point")));
+				EmptyState(sb, area, StorageOffTitle, StorageOffHint);
 			}
-			else if (BookStorage.Items.Count == 0)
+			else if (BookSources.Syncing)
 			{
-				EmptyState(sb, area, T("В этой сети пока нет предметов", "This network is empty"), "");
+				EmptyState(sb, area, T("Синхронизация…", "Syncing…"), "");
+			}
+			else if (BookSources.Items.Count > 0)
+			{
+				EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			}
+			else if (BookSources.AnySource)
+			{
+				EmptyState(sb, area, T("Рядом всё пусто", "Nearby containers are empty"), "");
 			}
 			else
 			{
-				EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+				int radius = BookNearbyConfig.Radius;
+				EmptyState(sb, area, T("Рядом ничего нет", "Nothing nearby"), Ru ? ("Здесь появятся сундуки и хранилища в радиусе " + radius + " " + BookSourceRules.Plural(radius, "блока", "блоков", "блоков")) : ("Chests and storages within " + radius + " tiles show up here"));
 			}
 		}
 		else if (RecentView)
@@ -6233,14 +6026,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (r != null)
 		{
-			if (SourceShown)
-			{
-				DrawCraftSource(sb);
-			}
 			ActionButton(sb, CraftRect, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
 			if (!MenuOpen && CraftRect.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(BookCrafting.Reason(r, Ru) + "\nCtrl+Enter · " + T("максимум", "max") + ": Ctrl+Shift+Enter");
+				string from = BookCrafting.Sources(r, PreviewBatches(r));
+				MouseTip(BookCrafting.Reason(r, Ru) + ((from.Length > 0) ? (" · " + from) : "") + "\nCtrl+Enter · " + T("максимум", "max") + ": Ctrl+Shift+Enter");
 			}
 		}
 		DrawTrackButton(sb, r);
@@ -6640,7 +6430,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 			// An "A or B" row opens the alternative it shows.
 			string action = hasItem ? (d.Alternatives ? T("Клик: открыть «" + d.Icon.Name + "»", "Click: open " + d.Icon.Name) : T("Клик: открыть этот предмет", "Click: open this item")) : "";
 			string detail = (kind == 0) ? d.Tooltip : "";
-			MouseTip(d.Name + "\n" + string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)));
+			// Where the item is ("Chests ×2: 120") stays the last line, under the click hint.
+			string where = "";
+			int cut = detail.IndexOf('\n');
+			if (cut >= 0)
+			{
+				where = detail.Substring(cut);
+				detail = detail.Substring(0, cut);
+			}
+			MouseTip(d.Name + "\n" + string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0)) + where);
 		}
 	}
 
@@ -6676,25 +6474,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 	}
 
-	// Craft source chip, between the star and Craft, only when Magic Storage support is on. The source follows the
-	// connection (a Crafting Interface means storage); the chip is clickable only while both sources work.
-	private static bool SourceShown => BookStorage.Supported;
-
-	private static BookRect CraftRect => SourceShown ? BookGeometry.CraftActionBesideSource : BookGeometry.CraftAction;
-
-	private static void DrawCraftSource(SpriteBatch sb)
-	{
-		BookRect rect = BookGeometry.CraftSourceChip;
-		bool storage = BookStorage.UseForCrafting;
-		bool choice = BookStorage.CanChooseSource;
-		bool over = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
-		Box(sb, rect, (choice && over) ? HoverFill : (storage ? SelectedFill : Surface), border: true, 8f, storage ? new Color?(Accent) : null);
-		CenterLabel(sb, storage ? T("Из хранилища", "From storage") : T("Из инвентаря", "From inventory"), rect.X + 8f, rect.Y + 4f, rect.Width - 16f, rect.Height - 8f, storage ? Accent : (choice ? TextColor : Muted), 0.8f);
-		if (over)
-		{
-			MouseTip(storage ? (T("Материалы и результат — в Magic Storage", "Materials and result: Magic Storage") + "\n" + T("Клик: из инвентаря", "Click: use the inventory")) : (T("Материалы из инвентаря", "Materials from your inventory") + "\n" + (choice ? T("Клик: из хранилища", "Click: use Magic Storage") : T("Хранилищу нужен интерфейс крафта рядом", "Storage needs a Crafting Interface in reach"))));
-		}
-	}
+	private static BookRect CraftRect => BookGeometry.CraftAction;
 
 	private static void DrawSortMenu(SpriteBatch sb)
 	{
@@ -6743,16 +6523,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static int TrackingTabNumber => VisibleTabs().IndexOf(5) + 1;
 
-	// The Storage tab exists only when Magic Storage is loaded.
+	// Every tab, Storage included: nearby chests count without Magic Storage.
 	private static List<int> VisibleTabs()
 	{
 		List<int> tabs = new List<int>();
 		for (int tab = 0; tab < BookGeometry.TabCount; tab++)
 		{
-			if (tab != 3 || StorageTabVisible)
-			{
-				tabs.Add(tab);
-			}
+			tabs.Add(tab);
 		}
 		return tabs;
 	}
@@ -6815,7 +6592,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		foreach (BookHelp.Section section in BookHelp.Sections)
 		{
-			if (section.StorageOnly && !BookStorage.Installed)
+			if (!Array.Exists(section.Rows, (BookHelp.Entry row) => row.Visible))
 			{
 				continue;
 			}
@@ -6825,6 +6602,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			y += BookHelp.HeaderStep;
 			foreach (BookHelp.Entry row in section.Rows)
 			{
+				if (!row.Visible)
+				{
+					continue;
+				}
 				HelpKeycap(sb, new BookRect(column.X, y, BookHelp.KeyWidth, BookHelp.KeyHeight), T(row.KeyRu, row.KeyEn));
 				Text(sb, T(row.Ru, row.En), column.X + BookHelp.KeyWidth + 12f, y, TextColor, 0.85f, column.Width - BookHelp.KeyWidth - 12f, BookHelp.KeyHeight);
 				y += BookHelp.RowStep;

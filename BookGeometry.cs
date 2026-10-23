@@ -83,21 +83,9 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect TrackingDetailPager => new BookRect(TrackingDetailPrevious.X + 48f, TrackingDetailPrevious.Y, TrackingDetailNext.X - TrackingDetailPrevious.X - 96f, 28f);
 
-	// With Magic Storage the craft row is [star][source chip][Craft]; without it, [star][Craft].
-	internal static BookRect CraftSourceChip => new BookRect(852f, 564f, 120f, 32f);
-
-	internal static BookRect CraftActionBesideSource => new BookRect(980f, 564f, 116f, 32f);
-
-	// Storage tab: bulk inventory actions sit in the strip above the grid (four buttons). The details panel, top to
-	// bottom: label + status pill; what the book is (or could be) connected to; one hint line; the Connect /
-	// Disconnect toggle; the selected stack; the last action; "Open Magic Storage" pinned to the bottom.
-	internal static BookRect StorageQuickStack => StorageToolbarButton(0);
-
-	internal static BookRect StorageDepositAll => StorageToolbarButton(1);
-
-	internal static BookRect StorageRestock => StorageToolbarButton(2);
-
-	internal static BookRect StorageDeposit => StorageToolbarButton(3);
+	// Storage tab: the strip above the grid holds vanilla's chest buttons in vanilla's order, minus Loot All: Deposit
+	// All, Quick Stack, Restock. The grid takes an item dropped from the cursor. The details panel, top to bottom: label + status pill; what is nearby; the radius;
+	// what was not counted; the selected stack with where it is; the last action.
 
 	internal static BookRect StorageContent => new BookRect(DetailsPanel.X + 16f, DetailsPanel.Y + 16f, DetailsPanel.Width - 32f, DetailsPanel.Height - 32f);
 
@@ -107,13 +95,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect StorageHint => new BookRect(StorageContent.X, StorageContent.Y + 60f, StorageContent.Width, 20f);
 
-	internal static BookRect StorageConnect => new BookRect(StorageContent.X, StorageContent.Y + 88f, StorageContent.Width, 32f);
+	internal static BookRect StorageSkipped => new BookRect(StorageContent.X, StorageContent.Y + 84f, StorageContent.Width, 20f);
 
-	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 152f, 48f, 48f);
+	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 128f, 48f, 48f);
 
-	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + 216f, StorageContent.Width, 20f);
+	// Up to five "Chests ×3: 120" rows under the selected stack.
+	internal static BookRect StorageWhere(int row) => new BookRect(StorageContent.X, StorageContent.Y + 188f + row * 24f, StorageContent.Width, 22f);
 
-	internal static BookRect StorageNative => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 32f, StorageContent.Width, 32f);
+	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 24f, StorageContent.Width, 20f);
 
 	internal static BookRect Help => new BookRect(934f, 660f, 40f, 24f);
 
@@ -158,6 +147,8 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	// Storage keeps a toolbar between the filter bar and its grid.
 	internal static BookRect StorageToolbar => new BookRect(212f, GridTop, 568f, 68f);
+
+	internal static BookRect StorageGrid => new BookRect(212f, StorageGridTop, 568f, 5 * 72 - 8);
 
 	internal const int Width = 1120;
 
@@ -285,19 +276,20 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	internal static BookRect MobPageLabel => new BookRect(1024f, 600f, 44f, 28f);
 
 	internal static BookRect MobPageNext => new BookRect(1068f, 600f, 28f, 28f);
-	// Quick Stack gets the widest slot (its Russian label is the longest), Restock the narrowest; gaps stay 8.
+	// Four buttons: Quick Stack gets the widest slot (its Russian label is the longest), Restock the narrowest; two
+	// buttons share the strip evenly. Gaps stay 8.
 	private static readonly float[] StorageToolbarExtra = new float[4] { 16f, 0f, -16f, 0f };
 
-	internal static BookRect StorageToolbarButton(int index)
+	internal static BookRect StorageToolbarButton(int index, int count)
 	{
 		BookRect strip = StorageToolbar;
-		float width = (strip.Width - 24f - 24f) / 4f;
+		float width = (strip.Width - 24f - 8f * (count - 1)) / count;
 		float x = strip.X + 12f;
 		for (int i = 0; i < index; i++)
 		{
-			x += width + StorageToolbarExtra[i] + 8f;
+			x += width + ((count == 4) ? StorageToolbarExtra[i] : 0f) + 8f;
 		}
-		return new BookRect(x, strip.Y + 12f, width + StorageToolbarExtra[index], strip.Height - 24f);
+		return new BookRect(x, strip.Y + 12f, width + ((count == 4) ? StorageToolbarExtra[index] : 0f), strip.Height - 24f);
 	}
 
 	internal static BookRect ModOption(int index)

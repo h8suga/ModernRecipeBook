@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Xna.Framework.Input;
 using Terraria;
+using Terraria.UI;
 using Terraria.GameInput;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -26,7 +27,8 @@ public sealed class BookPlayer : ModPlayer
 	public override void ProcessTriggers(TriggersSet triggersSet)
 	{
 		ModKeybind toggleBook = ModernRecipeBook.ToggleBook;
-		if (toggleBook != null && toggleBook.JustPressed && !Main.gameMenu)
+		// Both keys are Mouse3 by default: on the open map the press is the teleport's (no book, no mob or item lookup).
+		if (toggleBook != null && toggleBook.JustPressed && !Main.gameMenu && !BookMapTeleport.TakesPress)
 		{
 			BookInventoryShortcut.RequestToggle();
 		}
@@ -35,7 +37,19 @@ public sealed class BookPlayer : ModPlayer
 
 	public override bool HoverSlot(Item[] inventory, int context, int slot)
 	{
+		// Shift over an inventory item with the Storage tab open: vanilla's "into the chest" cursor.
+		if (ItemSlot.ShiftInUse && BookSources.CanShiftDeposit(Player, inventory, context, slot))
+		{
+			Main.cursorOverride = 9;
+			return true;
+		}
 		return BookInventoryShortcut.TryOpen(inventory, context, slot);
+	}
+
+	// Shift+click with the Storage tab open moves the whole stack into nearby storage, as into an open chest.
+	public override bool ShiftClickSlot(Item[] inventory, int context, int slot)
+	{
+		return BookSources.ShiftDeposit(Player, inventory, context, slot);
 	}
 
 	public override void SetControls()
@@ -169,8 +183,13 @@ public sealed class BookPlayer : ModPlayer
 	// Cooldowns stay Calamity's; Triggers.Update recomputes JustPressed next tick.
 	public override void PostUpdateMiscEffects()
 	{
+		// Runs for every player on every client and on the server; only the local player's own keys count.
+		if (Player.whoAmI != Main.myPlayer)
+		{
+			return;
+		}
 		Dictionary<string, bool> justPressed = PlayerInput.Triggers.JustPressed.KeyStatus;
-		if (Player.whoAmI != Main.myPlayer || !ModContent.GetInstance<BookConfig>().DoubleTapDash || !justPressed.ContainsKey(CalamityDashKey) || !PlayerInput.CurrentProfile.InputModes[InputMode.Keyboard].KeyStatus.TryGetValue(CalamityDashKey, out List<string> keys) || keys.Count == 0)
+		if (!ModContent.GetInstance<BookConfig>().DoubleTapDash || !justPressed.ContainsKey(CalamityDashKey) || !PlayerInput.CurrentProfile.InputModes[InputMode.Keyboard].KeyStatus.TryGetValue(CalamityDashKey, out List<string> keys) || keys.Count == 0)
 		{
 			return;
 		}
@@ -233,6 +252,7 @@ public sealed class BookPlayer : ModPlayer
 		{
 			RecipeBookSystem.ResetView();
 			RecipeBookSystem.QueuePlayerUiRestore(SavedUiState);
+			BookMapMarkers.RequestList();
 		}
 	}
 }

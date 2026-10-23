@@ -3,6 +3,37 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.9.0 — 2026-10-23
+
+### Added
+- Nearby storage: every unlocked chest and dresser, the Piggy Bank, Safe, Defender's Forge and Void Vault, and
+  every Magic Storage network within the radius (10–50 tiles, default 30, set by the host) are one list on the
+  Storage tab, with search, filters and sorting. Right-click takes one, Shift+Click takes a stack. Shift+Click an
+  inventory item or drop it from the cursor onto the grid to put it away: onto matching stacks first, then into
+  the nearest Magic Storage, then into the nearest chest with room. Card counts, Craftable, Max and the tracker
+  count all of it; Craft pulls the missing materials into the inventory and crafts at your stations plus those of
+  Magic Storage Crafting Interfaces in range. Locked chests and chests another player has open are skipped and
+  listed as not counted. Works in multiplayer: the server moves the items and checks every request.
+- Map Teleport: Mouse3 (rebindable in Controls) on an explored spot of the full map teleports you there.
+  Unexplored spots refuse; inside blocks or next to lava it lands on the nearest safe floor.
+- Shared map markers: right-click the full map to place a marker with a name and one of 12 badges. Everyone on
+  the server sees it on the full map, the minimap and the overlay, with who placed it and how long ago. Only the
+  author or the host can edit or delete it. Saved with the world.
+- Server settings, Quality of Life (only the host can change them): Nearby Storage, Nearby Storage Radius, Map
+  Teleport, Shared Map Markers.
+
+### Changed
+- The mod is now needed on the server as well as on every client; players joining download it. On a server
+  without it, the book is off for that session.
+- Magic Storage: no connecting or picking a network any more, every network in range counts. The craft source
+  chip and the auto-connect option are gone, and crafted items always go to the inventory. Deposit All, Quick
+  Stack and Restock work with chests too; the Ctrl+D and Ctrl+Shift+D shortcuts are gone.
+- The Storage tab is always shown, since chests count without Magic Storage, so for players without Magic
+  Storage Ctrl+4 now opens Storage instead of Recent.
+
+### Fixed
+- Clicks on the full map no longer press hidden book or tracker buttons under it.
+
 ## 1.8.0 — 2026-10-22
 
 ### Added

@@ -4,6 +4,7 @@ Mods: {
 			ToggleBook.DisplayName: Open Recipe Book
 			ChainBack.DisplayName: Back
 			ChainForward.DisplayName: Forward
+			MapTeleport.DisplayName: Map Teleport
 		}
 
 		Configs: {
@@ -48,12 +49,36 @@ Mods: {
 				}
 			}
 
-			BookStorageConfig: {
-				DisplayName: Recipe Book: Magic Storage
+			BookServerConfig: {
+				DisplayName: Recipe Book: Server
+				Headers.QualityOfLife: Quality of Life
 
-				AutoConnect: {
-					Label: Auto-connect Magic Storage
-					Tooltip: The open book joins the nearest storage in reach. Off: connect with a button.
+				NearbyStorage: {
+					Label: Nearby Storage
+					Tooltip: The book shows, counts and crafts from chests and Magic Storage within the radius.
+				}
+
+				NearbyRadius: {
+					Label: Nearby Storage Radius (tiles)
+					Tooltip: Default 30 tiles around the player.
+				}
+
+				MapTeleport: {
+					Label: Map Teleport
+					Tooltip:
+						'''
+						Mouse3 / middle click on an explored spot of the full map teleports you there.
+						Rebindable in Controls.
+						'''
+				}
+
+				MapMarkers: {
+					Label: Shared Map Markers
+					Tooltip:
+						'''
+						Markers everyone on the server sees, kept with the world.
+						Right-click the full map to place one, right-click a marker to edit or delete it.
+						'''
 				}
 			}
 		}

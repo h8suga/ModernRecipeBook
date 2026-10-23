@@ -32,8 +32,6 @@ internal static class BookHotkeys
 		MoveRight,
 		MoveUp,
 		MoveDown,
-		DepositCursor,
-		DepositAll,
 		QuickStack,
 		Restock,
 		Refresh,
@@ -119,14 +117,6 @@ internal static class BookHotkeys
 			}
 			if (storage)
 			{
-				if (Press(Keys.D))
-				{
-					if (!shift)
-					{
-						return Action.DepositCursor;
-					}
-					return Action.DepositAll;
-				}
 				if (Press(Keys.Q))
 				{
 					return Action.QuickStack;

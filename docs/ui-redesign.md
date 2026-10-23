@@ -22,7 +22,7 @@ agent. Read it fully before editing. Screens of the current state: `<stand>\shot
   | material count | `have/need`, e.g. `12/10` | same |
   | crafting station | Station | Станция |
   | where to get an item | How to Get | Где взять |
-  | crafting source | Inventory · Storage | Инвентарь · Хранилище |
+  | containers the book counts (chests, banks, Magic Storage) | Nearby | Рядом |
 
   "Start crafting" (which only starts tracking) becomes Track. "Post-hardmode" becomes Post-Moon Lord.
 - RU strings must fit the same boxes as EN: if a RU label does not fit, shorten the wording, do not let the
@@ -79,7 +79,7 @@ Chains and Recent views. Owns `BookGeometry.cs` (all rects except those listed f
 the shared helpers (`Button`, `Box`, `Label`, `Text`, `CenterLabel`, `Icon`, `MouseTip`, `FlushTip`, colours);
 `BookCategories.cs`, `BookTypography.cs`, `BookSkin.cs`, `BookUiState.cs`.
 - Header: title + tabs + close. Remove "Recipes: N · Items: N" from the header (the result count stays in the
-  grid footer). Storage tab only when Magic Storage is loaded.
+  grid footer). The Storage tab is always there: nearby chests count without Magic Storage (docs/nearby-storage.md).
 - Filter bar under the header, same place on every catalogue tab: Search (with clear), Stage segmented
   control, Mod dropdown, Sort dropdown, Favorites toggle (star). Find out what the "R" button does: fold it
   into a dropdown/toggle with a clear label, or drop it.
@@ -90,7 +90,7 @@ the shared helpers (`Button`, `Box`, `Label`, `Text`, `CenterLabel`, `Icon`, `Mo
   green when enough, red when not, "?" opens How to Get); "Station" rows; variant pager only when more than one
   recipe; batch chips ×1 ×5 ×10 Max; actions: primary Craft, secondary Track, Favorite as a star icon button.
 - Footer: one short contextual hint + version. Window size controls stay but compact; drag the window by its
-  header (no separate Move mode). Craft source as the segmented control (only when Magic Storage is present).
+  header (no separate Move mode). No craft-source control: one source set (docs/nearby-storage.md).
 
 ### Zone B — overlays and tracking (`ui/overlays`)
 Owns the tracker code in `RecipeBookSystem.cs`: `StopTracker` … `DrawGoalMaterials`, `UpdateTrackerMaterials`,
@@ -113,7 +113,7 @@ Owns the tracker code in `RecipeBookSystem.cs`: `StopTracker` … `DrawGoalMater
 - Config labels/tooltips for tracker settings follow the copy rules.
 
 ### Zone C — secondary surfaces (`ui/secondary`)
-Owns `BookStorage*.cs` texts and `DrawStorageToolbar`, `DrawStorageDetails`; the How to Get card
+Owns the `BookSources` / `BookMagicStorage` texts and `DrawStorageToolbar`, `DrawStorageDetails`; the How to Get card
 (`CloseAcquisition` … `DrawAcquisition`); the enemy card (`CanOpenEnemy` … `DrawEnemyCard`); Help
 (`DrawHelp`, `HelpKeycap`, `BookHelp.cs`) and the mod menu; `Localization/*.hjson` (config labels and
 tooltips, keybind names); chat/status messages; the `Storage*`, `Acquisition*`, `Enemy*`, `Help*`, `ModMenu*`

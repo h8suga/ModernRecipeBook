@@ -201,6 +201,78 @@ internal static class BookBatchPlanner
 		return result;
 	}
 
+	// Splits needs over layers of sources (the inventory, then nearby banks, then remote containers) and returns how
+	// much of each type every layer gives, or null when all layers together fall short. The flow is first run on the
+	// first layer alone and then widened layer by layer; a source edge's flow never drops when its capacity grows, so
+	// the final use of each type is taken from the earlier layers first.
+	internal static Dictionary<int, long>[] PlanLayers(IReadOnlyList<long> quantities, IReadOnlyList<IReadOnlyCollection<int>> accepted, IReadOnlyList<IReadOnlyDictionary<int, long>> layers)
+	{
+		if (quantities.Count != accepted.Count || layers.Count == 0)
+		{
+			return null;
+		}
+		int[] types = accepted.SelectMany((IReadOnlyCollection<int> a) => a).Where((int t) => t > 0).Distinct().OrderBy((int t) => t).ToArray();
+		long total = quantities.Sum((long q) => Math.Max(0L, q));
+		int needOffset = 1 + types.Length;
+		int sink = needOffset + quantities.Count;
+		Dinic flow = new Dinic(sink + 1);
+		Dictionary<int, int> nodes = new Dictionary<int, int>();
+		Dinic.Edge[] sources = new Dinic.Edge[types.Length];
+		long[] given = new long[types.Length];
+		for (int i = 0; i < types.Length; i++)
+		{
+			nodes[types[i]] = 1 + i;
+			given[i] = Math.Min(total, Math.Max(0L, layers[0].GetValueOrDefault(types[i])));
+			sources[i] = flow.AddEdge(0, 1 + i, given[i]);
+		}
+		for (int n = 0; n < quantities.Count; n++)
+		{
+			long demand = Math.Max(0L, quantities[n]);
+			flow.AddEdge(needOffset + n, sink, demand);
+			foreach (int type in accepted[n].Distinct())
+			{
+				if (nodes.TryGetValue(type, out var node))
+				{
+					flow.AddEdge(node, needOffset + n, demand);
+				}
+			}
+		}
+		long flowed = flow.MaxFlow(0, sink, total);
+		for (int layer = 1; layer < layers.Count && flowed < total; layer++)
+		{
+			for (int i = 0; i < types.Length; i++)
+			{
+				long add = Math.Min(total, Math.Max(0L, layers[layer].GetValueOrDefault(types[i])));
+				sources[i].Capacity += add;
+				given[i] += add;
+			}
+			flowed += flow.MaxFlow(0, sink, total - flowed);
+		}
+		if (flowed < total)
+		{
+			return null;
+		}
+		Dictionary<int, long>[] result = new Dictionary<int, long>[layers.Count];
+		for (int layer = 0; layer < layers.Count; layer++)
+		{
+			result[layer] = new Dictionary<int, long>();
+		}
+		for (int i = 0; i < types.Length; i++)
+		{
+			long used = given[i] - sources[i].Capacity;
+			for (int layer = 0; layer < layers.Count && used > 0; layer++)
+			{
+				long take = Math.Min(used, Math.Max(0L, layers[layer].GetValueOrDefault(types[i])));
+				if (take > 0)
+				{
+					result[layer][types[i]] = take;
+					used -= take;
+				}
+			}
+		}
+		return result;
+	}
+
 	private static bool CanAllocate(IReadOnlyList<BookBatchNeed> needs, IReadOnlyDictionary<int, int> available, int batches)
 	{
 		int[] types = (from result in (from num in needs.SelectMany((BookBatchNeed bookBatchNeed) => bookBatchNeed.AcceptedTypes)
