@@ -21,6 +21,9 @@ namespace ModernRecipeBook;
 // when an input signature changes, never per frame.
 public sealed class BookSources : ModSystem
 {
+	// The local player's view: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	internal readonly record struct Stock(int Type, int Prefix, int Count);
 
 	internal sealed record MirrorChest(int Index, short X, short Y, Stock[] Entries);
@@ -161,22 +164,18 @@ public sealed class BookSources : ModSystem
 
 	private static int NextId;
 
-	// The last action's result; it fades after five seconds, like a toast.
-	private static string message = "";
+	// The last action's result, built when it is drawn (so it reads in the language shown now); it fades after five
+	// seconds, like a toast.
+	private static Func<string> MessageText;
 
 	private static ulong MessageTick;
 
-	internal static string Message
+	internal static string Message => (MessageText != null && Main.GameUpdateCount - MessageTick < 300) ? MessageText() : "";
+
+	private static void Say(Func<string> text)
 	{
-		get
-		{
-			return (Main.GameUpdateCount - MessageTick < 300) ? message : "";
-		}
-		set
-		{
-			message = value;
-			MessageTick = Main.GameUpdateCount;
-		}
+		MessageText = text;
+		MessageTick = Main.GameUpdateCount;
 	}
 
 	private static (int Type, int Version, bool Ru, string Text, string[] Rows) BreakdownCache = (0, -1, false, "", Array.Empty<string>());
@@ -256,7 +255,7 @@ public sealed class BookSources : ModSystem
 		StayAround = Ticks = AwaitingTicks = 0;
 		ScanDue = LocalDue = true;
 		AppliedInputs = int.MinValue;
-		Message = "";
+		MessageText = null;
 		Version++;
 		ItemsVersion++;
 	}
@@ -338,7 +337,7 @@ public sealed class BookSources : ModSystem
 		{
 			BookNearbyServer.Subscribe(Main.myPlayer, on);
 		}
-		else if (BookNearbyConfig.MultiplayerReady)
+		else
 		{
 			AwaitingSnapshot = on;
 			AwaitingTicks = 0;
@@ -1015,12 +1014,12 @@ public sealed class BookSources : ModSystem
 		}
 		if (!Main.mouseItem.IsAir)
 		{
-			Message = T("Сначала уберите предмет с курсора", "Clear the cursor first");
+			Say(() => T("Сначала уберите предмет с курсора", "Clear the cursor first"));
 			return;
 		}
 		if (!Listed.TryGetValue((shown.type, shown.prefix), out var have))
 		{
-			Message = T("Этого уже нет рядом", "No longer nearby");
+			Say(() => T("Этого уже нет рядом", "No longer nearby"));
 			return;
 		}
 		int want = single ? 1 : (int)Math.Min(Math.Max(1, shown.maxStack), have.Local + have.Remote);
@@ -1033,7 +1032,7 @@ public sealed class BookSources : ModSystem
 		}
 		else
 		{
-			Message = full ? T("Инвентарь полон", "Inventory full") : ((moved > 0) ? T("Забрано в инвентарь", "Taken to inventory") : T("Этого уже нет рядом", "No longer nearby"));
+			Say(() => full ? T("Инвентарь полон", "Inventory full") : ((moved > 0) ? T("Забрано в инвентарь", "Taken to inventory") : T("Этого уже нет рядом", "No longer nearby")));
 		}
 		Refresh(force: true);
 	}
@@ -1078,7 +1077,7 @@ public sealed class BookSources : ModSystem
 		}
 		else
 		{
-			Message = (moved > 0) ? T("Стопки пополнены", "Stacks topped up") : T("Нечего пополнять", "Nothing to top up");
+			Say(() => (moved > 0) ? T("Стопки пополнены", "Stacks topped up") : T("Нечего пополнять", "Nothing to top up"));
 		}
 		Refresh(force: true);
 	}
@@ -1092,7 +1091,7 @@ public sealed class BookSources : ModSystem
 			return;
 		}
 		player.QuickStackAllChests();
-		Message = T("Сложено в сундуки рядом", "Stacked into nearby chests");
+		Say(() => T("Сложено в сундуки рядом", "Stacked into nearby chests"));
 		ScanDue = LocalDue = true;
 	}
 
@@ -1166,7 +1165,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (!CanDeposit)
 		{
-			Message = Enabled ? T("Рядом некуда складывать", "Nothing nearby to deposit into") : T("Хранилища рядом выключены", "Nearby storage is off");
+			Say(() => Enabled ? T("Рядом некуда складывать", "Nothing nearby to deposit into") : T("Хранилища рядом выключены", "Nearby storage is off"));
 			return;
 		}
 		Item item = Main.mouseItem.Clone();
@@ -1201,7 +1200,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (items.Count == 0)
 		{
-			Message = T("Нечего складывать", "Nothing to deposit");
+			Say(() => T("Нечего складывать", "Nothing to deposit"));
 			return;
 		}
 		SendDeposit(items, toCursor: false);
@@ -1376,24 +1375,26 @@ public sealed class BookSources : ModSystem
 		case Purpose.Take:
 		{
 			long total = got + LocallyMoved;
-			Message = status switch
+			long asked = pending.Asked + LocallyMoved;
+			Say(() => status switch
 			{
 				BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
 				BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
-				_ => spilled ? T("Инвентарь полон: остаток на курсоре", "Inventory full: rest on cursor") : ((total == 0) ? T("Этого уже нет рядом", "No longer nearby") : ((status == BookNearbyServer.Status.Partial) ? (T("Взято ", "Took ") + total + T(" из ", " of ") + (pending.Asked + LocallyMoved) + T(": остального уже нет", ": the rest is gone")) : T("Забрано в инвентарь", "Taken to inventory"))),
-			};
+				_ => spilled ? T("Инвентарь полон: остаток на курсоре", "Inventory full: rest on cursor") : ((total == 0) ? T("Этого уже нет рядом", "No longer nearby") : ((status == BookNearbyServer.Status.Partial) ? (T("Взято ", "Took ") + total + T(" из ", " of ") + asked + T(": остального уже нет", ": the rest is gone")) : T("Забрано в инвентарь", "Taken to inventory"))),
+			});
 			break;
 		}
 		case Purpose.Restock:
-			Message = (status == BookNearbyServer.Status.Busy) ? T("Слишком часто: подождите", "Too fast: wait a moment") : ((got + LocallyMoved > 0) ? T("Стопки пополнены", "Stacks topped up") : T("Нечего пополнять", "Nothing to top up"));
+			long topped = got + LocallyMoved;
+			Say(() => (status == BookNearbyServer.Status.Busy) ? T("Слишком часто: подождите", "Too fast: wait a moment") : ((topped > 0) ? T("Стопки пополнены", "Stacks topped up") : T("Нечего пополнять", "Nothing to top up")));
 			break;
 		case Purpose.Deposit:
-			Message = status switch
+			Say(() => status switch
 			{
 				BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
 				BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
 				_ => (got == 0) ? T("Сложено рядом", "Stored nearby") : (T("Рядом нет места: осталось ", "Nearby storage is full: ") + Count(got) + T("", " left")),
-			};
+			});
 			break;
 		case Purpose.Craft:
 			BookCrafting.ContinueCraft(pending.Recipe, pending.Requested, pending.Batches, status, got);
@@ -1419,9 +1420,8 @@ public sealed class BookSources : ModSystem
 		{
 			Waiting.Remove(id);
 		}
-		string text = T("Сервер не отвечает: повторите", "No reply from the server: try again");
-		Message = text;
-		BookCrafting.LastMessage = text;
+		Say(() => T("Сервер не отвечает: повторите", "No reply from the server: try again"));
+		BookCrafting.Say("Сервер не отвечает: повторите", "No reply from the server: try again");
 	}
 
 	internal static void CancelCraft()

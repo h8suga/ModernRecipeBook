@@ -1641,7 +1641,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			if (recipe == null)
 			{
-				BookCrafting.LastMessage = T("Нет рецепта: ", "No recipe: ") + part.Name;
+				BookCrafting.Say((bool r) => (r ? "Нет рецепта: " : "No recipe: ") + part.Name);
 				return false;
 			}
 			recipes.Add(recipe);
@@ -1654,7 +1654,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		catch (ArgumentOutOfRangeException)
 		{
-			BookCrafting.LastMessage = T("Слишком много материалов для одной цели", "Too many materials for one goal");
+			BookCrafting.Say("Слишком много материалов для одной цели", "Too many materials for one goal");
 			return false;
 		}
 		List<MaterialRequirement> materials = new List<MaterialRequirement>();
@@ -1830,7 +1830,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		wholeSet &= parts != null;
 		if (!wholeSet && recipe == null)
 		{
-			BookCrafting.LastMessage = T("У предмета нет рецепта", "This item has no recipe");
+			BookCrafting.Say("У предмета нет рецепта", "This item has no recipe");
 			return;
 		}
 		string key;
@@ -1846,18 +1846,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (existing != null)
 		{
 			RemoveGoal(existing);
-			BookCrafting.LastMessage = T("Больше не отслеживается", "No longer tracked");
+			BookCrafting.Say("Больше не отслеживается", "No longer tracked");
 			return;
 		}
 		if (!ResourceTrackerStyle && TrackedGoals.Count >= 5)
 		{
-			BookCrafting.LastMessage = T("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
+			BookCrafting.Say("В карточках до 5 целей. Уберите одну или включите компактный вид.", "Cards hold 5 goals. Untrack one or switch to compact.");
 			return;
 		}
 		// Track is a toggle like Untrack: the book stays open so several goals can be added in a row.
 		if (wholeSet ? StartSetTracker(parts) : StartTracker(recipe))
 		{
-			BookCrafting.LastMessage = wholeSet ? T("Сет отслеживается", "Tracking the set") : (T("Отслеживается: ", "Tracking: ") + recipe.createItem.Name);
+			BookCrafting.Say((bool r) => wholeSet ? (r ? "Сет отслеживается" : "Tracking the set") : ((r ? "Отслеживается: " : "Tracking: ") + recipe.createItem.Name));
 		}
 	}
 

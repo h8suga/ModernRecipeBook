@@ -11,21 +11,13 @@ using Terraria.ModLoader.IO;
 
 namespace ModernRecipeBook;
 
-// The feature's two settings, read in one place.
+// The host's two settings (BookServerConfig is ServerSide: clients get the host's values on joining). Read through
+// here so a hand-edited config file can never ask the tile scans for a radius past 50.
 internal static class BookNearbyConfig
 {
-	// ponytail: stand-in values until feature/server-side brings BookServerConfig (NearbyStorage, NearbyRadius
-	// 10..50); then Enabled and Radius read that config and these two fields go.
-	internal static bool EnabledSetting = true;
+	internal static bool Enabled => ModContent.GetInstance<BookServerConfig>()?.NearbyStorage ?? true;
 
-	internal static int RadiusSetting = 30;
-
-	// The mod is side = Client until feature/server-side: a server without the mod cannot be asked for anything.
-	internal const bool MultiplayerReady = false;
-
-	internal static bool Enabled => EnabledSetting && (Main.netMode != NetmodeID.MultiplayerClient || MultiplayerReady);
-
-	internal static int Radius => Math.Clamp(RadiusSetting, 10, 50);
+	internal static int Radius => Math.Clamp(ModContent.GetInstance<BookServerConfig>()?.NearbyRadius ?? 30, 10, 50);
 }
 
 // The only place that removes items from world chests and Magic Storage: the server, or the single-player game.
@@ -795,6 +787,63 @@ public sealed class BookNearbyServer : ModSystem
 		}
 	}
 
+	// Stand (server harness): a pull for player p whose reply is never sent, as if the client vanished before it
+	// arrived; and a burst of them, for the rate limit.
+	internal static string TestPull(int p, int type, int amount, int prefix)
+	{
+		List<Item> items = new List<Item>();
+		Status status = Pull(p, -1000 - Of(p).InFlight.Count, new List<Entry> { new Entry(type, prefix, amount) }, items);
+		return $"{status} got={items.Sum((Item i) => i.stack)} inflight={Of(p).InFlight.Count}";
+	}
+
+	internal static string TestBurst(int p, int n, int type)
+	{
+		Dictionary<Status, int> counts = new Dictionary<Status, int>();
+		for (int i = 0; i < n; i++)
+		{
+			List<Item> items = new List<Item>();
+			Status status = Pull(p, -2000 - i, new List<Entry> { new Entry(type, AnyPrefix, 1) }, items);
+			counts[status] = counts.GetValueOrDefault(status) + 1;
+			Ack(p, -2000 - i);
+			foreach (Item item in items)
+			{
+				Main.player[p].QuickSpawnItem(new EntitySource_Misc("ModernRecipeBook:Test"), item, item.stack);
+			}
+		}
+		return string.Join(" ", counts.Select((KeyValuePair<Status, int> c) => c.Key + "=" + c.Value));
+	}
+
+	// Stand: a deposit for player p whose leftover reply is never sent; and how many of a type lie on the ground.
+	internal static string TestDeposit(int p, int type, int stack)
+	{
+		List<Item> leftovers = new List<Item>();
+		Status status = Deposit(p, -3000 - Of(p).InFlight.Count, new List<Item> { new Item(type, stack) }, leftovers);
+		return $"{status} left={leftovers.Sum((Item i) => i.stack)} inflight={Of(p).InFlight.Count}";
+	}
+
+	internal static int OnGround(int type)
+	{
+		int count = 0;
+		foreach (Item item in Main.item)
+		{
+			if (item.active && item.type == type)
+			{
+				count += item.stack;
+			}
+		}
+		return count;
+	}
+
+	internal static int InFlight(int p)
+	{
+		return Clients[p]?.InFlight.Count ?? 0;
+	}
+
+	internal static bool Subscribed(int p)
+	{
+		return Clients[p]?.Subscribed ?? false;
+	}
+
 	internal static void Ack(int p, int id)
 	{
 		Clients[p]?.InFlight.RemoveAll((Delivery d) => d.Id == id);
@@ -959,9 +1008,44 @@ public sealed class BookNearbyServer : ModSystem
 		packet.Send(p);
 	}
 
+	// What each message cost on the side that received it: count and bytes, payload plus tML's 4-byte header (length,
+	// message 250, mod id). Read on the stand: c call p=ModernRecipeBook.BookNearbyServer.Traffic
+	internal static readonly int[] Received = new int[8];
+
+	internal static readonly long[] ReceivedBytes = new long[8];
+
+	internal static string Traffic()
+	{
+		return string.Join(" ", Enum.GetValues<Packet>().Select((Packet t) => $"{t}={Received[(int)t]}/{ReceivedBytes[(int)t]}B"));
+	}
+
+	internal static string ResetTraffic()
+	{
+		Array.Clear(Received);
+		Array.Clear(ReceivedBytes);
+		return "ok";
+	}
+
 	internal static void HandlePacket(BinaryReader reader, int whoAmI)
 	{
+		long start = reader.BaseStream.Position;
 		Packet type = (Packet)reader.ReadByte();
+		try
+		{
+			Handle(type, reader, whoAmI);
+		}
+		finally
+		{
+			if ((int)type < Received.Length)
+			{
+				Received[(int)type]++;
+				ReceivedBytes[(int)type] += reader.BaseStream.Position - start + 4;
+			}
+		}
+	}
+
+	private static void Handle(Packet type, BinaryReader reader, int whoAmI)
+	{
 		if (Main.netMode == NetmodeID.MultiplayerClient)
 		{
 			BookSources.HandlePacket(type, reader);

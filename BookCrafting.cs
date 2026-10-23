@@ -17,8 +17,6 @@ internal static class BookCrafting
 
 	private static int EvaluatedVersion = -1;
 
-	internal static string LastMessage = "";
-
 	internal static int AvailabilityVersion { get; private set; }
 
 	// Per recipe, vanilla's ingredient keys (Recipe.CreateRequiredItemQuickLookups): the type, or ~group for the last
@@ -316,22 +314,55 @@ internal static class BookCrafting
 		return BookBatchPlanner.PlanLayers(needs.Select((BookBatchNeed n) => (long)n.Quantity * count).ToList(), needs.Select((BookBatchNeed n) => n.AcceptedTypes).ToList(), BookSources.Layers(types));
 	}
 
+	// A message keeps both languages, or how to build them, so it reads in the language shown now.
+	private static Func<bool, string> Text = (bool _) => "";
+
+	internal static string LastMessage
+	{
+		get
+		{
+			return Text(Ru);
+		}
+		set
+		{
+			string text = value ?? "";
+			Text = (bool _) => text;
+		}
+	}
+
+	internal static void Say(Func<bool, string> text)
+	{
+		Text = text;
+	}
+
+	internal static void Say(string ru, string en)
+	{
+		Text = (bool r) => r ? ru : en;
+	}
+
+	// A reason depends on the state, which moves on: the message keeps the reason of the moment, in both languages.
+	private static (string Ru, string En) ReasonNow(Recipe recipe)
+	{
+		return (Reason(recipe, ru: true), Reason(recipe, ru: false));
+	}
+
 	internal static void TryCraft(Recipe recipe, bool ru, int batches = 1)
 	{
 		batches = Math.Clamp(batches, 1, 100);
 		if (recipe == null)
 		{
-			LastMessage = Reason(null, ru);
+			Say((bool r) => Reason(null, r));
 			return;
 		}
 		if (BookSources.CraftPending)
 		{
-			LastMessage = ru ? "Собираю материалы…" : "Gathering materials…";
+			Say("Собираю материалы…", "Gathering materials…");
 			return;
 		}
 		if (!CanCraft(recipe))
 		{
-			LastMessage = Reason(recipe, ru);
+			var (reasonRu, reasonEn) = ReasonNow(recipe);
+			Say(reasonRu, reasonEn);
 			return;
 		}
 		int feasible = 0;
@@ -339,23 +370,23 @@ internal static class BookCrafting
 		if (plan == null || (plan[1].Count == 0 && plan[2].Count == 0))
 		{
 			// The inventory, the open container and a carried Void Bag cover it: vanilla crafting as before.
-			CraftNow(recipe, ru, batches, batches);
+			CraftNow(recipe, batches, batches);
 			return;
 		}
 		int shortage = BookSourceRules.Shortage(InventorySlots(), Incoming(recipe, feasible, plan));
 		if (shortage > 0)
 		{
-			LastMessage = (ru ? "Инвентарь полон: освободите " : "Inventory full: free ") + BookSourceRules.Count(shortage, ru, "slot", "slots", "слот", "слота", "слотов");
+			Say((bool r) => (r ? "Инвентарь полон: освободите " : "Inventory full: free ") + BookSourceRules.Count(shortage, r, "slot", "slots", "слот", "слота", "слотов"));
 			return;
 		}
 		if (!BookSources.MoveBanks(plan[1]))
 		{
-			LastMessage = ru ? "Материалы в инвентаре; крафт остановлен: инвентарь полон" : "Materials are in the inventory; craft stopped: inventory full";
+			Say("Материалы в инвентаре; крафт остановлен: инвентарь полон", "Materials are in the inventory; craft stopped: inventory full");
 			return;
 		}
 		if (plan[2].Count == 0)
 		{
-			CraftNow(recipe, ru, feasible, batches);
+			CraftNow(recipe, feasible, batches);
 			return;
 		}
 		LastMessage = "";
@@ -391,32 +422,44 @@ internal static class BookCrafting
 	// After a pull for a craft arrived (at once in single player).
 	internal static void ContinueCraft(Recipe recipe, int requested, int batches, BookNearbyServer.Status status, long got)
 	{
-		bool ru = Ru;
 		if (recipe == null)
 		{
-			LastMessage = (got > 0) ? (ru ? "Материалы в инвентаре" : "Materials are in the inventory") : "";
+			if (got > 0)
+			{
+				Say("Материалы в инвентаре", "Materials are in the inventory");
+			}
+			else
+			{
+				LastMessage = "";
+			}
 			return;
 		}
 		if (got == 0 && status is BookNearbyServer.Status.Off or BookNearbyServer.Status.Busy or BookNearbyServer.Status.Invalid)
 		{
-			LastMessage = status switch
+			switch (status)
 			{
-				BookNearbyServer.Status.Off => ru ? "Хранилища рядом выключены" : "Nearby storage is off",
-				BookNearbyServer.Status.Busy => ru ? "Слишком часто: подождите" : "Too fast: wait a moment",
-				_ => ru ? "Крафт отменён: условия изменились" : "Craft cancelled: conditions changed",
-			};
+			case BookNearbyServer.Status.Off:
+				Say("Хранилища рядом выключены", "Nearby storage is off");
+				break;
+			case BookNearbyServer.Status.Busy:
+				Say("Слишком часто: подождите", "Too fast: wait a moment");
+				break;
+			default:
+				Say("Крафт отменён: условия изменились", "Craft cancelled: conditions changed");
+				break;
+			}
 			return;
 		}
 		Refresh(force: true);
-		CraftNow(recipe, ru, batches, requested, pulled: got > 0);
+		CraftNow(recipe, batches, requested, pulled: got > 0);
 	}
 
-	private static void CraftNow(Recipe recipe, bool ru, int batches, int requested, bool pulled = false)
+	private static void CraftNow(Recipe recipe, int batches, int requested, bool pulled = false)
 	{
 		Player player = Main.LocalPlayer;
 		int crafted = 0;
-		string stopReason = "";
-		string failure = null;
+		(string Ru, string En) stop = ("", "");
+		(string Ru, string En)? failure = null;
 		bool scoped = BookMagicStorage.BeginStations(player, BookSources.CraftStations);
 		try
 		{
@@ -426,26 +469,26 @@ internal static class BookCrafting
 				{
 					if (crafted == 0)
 					{
-						failure = Reason(recipe, ru);
+						failure = ReasonNow(recipe);
 						break;
 					}
-					stopReason = ru ? "Крафт остановлен: что-то изменилось" : "Crafting stopped: something changed";
+					stop = ("Крафт остановлен: что-то изменилось", "Crafting stopped: something changed");
 					break;
 				}
 				if (!CanCraftHere(player, recipe))
 				{
 					if (crafted == 0)
 					{
-						failure = ru ? "Не хватает материалов, станции или условия" : "Missing materials, station or condition";
+						failure = ("Не хватает материалов, станции или условия", "Missing materials, station or condition");
 						break;
 					}
-					stopReason = ru ? "Остановлено: кончились материалы" : "Stopped: out of materials";
+					stop = ("Остановлено: кончились материалы", "Stopped: out of materials");
 					break;
 				}
 				Main.CraftItem(recipe);
 				if (Main.mouseItem.IsAir || Main.mouseItem.type != recipe.createItem.type)
 				{
-					stopReason = ru ? "Крафт не удался" : "Crafting failed";
+					stop = ("Крафт не удался", "Crafting failed");
 					break;
 				}
 				crafted++;
@@ -453,7 +496,7 @@ internal static class BookCrafting
 				if (!Main.mouseItem.IsAir)
 				{
 					Main.playerInventory = true;
-					stopReason = ru ? "Инвентарь полон: результат на курсоре" : "Inventory full: result on cursor";
+					stop = ("Инвентарь полон: результат на курсоре", "Inventory full: result on cursor");
 					break;
 				}
 			}
@@ -475,16 +518,22 @@ internal static class BookCrafting
 		Refresh(force: true);
 		if (crafted == 0)
 		{
-			string reason = failure ?? ((stopReason.Length > 0) ? stopReason : Reason(recipe, ru));
-			LastMessage = pulled ? ((ru ? "Материалы в инвентаре; крафт остановлен: " : "Materials are in the inventory; craft stopped: ") + reason) : reason;
+			var (ruReason, enReason) = failure ?? ((stop.En.Length > 0) ? stop : ReasonNow(recipe));
+			Say((bool r) => (pulled ? (r ? "Материалы в инвентаре; крафт остановлен: " : "Materials are in the inventory; craft stopped: ") : "") + (r ? ruReason : enReason));
 			return;
 		}
-		string completion = (crafted == 1 && requested == 1) ? ((ru ? "Создано: " : "Crafted: ") + recipe.createItem.Name) : ((ru ? $"Создано {crafted}/{requested} · " : $"Crafted {crafted}/{requested} · ") + recipe.createItem.Name);
-		if (stopReason.Length == 0 && crafted < requested)
+		if (stop.En.Length == 0 && crafted < requested)
 		{
-			stopReason = ru ? "Остановлено: кончились материалы" : "Stopped: out of materials";
+			stop = ("Остановлено: кончились материалы", "Stopped: out of materials");
 		}
-		LastMessage = (stopReason.Length > 0) ? (completion + " · " + stopReason) : completion;
+		var (stopRu, stopEn) = stop;
+		int made = crafted;
+		Say((bool r) =>
+		{
+			string completion = (made == 1 && requested == 1) ? ((r ? "Создано: " : "Crafted: ") + recipe.createItem.Name) : ((r ? $"Создано {made}/{requested} · " : $"Crafted {made}/{requested} · ") + recipe.createItem.Name);
+			string reason = r ? stopRu : stopEn;
+			return (reason.Length > 0) ? (completion + " · " + reason) : completion;
+		});
 	}
 
 	// Before each batch: what Recipe.Create itself consumes from must cover it, at the stations in effect.
