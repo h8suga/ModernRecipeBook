@@ -10,6 +10,11 @@ patch for fixes, minor for features.
   Pre-Hardmode materials in your chests; Items, Recipes, Bestiary, Recent and Tracking still share one. Both are
   remembered; Storage starts at All stages.
 
+### Fixed
+- Vanilla armor sets that Calamity reworks showed only the vanilla set bonus on the card. Monk's set now reads
+  "+90 maximum stealth" before the sentry lines, as the game's own tooltip does; the same goes for the other
+  reworked sets.
+
 ## 1.10.0 — 2026-10-23
 
 ### Added

@@ -199,7 +199,7 @@ internal static class BookItemClasses
 						{
 							Wear(p, part);
 						}
-						p.UpdateArmorSets(p.whoAmI);
+						UpdateArmorSets(p);
 					});
 					foreach (int type in combination)
 					{
@@ -214,6 +214,23 @@ internal static class BookItemClasses
 		}
 		RemoveNewProjectiles(wasActive);
 		Audit(timer.ElapsedMilliseconds, weapons, equipment, potions, tooltipOnly, failures);
+	}
+
+	// Mods read the armor of Main.player[item.playerIndexTheItemIsReservedFor] in IsArmorSet (Calamity names its reworked
+	// vanilla sets so, Monk's "+90 maximum stealth"). The probe's copies point at the empty slot, so the probe stands in
+	// it while its sets update.
+	private static void UpdateArmorSets(Player p)
+	{
+		Player nobody = Main.player[Main.maxPlayers];
+		Main.player[Main.maxPlayers] = p;
+		try
+		{
+			p.UpdateArmorSets(p.whoAmI);
+		}
+		finally
+		{
+			Main.player[Main.maxPlayers] = nobody;
+		}
 	}
 
 	// Code that ignores the whoAmI guard may still have spawned something for the throwaway player.
@@ -257,7 +274,7 @@ internal static class BookItemClasses
 			{
 				Wear(bonusPlayer, Copy(ContentSamples.ItemsByType[type]));
 			}
-			bonusPlayer.UpdateArmorSets(bonusPlayer.whoAmI);
+			UpdateArmorSets(bonusPlayer);
 			text = bonusPlayer.setBonus?.Trim() ?? "";
 		}
 		catch (Exception error)
