@@ -244,7 +244,7 @@ public sealed partial class RecipeBookSystem
 		int comparison = SortDescending ? b.CompareTo(a) : a.CompareTo(b);
 		if (comparison == 0)
 		{
-			comparison = StringComparer.CurrentCultureIgnoreCase.Compare(Result(left).Name, Result(right).Name);
+			comparison = string.Compare(Result(left).Name, Result(right).Name, StringComparison.CurrentCultureIgnoreCase);
 		}
 		return (comparison != 0) ? comparison : left.CompareTo(right);
 	}
@@ -379,8 +379,9 @@ public sealed partial class RecipeBookSystem
 			}
 		}
 		names.Sort(StringComparer.CurrentCultureIgnoreCase);
-		string shown = string.Join(", ", names.Take(6)) + ((names.Count > 6) ? (", +" + (names.Count - 6)) : "");
-		return StationLabel + ": " + shown + "\n" + T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters");
+		// One station a line: a comma list ran past the tooltip's width and broke mid-name.
+		string shown = string.Join("\n", names.Take(6)) + ((names.Count > 6) ? ("\n+" + (names.Count - 6)) : "");
+		return StationLabel + ":\n" + shown + "\n" + T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters");
 	}
 
 	private static BookRect StationMenuPanel

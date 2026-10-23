@@ -226,6 +226,7 @@ public sealed partial class RecipeBookSystem
 		bool recent = tag != null && tag.Key == BookBestiary.RecentKey;
 		Dictionary<int, (int Rank, long SeenUtc)> ranks = recent ? RecentMobRanks() : null;
 		AppliedSeenMobsVersion = SeenMobs.Version;
+		string[] terms = BookRules.SearchTerms(Query);
 		foreach (BookMob mob in BookBestiary.Mobs)
 		{
 			if ((tag != null && (recent ? !ranks.ContainsKey(mob.Index) : !tag.Members.Contains(mob.Index))) || (FavoritesOnly && !Favorites.Contains(mob.Key)) || (ModFilter.Length > 0 && mob.Mod != ModFilter) || (MetOnly && !MobMet(mob.NetId)))
@@ -233,7 +234,7 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			NPC npc = mob.Sample;
-			if (!BookRules.Search(Query, npc.FullName, mob.Key, ContentSamples.NpcPersistentIdsByNetIds[mob.NetId], ModName(mob.Mod)) || !BookProgressionRules.Matches(StageFilter, BookProgression.NpcStage(mob.NetId)))
+			if ((terms.Length > 0 && !BookRules.Search(terms, BookRules.SearchText(npc.FullName, mob.Key, ContentSamples.NpcPersistentIdsByNetIds[mob.NetId], ModName(mob.Mod)))) ||!BookProgressionRules.Matches(StageFilter, BookProgression.NpcStage(mob.NetId)))
 			{
 				continue;
 			}
@@ -267,13 +268,13 @@ public sealed partial class RecipeBookSystem
 		int comparison = SortMode switch
 		{
 			BookSortMode.ItemId => a.Order.CompareTo(b.Order),
-			BookSortMode.Mod => StringComparer.CurrentCultureIgnoreCase.Compare(ModName(a.Mod), ModName(b.Mod)),
+			BookSortMode.Mod => string.Compare(ModName(a.Mod), ModName(b.Mod), StringComparison.CurrentCultureIgnoreCase),
 			BookSortMode.Stage => BookProgression.NpcStage(a.NetId).CompareTo(BookProgression.NpcStage(b.NetId)),
 			_ => 0,
 		};
 		if (comparison == 0 && SortMode != BookSortMode.ItemId)
 		{
-			comparison = StringComparer.CurrentCultureIgnoreCase.Compare(a.Sample.FullName, b.Sample.FullName);
+			comparison = string.Compare(a.Sample.FullName, b.Sample.FullName, StringComparison.CurrentCultureIgnoreCase);
 		}
 		if (comparison == 0)
 		{

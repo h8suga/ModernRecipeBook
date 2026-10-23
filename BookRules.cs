@@ -18,10 +18,27 @@ internal static class BookRules
 		return PlainText(value).Normalize(NormalizationForm.FormKC).ToLowerInvariant().Replace('ё', 'е');
 	}
 
-	internal static bool Search(string query, params string[] fields)
+	// A filter pass splits the query once and normalizes an entry's fields only when there is something to match.
+	internal static string[] SearchTerms(string query)
 	{
-		string text = Normalize(string.Join(" ", fields));
-		return Normalize(query).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).All(text.Contains);
+		return Normalize(query).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+	}
+
+	internal static string SearchText(params string[] fields)
+	{
+		return Normalize(string.Join(" ", fields));
+	}
+
+	internal static bool Search(string[] terms, string text)
+	{
+		foreach (string term in terms)
+		{
+			if (!text.Contains(term))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	internal static bool RecipeMatchesSample(int sampleType, int resultType, bool uses, IEnumerable<int> ingredientTypes, Func<int, int, bool> acceptsGroup)

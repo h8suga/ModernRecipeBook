@@ -341,7 +341,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				TabMods.Add(ModFilter);
 			}
-			TabMods.Sort((string a, string b) => StringComparer.CurrentCultureIgnoreCase.Compare(ModName(a), ModName(b)));
+			TabMods.Sort((string a, string b) => string.Compare(ModName(a), ModName(b), StringComparison.CurrentCultureIgnoreCase));
 			return TabMods;
 		}
 	}
@@ -3376,15 +3376,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (SortMode == BookSortMode.Mod)
 		{
-			comparison = StringComparer.CurrentCultureIgnoreCase.Compare(SortOwner(left), SortOwner(right));
+			comparison = string.Compare(SortOwner(left), SortOwner(right), StringComparison.CurrentCultureIgnoreCase);
 			if (comparison == 0)
 			{
-				comparison = StringComparer.CurrentCultureIgnoreCase.Compare(a.Name, b.Name);
+				comparison = string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase);
 			}
 		}
 		else
 		{
-			comparison = StringComparer.CurrentCultureIgnoreCase.Compare(a.Name, b.Name);
+			comparison = string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase);
 		}
 		if (comparison == 0)
 		{
@@ -3827,6 +3827,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 
 		bool stations = StationFilterActive;
+		string[] terms = BookRules.SearchTerms(Query);
 		IEnumerable<int> enumerable2;
 		if (!StorageView)
 		{
@@ -3858,8 +3859,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				continue;
 			}
-			string internalName = item.ModItem?.Name ?? ItemID.Search.GetName(item.type) ?? "";
-			if (!BookRules.Search(Query, item.Name, ItemKey(item), internalName, ModName(item.ModItem?.Mod.Name ?? "Terraria")))
+			if (terms.Length > 0 && !BookRules.Search(terms, ItemSearchText(item)))
 			{
 				continue;
 			}
@@ -3897,6 +3897,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Selected = ((Filtered.Count > 0) ? Filtered[0] : (-1));
 			DetailsPage = (Variant = 0);
 		}
+	}
+
+	// The normalized search fields per item type, with the name they were built from: a language change rebuilds them.
+	private static readonly Dictionary<int, (string Name, string Text)> ItemSearchTexts = new Dictionary<int, (string, string)>();
+
+	private static string ItemSearchText(Item item)
+	{
+		string name = item.Name;
+		if (!ItemSearchTexts.TryGetValue(item.type, out var cached) || cached.Name != name)
+		{
+			string internalName = item.ModItem?.Name ?? ItemID.Search.GetName(item.type) ?? "";
+			cached = (name, BookRules.SearchText(name, ItemKey(item), internalName, ModName(item.ModItem?.Mod.Name ?? "Terraria")));
+			ItemSearchTexts[item.type] = cached;
+		}
+		return cached.Text;
 	}
 
 	// Tabs: 0 Items, 1 Recipes, 2 Bestiary, 3 Storage, 4 Recent, 5 Tracking.
@@ -6144,7 +6159,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (StationHidden > 0)
 		{
-			EmptyState(sb, area, T("Скрыто фильтром станций", "Hidden by the station filter"), T("Меню наковальни: «Показать все»", "The anvil menu: Show all"));
+			EmptyState(sb, area, T("Скрыто фильтром станций", "Hidden by the station filter"), T("Откройте фильтр станций и выберите «Показать все»", "Open the station filter and pick Show all"));
 		}
 		else if (StorageView)
 		{
