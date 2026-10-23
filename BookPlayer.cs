@@ -182,8 +182,13 @@ public sealed class BookPlayer : ModPlayer
 	// Cooldowns stay Calamity's; Triggers.Update recomputes JustPressed next tick.
 	public override void PostUpdateMiscEffects()
 	{
+		// Runs for every player on every client and on the server; only the local player's own keys count.
+		if (Player.whoAmI != Main.myPlayer)
+		{
+			return;
+		}
 		Dictionary<string, bool> justPressed = PlayerInput.Triggers.JustPressed.KeyStatus;
-		if (Player.whoAmI != Main.myPlayer || !ModContent.GetInstance<BookConfig>().DoubleTapDash || !justPressed.ContainsKey(CalamityDashKey) || !PlayerInput.CurrentProfile.InputModes[InputMode.Keyboard].KeyStatus.TryGetValue(CalamityDashKey, out List<string> keys) || keys.Count == 0)
+		if (!ModContent.GetInstance<BookConfig>().DoubleTapDash || !justPressed.ContainsKey(CalamityDashKey) || !PlayerInput.CurrentProfile.InputModes[InputMode.Keyboard].KeyStatus.TryGetValue(CalamityDashKey, out List<string> keys) || keys.Count == 0)
 		{
 			return;
 		}

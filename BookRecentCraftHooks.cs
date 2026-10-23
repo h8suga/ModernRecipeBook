@@ -7,12 +7,12 @@ namespace ModernRecipeBook;
 // inventory first), so one hook records Recent.
 public sealed class BookRecentCraftHooks : ModSystem
 {
+	// The local player's crafts: a dedicated server never loads it.
+	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
+
 	public override void Load()
 	{
-		if (!Main.dedServ)
-		{
-			On_Main.CraftItem += AfterInventoryCraft;
-		}
+		On_Main.CraftItem += AfterInventoryCraft;
 	}
 
 	public override void Unload()
