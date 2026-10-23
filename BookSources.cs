@@ -9,6 +9,7 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using Terraria.UI;
 
 namespace ModernRecipeBook;
 
@@ -68,6 +69,15 @@ public sealed class BookSources : ModSystem
 		Deposit
 	}
 
+	// Where taken items go: the inventory (Shift+click, Restock, a craft), the cursor (click, right-click, a deposit's
+	// leftover) or the trash slot (Ctrl+click).
+	private enum Sink : byte
+	{
+		Inventory,
+		Cursor,
+		Trash
+	}
+
 	private sealed class Pending
 	{
 		internal Purpose Purpose;
@@ -82,7 +92,10 @@ public sealed class BookSources : ModSystem
 
 		internal int Requested;
 
-		internal bool ToCursor;
+		internal Sink Sink;
+
+		// A held right-click's batch.
+		internal bool Held;
 	}
 
 	private const int ScanTicks = 30;
@@ -203,7 +216,8 @@ public sealed class BookSources : ModSystem
 
 	internal static bool HasStorage => Enabled && BookMagicStorage.Writable && Networks.Count > 0;
 
-	internal static bool Busy => AnyWaiting(craft: false, shownOnly: false);
+	// A take or restock in flight; deposits may overlap them (a click that swaps sends both).
+	internal static bool Busy => Waiting.Values.Any((Pending p) => p.Purpose is Purpose.Take or Purpose.Restock);
 
 	internal static bool CraftPending => AnyWaiting(craft: true, shownOnly: false);
 
@@ -250,6 +264,7 @@ public sealed class BookSources : ModSystem
 		Display.Clear();
 		Items.Clear();
 		Waiting.Clear();
+		HeldOwed = 0;
 		Subscribed = AwaitingSnapshot = PullsOff = Infinite = false;
 		SkippedLocked = SkippedInUse = SkippedPassword = 0;
 		StayAround = Ticks = AwaitingTicks = 0;
@@ -271,6 +286,7 @@ public sealed class BookSources : ModSystem
 			AwaitingTicks++;
 		}
 		AgePending();
+		FlushHeld();
 		if (!need)
 		{
 			return;
@@ -961,9 +977,9 @@ public sealed class BookSources : ModSystem
 		return count;
 	}
 
-	// Moves up to `amount` of a kind from the local containers into the inventory. What does not fit stays where it
-	// was. A world chest the player has open is synced the way Recipe.Create syncs it (msg 32 per slot).
-	private static int MoveLocal(int type, int prefix, int amount, bool craft, bool banks, ref bool full)
+	// Moves up to `amount` of a kind from the local containers to the sink. What does not fit stays where it was. A
+	// world chest the player has open is synced the way Recipe.Create syncs it (msg 32 per slot).
+	private static int MoveLocal(int type, int prefix, int amount, bool craft, bool banks, ref bool full, Sink sink = Sink.Inventory)
 	{
 		Player player = Main.LocalPlayer;
 		int moved = 0;
@@ -981,7 +997,7 @@ public sealed class BookSources : ModSystem
 				Item piece = item.Clone();
 				piece.stack = n;
 				item.stack -= n;
-				Item rest = player.GetItem(Main.myPlayer, piece, GetItemSettings.InventoryUIToInventorySettingsShowAsNew);
+				Item rest = Put(piece, sink);
 				if (!rest.IsAir)
 				{
 					item.stack += rest.stack;
@@ -1005,16 +1021,12 @@ public sealed class BookSources : ModSystem
 		return moved;
 	}
 
-	// Storage tab: right-click takes one, Shift+click a stack. Local containers first, the rest from the server.
-	internal static void Take(Item shown, bool single)
+	// Storage tab takes, a vanilla chest slot's gestures with the cell as the slot (Terraria.UI/ItemSlot.cs): the slot
+	// holds min(total, maxStack). Local containers first, the rest from the server.
+	private static void Take(Item shown, int want, Sink sink)
 	{
-		if (!Enabled || shown == null || shown.IsAir || Busy)
+		if (!Enabled || shown == null || shown.IsAir || want <= 0 || Busy)
 		{
-			return;
-		}
-		if (!Main.mouseItem.IsAir)
-		{
-			Say(() => T("Сначала уберите предмет с курсора", "Clear the cursor first"));
 			return;
 		}
 		if (!Listed.TryGetValue((shown.type, shown.prefix), out var have))
@@ -1022,20 +1034,195 @@ public sealed class BookSources : ModSystem
 			Say(() => T("Этого уже нет рядом", "No longer nearby"));
 			return;
 		}
-		int want = single ? 1 : (int)Math.Min(Math.Max(1, shown.maxStack), have.Local + have.Remote);
+		want = (int)Math.Min(want, have.Local + have.Remote);
 		bool full = false;
-		int moved = MoveLocal(shown.type, shown.prefix, want, craft: true, banks: true, ref full);
+		int moved = MoveLocal(shown.type, shown.prefix, want, craft: true, banks: true, ref full, sink);
 		int rest = want - moved;
 		if (!full && rest > 0 && have.Remote > 0)
 		{
-			Send(Purpose.Take, new List<BookNearbyServer.Entry> { new BookNearbyServer.Entry(shown.type, shown.prefix, (int)Math.Min(rest, have.Remote)) }, want, moved);
+			Send(Purpose.Take, new List<BookNearbyServer.Entry> { new BookNearbyServer.Entry(shown.type, shown.prefix, (int)Math.Min(rest, have.Remote)) }, want, moved, sink: sink);
 		}
-		else
+		else if (sink == Sink.Inventory)
 		{
 			Say(() => full ? T("Инвентарь полон", "Inventory full") : ((moved > 0) ? T("Забрано в инвентарь", "Taken to inventory") : T("Этого уже нет рядом", "No longer nearby")));
 		}
+		else if (moved == 0)
+		{
+			Say(() => T("Этого уже нет рядом", "No longer nearby"));
+		}
 		Refresh(force: true);
 	}
+
+	private static int SlotStack(Item shown)
+	{
+		return Listed.TryGetValue((shown.type, shown.prefix), out var have) ? (int)Math.Min(Math.Max(1, shown.maxStack), have.Local + have.Remote) : 0;
+	}
+
+	// Shift+click (ItemSlot.OverrideLeftClick, cursorOverride 8): the slot's stack into the inventory, whatever the
+	// cursor holds. Ctrl+Enter does the same for the selected cell.
+	internal static void TakeToInventory(Item shown)
+	{
+		if (shown != null)
+		{
+			Take(shown, SlotStack(shown), Sink.Inventory);
+		}
+	}
+
+	// Left click (ItemSlot.LeftClick, action 0): an empty cursor picks the slot's stack up; the same kind swaps or
+	// merges by vanilla's rule (BookSourceRules.CursorAfterLeftClick); another item swaps: it goes into storage and the
+	// clicked stack comes onto the cursor.
+	internal static void LeftClick(Item shown)
+	{
+		if (!Enabled || shown == null || shown.IsAir || Busy)
+		{
+			return;
+		}
+		Item cursor = Main.mouseItem;
+		int slot = SlotStack(shown);
+		if (!cursor.IsAir && !SameKind(cursor, shown))
+		{
+			if (CanDeposit)
+			{
+				DepositCursor(leftoverToCursor: false);
+				Take(shown, slot, Sink.Cursor);
+			}
+			else
+			{
+				DepositCursor();
+			}
+			return;
+		}
+		int now = cursor.IsAir ? 0 : cursor.stack;
+		int after = BookSourceRules.CursorAfterLeftClick(slot, now, shown.maxStack);
+		if (after > now)
+		{
+			Take(shown, after - now, Sink.Cursor);
+			SoundEngine.PlaySound(in SoundID.Grab);
+		}
+		else if (after < now)
+		{
+			DepositCursor(now - after);
+		}
+	}
+
+	// Ctrl+click with vanilla's quick trash on (ItemSlot.LeftClick_SellOrTrash, SellOrTrash): the slot's stack replaces
+	// what is in the trash slot.
+	internal static bool QuickTrashOn => ItemSlot.Options.DisableLeftShiftTrashCan && !ItemSlot.Options.DisableQuickTrash && Main.npcShop <= 0;
+
+	internal static void Trash(Item shown)
+	{
+		if (shown != null && QuickTrashOn)
+		{
+			Take(shown, SlotStack(shown), Sink.Trash);
+			SoundEngine.PlaySound(in SoundID.Grab);
+		}
+	}
+
+	// Held right-click: vanilla's rhythm (ItemSlot.RightClick with Main.stackSplit) asks for one at a time. Local
+	// containers give at once; what the server holds is asked for in batches, one batch in flight and at most every
+	// HeldTicks, so holding never meets the server's rate limit (16 a second).
+	private const int HeldTicks = 6;
+
+	private static (int Type, int Prefix) HeldKind;
+
+	private static int HeldOwed;
+
+	private static ulong HeldSent;
+
+	internal static bool TakeOne(Item shown)
+	{
+		if (!Enabled || shown == null || shown.IsAir || !Listed.TryGetValue((shown.type, shown.prefix), out var have))
+		{
+			return false;
+		}
+		Item cursor = Main.mouseItem;
+		if (!cursor.IsAir && !SameKind(cursor, shown))
+		{
+			return false;
+		}
+		(int, int) kind = (shown.type, shown.prefix);
+		long inFlight = Waiting.Values.Where((Pending p) => p.Held).Sum((Pending p) => p.Asked);
+		if ((HeldOwed > 0 || inFlight > 0) && HeldKind != kind)
+		{
+			return false;
+		}
+		if ((cursor.IsAir ? 0 : cursor.stack) + HeldOwed + inFlight >= Math.Max(1, shown.maxStack))
+		{
+			return false;
+		}
+		if (have.Local > 0)
+		{
+			bool full = false;
+			return MoveLocal(shown.type, shown.prefix, 1, craft: true, banks: true, ref full, Sink.Cursor) > 0;
+		}
+		if (HeldOwed + inFlight >= have.Remote)
+		{
+			return false;
+		}
+		HeldKind = kind;
+		HeldOwed++;
+		FlushHeld();
+		return true;
+	}
+
+	private static void FlushHeld()
+	{
+		if (HeldOwed <= 0 || Waiting.Values.Any((Pending p) => p.Held) || Main.GameUpdateCount - HeldSent < HeldTicks)
+		{
+			return;
+		}
+		int n = HeldOwed;
+		HeldOwed = 0;
+		HeldSent = Main.GameUpdateCount;
+		if (Enabled)
+		{
+			Send(Purpose.Take, new List<BookNearbyServer.Entry> { new BookNearbyServer.Entry(HeldKind.Type, HeldKind.Prefix, n) }, n, 0, sink: Sink.Cursor, held: true);
+			Refresh(force: true);
+		}
+	}
+
+	private static bool SameKind(Item a, Item b)
+	{
+		return a.type == b.type && a.prefix == b.prefix && ItemLoader.CanStack(a, b);
+	}
+
+	// Puts a taken stack where the gesture sends it; returns what did not fit (air when all of it did).
+	private static Item Put(Item item, Sink sink)
+	{
+		Player player = Main.LocalPlayer;
+		switch (sink)
+		{
+		case Sink.Cursor:
+			if (Main.mouseItem.IsAir)
+			{
+				Main.mouseItem = item;
+				// With the inventory closed vanilla would put the cursor item away at once.
+				Main.playerInventory = true;
+				return new Item();
+			}
+			if (SameKind(Main.mouseItem, item))
+			{
+				ItemLoader.StackItems(Main.mouseItem, item, out var _);
+			}
+			return (item.stack <= 0) ? new Item() : item;
+		case Sink.Trash:
+			// The first piece replaces what was in the trash, as vanilla's SellOrTrash does; the next pieces of the
+			// same take (several chests) join it, never past maxStack, since a take is at most one stack.
+			if (!player.trashItem.IsAir && SameKind(player.trashItem, item) && player.trashItem.stack + item.stack <= player.trashItem.maxStack)
+			{
+				ItemLoader.StackItems(player.trashItem, item, out var _);
+			}
+			else
+			{
+				player.trashItem = item;
+			}
+			return new Item();
+		default:
+			return player.GetItem(Main.myPlayer, item, GetItemSettings.InventoryUIToInventorySettingsShowAsNew);
+		}
+	}
+
+	internal static string TakeHint => T("Клик — взять · ПКМ — одну · Shift+клик — в инвентарь", "Click: take · Right-click: take one · Shift+Click: to inventory");
 
 	// Tops up every partial inventory stack (coins excepted) from what is nearby, like Magic Storage's Restock.
 	internal static void Restock()
@@ -1150,16 +1337,17 @@ public sealed class BookSources : ModSystem
 		{
 			return false;
 		}
-		SendDeposit(new List<Item> { TakeOut(inventory, slot) }, toCursor: false);
+		SendDeposit(new List<Item> { TakeOut(inventory, slot) }, Sink.Inventory);
 		SoundEngine.PlaySound(in SoundID.Grab);
 		return true;
 	}
 
 	// The cursor stack dropped onto the Storage grid, as onto a chest slot. Like there, a favorite loses its mark
-	// (ItemSlot.LeftClick clears it for container slots).
-	internal static void DepositCursor()
+	// (ItemSlot.LeftClick clears it for container slots). `amount` leaves the rest on the cursor (a click that merges
+	// into a small cell); a swap sends the leftover to the inventory, since the cursor gets the clicked stack.
+	internal static void DepositCursor(int amount = int.MaxValue, bool leftoverToCursor = true)
 	{
-		if (Main.mouseItem.IsAir)
+		if (Main.mouseItem.IsAir || amount <= 0)
 		{
 			return;
 		}
@@ -1170,8 +1358,13 @@ public sealed class BookSources : ModSystem
 		}
 		Item item = Main.mouseItem.Clone();
 		item.favorited = false;
-		Main.mouseItem.TurnToAir();
-		SendDeposit(new List<Item> { item }, toCursor: true);
+		item.stack = Math.Min(amount, Main.mouseItem.stack);
+		Main.mouseItem.stack -= item.stack;
+		if (Main.mouseItem.stack <= 0)
+		{
+			Main.mouseItem.TurnToAir();
+		}
+		SendDeposit(new List<Item> { item }, leftoverToCursor ? Sink.Cursor : Sink.Inventory);
 		SoundEngine.PlaySound(in SoundID.Grab);
 	}
 
@@ -1203,7 +1396,7 @@ public sealed class BookSources : ModSystem
 			Say(() => T("Нечего складывать", "Nothing to deposit"));
 			return;
 		}
-		SendDeposit(items, toCursor: false);
+		SendDeposit(items, Sink.Inventory);
 		SoundEngine.PlaySound(in SoundID.Grab);
 	}
 
@@ -1216,14 +1409,14 @@ public sealed class BookSources : ModSystem
 
 	// As in Magic Storage, the items leave their slots when sent; what does not fit comes back (to the cursor for a
 	// dropped stack). Deposits may overlap: nothing but the reply depends on an earlier one.
-	private static void SendDeposit(List<Item> items, bool toCursor)
+	private static void SendDeposit(List<Item> items, Sink leftoverSink)
 	{
 		int id = ++NextId;
 		Waiting[id] = new Pending
 		{
 			Purpose = Purpose.Deposit,
 			Asked = items.Sum((Item i) => (long)i.stack),
-			ToCursor = toCursor
+			Sink = leftoverSink
 		};
 		if (Main.netMode == NetmodeID.SinglePlayer)
 		{
@@ -1275,7 +1468,7 @@ public sealed class BookSources : ModSystem
 		Send(Purpose.Craft, entries, entries.Sum((BookNearbyServer.Entry e) => (long)e.Amount), 0, recipe, batches, requested);
 	}
 
-	private static void Send(Purpose purpose, List<BookNearbyServer.Entry> entries, long asked, int movedLocally, Recipe recipe = null, int batches = 0, int requested = 0)
+	private static void Send(Purpose purpose, List<BookNearbyServer.Entry> entries, long asked, int movedLocally, Recipe recipe = null, int batches = 0, int requested = 0, Sink sink = Sink.Inventory, bool held = false)
 	{
 		int id = ++NextId;
 		Waiting[id] = new Pending
@@ -1284,7 +1477,9 @@ public sealed class BookSources : ModSystem
 			Asked = asked,
 			Recipe = recipe,
 			Batches = batches,
-			Requested = requested
+			Requested = requested,
+			Sink = sink,
+			Held = held
 		};
 		LocallyMoved = movedLocally;
 		if (Main.netMode == NetmodeID.SinglePlayer)
@@ -1324,21 +1519,23 @@ public sealed class BookSources : ModSystem
 					continue;
 				}
 				got += item.stack;
-				if (pending != null && pending.ToCursor && Main.mouseItem.IsAir)
+				Item rest = item;
+				if (pending != null && pending.Sink != Sink.Inventory)
 				{
-					Main.mouseItem = item;
-					continue;
+					rest = Put(item, pending.Sink);
+					if (rest.IsAir)
+					{
+						continue;
+					}
 				}
-				Item rest;
 				try
 				{
-					rest = player.GetItem(Main.myPlayer, item, GetItemSettings.InventoryUIToInventorySettingsShowAsNew);
+					rest = player.GetItem(Main.myPlayer, rest, GetItemSettings.InventoryUIToInventorySettingsShowAsNew);
 				}
 				catch (Exception error)
 				{
 					// A mod's pickup hook failed: the stack lands at the player's feet rather than nowhere.
 					ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Could not put " + item.Name + " into the inventory.", error);
-					rest = item;
 				}
 				if (rest.IsAir)
 				{
@@ -1372,6 +1569,18 @@ public sealed class BookSources : ModSystem
 		}
 		switch (pending.Purpose)
 		{
+		case Purpose.Take when pending.Sink != Sink.Inventory:
+			// Onto the cursor or into the trash, as in vanilla: the result is on screen, only a failure is said.
+			if (got == 0)
+			{
+				Say(() => status switch
+				{
+					BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
+					BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
+					_ => T("Этого уже нет рядом", "No longer nearby"),
+				});
+			}
+			break;
 		case Purpose.Take:
 		{
 			long total = got + LocallyMoved;

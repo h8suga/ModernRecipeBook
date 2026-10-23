@@ -515,14 +515,22 @@ The book's visual language stays: palette, `Box`/`CardButton`/`Dropdown`/`EmptyS
   7. The last action message.
 - **Removed:** the network dropdown, the Connect/Disconnect/Enter Password button and "Open Magic Storage".
 
-### 7.2 Gestures (unchanged, `MOD:BookStorageGesture.cs`)
+### 7.2 Gestures: a vanilla chest slot (owner, 1.9.1: «нажимаю на него и не могу взять»)
 
-| Gesture | Action |
-|---|---|
-| Left click | select |
-| Right click | take one |
-| Shift + left | take a stack: `min(maxStack, total)` |
-| Alt + left | favourite |
+A cell is treated as a chest slot holding `min(total, maxStack)` of its kind (`TML:Terraria.UI/ItemSlot.cs`, context 3). No click selects: the details panel follows the hovered cell and keeps the last one when the mouse leaves the grid; the arrow keys still move it while the mouse rests.
+
+| Gesture | Vanilla, chest slot | Storage cell |
+|---|---|---|
+| Left click, empty cursor | the slot's stack onto the cursor (`LeftClick` action 0, `ItemSlot.cs:696-699` swap) | the cell's stack onto the cursor, through the same pull |
+| Left click, same kind on the cursor | either side full or unstackable: swap; otherwise the cursor tops the slot up (`:696`, `:733-736`) | the same rule (`BookSourceRules.CursorAfterLeftClick`): a cell with a full stack's worth tops the cursor up to maxStack; a smaller cell takes the cursor in |
+| Left click, another item on the cursor | swap (`:698`) | the cursor item goes into storage (§4.9 placement, its leftover to the inventory) and the cell's stack comes onto the cursor |
+| Left click on the grid's empty part, item held | into the empty slot | into storage (§4.9) |
+| Right click, held | one onto the cursor (empty or same kind, below maxStack) whenever `Main.stackSplit <= 1`, `superFastStack + 1` per turn, then `RefreshStackSplitCooldown` (`:1384-1419`, `:1472-1482`); Main speeds it up per frame (`TML:Terraria/Main.cs:59868-59913`, reset and countdown `:60648-60657`) | the same calls on the same globals. Local containers give at once; the server's share goes in batches: one in flight, at most every 6 ticks (10 a second, under the 16-a-second limit) |
+| Right click, unstackable | equips it from the chest (`SwapEquip`, `:1373-1379`, `:2609-2683`) | takes it onto the cursor once per press (equip from storage not built) |
+| Shift + left | the slot's stack to the inventory (`OverrideHover` cursor 8 `:426-433`, `OverrideLeftClick` `:609-617`) | the cell's stack to the inventory, whatever the cursor holds; cursor 8 shown |
+| Ctrl + left | with quick trash on (`Options.DisableLeftShiftTrashCan` true, `DisableQuickTrash` false, the defaults, `:25-27`): cursor 6 (`:375-383`); the stack replaces the trash slot (`LeftClick_SellOrTrash` `:973-990`, `SellOrTrash` `:1039-1050`) | the same, with the same options; cursor 6 shown |
+| Alt + left | (Alt is vanilla's favourite key for inventory slots) | book favourite, as in the other tabs |
+| Ctrl + Enter | — | the selected cell's stack to the inventory (outside Storage it crafts) |
 
 **Take order:**
 1. open container;
@@ -582,7 +590,8 @@ Notes on the details panel:
 | Breakdown rows | Inventory: 12 · Open chest: 40 · Piggy Bank: 5 · Chests ×3: 120 · Magic Storage: 40 (×2 when two networks) · ∞ for creative | Инвентарь: 12 · Открытый сундук: 40 · Свинья-копилка: 5 · Сундуки ×3: 120 · Magic Storage: 40 |
 | No selection (existing) | No item selected / Click an item in the grid | Предмет не выбран / Нажмите на предмет в сетке |
 | Cell tooltip, extra line (via `BookTooltipShortcut.ModifyTooltips`) | Chests ×3: 120 · Magic Storage: 40 | Сундуки ×3: 120 · Magic Storage: 40 |
-| Stack tooltip (existing) | Shift+Click: take a stack · Right-click: take one<br>Alt+Click: favorite | Shift+клик: взять стопку · ПКМ: взять одну<br>Alt+клик: в избранное |
+| Stack tooltip | Click: take · Right-click: take one · Shift+Click: to inventory<br>Ctrl+Click: trash · Alt+Click: favorite | Клик — взять · ПКМ — одну · Shift+клик — в инвентарь<br>Ctrl+клик — в корзину · Alt+клик — в избранное |
+| Cell tooltip, take line | Click: take · Right-click: take one · Shift+Click: to inventory | Клик — взять · ПКМ — одну · Shift+клик — в инвентарь |
 
 **Toolbar**
 
@@ -668,10 +677,12 @@ In `docs/ui-redesign.md` §1, the "crafting source" row becomes "nearby containe
 ### 7.7 Help (F1)
 
 The STORAGE section drops Ctrl+D and Ctrl+Shift+D and loses its `StorageOnly` flag (`MOD:BookHelp.cs:59-67`). It lists:
-- Shift+LMB: take a stack
-- RMB: take one
-- Ctrl+Q: quick stack
-- Ctrl+R: restock
+- LMB: take a stack (onto the cursor)
+- RMB, held: one at a time
+- Shift+LMB: stack to inventory
+- Ctrl+LMB: to the trash
+- Ctrl+Enter: the selected stack to inventory
+- Ctrl+Q · Ctrl+R: quick stack · restock (one row)
 - Shift+LMB in the inventory: put a stack in
 - LMB holding an item: put the held item in
 
@@ -777,7 +788,6 @@ Elsewhere:
 
 ### Unchanged
 
-- `BookStorageGesture.cs`.
 - `BookUiState`: no version bump. The `storage` tab filters keep their key (`MOD:BookUiState.cs:47`). No MS state was ever saved there.
 - Tracked goals are not saved (`MOD:BookPlayer.cs:193-215`), so `goal.Storage` needs no migration.
 

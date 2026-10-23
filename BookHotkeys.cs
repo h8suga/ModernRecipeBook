@@ -40,7 +40,8 @@ internal static class BookHotkeys
 		PagePrevious,
 		PageNext,
 		FirstPage,
-		LastPage
+		LastPage,
+		TakeSelected
 	}
 
 		// arrows: the arrow keys are not bound to a game control, so they can move the grid selection.
@@ -111,9 +112,9 @@ internal static class BookHotkeys
 			{
 				return Action.ResetFilters;
 			}
-			if (!storage && Press(Keys.Enter))
+			if (Press(Keys.Enter))
 			{
-				return shift ? Action.CraftMax : Action.Craft;
+				return storage ? (shift ? Action.None : Action.TakeSelected) : (shift ? Action.CraftMax : Action.Craft);
 			}
 			if (storage)
 			{
