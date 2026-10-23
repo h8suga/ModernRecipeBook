@@ -3423,7 +3423,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ApplyFilters();
 	}
 
-	private static string T(string ru, string en)
+	internal static string T(string ru, string en)
 	{
 		if (!Ru)
 		{
@@ -6818,7 +6818,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		foreach (BookHelp.Section section in BookHelp.Sections)
 		{
-			if (section.StorageOnly && !BookStorage.Installed)
+			if ((section.StorageOnly && !BookStorage.Installed) || !Array.Exists(section.Rows, (BookHelp.Entry row) => row.Visible))
 			{
 				continue;
 			}
@@ -6828,6 +6828,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			y += BookHelp.HeaderStep;
 			foreach (BookHelp.Entry row in section.Rows)
 			{
+				if (!row.Visible)
+				{
+					continue;
+				}
 				HelpKeycap(sb, new BookRect(column.X, y, BookHelp.KeyWidth, BookHelp.KeyHeight), T(row.KeyRu, row.KeyEn));
 				Text(sb, T(row.Ru, row.En), column.X + BookHelp.KeyWidth + 12f, y, TextColor, 0.85f, column.Width - BookHelp.KeyWidth - 12f, BookHelp.KeyHeight);
 				y += BookHelp.RowStep;

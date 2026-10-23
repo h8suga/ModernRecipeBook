@@ -4,6 +4,7 @@ Mods: {
 			ToggleBook.DisplayName: Open Recipe Book
 			ChainBack.DisplayName: Back
 			ChainForward.DisplayName: Forward
+			MapTeleport.DisplayName: Map Teleport
 		}
 
 		Configs: {
@@ -73,7 +74,11 @@ Mods: {
 
 				MapTeleport: {
 					Label: Map Teleport
-					Tooltip: "Mouse3 / middle click on an explored spot of the full map teleports you there.\nRebindable in Controls."
+					Tooltip:
+						'''
+						Mouse3 / middle click on an explored spot of the full map teleports you there.
+						Rebindable in Controls.
+						'''
 				}
 			}
 		}
