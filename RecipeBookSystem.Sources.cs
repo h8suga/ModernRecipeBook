@@ -131,7 +131,7 @@ public sealed partial class RecipeBookSystem
 			try
 			{
 				string description = condition.GetConditionDescription();
-				string full = string.IsNullOrWhiteSpace(description) ? T("Особое условие", "Special condition") : description;
+				string full = string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, s.Npc) : description;
 				conditions.Add(full);
 				shortConditions.Add(DropConditionLabel(condition, full));
 			}
