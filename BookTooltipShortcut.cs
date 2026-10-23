@@ -32,6 +32,10 @@ public sealed class BookTooltipShortcut : GlobalItem
 					OverrideColor = new Color(170, 200, 180)
 				});
 			}
+			tooltips.Add(new TooltipLine(Mod, "NearbyTake", BookSources.TakeHint)
+			{
+				OverrideColor = new Color(150, 165, 155)
+			});
 			tooltips.Add(new TooltipLine(Mod, "NearbyDeposit", BookSources.DepositHint)
 			{
 				OverrideColor = new Color(150, 165, 155)
