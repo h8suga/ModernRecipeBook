@@ -71,6 +71,13 @@ public sealed partial class RecipeBookSystem
 	// Runs last in the update, so the map then draws with these values.
 	public override void PostUpdateEverything()
 	{
+		// What the player saw before the key the game's triggers report next update (RecipeBookSystem.OpenAtUpdate).
+		OpenAtUpdate = OpenLastUpdate;
+		LayerAtUpdate = LayerLastUpdate;
+		TypingAtUpdate = TypingLastUpdate;
+		OpenLastUpdate = Open;
+		LayerLastUpdate = LayerOpen;
+		TypingLastUpdate = Typing;
 		if (!Main.mapFullscreen)
 		{
 			MarkerLastRight = Main.mouseRight;
