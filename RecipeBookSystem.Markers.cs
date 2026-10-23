@@ -44,8 +44,15 @@ public sealed partial class RecipeBookSystem
 
 	private static bool MarkerOwnBlock;
 
-	// The left button, hidden from the map this update because the cursor is on the panel.
+	// The left button, hidden from the map this update because the press belongs to the panel.
 	private static bool MarkerHeldLeft;
+
+	// A left press that starts on the panel is the panel's until the button is let go, also after its click closed the panel:
+	// the map takes its drag anchor only when it sees a press (Main.DrawMap, grabMapX), so a press it never saw dragged the
+	// map from a stale anchor on the next held frame.
+	private static bool MarkerOwnsLeft;
+
+	private static bool MarkerLastLeft;
 
 	private static Vector2 MarkerAnchor;
 
@@ -60,7 +67,7 @@ public sealed partial class RecipeBookSystem
 
 	private static float MarkerHeight => (MarkerMode == MarkerPanel.View) ? 196f : 284f;
 
-	// The map drags and pings with the left button at the start of its draw: not while the cursor is on the panel.
+	// The map drags, pings and clicks pylons with the left button while it draws: not with a press that belongs to the panel.
 	// Runs last in the update, so the map then draws with these values.
 	public override void PostUpdateEverything()
 	{
@@ -68,7 +75,14 @@ public sealed partial class RecipeBookSystem
 		{
 			MarkerLastRight = Main.mouseRight;
 		}
-		if (MarkerMode != MarkerPanel.None && Main.mapFullscreen && Main.mouseLeft && MarkerPixels.Contains(PlayerInput.MouseX, PlayerInput.MouseY))
+		bool left = Main.mouseLeft;
+		if (left && !MarkerLastLeft)
+		{
+			MarkerOwnsLeft = MarkerMode != MarkerPanel.None && Main.mapFullscreen && MarkerPixels.Contains(PlayerInput.MouseX, PlayerInput.MouseY);
+		}
+		MarkerOwnsLeft &= left;
+		MarkerLastLeft = left;
+		if (MarkerOwnsLeft && Main.mapFullscreen)
 		{
 			MarkerHeldLeft = true;
 			Main.mouseLeft = false;
@@ -81,6 +95,14 @@ public sealed partial class RecipeBookSystem
 		{
 			Main.mouseLeft = true;
 			MarkerHeldLeft = false;
+		}
+		// The chat draws after the map and calls HandleIME with PlayerInput.WritingText, which the update has reset since
+		// (Main.DoDraw); a disabled IME drops every typed character (ReLogic WinImm32Ime). The book's search does the same in
+		// its interface layer, which draws after the chat.
+		if (MarkerTyping)
+		{
+			PlayerInput.WritingText = true;
+			Main.instance.HandleIME();
 		}
 		bool rightPressed = Main.mouseRight && !MarkerLastRight;
 		MarkerLastRight = Main.mouseRight;
@@ -248,11 +270,8 @@ public sealed partial class RecipeBookSystem
 
 	private static void SaveMarker()
 	{
+		// The name is optional: an unnamed marker is titled by its badge.
 		string name = BookMapMarkers.Clean(MarkerName);
-		if (name.Length == 0)
-		{
-			return;
-		}
 		if (MarkerMode == MarkerPanel.Create)
 		{
 			BookMapMarkers.Create(MarkerX, MarkerY, name, MarkerBadge);
@@ -269,7 +288,7 @@ public sealed partial class RecipeBookSystem
 		Text(sb, (MarkerMode == MarkerPanel.Create) ? T("Новая метка", "New Marker") : T("Изменить метку", "Edit Marker"), 18f, 14f, TextColor, 1f, MarkerWidth - 36f, 26f);
 		BookRect field = new BookRect(18f, 50f, MarkerWidth - 36f, 36f);
 		Box(sb, field, MarkerTyping ? new Color(35, 51, 40) : FieldFill, border: true, 8f, MarkerTyping ? new Color?(Accent) : null, (!MarkerTyping) ? 1 : 2);
-		string shown = (MarkerName.Length > 0) ? (MarkerName + ((MarkerTyping && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Название", "Name");
+		string shown = (MarkerName.Length > 0) ? (MarkerName + ((MarkerTyping && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Название (необязательно)", "Name (optional)");
 		CenterLabel(sb, shown, field.X + 12f, field.Y + 4f, field.Width - 76f, field.Height - 8f, (MarkerName.Length > 0) ? TextColor : Muted, 0.9f, rightAligned: false, leftAligned: true);
 		CenterLabel(sb, MarkerName.Length + "/" + BookMapMarkers.NameLength, field.X + field.Width - 62f, field.Y + 4f, 50f, field.Height - 8f, Muted, 0.75f, rightAligned: true);
 		if (click && field.Contains(Mouse.X, Mouse.Y))
@@ -295,9 +314,8 @@ public sealed partial class RecipeBookSystem
 		}
 		BookRect cancel = new BookRect(18f, 228f, 166f, 38f);
 		BookRect save = new BookRect(200f, 228f, 166f, 38f);
-		bool canSave = BookMapMarkers.Clean(MarkerName).Length > 0;
 		CardButton(sb, cancel, T("Отмена", "Cancel"));
-		CardButton(sb, save, T("Сохранить", "Save"), canSave, primary: true);
+		CardButton(sb, save, T("Сохранить", "Save"), primary: true);
 		if (cancel.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(T("Отмена · Esc", "Cancel · Esc"));
@@ -308,8 +326,8 @@ public sealed partial class RecipeBookSystem
 		}
 		else if (save.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(canSave ? T("Сохранить · Enter", "Save · Enter") : T("Сначала название", "Name it first"));
-			if (click && canSave)
+			MouseTip(T("Сохранить · Enter", "Save · Enter"));
+			if (click)
 			{
 				SaveMarker();
 			}
@@ -328,8 +346,11 @@ public sealed partial class RecipeBookSystem
 		BookRect icon = new BookRect(18f, 16f, 44f, 44f);
 		Box(sb, icon, Raised, border: true, 8f);
 		DrawBadge(sb, marker.Badge, icon, 30f);
-		Text(sb, marker.Name, 74f, 14f, TextColor, 1.05f, MarkerWidth - 92f, 26f);
-		Text(sb, T(badge.Ru, badge.En), 74f, 40f, Muted, 0.8f, MarkerWidth - 92f, 18f);
+		Text(sb, BookMapMarkers.Title(marker), 74f, 14f, TextColor, 1.05f, MarkerWidth - 92f, 26f);
+		if (marker.Name.Length > 0)
+		{
+			Text(sb, T(badge.Ru, badge.En), 74f, 40f, Muted, 0.8f, MarkerWidth - 92f, 18f);
+		}
 		Text(sb, BookMapMarkers.Placed(marker), 18f, 74f, TextColor, 0.85f, MarkerWidth - 36f, 22f);
 		if (marker.Edited != marker.Created)
 		{

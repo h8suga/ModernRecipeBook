@@ -3,6 +3,14 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.9.1 — 2026-10-23
+
+### Fixed
+- Map markers: typing the name works. The game switched keyboard text input off every frame while the full map
+  was open, so typed letters never reached the field.
+- Map markers: the name is optional. A marker without one shows its badge's name, in the current language.
+- Map markers: clicking Cancel or Save no longer drags the map.
+
 ## 1.9.0 — 2026-10-23
 
 ### Added

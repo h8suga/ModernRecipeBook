@@ -65,7 +65,7 @@ internal sealed class BookMapMarkers : ModSystem
 	{
 		None,
 		Off,
-		Name,
+		Badge,
 		Place,
 		Limit,
 		TooFast,
@@ -128,6 +128,17 @@ internal sealed class BookMapMarkers : ModSystem
 	internal static bool CanChange(BookMapMarker marker)
 	{
 		return Main.netMode == NetmodeID.SinglePlayer || marker.Author == Main.LocalPlayer.name || Main.countsAsHostForGameplay[Main.myPlayer];
+	}
+
+	// The name, or for an unnamed marker its badge in the current language (nothing is stored for it).
+	internal static string Title(BookMapMarker marker)
+	{
+		if (marker.Name.Length > 0)
+		{
+			return marker.Name;
+		}
+		BookMarkerBadges.Badge badge = BookMarkerBadges.Get(marker.Badge);
+		return RecipeBookSystem.T(badge.Ru, badge.En);
 	}
 
 	// "Placed by X · 2 h ago". The RU units are abbreviations, so no plural forms are needed.
@@ -292,9 +303,10 @@ internal sealed class BookMapMarkers : ModSystem
 				return Refusal.NotYours;
 			}
 		}
-		if (kind != BookMessage.MarkerDelete && (name.Length == 0 || badge >= BookMarkerBadges.Count))
+		// The name may be empty (the badge then titles the marker); the badge must exist.
+		if (kind != BookMessage.MarkerDelete && badge >= BookMarkerBadges.Count)
 		{
-			return Refusal.Name;
+			return Refusal.Badge;
 		}
 		long now = DateTime.UtcNow.Ticks;
 		switch (kind)
@@ -384,7 +396,6 @@ internal sealed class BookMapMarkers : ModSystem
 		string message = refusal switch
 		{
 			Refusal.Off => RecipeBookSystem.T("Метки выключены на сервере", "Markers are off on this server"),
-			Refusal.Name => RecipeBookSystem.T("Нужно название", "Name it first"),
 			Refusal.Place => RecipeBookSystem.T("Здесь нельзя", "Not here"),
 			Refusal.Limit => RecipeBookSystem.T($"Не больше {PerPlayer} меток", $"{PerPlayer} markers at most"),
 			Refusal.TooFast => RecipeBookSystem.T("Слишком часто, ещё раз", "Too fast, try again"),
