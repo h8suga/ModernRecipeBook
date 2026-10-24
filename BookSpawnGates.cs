@@ -16,8 +16,9 @@ namespace ModernRecipeBook;
 // which no Bestiary tag shows. As BookItemClasses runs items on a throwaway player, this asks SpawnChance itself: a
 // throwaway player stands in each place while the world's progression flags open step by step in Boss Checklist
 // order; the first step after which the mob may spawn is its gate. Closing steps one at a time then tells which it
-// really needs: mods test OR and count conditions (Cryo Slime: Cryogen and any two mechanical bosses). Once per load,
-// in single player only, on the main thread between two updates; every flag it sets is put back before it returns.
+// really needs: mods test OR and count conditions (Cryo Slime: Cryogen and any two mechanical bosses). Once per world,
+// in single player and on multiplayer clients, on the main thread between two updates; every flag it sets is put back
+// before it returns.
 internal static class BookSpawnGates
 {
 	internal enum Layer
@@ -137,7 +138,10 @@ internal static class BookSpawnGates
 
 	private static bool built;
 
-	private static bool skipNoted;
+	private static bool spotsRequested;
+
+	// Tiles around a spot that SpawnCondition and the mods' checks read; the server sends 3x3 sections around it.
+	private const int SpotReach = 10;
 
 	// The audit line of the last probe, for the test stand.
 	internal static string Summary = "";
@@ -146,8 +150,62 @@ internal static class BookSpawnGates
 	{
 		gates.Clear();
 		built = false;
-		skipNoted = false;
+		spotsRequested = false;
 		Summary = "";
+	}
+
+	// Where the probe stands in a place: the map's outermost column for land (so SpawnCondition's wall checks read no
+	// cabin or spider nest), inside the ocean's 250 tiles for the sea.
+	private static Point Spot(Place place)
+	{
+		int x = place.Traits.Split(' ').Contains("sea") ? 100 : 41;
+		int y = place.Height switch
+		{
+			Layer.Space => (int)(Main.worldSurface * 0.25),
+			Layer.Surface => (int)Main.worldSurface - 30,
+			Layer.Dirt => (int)((Main.worldSurface + Main.rockLayer) / 2.0),
+			Layer.Rock => (int)Main.rockLayer + 100,
+			_ => Main.maxTilesY - 100
+		};
+		return new Point(x, y);
+	}
+
+	// Each world is probed afresh: its height places the spots, and the probe reads its tiles there. A multiplayer client
+	// asks for those tiles right away, so they are usually in before the book needs the gates.
+	internal static void OnEnterWorld()
+	{
+		Clear();
+		SpotsLoaded();
+	}
+
+	// A multiplayer client has the world only around where it has been, and the sea spot by the map's edge reads as air
+	// without it (Mantis Shrimp lost its gate). So it asks the server for the spots' sections once, as the map teleport
+	// does, and the probe waits until they are in.
+	private static bool SpotsLoaded()
+	{
+		if (Main.netMode != NetmodeID.MultiplayerClient)
+		{
+			return true;
+		}
+		bool loaded = true;
+		foreach (Point spot in Places.Select(Spot).Distinct())
+		{
+			if (Main.sectionManager.TilesLoaded(Math.Max(0, spot.X - SpotReach), Math.Max(0, spot.Y - SpotReach), Math.Min(Main.maxTilesX - 1, spot.X + SpotReach), Math.Min(Main.maxTilesY - 1, spot.Y + SpotReach)))
+			{
+				continue;
+			}
+			loaded = false;
+			if (!spotsRequested)
+			{
+				ModPacket packet = ModContent.GetInstance<ModernRecipeBook>().GetPacket();
+				packet.Write((byte)BookMessage.MapSections);
+				packet.Write((short)spot.X);
+				packet.Write((short)spot.Y);
+				packet.Send();
+			}
+		}
+		spotsRequested = true;
+		return loaded;
 	}
 
 	internal static Gate Of(int type)
@@ -160,21 +218,12 @@ internal static class BookSpawnGates
 		return gates.TryGetValue(type, out Gate gate) ? gate.Stage : BookStage.Unknown;
 	}
 
-	// The probe sets world flags for a moment. They are local statics and nothing is sent, but a mod's SpawnChance
-	// never runs on a multiplayer client in the game itself, so the client leaves it out and keeps the Bestiary's tags.
+	// The probe sets world flags for a moment. They are local statics, nothing is sent, and packets are read on this
+	// same thread, so a multiplayer client probes like single player once it has the tiles the probe stands on.
 	internal static void EnsureBuilt()
 	{
-		if (built || Main.gameMenu)
+		if (built || Main.gameMenu || !SpotsLoaded())
 		{
-			return;
-		}
-		if (Main.netMode != NetmodeID.SinglePlayer)
-		{
-			if (!skipNoted)
-			{
-				skipNoted = true;
-				ModContent.GetInstance<ModernRecipeBook>().Logger.Info("Spawn gates: not probed in multiplayer; mob cards keep the Bestiary's spawn tags.");
-			}
 			return;
 		}
 		built = true;
@@ -292,17 +341,8 @@ internal static class BookSpawnGates
 			p.ZoneRockLayerHeight = place.Height == Layer.Rock;
 			p.ZoneUnderworldHeight = place.Height == Layer.Hell;
 			p.ZonePurity = p.InZonePurity();
-			// The map's outermost column for land (so SpawnCondition's wall checks read no cabin or spider nest), inside the
-			// ocean's 250 tiles for the sea.
-			int x = traits.Contains("sea") ? 100 : 41;
-			int y = place.Height switch
-			{
-				Layer.Space => (int)(Main.worldSurface * 0.25),
-				Layer.Surface => (int)Main.worldSurface - 30,
-				Layer.Dirt => (int)((Main.worldSurface + Main.rockLayer) / 2.0),
-				Layer.Rock => (int)Main.rockLayer + 100,
-				_ => Main.maxTilesY - 100
-			};
+			Point spot = Spot(place);
+			int x = spot.X, y = spot.Y;
 			p.position = new Vector2(x, y - 3) * 16f;
 			NPCSpawnInfo info = new NPCSpawnInfo
 			{
