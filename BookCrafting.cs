@@ -89,6 +89,8 @@ internal static class BookCrafting
 		bool scoped = BookMagicStorage.BeginStations(player, BookSources.CraftStations);
 		try
 		{
+			// The footer's active stations read this very state.
+			RecipeBookSystem.CaptureActiveStations(player, scoped);
 			for (int i = 0; i < Recipe.numRecipes; i++)
 			{
 				Recipe recipe = Main.recipe[i];
