@@ -2349,14 +2349,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 			EnemyReadErrors++;
 		}
 		BookBestiary.AcidRainSpawn? rain = BookBestiary.AcidRainOf(npc.type);
+		BookSpawnGates.Gate gate = rain.HasValue ? null : BookSpawnGates.Of(npc.type);
 		EnemyBiomes = string.Join(" · ", biomes.Distinct(StringComparer.Ordinal));
 		// The card's line is short (the subtitle already says mini-boss, the Biome line Acid Rain); the hint has it all.
-		EnemySpawn = string.Join(" · ", (rain.HasValue ? spawn.Prepend(AcidRainText(rain.Value, full: false)) : spawn).Distinct(StringComparer.Ordinal));
+		string lead = rain.HasValue ? AcidRainText(rain.Value, full: false) : ((gate != null) ? SpawnGateText(gate, spawn, biomes, full: false) : null);
+		EnemySpawn = string.Join(" · ", ((lead != null) ? spawn.Prepend(lead) : spawn).Distinct(StringComparer.Ordinal));
 		EnemySpawnTip = "";
 		if (rain.HasValue)
 		{
 			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (T("Начинается сам или от предмета: ", "Starts on its own or with a ") + ItemName(tear.Type)) : T("Начинается сам", "Starts on its own");
 			EnemySpawnTip = string.Join(" · ", spawn.Prepend(AcidRainText(rain.Value, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + start + "\n" + T("Из таблиц события Calamity", "From Calamity's event tables");
+		}
+		else if (gate != null)
+		{
+			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + T("Мод пускает его и после других боссов, проба не нашла каких", "The mod lets it spawn after other bosses too; the probe could not tell which")) : "") + "\n" + T("По коду появления мода", "From the mod's own spawn code");
 		}
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
@@ -2389,6 +2395,87 @@ public sealed partial class RecipeBookSystem : ModSystem
 			parts.Add(T("до: ", "until ") + NpcTypeName(bosses[rain.LastTier + 1]));
 		}
 		return string.Join(" · ", parts.Where((string p) => p.Length > 0));
+	}
+
+	// "Jungle · after Golem": where the mob's own spawn code lets it spawn, the boss it waits for, then what every try
+	// that worked had in common (a time or rain the Bestiary tags already say is left to them). So the gate stays in
+	// sight, the card names the first biome and how many more (Underground Jungle counts as Jungle) and leaves out a
+	// mod's biome the Biome line already names (Calamity's are long); the hint names every place.
+	private static string SpawnGateText(BookSpawnGates.Gate gate, List<string> tags, List<string> biomes, bool full)
+	{
+		List<string> places = (full ? gate.Places.Select((BookSpawnGates.Place p) => PlaceName(p.Key)) : (from p in gate.Places
+			group p by p.Family into family
+			where !family.All((BookSpawnGates.Place p) => p.Key.Contains('/') && biomes.Contains(PlaceName(p.Key)))
+			select PlaceName(family.Key))).Distinct().ToList();
+		string time = gate.Day switch
+		{
+			true => "Day",
+			false => "Night",
+			_ => null
+		};
+		return string.Join(" · ", gate.Terms.Select(GateTermText).Prepend((full || places.Count <= 1) ? string.Join(" · ", places) : (places[0] + " +" + (places.Count - 1))).Concat(new string[3]
+		{
+			gate.Water ? T("в воде", "in water") : "",
+			(time != null && !tags.Contains(Language.GetTextValue("Bestiary_Times." + time + "Time"))) ? GateText(time) : "",
+			(gate.Rain && !tags.Contains(Language.GetTextValue("Bestiary_Events.Rain"))) ? T("в дождь", "in rain") : ""
+		}).Where((string p) => p.Length > 0));
+	}
+
+	// One of BookSpawnGates.Gate.Terms: "Hardmode or after Calamitas Clone", "after Golem or another boss", the
+	// mechanical bosses in a word.
+	private static string GateTermText(string term)
+	{
+		switch (term)
+		{
+			case "mechs:any":
+				return T("после любого механического босса", "after any mechanical boss");
+			case "mechs:two":
+				return T("после любых двух механических боссов", "after any two mechanical bosses");
+			case "mechs:all":
+				return T("после всех механических боссов", "after all mechanical bosses");
+		}
+		// Hardmode and PostHardmode ("after Moon Lord") have words of their own; the bosses share one "after".
+		string[] ways = term.Split(';');
+		string[] words = ways.Where((string way) => way is "Hardmode" or "PostHardmode").Select(GateText).ToArray();
+		string after = string.Join(T(" или ", " or "), from way in ways
+			where !(way is "Hardmode" or "PostHardmode")
+			select (way == "?") ? T("другой босс", "another boss") : string.Join(" + ", way.Split('+').Select(GateBossName)));
+		return string.Join(T(" или ", " or "), (after.Length > 0) ? words.Append(T("после: ", "after ") + after) : words);
+	}
+
+	// A step's boss: "A|B" is the corruption's and the crimson's, the world's evil picks; "Enemies.*" is a game text.
+	private static string GateBossName(string name)
+	{
+		string[] bosses = name.Split('|');
+		string boss = bosses[(bosses.Length > 1 && WorldGen.crimson) ? 1 : 0];
+		return boss.StartsWith("Enemies.", StringComparison.Ordinal) ? Language.GetTextValue(boss) : NpcTypeName(boss);
+	}
+
+	// The probe's places (BookSpawnGates.Places): its own names for the vanilla ones, the game's for mods' biomes.
+	private static string PlaceName(string key)
+	{
+		return key switch
+		{
+			"Forest" => T("Лес", "Forest"),
+			"Underground" => T("Подземелье", "Underground"),
+			"Caverns" => T("Пещеры", "Caverns"),
+			"Jungle" => T("Джунгли", "Jungle"),
+			"UndergroundJungle" => T("Подземные джунгли", "Underground Jungle"),
+			"Temple" => T("Храм джунглей", "Jungle Temple"),
+			"Snow" => T("Снег", "Snow"),
+			"UndergroundSnow" => T("Подземный снег", "Underground Snow"),
+			"Desert" => T("Пустыня", "Desert"),
+			"UndergroundDesert" => T("Подземная пустыня", "Underground Desert"),
+			"Ocean" => T("Океан", "Ocean"),
+			"Dungeon" => T("Темница", "Dungeon"),
+			"Underworld" => T("Преисподняя", "Underworld"),
+			"Corruption" => T("Порча", "Corruption"),
+			"Crimson" => T("Багрянец", "Crimson"),
+			"Hallow" => T("Освящение", "Hallow"),
+			"Sky" => T("Небо", "Sky"),
+			"Abyss" => T("Бездна", "Abyss"),
+			_ => ModContent.TryFind(key, out ModBiome biome) ? biome.DisplayName.Value : key
+		};
 	}
 
 	private static string EnemyLootTooltip(BookEnemyLoot loot)

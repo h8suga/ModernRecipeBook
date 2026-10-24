@@ -52,14 +52,16 @@ internal static class BookProgression
 	private static Dictionary<int, BookStage> npcs = new Dictionary<int, BookStage>();
 
 	// The stage an NPC appears at: the curated tables, else what it always drops; anything left (critters,
-	// most town NPCs, mods' enemies without loot) is about from the start.
+	// most town NPCs, mods' enemies without loot) is about from the start. A gate in the mob's own spawn code
+	// (BookSpawnGates: a Calamity mob that waits for Providence) can only make it later.
 	internal static BookStage NpcStage(int netId)
 	{
+		BookStage gate = BookSpawnGates.Stage(netId);
 		if (!npcs.TryGetValue(netId, out var s) || s == BookStage.Unknown)
 		{
-			return BookStage.PreHardmode;
+			return Max(BookStage.PreHardmode, gate);
 		}
-		return s;
+		return Max(s, gate);
 	}
 
 	internal static BookStage RecipeStage(int index)
@@ -144,7 +146,7 @@ internal static class BookProgression
 		Dictionary<int, BookStage> seeds = new Dictionary<int, BookStage>();
 		Dictionary<int, string> why = new Dictionary<int, string>();
 		Dictionary<int, List<string>> traced = TraceSources ? new Dictionary<int, List<string>>() : null;
-		Dictionary<string, int[]> names =BookProgressionRules.BuildNameIndex(from i in ContentSamples.ItemsByType.Values
+		Dictionary<string, int[]> names = BookProgressionRules.BuildNameIndex(from i in ContentSamples.ItemsByType.Values
 			where i != null && !i.IsAir && i.ModItem == null
 			select new KeyValuePair<string, int>(ItemID.Search.GetName(i.type) ?? ("#" + i.type), i.type));
 		Mark(BookStage.Hardmode, "CrystalBall PearlstoneBlock PearlsandBlock PinkIceBlock HallowedSeeds HallowHardenedSand HallowSandstone BlueSolution PurpleSolution RedSolution DarkBlueSolution LihzahrdFurnace FleshCloningVaat ZapinatorOrange LongRainbowTrailWings DemonHeart WallOfFleshBossBag WallOfFleshGoatMountItem LizardEgg DestroyerBossBag TwinsBossBag SkeletronPrimeBossBag PlanteraBossBag GolemBossBag FishronBossBag CultistBossBag FairyQueenBossBag QueenSlimeBossBag BossBagBetsy CobaltOre PalladiumOre MythrilOre OrichalcumOre AdamantiteOre TitaniumOre ChlorophyteOre CobaltBar PalladiumBar MythrilBar OrichalcumBar AdamantiteBar TitaniumBar ChlorophyteBar HallowedBar ShroomiteBar SpectreBar SoulofLight SoulofNight SoulofFlight SoulofMight SoulofSight SoulofFright CrystalShard PixieDust UnicornHorn CrystalBullet CursedFlame Ichor Ectoplasm TruffleWorm LifeFruit FragmentSolar FragmentVortex FragmentNebula FragmentStardust SolarTablet LihzahrdPowerCell MythrilAnvil OrichalcumAnvil AdamantiteForge TitaniumForge LunarCraftingStation FairyBell MagicalHarp Harp SpellTome EmptyDropper ExplosivePowder SteampunkBoiler BlendOMatic Autohammer CursedFlames GoldenShower CrystalStorm ClingerStaff RodofDiscord DaedalusStormbow FetidBaghnakhs FlyingKnife CrystalVileShard DartPistol DartRifle ChainGuillotines PutridScent FleshKnuckles TendonHook IlluminantHook WormHook IceSickle BeamSword Frostbrand IceBow Marrow Uzi SniperRifle TacticalShotgun RifleScope ChainGun RocketLauncher GrenadeLauncher ProximityMineLauncher CoinGun PirateStaff Cutlass PirateMap Amarok HelFire FormatC Gradient Chik Yelets Kraken TheEyeOfCthulhu DeathSickle BrokenHeroSword TerraBlade FlowerofFrost FrostStaff PoisonStaff VenomStaff SpiderFang AncientBattleArmorMaterial AncientBattleArmorMaterial FrostCore LightShard DarkShard BlackFairyDust TatteredBeeWing ButterflyDust IceFeather FireFeather SpookyTwig SpookyWood BeetleHusk ScalyTruffle AvengerEmblem WarriorEmblem RangerEmblem SorcererEmblem SummonerEmblem Pwnhammer ClockworkAssaultRifle BreakerBlade LaserRifle HallowedKey JungleKey CorruptionKey CrimsonKey FrozenKey DungeonDesertKey VampireKnives ScourgeoftheCorruptor RainbowGun StaffoftheFrostHydra PiranhaGun StormTigerStaff FlameWings LeafWings Jetpack SteampunkWings BoneWings FrozenWings ButterflyWings BeeWings QueenSlimeBossBag QueenSlimeCrystal Smolstar GelBalloon SparkleGuitar CrystalNinjaHelmet CrystalNinjaChestplate CrystalNinjaLeggings SanguineStaff SharpTears BloodLustCluster DripplerFlail BouncingShield BouncingShield FireWhip CoolWhip SwordWhip ScytheWhip RainbowWhip MaceWhip EmpressBlade FairyQueenMagicItem FairyQueenRangedItem FairyQueenBossBag RainbowWhip Seedler TheAxe WaspGun LeafBlower GrenadeLauncher VenusMagnum NettleBurst FlowerPow GolemFist PossessedHatchet Stynger StaffofEarth HeatRay EyeoftheGolem Picksaw TempestStaff Flairon RazorbladeTyphoon BubbleGun Tsunami ShrimpyTruffle BetsyWings DD2BetsyBow DD2SquireBetsySword ApprenticeStaffT3 MonkStaffT3 Razorpine BlizzardStaff NorthPole ChristmasTreeSword SnowmanCannon CandyCornRifle JackOLanternLauncher BatScepter RavenStaff TheHorsemansBlade StakeLauncher SpookyHook SpookyWings WitchBroom RainbowRod NeptunesShell FrozenTurtleShell TurtleShell MoonStone SunStone PaladinsShield AnkhShield DiscountCard LuckyCoin GoldRing PirateShipMountItem PygmyStaff TikiMask TikiShirt TikiPants CrystalSerpent ObsidianSwordfish Toxikarp BlessedApple CorruptFishingCrateHard CrimsonFishingCrateHard DungeonFishingCrateHard FloatingIslandFishingCrateHard FrozenCrateHard HallowedFishingCrate HallowedFishingCrateHard JungleFishingCrateHard LavaCrateHard OceanCrateHard OasisCrateHard GoldenCrateHard IronCrateHard WoodenCrateHard");
@@ -324,7 +326,7 @@ internal static class BookProgression
 		reasons = why;
 		trace = traced ?? new Dictionary<int, List<string>>();
 		lastRoutes = TraceSources ? routes : new List<BookProgressionRules.Route>();
-		recipeMinimums =routes.Where((BookProgressionRules.Route route) => route.Key >= 0).ToDictionary((BookProgressionRules.Route route) => route.Key, (BookProgressionRules.Route route) => BookProgressionRules.MinimumStage(route, items, floors));
+		recipeMinimums = routes.Where((BookProgressionRules.Route route) => route.Key >= 0).ToDictionary((BookProgressionRules.Route route) => route.Key, (BookProgressionRules.Route route) => BookProgressionRules.MinimumStage(route, items, floors));
 		ILog logger = ModContent.GetInstance<ModernRecipeBook>().Logger;
 		logger.Info($"Progression audit ({timer.ElapsedMilliseconds} ms) items: " + Totals(all.Select((Item i) => ItemStage(i.type))));
 		logger.Info("Progression audit recipes: " + Totals(indexes.Select(RecipeStage)));

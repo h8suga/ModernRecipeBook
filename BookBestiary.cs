@@ -81,6 +81,7 @@ internal static class BookBestiary
 		ByCredit.Clear();
 		TagsByKey.Clear();
 		AcidRain.Clear();
+		BookSpawnGates.Clear();
 		Built = false;
 	}
 
@@ -132,6 +133,8 @@ internal static class BookBestiary
 		{
 			Build();
 		}
+		// Apart from the index: it waits for a single-player world.
+		BookSpawnGates.EnsureBuilt();
 	}
 
 	// The entry a mob belongs to, through the Bestiary's credit (a zombie skin opens the Zombie entry).
