@@ -156,6 +156,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static string EnemySpawn = "";
 
+	// The Spawns line's hint when it comes from Calamity's Acid Rain tables, not the Bestiary; empty otherwise.
+	private static string EnemySpawnTip = "";
+
 	private static List<BookEnemyLoot> EnemyLoot = new List<BookEnemyLoot>();
 
 	// Two stage filters: the Storage tab's own (what lies in the chests is there whatever its stage), and one shared
@@ -2343,8 +2346,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			EnemyReadErrors++;
 		}
+		BookBestiary.AcidRainSpawn? rain = BookBestiary.AcidRainOf(npc.type);
+		if (rain.HasValue)
+		{
+			spawn.Insert(0, AcidRainText(rain.Value));
+		}
 		EnemyBiomes = string.Join(" · ", biomes.Distinct(StringComparer.Ordinal));
 		EnemySpawn = string.Join(" · ", spawn.Distinct(StringComparer.Ordinal));
+		EnemySpawnTip = "";
+		if (rain.HasValue)
+		{
+			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (T("Кислотный дождь начинается сам или если использовать: ", "Acid Rain starts on its own or with a ") + ItemName(tear.Type)) : T("Кислотный дождь начинается сам", "Acid Rain starts on its own");
+			EnemySpawnTip = EnemySpawn + "\n" + start + "\n" + T("Из таблиц события Calamity", "From Calamity's event tables");
+		}
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
 		ReadEnemyPortrait(id);
@@ -2352,6 +2366,30 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Enemy card for NPC net ID {id}: {EnemyReadErrors} reports/tags could not be read.");
 		}
+	}
+
+	// "Acid Rain in the Sulphurous Sea · in water · after Aquatic Scourge": the tier it first spawns in, and the one it
+	// stops at when a later tier leaves it out. Anywhere adds nothing.
+	private static string AcidRainText(BookBestiary.AcidRainSpawn rain)
+	{
+		string[] bosses = { "EyeofCthulhu", "CalamityMod/AquaticScourgeHead", "CalamityMod/Polterghast" };
+		List<string> parts = new List<string>
+		{
+			rain.MiniBoss ? T("Мини-босс Кислотного дождя в Сернистом море", "Acid Rain mini-boss in the Sulphurous Sea") : T("Кислотный дождь в Сернистом море", "Acid Rain in the Sulphurous Sea"),
+			rain.Requirement switch
+			{
+				"Water" => T("в воде", "in water"),
+				"Land" => T("на суше", "on land"),
+				"Sky" => T("падает с неба", "falls from the sky"),
+				_ => ""
+			},
+			GateText("boss:" + bosses[rain.Tier])
+		};
+		if (rain.LastTier < bosses.Length - 1)
+		{
+			parts.Add(T("до: ", "until ") + NpcTypeName(bosses[rain.LastTier + 1]));
+		}
+		return string.Join(" · ", parts.Where((string p) => p.Length > 0));
 	}
 
 	private static string EnemyLootTooltip(BookEnemyLoot loot)
@@ -5133,7 +5171,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void FixedLabel(SpriteBatch sb, string label, float x, float y, Color? color = null, float size = 1f, float width = 1000f, float height = 32f)
+	// True when the label was cut short.
+	private static bool FixedLabel(SpriteBatch sb, string label, float x, float y, Color? color = null, float size = 1f, float width = 1000f, float height = 32f)
 	{
 		label = BookRules.PlainText(label).Replace("\n", " ").Replace("\r", " ");
 		BookGlyphLayout.Bounds reference = Ink(ReferenceGlyphs);
@@ -5148,6 +5187,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			MouseTip(label);
 		}
+		return line.Truncated;
 	}
 
 	private static void DrawInkLine(SpriteBatch sb, string value, Vector2 pos, Color color, float size)

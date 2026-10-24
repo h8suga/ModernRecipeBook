@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -51,6 +52,11 @@ internal static class BookBestiary
 
 	internal sealed record Tag(string Key, string Russian, string English, string LabelKey, Icon Icon, HashSet<int> Members);
 
+	// A mob of Calamity's Acid Rain: the first and last tier it spawns in (0 after the Eye of Cthulhu, 1 after
+	// Aquatic Scourge, 2 after Polterghast), from a mini-boss table or not, and where (AcidRainSpawnRequirement:
+	// Water, Land, Anywhere; Sky for Irradiated Slime).
+	internal readonly record struct AcidRainSpawn(int Tier, int LastTier, bool MiniBoss, string Requirement);
+
 	internal static readonly List<BookMob> Mobs = new List<BookMob>();
 
 	internal static readonly List<Tag> Tags = new List<Tag>();
@@ -58,6 +64,8 @@ internal static class BookBestiary
 	private static readonly Dictionary<string, int> ByCredit = new Dictionary<string, int>(StringComparer.Ordinal);
 
 	private static readonly Dictionary<string, Tag> TagsByKey = new Dictionary<string, Tag>(StringComparer.Ordinal);
+
+	private static readonly Dictionary<int, AcidRainSpawn> AcidRain = new Dictionary<int, AcidRainSpawn>();
 
 	// The wiki's vanilla mini-bosses ("Mini-bosses" category, October 2026) that carry no boss flag.
 	private static readonly HashSet<int> VanillaMiniBosses = new HashSet<int> { 325, 327, 344, 345, 346, 392, 395, 477, 491, 564, 565, 576, 577, 618 };
@@ -72,7 +80,50 @@ internal static class BookBestiary
 		Tags.Clear();
 		ByCredit.Clear();
 		TagsByKey.Clear();
+		AcidRain.Clear();
 		Built = false;
+	}
+
+	internal static AcidRainSpawn? AcidRainOf(int type)
+	{
+		EnsureBuilt();
+		return AcidRain.TryGetValue(type, out AcidRainSpawn spawn) ? spawn : null;
+	}
+
+	// Calamity spawns the Acid Rain from its own tables (AcidRainEvent.PossibleEnemiesPreHM and the rest, NPC type to
+	// AcidRainSpawnData), tier by tier as CalamityGlobalNPC.EditSpawnPool picks them; its mobs have no SpawnChance and
+	// no Bestiary spawn tags. Read without a reference; anything missing leaves the cards as they were.
+	private static void ReadAcidRain()
+	{
+		if (!ModLoader.TryGetMod("CalamityMod", out Mod calamity))
+		{
+			return;
+		}
+		try
+		{
+			Type events = calamity.Code.GetType("CalamityMod.Events.AcidRainEvent", throwOnError: true);
+			foreach (var (field, tier, miniBoss) in new[] { ("PossibleEnemiesPreHM", 0, false), ("PossibleEnemiesAS", 1, false), ("PossibleMinibossesAS", 1, true), ("PossibleEnemiesPolter", 2, false), ("PossibleMinibossesPolter", 2, true) })
+			{
+				IDictionary table = (IDictionary)(events.GetField(field, BindingFlags.Static | BindingFlags.Public) ?? throw new MissingFieldException(events.FullName, field)).GetValue(null);
+				foreach (DictionaryEntry pair in table)
+				{
+					int type = (int)pair.Key;
+					object requirement = pair.Value.GetType().GetProperty("SpawnRequirement")?.GetValue(pair.Value) ?? throw new MissingMemberException("AcidRainSpawnData", "SpawnRequirement");
+					AcidRain[type] = AcidRain.TryGetValue(type, out AcidRainSpawn first) ? first with { LastTier = tier } : new AcidRainSpawn(tier, tier, miniBoss, requirement.ToString());
+				}
+			}
+			// Irradiated Slime falls from the sky after Aquatic Scourge until Polterghast (CalamityPlayer); Calamity adds
+			// it to the AS table only once that tier first spawns.
+			if (calamity.TryFind("IrradiatedSlime", out ModNPC slime))
+			{
+				AcidRain[slime.Type] = new AcidRainSpawn(1, 1, false, "Sky");
+			}
+		}
+		catch (Exception error)
+		{
+			AcidRain.Clear();
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn("Calamity's Acid Rain tables could not be read; its mobs keep the Bestiary's spawn tags.", error);
+		}
 	}
 
 	internal static void EnsureBuilt()
@@ -111,6 +162,7 @@ internal static class BookBestiary
 	{
 		Clear();
 		Built = true;
+		ReadAcidRain();
 		Dictionary<string, List<int>> credited = new Dictionary<string, List<int>>(StringComparer.Ordinal);
 		foreach (KeyValuePair<int, string> pair in ContentSamples.NpcBestiaryCreditIdsByNpcNetIds.OrderBy((KeyValuePair<int, string> x) => x.Key))
 		{
@@ -260,7 +312,7 @@ internal static class BookBestiary
 		{
 			return BookMobKind.Boss;
 		}
-		if (VanillaMiniBosses.Contains(npc.type) || entry.Info.Any((IBestiaryInfoElement x) => x is BossBestiaryInfoElement))
+		if (VanillaMiniBosses.Contains(npc.type) || entry.Info.Any((IBestiaryInfoElement x) => x is BossBestiaryInfoElement) || (AcidRain.TryGetValue(npc.type, out AcidRainSpawn rain) && rain.MiniBoss))
 		{
 			return BookMobKind.MiniBoss;
 		}
