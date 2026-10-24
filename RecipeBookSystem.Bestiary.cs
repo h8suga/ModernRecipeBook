@@ -646,6 +646,7 @@ public sealed partial class RecipeBookSystem
 		FixedLabel(sb, MobKindName(mob.Kind) + " · " + ModName(mob.Mod), subtitle.X, subtitle.Y, Muted, 0.8f, subtitle.Width, subtitle.Height);
 		BookRect tags = BookGeometry.MobTags;
 		Box(sb, tags, Raised, border: false, 8f);
+		string clipped = null;
 		TagLine(0, T("Этап", "Stage"), StageName(BookProgression.NpcStage(netId)));
 		TagLine(1, T("Биом", "Biome"), (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"));
 		TagLine(2, T("Появление", "Spawns"), (EnemySpawn.Length > 0) ? EnemySpawn : T("Не указано", "Not listed"));
@@ -656,14 +657,20 @@ public sealed partial class RecipeBookSystem
 			SeenMobs.TryGet(credit, out met);
 		}
 		TagLine(3, T("Встреча", "Met"), tracked ? (BookMobEncounters.Date(met.First, Ru, full: false) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? T("раньше", "earlier") : T("ещё нет", "not yet")));
+		BookRect spawnLine = new BookRect(tags.X, tags.Y + 3f + 2 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		BookRect metLine = new BookRect(tags.X, tags.Y + 3f + 3 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		if (!MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(tracked ? (T("Впервые: ", "First met: ") + BookMobEncounters.Date(met.First, Ru, full: true) + "\n" + T("Последний раз: ", "Last met: ") + BookMobEncounters.Date(met.Last, Ru, full: true) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? T("Встречен до того, как книга начала записывать встречи", "Met before the book started recording encounters") : T("Встречи записываются, когда моб рядом с вами", "Encounters are recorded when the mob is near you")));
 		}
+		else if (!MenuOpen && EnemySpawnTip.Length > 0 && spawnLine.Contains(Mouse.X, Mouse.Y))
+		{
+			MouseTip(EnemySpawnTip);
+		}
 		else if (!MenuOpen && tags.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("По данным бестиария; может быть неполно", "From the Bestiary; may be incomplete"));
+			// The note replaces the hint of a value cut short, so that value leads it.
+			MouseTip((clipped != null ? (clipped + "\n") : "") + T("По данным бестиария; может быть неполно", "From the Bestiary; may be incomplete"));
 		}
 		if (MobStatsMode)
 		{
@@ -685,7 +692,10 @@ public sealed partial class RecipeBookSystem
 		{
 			float y = tags.Y + 3f + (float)line * BookGeometry.MobTagStep;
 			FixedLabel(sb, label, tags.X + 10f, y, Muted, 0.75f, 84f, BookGeometry.MobTagStep);
-			FixedLabel(sb, value, tags.X + 96f, y, TextColor, 0.8f, tags.Width - 104f, BookGeometry.MobTagStep);
+			if (FixedLabel(sb, value, tags.X + 96f, y, TextColor, 0.8f, tags.Width - 104f, BookGeometry.MobTagStep) && Hit(tags.X, y, tags.Width, BookGeometry.MobTagStep))
+			{
+				clipped = value;
+			}
 		}
 	}
 

@@ -3,6 +3,16 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.11.2 — 2026-10-24
+
+### Fixed
+- Calamity's Acid Rain enemies read "Spawns: Not listed": Calamity spawns them from its event tables, not the
+  Bestiary. The card now says where and when, e.g. Cragmaw Mire "in water · after Aquatic Scourge", and its hint
+  gives the whole picture: "Acid Rain mini-boss in the Sulphurous Sea", how the event starts (on its own or with a
+  Caustic Tear). Cragmaw Mire, Mauler and Nuclear Terror now count as mini-bosses.
+- A mob card value cut short (a long Biome line, for example) could not be read: the card's general hint covered
+  it. The full value now heads that hint.
+
 ## 1.11.1 — 2026-10-24
 
 ### Fixed
