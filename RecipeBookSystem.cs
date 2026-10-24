@@ -18,6 +18,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.UI;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace ModernRecipeBook;
 
@@ -1478,7 +1479,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1492,7 +1493,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1513,6 +1514,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CategoryKey = state.CategoryKey,
 			FavoritesOnly = state.FavoritesOnly,
 			MetOnly = state.MetOnly,
+			CraftableOnly = state.CraftableOnly,
 			SortMode = state.SortMode,
 			SortDescending = state.SortDescending,
 			ExcludedStations = ((state.Stations.Length == 0) ? Array.Empty<string>() : state.Stations.Split('|'))
@@ -2347,14 +2349,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 			EnemyReadErrors++;
 		}
 		BookBestiary.AcidRainSpawn? rain = BookBestiary.AcidRainOf(npc.type);
+		BookSpawnGates.Gate gate = rain.HasValue ? null : BookSpawnGates.Of(npc.type);
 		EnemyBiomes = string.Join(" · ", biomes.Distinct(StringComparer.Ordinal));
 		// The card's line is short (the subtitle already says mini-boss, the Biome line Acid Rain); the hint has it all.
-		EnemySpawn = string.Join(" · ", (rain.HasValue ? spawn.Prepend(AcidRainText(rain.Value, full: false)) : spawn).Distinct(StringComparer.Ordinal));
+		string lead = rain.HasValue ? AcidRainText(rain.Value, full: false) : ((gate != null) ? SpawnGateText(gate, spawn, biomes, full: false) : null);
+		EnemySpawn = string.Join(" · ", ((lead != null) ? spawn.Prepend(lead) : spawn).Distinct(StringComparer.Ordinal));
 		EnemySpawnTip = "";
 		if (rain.HasValue)
 		{
 			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (T("Начинается сам или от предмета: ", "Starts on its own or with a ") + ItemName(tear.Type)) : T("Начинается сам", "Starts on its own");
 			EnemySpawnTip = string.Join(" · ", spawn.Prepend(AcidRainText(rain.Value, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + start + "\n" + T("Из таблиц события Calamity", "From Calamity's event tables");
+		}
+		else if (gate != null)
+		{
+			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + T("Мод пускает его и после других боссов, проба не нашла каких", "The mod lets it spawn after other bosses too; the probe could not tell which")) : "") + "\n" + T("По коду появления мода", "From the mod's own spawn code");
 		}
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
@@ -2387,6 +2395,87 @@ public sealed partial class RecipeBookSystem : ModSystem
 			parts.Add(T("до: ", "until ") + NpcTypeName(bosses[rain.LastTier + 1]));
 		}
 		return string.Join(" · ", parts.Where((string p) => p.Length > 0));
+	}
+
+	// "Jungle · after Golem": where the mob's own spawn code lets it spawn, the boss it waits for, then what every try
+	// that worked had in common (a time or rain the Bestiary tags already say is left to them). So the gate stays in
+	// sight, the card names the first biome and how many more (Underground Jungle counts as Jungle) and leaves out a
+	// mod's biome the Biome line already names (Calamity's are long); the hint names every place.
+	private static string SpawnGateText(BookSpawnGates.Gate gate, List<string> tags, List<string> biomes, bool full)
+	{
+		List<string> places = (full ? gate.Places.Select((BookSpawnGates.Place p) => PlaceName(p.Key)) : (from p in gate.Places
+			group p by p.Family into family
+			where !family.All((BookSpawnGates.Place p) => p.Key.Contains('/') && biomes.Contains(PlaceName(p.Key)))
+			select PlaceName(family.Key))).Distinct().ToList();
+		string time = gate.Day switch
+		{
+			true => "Day",
+			false => "Night",
+			_ => null
+		};
+		return string.Join(" · ", gate.Terms.Select(GateTermText).Prepend((full || places.Count <= 1) ? string.Join(" · ", places) : (places[0] + " +" + (places.Count - 1))).Concat(new string[3]
+		{
+			gate.Water ? T("в воде", "in water") : "",
+			(time != null && !tags.Contains(Language.GetTextValue("Bestiary_Times." + time + "Time"))) ? GateText(time) : "",
+			(gate.Rain && !tags.Contains(Language.GetTextValue("Bestiary_Events.Rain"))) ? T("в дождь", "in rain") : ""
+		}).Where((string p) => p.Length > 0));
+	}
+
+	// One of BookSpawnGates.Gate.Terms: "Hardmode or after Calamitas Clone", "after Golem or another boss", the
+	// mechanical bosses in a word.
+	private static string GateTermText(string term)
+	{
+		switch (term)
+		{
+			case "mechs:any":
+				return T("после любого механического босса", "after any mechanical boss");
+			case "mechs:two":
+				return T("после любых двух механических боссов", "after any two mechanical bosses");
+			case "mechs:all":
+				return T("после всех механических боссов", "after all mechanical bosses");
+		}
+		// Hardmode and PostHardmode ("after Moon Lord") have words of their own; the bosses share one "after".
+		string[] ways = term.Split(';');
+		string[] words = ways.Where((string way) => way is "Hardmode" or "PostHardmode").Select(GateText).ToArray();
+		string after = string.Join(T(" или ", " or "), from way in ways
+			where !(way is "Hardmode" or "PostHardmode")
+			select (way == "?") ? T("другой босс", "another boss") : string.Join(" + ", way.Split('+').Select(GateBossName)));
+		return string.Join(T(" или ", " or "), (after.Length > 0) ? words.Append(T("после: ", "after ") + after) : words);
+	}
+
+	// A step's boss: "A|B" is the corruption's and the crimson's, the world's evil picks; "Enemies.*" is a game text.
+	private static string GateBossName(string name)
+	{
+		string[] bosses = name.Split('|');
+		string boss = bosses[(bosses.Length > 1 && WorldGen.crimson) ? 1 : 0];
+		return boss.StartsWith("Enemies.", StringComparison.Ordinal) ? Language.GetTextValue(boss) : NpcTypeName(boss);
+	}
+
+	// The probe's places (BookSpawnGates.Places): its own names for the vanilla ones, the game's for mods' biomes.
+	private static string PlaceName(string key)
+	{
+		return key switch
+		{
+			"Forest" => T("Лес", "Forest"),
+			"Underground" => T("Подземелье", "Underground"),
+			"Caverns" => T("Пещеры", "Caverns"),
+			"Jungle" => T("Джунгли", "Jungle"),
+			"UndergroundJungle" => T("Подземные джунгли", "Underground Jungle"),
+			"Temple" => T("Храм джунглей", "Jungle Temple"),
+			"Snow" => T("Снег", "Snow"),
+			"UndergroundSnow" => T("Подземный снег", "Underground Snow"),
+			"Desert" => T("Пустыня", "Desert"),
+			"UndergroundDesert" => T("Подземная пустыня", "Underground Desert"),
+			"Ocean" => T("Океан", "Ocean"),
+			"Dungeon" => T("Темница", "Dungeon"),
+			"Underworld" => T("Преисподняя", "Underworld"),
+			"Corruption" => T("Порча", "Corruption"),
+			"Crimson" => T("Багрянец", "Crimson"),
+			"Hallow" => T("Освящение", "Hallow"),
+			"Sky" => T("Небо", "Sky"),
+			"Abyss" => T("Бездна", "Abyss"),
+			_ => ModContent.TryFind(key, out ModBiome biome) ? biome.DisplayName.Value : key
+		};
 	}
 
 	private static string EnemyLootTooltip(BookEnemyLoot loot)
@@ -3072,6 +3161,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				["CategoryKey"] = tab.Value.CategoryKey,
 				["FavoritesOnly"] = tab.Value.FavoritesOnly,
 				["MetOnly"] = tab.Value.MetOnly,
+				["CraftableOnly"] = tab.Value.CraftableOnly,
 				["SortMode"] = tab.Value.SortMode.ToString(),
 				["SortDescending"] = tab.Value.SortDescending,
 				["ExcludedStations"] = tab.Value.ExcludedStations.ToList()
@@ -3200,6 +3290,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 						CategoryKey = tab.GetString("CategoryKey"),
 						FavoritesOnly = tab.GetBool("FavoritesOnly"),
 						MetOnly = tab.GetBool("MetOnly"),
+						// Saves before version 8 have none: off.
+						CraftableOnly = tab.GetBool("CraftableOnly"),
 						SortDescending = tab.GetBool("SortDescending"),
 						// Saves before version 6 have none.
 						ExcludedStations = (tab.ContainsKey("ExcludedStations") ? tab.GetList<string>("ExcludedStations").ToArray() : Array.Empty<string>())
@@ -3337,6 +3429,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CategoryKey = ((Category >= 0 && Category < Categories.Count) ? Categories[Category].Key : "all"),
 			FavoritesOnly = FavoritesOnly,
 			MetOnly = MetOnly,
+			CraftableOnly = CraftableOnly,
 			SortMode = SortMode,
 			SortDescending = SortDescending,
 			ExcludedStations = ExcludedStations
@@ -3355,6 +3448,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		FavoritesOnly = source.FavoritesOnly;
 		MetOnly = source.MetOnly;
+		CraftableOnly = source.CraftableOnly;
 		SortMode = source.SortMode;
 		SortDescending = source.SortDescending;
 		SetExcludedStations(source.ExcludedStations);
@@ -3429,18 +3523,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static int CompareFilteredIndexes(int left, int right)
 	{
-		if (StationSort)
+		BookSortMode mode = SortPass.Mode;
+		if (mode >= BookSortMode.Station)
 		{
-			return CompareStationRank(left, right);
+			return CompareRank(left, right);
 		}
 		Item a = Result(left);
 		Item b = Result(right);
 		int comparison;
-		if (SortMode == BookSortMode.ItemId)
+		if (mode == BookSortMode.ItemId)
 		{
 			comparison = a.type.CompareTo(b.type);
 		}
-		else if (SortMode == BookSortMode.Mod)
+		else if (mode == BookSortMode.Mod)
 		{
 			comparison = string.Compare(SortOwner(left), SortOwner(right), StringComparison.CurrentCultureIgnoreCase);
 			if (comparison == 0)
@@ -3460,7 +3555,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			comparison = left.CompareTo(right);
 		}
-		if (!SortDescending)
+		if (!SortPass.Descending)
 		{
 			return comparison;
 		}
@@ -3482,26 +3577,38 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return MobSortShortLabel(SortOptionIndex);
 		}
-		// The closed dropdown has room for about ten letters: the station orders keep an arrow there, as Met does.
-		return SortOptionIndex switch
+		// The closed dropdown has room for about ten letters: Station and the category sorts keep an arrow there, as
+		// Met does.
+		BookSortMode mode = ActiveSort;
+		if (mode == BookSortMode.Name || mode == BookSortMode.ItemId || mode == BookSortMode.Mod)
 		{
-			6 => T("Станция ↑", "Station ↑"),
-			7 => T("Станция ↓", "Station ↓"),
-			_ => SortOptionLabel(SortOptionIndex),
-		};
+			return SortOptionLabel(SortOptionIndex);
+		}
+		return SortWords(mode).Short + (ActiveDescending ? " ↓" : " ↑");
 	}
 
-	// One list for field and direction: Name, ID and Mod, each ascending then descending, then Station on Items and
-	// Recipes. The Bestiary tab has its own list (MobSortOptions). A mode a tab does not offer reads as Name.
-	private static int SortOptionIndex => BestiaryView ? MobSortOptionIndex : (SortMode switch
+	// The open list's row for the sort in effect.
+	private static int SortOptionIndex
 	{
-		BookSortMode.ItemId => 2,
-		BookSortMode.Mod => 4,
-		BookSortMode.Station when StationFilterTab => 6,
-		_ => 0,
-	} + (SortDescending ? 1 : 0));
+		get
+		{
+			if (BestiaryView)
+			{
+				return MobSortOptionIndex;
+			}
+			(BookSortMode, bool) active = (ActiveSort, ActiveDescending);
+			for (int option = 0; option < SortOptionCount; option++)
+			{
+				if (SortOptionAt(option) == active)
+				{
+					return option;
+				}
+			}
+			return 0;
+		}
+	}
 
-	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : (StationFilterTab ? 8 : 6);
+	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : ((GeneralSorts.Length + GroupSortList.Length) * 2);
 
 	private static string SortOptionLabel(int option)
 	{
@@ -3509,36 +3616,26 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return MobSortOptionLabel(option);
 		}
-		return option switch
+		var (mode, descending) = SortOptionAt(option);
+		switch (mode)
 		{
-			0 => T("Имя А-Я", "Name A-Z"),
-			1 => T("Имя Я-А", "Name Z-A"),
-			2 => "ID 1-9",
-			3 => "ID 9-1",
-			4 => T("Мод А-Я", "Mod A-Z"),
-			5 => T("Мод Я-А", "Mod Z-A"),
-			6 => T("Станция: от слабой", "Station: weakest first"),
-			_ => T("Станция: от сильной", "Station: strongest first"),
-		};
+		case BookSortMode.Name:
+			return descending ? T("Имя Я-А", "Name Z-A") : T("Имя А-Я", "Name A-Z");
+		case BookSortMode.ItemId:
+			return descending ? "ID 9-1" : "ID 1-9";
+		case BookSortMode.Mod:
+			return descending ? T("Мод Я-А", "Mod Z-A") : T("Мод А-Я", "Mod A-Z");
+		default:
+		{
+			var (field, _, up, down) = SortWords(mode);
+			return field + ": " + (descending ? down : up);
+		}
+		}
 	}
 
 	private static void ApplySortOption(int option)
 	{
-		if (BestiaryView)
-		{
-			(SortMode, SortDescending) = MobSortOptions[Math.Clamp(option, 0, MobSortOptions.Length - 1)];
-		}
-		else
-		{
-			SortMode = (option / 2) switch
-			{
-				1 => BookSortMode.ItemId,
-				2 => BookSortMode.Mod,
-				3 => BookSortMode.Station,
-				_ => BookSortMode.Name,
-			};
-			SortDescending = option % 2 == 1;
-		}
+		(SortMode, SortDescending) = SortOptionAt(option);
 		Page = 0;
 		ApplyFilters();
 	}
@@ -3643,7 +3740,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Page = (DetailsPage = (Category = (CategoryRow = 0)));
 		ArmorFocus = 0;
 		Selected = -1;
-		FavoritesOnly = false;
+		FavoritesOnly = (CraftableOnly = false);
+		// Mods' tooltips can read the world (Calamity's difficulty lines): read them again in the next one.
+		ItemDescriptions = Array.Empty<(string, string)>();
 		LastLeft = (LastRight = (HelpOpen = false));
 		LastEscape = false;
 		LastKeys = default;
@@ -3813,6 +3912,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		// After the stages: the Station sort ranks stations by them.
 		BuildStationIndex();
+		BuildStatGroups();
 		try
 		{
 			BookArmorSets.Rebuild();
@@ -3867,10 +3967,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return (index >= 0 && index < BookSources.Items.Count) ? BookSources.Items[index] : new Item();
 	}
 
-	private static void ApplyFilters(bool clearMessage = true)
+	// keepSelection: the card stays on its item even when the list drops it (Craftable after a craft took the last
+	// materials: the next Craft click must not make something else).
+	private static void ApplyFilters(bool clearMessage = true, bool keepSelection = false)
 	{
 		Filtered.Clear();
+		TextMatches.Clear();
+		TextMatchCount = 0;
 		ClassHidden = 0;
+		CraftableHidden = 0;
 		StationCandidates.Clear();
 		StationCandidatesVersion++;
 		StationHidden = 0;
@@ -3893,6 +3998,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 
 		bool stations = StationFilterActive;
+		bool craftable = CraftableFilterActive;
+		bool texts = DescriptionsReady;
 		string[] terms = BookRules.SearchTerms(Query);
 		IEnumerable<int> enumerable2;
 		if (!StorageView)
@@ -3925,9 +4032,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				continue;
 			}
-			if (terms.Length > 0 && !BookRules.Search(terms, ItemSearchText(item)))
+			// A name, key or mod match ranks first; one the description alone finds follows.
+			bool byText = false;
+			if (terms.Length > 0)
 			{
-				continue;
+				string names = ItemSearchText(item);
+				if (!BookRules.Search(terms, names))
+				{
+					string description = texts ? ItemDescription(item) : null;
+					if (description == null || !BookRules.Search(terms, names, description))
+					{
+						continue;
+					}
+					byText = true;
+				}
 			}
 			BookStage stage = ((r != null) ? BookProgression.RecipeStage(index) : BookProgression.ItemStage(item.type));
 			if (!BookProgressionRules.Matches(StageFilter, stage))
@@ -3939,25 +4057,38 @@ public sealed partial class RecipeBookSystem : ModSystem
 				ClassHidden++;
 				continue;
 			}
+			if (craftable && !CraftableNow(index))
+			{
+				CraftableHidden++;
+				continue;
+			}
 			StationCandidates.Add(index);
 			if (stations && !StationAllowed(index))
 			{
 				StationHidden++;
 				continue;
 			}
-			Filtered.Add(index);
+			(byText ? TextMatches : Filtered).Add(index);
 		}
+		// Each group in the chosen order, the name matches first.
 		if (!RecentView)
 		{
-			if (StationSort)
+			SortGroup = ListGroup(Filtered, TextMatches);
+			SortPass = (ActiveSort, ActiveDescending);
+			if (SortPass.Mode >= BookSortMode.Station)
 			{
-				PrepareStationSort();
+				PrepareRanks(Filtered);
+				PrepareRanks(TextMatches);
 			}
 			Filtered.Sort(CompareFilteredIndexes);
+			TextMatches.Sort(CompareFilteredIndexes);
 		}
+		TextMatchCount = TextMatches.Count;
+		Filtered.AddRange(TextMatches);
+		TextMatches.Clear();
 
 		Page = Math.Clamp(Page, 0, Math.Max(0, (Filtered.Count - 1) / ActivePageSize));
-		if (!Filtered.Contains(Selected))
+		if (!Filtered.Contains(Selected) && !(keepSelection && Selected >= 0))
 		{
 			ArmorFocus = 0;
 			Selected = ((Filtered.Count > 0) ? Filtered[0] : (-1));
@@ -3978,6 +4109,86 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ItemSearchTexts[item.type] = cached;
 		}
 		return cached.Text;
+	}
+
+	// Description-only matches of a pass, before they join Filtered after the name matches; how many joined.
+	private static readonly List<int> TextMatches = new List<int>();
+
+	private static int TextMatchCount;
+
+	// Per item type: the normalized description (BookItemTooltip.Description) with the name it was built from. Built a
+	// slice per update once the book is open: all ~8300 tooltips at once would stall a frame. Until every type is done the
+	// search matches names only; a language change starts over.
+	private static (string Name, string Text)[] ItemDescriptions = Array.Empty<(string, string)>();
+
+	private static int DescriptionNext;
+
+	private static string DescriptionCulture = "";
+
+	private const int DescriptionSliceMs = 2;
+
+	private static bool DescriptionsReady => DescriptionNext >= ItemDescriptions.Length && ItemDescriptions.Length > 0;
+
+	private static string ItemDescription(Item item)
+	{
+		if ((uint)item.type >= (uint)ItemDescriptions.Length)
+		{
+			return null;
+		}
+		var (name, text) = ItemDescriptions[item.type];
+		return (name == item.Name) ? text : null;
+	}
+
+	private static void WarmDescriptions()
+	{
+		string culture = Language.ActiveCulture.Name;
+		if (ItemDescriptions.Length != ItemLoader.ItemCount || culture != DescriptionCulture)
+		{
+			ItemDescriptions = new (string, string)[ItemLoader.ItemCount];
+			DescriptionNext = 1;
+			DescriptionCulture = culture;
+		}
+		if (DescriptionsReady)
+		{
+			return;
+		}
+		long end = Stopwatch.GetTimestamp() + Stopwatch.Frequency * DescriptionSliceMs / 1000;
+		while (DescriptionNext < ItemDescriptions.Length && Stopwatch.GetTimestamp() < end)
+		{
+			int type = DescriptionNext++;
+			if (ContentSamples.ItemsByType.TryGetValue(type, out var sample) && !sample.IsAir)
+			{
+				ItemDescriptions[type] = (sample.Name, BookItemTooltip.Description(sample));
+			}
+		}
+		// Done: a search typed meanwhile now finds by text too.
+		if (DescriptionsReady && Query.Length > 0 && !BestiaryView && !TrackingView)
+		{
+			ApplyFilters(clearMessage: false);
+		}
+	}
+
+	// Stand: building every description at once, and the slowest items.
+	internal static string DescriptionCost()
+	{
+		List<(long Ticks, int Type)> times = new List<(long, int)>();
+		long started = Stopwatch.GetTimestamp();
+		long bytes = GC.GetAllocatedBytesForCurrentThread();
+		int chars = 0;
+		foreach (Item sample in ContentSamples.ItemsByType.Values)
+		{
+			if (sample == null || sample.IsAir)
+			{
+				continue;
+			}
+			long start = Stopwatch.GetTimestamp();
+			chars += BookItemTooltip.Description(sample).Length;
+			times.Add((Stopwatch.GetTimestamp() - start, sample.type));
+		}
+		double total = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
+		bytes = GC.GetAllocatedBytesForCurrentThread() - bytes;
+		return string.Create(CultureInfo.InvariantCulture, $"{times.Count} items in {total:F0} ms ({total * 1000 / Math.Max(1, times.Count):F0} us each), {bytes / 1048576} MB allocated, {chars} chars kept; slowest: ") + string.Join(", ", from entry in times.OrderByDescending(((long Ticks, int Type) e) => e.Ticks).Take(5)
+			select Lang.GetItemNameValue(entry.Type) + " " + (entry.Ticks * 1000000 / Stopwatch.Frequency).ToString(CultureInfo.InvariantCulture) + " us");
 	}
 
 	// Tabs: 0 Items, 1 Recipes, 2 Bestiary, 3 Storage, 4 Recent, 5 Tracking.
@@ -4079,8 +4290,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		(float, float) local = geometry.ToLocal(Main.MouseScreen.X, Main.MouseScreen.Y);
 		Mouse = new Vector2(local.Item1, local.Item2);
 		MouseOver = Hit(0f, 0f, 1120f, 696f);
-		// The filter bar makes room for one more toggle: the Bestiary's Encountered, the station filter on Items and Recipes.
-		BookGeometry.FilterInset = (BestiaryView || StationFilterTab) ? 44f : 0f;
+		// The filter bar makes room for more toggles: the Bestiary's Encountered, the station filter and Craftable on Items
+		// and Recipes.
+		BookGeometry.FilterInset = BestiaryView ? 44f : (StationFilterTab ? 88f : 0f);
 	}
 
 	private static bool Hit(float x, float y, float w, float h)
@@ -4157,6 +4369,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Rebuild();
 			ApplyFilters();
 		}
+		// Craftable follows the inventory: one pass when what can be made changed, not one per frame.
+		if (CraftableFilterActive && AppliedAvailabilityVersion != BookCrafting.AvailabilityVersion)
+		{
+			ApplyFilters(clearMessage: false, keepSelection: true);
+		}
+		WarmDescriptions();
 		if (MobRecentCategory && AppliedSeenMobsVersion != SeenMobs.Version)
 		{
 			ApplyFilters(clearMessage: false);
@@ -4357,7 +4575,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			for (int option = 0; option < SortOptionCount; option++)
 			{
-				if (BookGeometry.SortOption(option).Contains(Mouse.X, Mouse.Y))
+				if (SortOptionRect(option).Contains(Mouse.X, Mouse.Y))
 				{
 					ApplySortOption(option);
 					break;
@@ -4474,6 +4692,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (BookGeometry.FavoritesFilter.Contains(Mouse.X, Mouse.Y))
 		{
 			FavoritesOnly = !FavoritesOnly;
+			Page = 0;
+			ApplyFilters();
+			return;
+		}
+		if (CraftableFilterTab && BookGeometry.CraftableFilter.Contains(Mouse.X, Mouse.Y))
+		{
+			CraftableOnly = !CraftableOnly;
 			Page = 0;
 			ApplyFilters();
 			return;
@@ -4822,7 +5047,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		case BookHotkeys.Action.ResetFilters:
 			Query = (ModFilter = "");
-			FavoritesOnly = (MetOnly = false);
+			FavoritesOnly = (MetOnly = (CraftableOnly = false));
 			SetExcludedStations(Array.Empty<string>());
 			Category = (CategoryRow = (Page = 0));
 			ApplyFilters();
@@ -5433,11 +5658,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Dropdown (closed state): current value and a chevron; the list opens inside the book.
 	// highlight marks a filter that is narrowing the list: its value is drawn in Accent.
-	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false)
+	// fitWidth: a value a little too long shrinks instead of being cut ("Knockback ↓").
+	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false, bool fitWidth = false)
 	{
 		bool hover = enabled && !open && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 		Box(sb, rect, hover ? HoverFill : (enabled ? Raised : Surface), border: true, 8f, open ? new Color?(Accent) : null, (!open) ? 1 : 2);
-		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, (!enabled) ? Muted : (highlight ? Accent : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, (!enabled) ? Muted : (highlight ? Accent : TextColor), 0.85f, rightAligned: false, leftAligned: true, fitWidth);
 		if (enabled)
 		{
 			Chevron(sb, rect.X + rect.Width - 18f, rect.Y + rect.Height / 2f, 4f, open ? 1 : 0, Muted);
@@ -6119,9 +6345,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 		BookRect search = BookGeometry.Search;
 		Box(sb, search, Typing ? new Color(35, 51, 40) : FieldFill, border: true, 8f, Typing ? new Color?(Accent) : null, (!Typing) ? 1 : 2);
 		Magnifier(sb, search.X + 20f, search.Y + search.Height / 2f, (Typing || Query.Length > 0) ? TextColor : Muted);
-		BookRect searchText = BookGeometry.SearchText;
-		string shown = ((Query.Length > 0) ? (Query + ((Typing && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Имя, ID или мод", "Name, ID or mod"));
-		CenterLabel(sb, shown, searchText.X, searchText.Y, searchText.Width, searchText.Height, (Query.Length > 0) ? TextColor : Muted, 0.85f, rightAligned: false, leftAligned: true);
+		if (Query.Length > 0)
+		{
+			BookRect searchText = BookGeometry.SearchText;
+			string shown = Query + ((Typing && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "");
+			CenterLabel(sb, shown, searchText.X, searchText.Y, searchText.Width, searchText.Height, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+		}
+		else
+		{
+			// The Bestiary searches names only; a larger text size shrinks the hint rather than cutting it.
+			BookRect placeholder = BookGeometry.SearchPlaceholder;
+			CenterLabel(sb, BestiaryView ? T("Имя, ID или мод", "Name, ID or mod") : T("Имя, текст, ID, мод", "Name, text, ID, mod"), placeholder.X, placeholder.Y, placeholder.Width, placeholder.Height, Muted, 0.85f, rightAligned: false, leftAligned: true, fitWidth: true);
+		}
 		BookRect clear = BookGeometry.SearchClear;
 		bool overClear = Query.Length > 0 && !MenuOpen && clear.Contains(Mouse.X, Mouse.Y);
 		if (Query.Length > 0)
@@ -6135,7 +6370,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (!overClear && !Typing && !MenuOpen && search.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Поиск · Ctrl+F", "Search · Ctrl+F"));
+			// A query cut short in the box reads in full here.
+			string full = (TextWidth(Query, 0.85f) > BookGeometry.SearchText.Width) ? (Query + "\n") : "";
+			MouseTip(full + T("Поиск · Ctrl+F", "Search · Ctrl+F") + (BestiaryView ? "" : ("\n" + T("Сначала совпадения в имени, потом в тексте предмета", "Name matches first, then the item's text"))));
 		}
 		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? T("Все моды", "All mods") : ModName(ModFilter), ModMenu, enabled: true, highlight: ModFilter.Length > 0);
 		if (!MenuOpen && BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))
@@ -6143,7 +6380,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + T("Фильтр по моду", "Filter by mod"));
 		}
 		bool newest = RecentView || MobRecentCategory;
-		Dropdown(sb, BookGeometry.Sort, newest ? T("Новые", "Newest") : SortLabel(), SortMenu, !newest);
+		Dropdown(sb, BookGeometry.Sort, newest ? T("Новые", "Newest") : SortLabel(), SortMenu, !newest, highlight: false, fitWidth: true);
 		if (!MenuOpen && BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(RecentView ? T("Недавние всегда от новых к старым", "Recent crafts are always newest first") : (MobRecentCategory ? T("Недавние мобы всегда от новых к старым", "Recently seen mobs are always newest first") : T("Порядок сортировки", "Sort order")));
@@ -6162,6 +6399,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (StationFilterTab)
 		{
 			DrawStationButton(sb);
+		}
+		if (CraftableFilterTab)
+		{
+			DrawCraftableButton(sb);
 		}
 	}
 
@@ -6224,6 +6465,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (ClassHidden > 0)
 		{
 			EmptyState(sb, area, T("Скрыто фильтром класса", "Hidden by the class filter"), T("Нажмите «Все классы» над категориями", "Pick All classes above the categories"));
+		}
+		else if (CraftableHidden > 0)
+		{
+			EmptyState(sb, area, T("Сейчас ничего не создать", "Nothing to craft right now"), T("Выключите «Можно создать», чтобы показать всё", "Turn off Craftable to show everything"));
 		}
 		else if (StationHidden > 0)
 		{
@@ -6303,6 +6548,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		else
 		{
 			count = T("Рецептов: ", "Recipes: ") + Count(Filtered.Count);
+		}
+		// How many only the item text found (they come after the name matches), or that it is still being read.
+		if (TextMatchCount > 0)
+		{
+			count += "  ·  " + T("по тексту: ", "text matches: ") + Count(TextMatchCount);
+		}
+		else if (Query.Length > 0 && !BestiaryView && !DescriptionsReady)
+		{
+			count += "  ·  " + T("читаю тексты предметов: ", "reading item text: ") + DescriptionNext * 100 / Math.Max(1, ItemDescriptions.Length) + "%";
 		}
 		BookRect label = BookGeometry.PageLabel;
 		CenterLabel(sb, count + "  ·  " + (Page + 1) + " / " + Pages, label.X, label.Y, label.Width, label.Height, Muted, 0.85f);
@@ -6810,13 +7064,36 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static BookRect CraftRect => BookGeometry.CraftAction;
 
+	private static bool SortGroupColumn => !BestiaryView && GroupSortList.Length > 0;
+
+	// The general list, and the category's under its name in a second column.
+	private static BookRect SortMenuRect
+	{
+		get
+		{
+			int general = BestiaryView ? MobSortOptions.Length : (GeneralSorts.Length * 2);
+			return BookGeometry.SortMenuPanel(SortGroupColumn, Math.Max(general, SortGroupColumn ? (GroupSortList.Length * 2 + 1) : 0));
+		}
+	}
+
+	private static BookRect SortOptionRect(int option)
+	{
+		int general = BestiaryView ? MobSortOptions.Length : (GeneralSorts.Length * 2);
+		return (option < general) ? BookGeometry.SortOption(SortMenuRect, 0, option) : BookGeometry.SortOption(SortMenuRect, 1, option - general + 1);
+	}
+
 	private static void DrawSortMenu(SpriteBatch sb)
 	{
-		BookRect panel = BookGeometry.SortMenuPanel;
-		Box(sb, panel.X, panel.Y, panel.Width, 8f + SortOptionCount * 32f, new Color(17, 25, 20), border: true, 10f, Accent);
+		BookRect panel = SortMenuRect;
+		Box(sb, panel, new Color(17, 25, 20), border: true, 10f, Accent);
+		if (SortGroupColumn)
+		{
+			BookRect header = BookGeometry.SortOption(panel, 1, 0);
+			SectionLabel(sb, GroupLabel(SortGroup), header.X + 12f, header.Y + 8f, header.Width - 24f);
+		}
 		for (int option = 0; option < SortOptionCount; option++)
 		{
-			BookRect rect = BookGeometry.SortOption(option);
+			BookRect rect = SortOptionRect(option);
 			bool active = option == SortOptionIndex;
 			bool hover = rect.Contains(Mouse.X, Mouse.Y);
 			if (active)
@@ -6827,7 +7104,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Box(sb, rect, HoverFill, border: false, 6f);
 			}
-			CenterLabel(sb, SortOptionLabel(option), rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, SortOptionLabel(option), rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true, fitWidth: true);
 		}
 	}
 

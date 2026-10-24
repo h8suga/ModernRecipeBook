@@ -41,6 +41,50 @@ internal static class BookRules
 		return true;
 	}
 
+	// Each term in the name fields or in the description ("flask rogue": the name has one, the text the other).
+	internal static bool Search(string[] terms, string text, string description)
+	{
+		foreach (string term in terms)
+		{
+			if (!text.Contains(term) && !description.Contains(term))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// Tooltip chat tags: a colour tag keeps its text (PlainText), an item or glyph icon ([i:ID], [i/s5:ID], [g:4]) has none.
+	internal static string TagFree(string value)
+	{
+		return Regex.Replace(PlainText(value), "\\[[ig](/[^:\\]]*)?:[^\\]]*\\]", "");
+	}
+
+	// Stand: the search rules on made-up texts.
+	internal static string SearchSelfCheck()
+	{
+		List<string> failures = new List<string>();
+		string name = SearchText("Flask of Ichor", "Terraria/1340");
+		string text = SearchText(TagFree("[c/ff8800:Melee], Whip and Rogue attacks [i:1332] inflict Ichor"));
+		if (text != "melee, whip and rogue attacks  inflict ichor")
+		{
+			failures.Add("tags: " + text);
+		}
+		if (Search(SearchTerms("rogue"), name) || !Search(SearchTerms("rogue"), name, text))
+		{
+			failures.Add("found only by text");
+		}
+		if (!Search(SearchTerms("Flask ROGUE"), name, text))
+		{
+			failures.Add("terms split across name and text");
+		}
+		if (Search(SearchTerms("flask summon"), name, text) || !Search(SearchTerms("ichor"), name))
+		{
+			failures.Add("every term must match");
+		}
+		return (failures.Count == 0) ? "ok" : string.Join("; ", failures);
+	}
+
 	internal static bool RecipeMatchesSample(int sampleType, int resultType, bool uses, IEnumerable<int> ingredientTypes, Func<int, int, bool> acceptsGroup)
 	{
 		if (sampleType <= 0)

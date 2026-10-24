@@ -125,28 +125,49 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect WindowSizeLabel => new BookRect(52f, 660f, 44f, 24f);
 
-	// The search narrows and the dropdowns shift left by this much where the bar has one more toggle (the
-	// Bestiary tab's Met filter); set by the book's layout.
+	// The dropdowns shift left by this much where the bar has more toggles: 44 for one (the Bestiary's Encountered),
+	// 88 for two (the station filter and Craftable on Items and Recipes); set by the book's layout. The search gives up
+	// the first 44; for the second it gives 4 more and the mod dropdown 40, so the placeholder and "All mods" still fit.
 	internal static float FilterInset;
 
-	internal static BookRect Search => new BookRect(212f, 76f, 240f - FilterInset, 36f);
+	private static float SearchInset => (FilterInset > 44f) ? 48f : FilterInset;
 
-	internal static BookRect SearchText => new BookRect(246f, 80f, 168f - FilterInset, 28f);
+	private static float ModInset => FilterInset - SearchInset;
 
-	internal static BookRect SearchClear => new BookRect(420f - FilterInset, 80f, 28f, 28f);
+	internal static BookRect Search => new BookRect(212f, 76f, 240f - SearchInset, 36f);
 
-	internal static BookRect ModFilter => new BookRect(460f - FilterInset, 76f, 152f, 36f);
+	internal static BookRect SearchText => new BookRect(246f, 80f, 168f - SearchInset, 28f);
+
+	// The empty search's placeholder also has the clear button's room.
+	internal static BookRect SearchPlaceholder => new BookRect(246f, 80f, 194f - SearchInset, 28f);
+
+	internal static BookRect SearchClear => new BookRect(420f - SearchInset, 80f, 28f, 28f);
+
+	internal static BookRect ModFilter => new BookRect(460f - SearchInset, 76f, 152f - ModInset, 36f);
 
 	internal static BookRect FavoritesFilter => new BookRect(744f, 76f, 36f, 36f);
 
 	internal static BookRect MetFilter => new BookRect(700f, 76f, 36f, 36f);
 
-	// Items and Recipes: the station filter takes the slot the Bestiary gives its Encountered toggle.
-	internal static BookRect StationFilter => MetFilter;
+	// Items and Recipes: Craftable sits by the favorites star in the slot the Bestiary gives its Encountered toggle, the
+	// station filter (a menu, like the dropdowns) before it.
+	internal static BookRect CraftableFilter => MetFilter;
+
+	internal static BookRect StationFilter => new BookRect(656f, 76f, 36f, 36f);
 
 	internal static BookRect Sort => new BookRect(620f - FilterInset, 76f, 116f, 36f);
 
-	internal static BookRect SortMenuPanel => new BookRect(584f - FilterInset, 116f, 196f, 264f);
+	// The sort list drops under Sort and ends 44 units past it, as it always did; a category's sorts take a second
+	// column on its left, wider: «Длительность: от короткой» is 204 units.
+	internal const float SortColumnWidth = 196f;
+
+	internal const float SortGroupWidth = 240f;
+
+	internal static BookRect SortMenuPanel(bool group, int rows)
+	{
+		float width = SortColumnWidth + (group ? SortGroupWidth : 0f);
+		return new BookRect(Math.Max(16f, 780f - FilterInset - width), 116f, width, 8f + rows * 32f);
+	}
 
 	// Storage keeps a toolbar between the filter bar and its grid.
 	internal static BookRect StorageToolbar => new BookRect(212f, GridTop, 568f, 68f);
@@ -380,9 +401,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const float TabRight = 1044f;
 
-	internal static BookRect SortOption(int index)
+	// Column 0 is the general list (under Sort), column 1 the category's.
+	internal static BookRect SortOption(BookRect panel, int column, int row)
 	{
-		return new BookRect(SortMenuPanel.X + 4f, SortMenuPanel.Y + 4f + index * 32, SortMenuPanel.Width - 8f, 32f);
+		if (column == 0)
+		{
+			return new BookRect(panel.X + panel.Width - SortColumnWidth + 4f, panel.Y + 4f + row * 32, SortColumnWidth - 8f, 32f);
+		}
+		return new BookRect(panel.X + 4f, panel.Y + 4f + row * 32, SortGroupWidth - 4f, 32f);
 	}
 
 	// Detail panel: header (icon, name, subtitle) and the recipe block below it, whose top depends on

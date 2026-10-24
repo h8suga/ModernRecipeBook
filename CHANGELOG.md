@@ -3,6 +3,28 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.12.0 — 2026-10-24
+
+### Added
+- Search looks at the item's own text too, as the game shows it with every mod's edits: "rogue" finds Monk's Shirt and
+  the weapon flasks. Name matches come first, then the ones found in the text; the pager says how many came from the
+  text. Stat lines ("50 rogue damage", "Material") are left out so they don't drown the rest. The texts are read in
+  small steps while the book is open, so opening it never stalls; until then search uses names.
+- Craftable filter on Items and Recipes (the hammer button): only what you can craft right now, from your inventory and
+  nearby storage at the stations in range. It updates when your materials change and combines with the station, stage
+  and class filters.
+- Sorts that fit the category: weapons by damage, speed, crit chance or knockback, armor and accessories by defense,
+  wings by flight time, potions and food by healing, mana or duration, tools by pickaxe, axe or hammer power, fishing
+  poles and bait by their power; rarity and value everywhere. Each tab remembers its choice and goes back to it when
+  the category fits again.
+- Bestiary cards of modded mobs say after which boss they spawn, read from the mods' own spawn code: Calamity's plague
+  enemies "Jungle · after Golem", Cryo Slime "Snow · after Cryogen · after any two mechanical bosses", Aero Slime
+  "after The Hive Mind or The Perforator Hive". The bestiary's stage follows the gate too.
+
+### Changed
+- The search box reads "Name, text, ID, mod"; the mod dropdown on Items and Recipes is narrower to make room for the
+  Craftable button, and a long mod name shows in full on hover.
+
 ## 1.11.2 — 2026-10-24
 
 ### Fixed

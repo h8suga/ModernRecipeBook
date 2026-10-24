@@ -6,8 +6,8 @@ namespace ModernRecipeBook;
 
 internal sealed class BookUiState
 {
-	// 5: the global class filter. 6: per-tab excluded stations. 7: Storage's own stage filter.
-	internal const int CurrentVersion = 7;
+	// 5: the global class filter. 6: per-tab excluded stations. 7: Storage's own stage filter. 8: per-tab Craftable.
+	internal const int CurrentVersion = 8;
 
 	// Search, mod, category, favorites and sort belong to one tab and stay until the player changes them;
 	// the stage filter is shared by every tab but Storage, which has its own.
@@ -23,6 +23,9 @@ internal sealed class BookUiState
 
 		// Bestiary tab: only the mobs the player has met.
 		internal bool MetOnly;
+
+		// Items and Recipes: only what the player can craft right now.
+		internal bool CraftableOnly;
 
 		internal BookSortMode SortMode;
 
@@ -41,6 +44,7 @@ internal sealed class BookUiState
 				CategoryKey = ((key.Length > 0) ? key : "all"),
 				FavoritesOnly = FavoritesOnly,
 				MetOnly = MetOnly,
+				CraftableOnly = CraftableOnly,
 				SortMode = (Enum.IsDefined(typeof(BookSortMode), SortMode) ? SortMode : BookSortMode.Name),
 				SortDescending = SortDescending,
 				ExcludedStations = (ExcludedStations ?? Array.Empty<string>()).Select((string station) => Clean(station, 128)).Where((string station) => station.Length > 0).Distinct(StringComparer.Ordinal).OrderBy((string station) => station, StringComparer.Ordinal).Take(64).ToArray()
