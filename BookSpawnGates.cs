@@ -467,8 +467,19 @@ internal static class BookSpawnGates
 			}
 			else if (!required[i].Contains(gate))
 			{
-				several++;
-				terms.Add((gate, steps[gate].Boss + ((others[i].Count > 0) ? string.Concat(others[i].Select((int k) => ";" + steps[k].Boss)) : ";?"), steps[gate].Stage));
+				// A later boss is no other way past Hardmode or Moon Lord: beating it means the world is there already
+				// (Eidolist's "hardmode or Calamitas Clone" is just hardmode).
+				bool word = steps[gate].Boss is "Hardmode" or "PostHardmode";
+				int[] ways = others[i].Where((int k) => !word || k < gate).ToArray();
+				if (word && others[i].Count > 0 && ways.Length == 0)
+				{
+					terms.Add((gate, steps[gate].Boss, steps[gate].Stage));
+				}
+				else
+				{
+					several++;
+					terms.Add((gate, steps[gate].Boss + ((ways.Length > 0) ? string.Concat(ways.Select((int k) => ";" + steps[k].Boss)) : ";?"), steps[gate].Stage));
+				}
 			}
 			// Hardmode goes without saying next to a hardmode boss.
 			if (terms.Any(t => t.Term != "Hardmode" && t.Stage >= BookStage.Hardmode))
