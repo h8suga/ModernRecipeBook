@@ -275,7 +275,8 @@ public sealed partial class RecipeBookSystem
 		{
 			BookSortMode.Station => (T("Станция", "Station"), T("Станция", "Station"), T("от слабой", "weakest first"), T("от сильной", "strongest first")),
 			BookSortMode.Rarity => (T("Редкость", "Rarity"), T("Редкость", "Rarity"), T("от низкой", "lowest first"), T("от высокой", "highest first")),
-			BookSortMode.Value => (T("Цена", "Value"), T("Цена", "Value"), T("от низкой", "lowest first"), T("от высокой", "highest first")),
+			// Item.value, in the words of the game's own tooltip line (sell price is a fifth of it, so the order is the same).
+			BookSortMode.Value => (T("Цена продажи", "Sell price"), T("Цена", "Price"), T("от низкой", "lowest first"), T("от высокой", "highest first")),
 			BookSortMode.Damage => (T("Урон", "Damage"), T("Урон", "Damage"), T("от меньшего", "lowest first"), T("от большего", "highest first")),
 			BookSortMode.Speed => (T("Скорость", "Speed"), T("Скорость", "Speed"), T("от медленных", "slowest first"), T("от быстрых", "fastest first")),
 			BookSortMode.Crit => (T("Шанс крита", "Crit chance"), T("Крит", "Crit"), T("от меньшего", "lowest first"), T("от большего", "highest first")),

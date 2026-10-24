@@ -7,7 +7,7 @@ Owner: «для отдельных категорий разные сортир�
 - **Every list** (Items, Recipes, Storage):
   - Name, ID and Mod;
   - Station on Items and Recipes;
-  - Rarity and Value.
+  - Rarity and Sell price (`Item.value`; named like the game's tooltip line, since "Value" read as unclear).
 - **The listed category adds its own sorts:**
 
   | Group | Categories | Sorts |
@@ -68,7 +68,7 @@ Owner: «для отдельных категорий разные сортир�
 ## Showing the value
 
 - Not added. The hover tooltip already shows damage, speed, crit, knockback, defense, healing, duration, tool power, fishing and bait power, and rarity by the name's colour.
-- Value and flight time are the two the game does not show. A card line for them can come later if the order alone is not enough.
+- Sell price (shown by the game only while a shop is open) and flight time are the two it does not show. A card line for them can come later if the order alone is not enough.
 
 ## Cost
 
