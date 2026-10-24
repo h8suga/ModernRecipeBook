@@ -3,6 +3,14 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.12.1 — 2026-10-25
+
+### Fixed
+- Bestiary cards of modded mobs say after which boss they spawn in multiplayer too. On a server they kept the
+  Bestiary's tags (Plaguebringer: "Spawns: Not listed" instead of "Jungle · after Golem"). The client now fetches the
+  bit of the world the check reads from the server first, so its answer matches single player.
+- The spawn check runs again for every world you enter, instead of once per game start.
+
 ## 1.12.0 — 2026-10-24
 
 ### Added

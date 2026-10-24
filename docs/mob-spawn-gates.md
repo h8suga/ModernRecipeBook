@@ -44,9 +44,15 @@ Charger: `!NPC.downedGolemBoss → 0`, else `SpawnCondition.HardmodeJungle.Chanc
   flags are written through their backing fields: the property setters call `NPC.SetEventFlagCleared`, which would
   also start a Lantern Night.
 - **When.** Once per load, the first time the Bestiary is needed (`BookBestiary.EnsureBuilt`), on the main thread
-  between two updates. Single player only. The flags are local statics and nothing is sent, but a mod's SpawnChance
-  never runs on a multiplayer client in the game itself. A client skips the probe, logs one note and keeps the
-  Bestiary tags. A later single-player world runs it.
+  between two updates, in single player and on multiplayer clients alike. Entering a world clears the gates, so each
+  world is probed for its own height and tiles. The flags are local statics, nothing is sent, and a client reads
+  packets on the main thread too (the server always sends `false` for "check bytes in the client loop thread"), so no
+  synced value can land while they are set.
+- **Multiplayer tiles.** A client has the world only around where it has been, and the probe reads the tiles at its
+  spots by the map's left edge: without them the sea spot is air and Mantis Shrimp lost its gate. On entering the world
+  the client asks the server for each spot's sections (`BookMessage.MapSections`, the map teleport's request; the
+  server sends 3×3 sections around it), and the probe waits until every spot ±10 tiles is loaded. The result then
+  matches single player line for line.
 - **Errors.** A SpawnChance that throws is left out and counted. Any missing piece (tModLoader's spawn helper, a
   progression field) logs one warning and leaves every card as before.
 

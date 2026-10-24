@@ -133,7 +133,7 @@ internal static class BookBestiary
 		{
 			Build();
 		}
-		// Apart from the index: it waits for a single-player world.
+		// Apart from the index: it waits for a world and, on a multiplayer client, for the tiles it stands on.
 		BookSpawnGates.EnsureBuilt();
 	}
 
