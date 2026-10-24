@@ -315,10 +315,12 @@ public sealed class BookNearbyServer : ModSystem
 	private static BookSources.MirrorChest Snapshot(int index, Chest chest)
 	{
 		Dictionary<(int, int), int> counts = new Dictionary<(int, int), int>();
+		int used = 0;
 		foreach (Item item in chest.item)
 		{
 			if (item != null && !item.IsAir)
 			{
+				used++;
 				counts[(item.type, item.prefix)] = (int)Math.Min(int.MaxValue, (long)counts.GetValueOrDefault((item.type, item.prefix)) + item.stack);
 			}
 		}
@@ -328,7 +330,7 @@ public sealed class BookNearbyServer : ModSystem
 		{
 			entries[n++] = new BookSources.Stock(pair.Key.Item1, pair.Key.Item2, pair.Value);
 		}
-		return new BookSources.MirrorChest(index, (short)chest.x, (short)chest.y, entries);
+		return new BookSources.MirrorChest(index, (short)chest.x, (short)chest.y, entries, used);
 	}
 
 	private static bool Admit(int p, Client client, out Status refusal)
@@ -988,6 +990,7 @@ public sealed class BookNearbyServer : ModSystem
 				packet.Write((short)chest.Index);
 				packet.Write(chest.X);
 				packet.Write(chest.Y);
+				packet.Write((byte)chest.Used);
 				packet.Write((byte)chest.Entries.Length);
 				foreach (BookSources.Stock stock in chest.Entries)
 				{

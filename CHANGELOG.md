@@ -3,6 +3,15 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## Unreleased
+
+### Added
+- The Storage tab says how full your storage is: "Cells: 1,234 / 3,200" under the radius line. It counts the cells of
+  every Magic Storage network in range, as Magic Storage's own window counts them, plus the slots of nearby chests,
+  banks, the open container and a carried Void Bag. At 90% full the line turns amber. Hover it for each network and
+  the chests apart. Inactive storage units are left out, and so is the Creative Storage Unit, which has no limit; the
+  tooltip says when either is there. Works the same on a server.
+
 ## 1.12.1 — 2026-10-25
 
 ### Fixed

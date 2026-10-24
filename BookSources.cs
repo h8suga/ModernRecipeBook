@@ -27,7 +27,8 @@ public sealed class BookSources : ModSystem
 
 	internal readonly record struct Stock(int Type, int Prefix, int Count);
 
-	internal sealed record MirrorChest(int Index, short X, short Y, Stock[] Entries);
+	// Used: occupied slots of the chest's Chest.maxItems (the Entries are merged per kind and cannot tell).
+	internal sealed record MirrorChest(int Index, short X, short Y, Stock[] Entries, int Used);
 
 	private sealed class Tally
 	{
@@ -116,6 +117,20 @@ public sealed class BookSources : ModSystem
 	private static readonly List<List<Item>> NetworkItems = new List<List<Item>>();
 
 	private static readonly List<bool> NetworkCreative = new List<bool>();
+
+	private static readonly List<(int Total, int Used, int Inactive)> NetworkCells = new List<(int, int, int)>();
+
+	// Cells of the other counted containers, set by Rebuild: [0] the open world chest, [1..4] Piggy Bank, Safe,
+	// Defender's Forge, Void Vault or Bag; and the mirror's chests, summed.
+	private static readonly int[] ContainerSlots = new int[5];
+
+	private static readonly int[] ContainerUsed = new int[5];
+
+	private static int MirrorChests;
+
+	private static int MirrorSlots;
+
+	private static int MirrorUsed;
 
 	private static readonly List<List<Item>> Stations = new List<List<Item>>();
 
@@ -258,6 +273,7 @@ public sealed class BookSources : ModSystem
 		Banks.Clear();
 		Networks.Clear();
 		NetworkItems.Clear();
+		NetworkCells.Clear();
 		Stations.Clear();
 		Tallies.Clear();
 		Listed.Clear();
@@ -384,6 +400,7 @@ public sealed class BookSources : ModSystem
 			NetworkItems.Add(new List<Item>());
 		}
 		NetworkCreative.Clear();
+		NetworkCells.Clear();
 		int signature = HashCode.Combine(Networks.Count, Stations.Count);
 		foreach (int bank in Banks)
 		{
@@ -395,7 +412,10 @@ public sealed class BookSources : ModSystem
 			items.Clear();
 			bool creative = BookMagicStorage.CollectItems(Networks[n].Heart, items);
 			NetworkCreative.Add(creative);
-			signature = HashCode.Combine(signature, Networks[n].Position, creative, items.Count);
+			// A unit added, upgraded or switched off changes the cells without changing the items.
+			(int Total, int Used, int Inactive) cells = BookMagicStorage.Cells(Networks[n].Heart);
+			NetworkCells.Add(cells);
+			signature = HashCode.Combine(signature, Networks[n].Position, Networks[n].Name, creative, items.Count, cells);
 			foreach (Item item in items)
 			{
 				signature = HashCode.Combine(signature, item.type, item.prefix, item.stack);
@@ -508,6 +528,9 @@ public sealed class BookSources : ModSystem
 		Listed.Clear();
 		Seen.Clear();
 		Infinite = false;
+		Array.Clear(ContainerSlots);
+		Array.Clear(ContainerUsed);
+		MirrorChests = MirrorSlots = MirrorUsed = 0;
 		Player player = Main.LocalPlayer;
 		bool bag = player.useVoidBag() && player.chest != -5;
 		for (int i = 0; i < 58; i++)
@@ -561,6 +584,9 @@ public sealed class BookSources : ModSystem
 				{
 					continue;
 				}
+				MirrorChests++;
+				MirrorSlots += Chest.maxItems;
+				MirrorUsed += pair.Value.Used;
 				foreach (Stock stock in pair.Value.Entries)
 				{
 					Tally tally = TallyOf(stock.Type);
@@ -599,9 +625,15 @@ public sealed class BookSources : ModSystem
 
 	private static void AddContainer(Item[] items, int bank, bool craft)
 	{
+		ContainerSlots[bank + 1] += items.Length;
 		foreach (Item item in items)
 		{
-			if (item == null || item.IsAir || !Seen.Add(item))
+			if (item == null || item.IsAir)
+			{
+				continue;
+			}
+			ContainerUsed[bank + 1]++;
+			if (!Seen.Add(item))
 			{
 				continue;
 			}
@@ -780,6 +812,7 @@ public sealed class BookSources : ModSystem
 		SummaryText = BuildSummary();
 		NotCountedText = BuildNotCounted();
 		RadiusText = BuildRadiusLine();
+		BuildCells();
 	}
 
 	private static string Count(long value)
@@ -864,11 +897,103 @@ public sealed class BookSources : ModSystem
 			}
 			if (Networks.Count > 0)
 			{
-				List<BookMagicStorage.Network> byPlace = Networks.OrderBy((BookMagicStorage.Network n) => n.Position.X).ThenBy((BookMagicStorage.Network n) => n.Position.Y).ToList();
-				lines.Add("Magic Storage: " + string.Join(", ", Networks.Select((BookMagicStorage.Network n) => (n.Name.Length > 0) ? n.Name : (T("Сеть ", "Network ") + (byPlace.IndexOf(n) + 1)))));
+				lines.Add("Magic Storage: " + string.Join(", ", Networks.Select(NetworkLabel)));
 			}
 			return string.Join("\n", lines);
 		}
+	}
+
+	// A network's name, or "Network N" counted left to right, then top to bottom.
+	private static string NetworkLabel(BookMagicStorage.Network network)
+	{
+		if (network.Name.Length > 0)
+		{
+			return network.Name;
+		}
+		int place = 1;
+		foreach (BookMagicStorage.Network other in Networks)
+		{
+			if (other.Position.X < network.Position.X || (other.Position.X == network.Position.X && other.Position.Y < network.Position.Y))
+			{
+				place++;
+			}
+		}
+		return T("Сеть ", "Network ") + place;
+	}
+
+	// "Cells: 1,234 / 3,200": the slots of every counted container besides the inventory (Magic Storage units, chests,
+	// banks, the open container, a carried Void Bag) and how many hold something. Built with the other texts, once per
+	// aggregate rebuild.
+	private static string CellsText = "";
+
+	private static string CellsTipText = "";
+
+	internal static string Cells
+	{
+		get
+		{
+			UpdateTexts();
+			return CellsText;
+		}
+	}
+
+	internal static string CellsTip
+	{
+		get
+		{
+			UpdateTexts();
+			return CellsTipText;
+		}
+	}
+
+	// 90% full or more: the line turns Caution.
+	internal static bool CellsAlmostFull { get; private set; }
+
+	private static string Of(long used, long total)
+	{
+		return Count(used) + T(" из ", " / ") + Count(total);
+	}
+
+	private static void BuildCells()
+	{
+		List<string> rows = new List<string>();
+		long total = 0;
+		long used = 0;
+		int inactive = 0;
+		for (int n = 0; n < Networks.Count && n < NetworkCells.Count; n++)
+		{
+			(int Total, int Used, int Inactive) cells = NetworkCells[n];
+			total += cells.Total;
+			used += cells.Used;
+			inactive += cells.Inactive;
+			rows.Add("Magic Storage · " + NetworkLabel(Networks[n]) + ": " + Of(cells.Used, cells.Total));
+		}
+		if (MirrorChests > 0)
+		{
+			total += MirrorSlots;
+			used += MirrorUsed;
+			rows.Add(T("Сундуки", "Chests") + ((MirrorChests > 1) ? (" ×" + MirrorChests) : "") + ": " + Of(MirrorUsed, MirrorSlots));
+		}
+		for (int i = 0; i < ContainerSlots.Length; i++)
+		{
+			if (ContainerSlots[i] > 0)
+			{
+				total += ContainerSlots[i];
+				used += ContainerUsed[i];
+				rows.Add(((i == 0) ? T("Открытый сундук", "Open chest") : BankName(i - 1)) + ": " + Of(ContainerUsed[i], ContainerSlots[i]));
+			}
+		}
+		if (inactive > 0)
+		{
+			rows.Add(T("Не учтены: ", "Not counted: ") + BookSourceRules.Count(inactive, Ru, "inactive storage unit", "inactive storage units", "неактивный блок хранения", "неактивных блока хранения", "неактивных блоков хранения"));
+		}
+		if (Infinite)
+		{
+			rows.Add(BookMagicStorage.CreativeUnitName + T(": без предела, в сумму не входит", ": unlimited, not in the total"));
+		}
+		CellsAlmostFull = total > 0 && used * 10 >= total * 9;
+		CellsText = (total == 0 && !Infinite) ? "" : (T("Ячейки: ", "Cells: ") + Of(used, total));
+		CellsTipText = string.Join("\n", rows);
 	}
 
 	internal static string RadiusLine
@@ -1690,12 +1815,13 @@ public sealed class BookSources : ModSystem
 				int index = reader.ReadInt16();
 				short x = reader.ReadInt16();
 				short y = reader.ReadInt16();
+				int used = reader.ReadByte();
 				Stock[] entries = new Stock[reader.ReadByte()];
 				for (int e = 0; e < entries.Length; e++)
 				{
 					entries[e] = new Stock(reader.Read7BitEncodedInt(), reader.Read7BitEncodedInt(), reader.Read7BitEncodedInt());
 				}
-				upserts.Add(new MirrorChest(index, x, y, entries));
+				upserts.Add(new MirrorChest(index, x, y, entries, used));
 			}
 			int gone = reader.ReadUInt16();
 			List<int> removes = new List<int>(gone);

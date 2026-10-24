@@ -85,7 +85,7 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	// Storage tab: the strip above the grid holds vanilla's chest buttons in vanilla's order, minus Loot All: Deposit
 	// All, Quick Stack, Restock. The grid takes an item dropped from the cursor. The details panel, top to bottom: label + status pill; what is nearby; the radius;
-	// what was not counted; the selected stack with where it is; the last action.
+	// its cells; what was not counted; the selected stack with where it is; the last action.
 
 	internal static BookRect StorageContent => new BookRect(DetailsPanel.X + 16f, DetailsPanel.Y + 16f, DetailsPanel.Width - 32f, DetailsPanel.Height - 32f);
 
@@ -95,12 +95,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect StorageHint => new BookRect(StorageContent.X, StorageContent.Y + 60f, StorageContent.Width, 20f);
 
-	internal static BookRect StorageSkipped => new BookRect(StorageContent.X, StorageContent.Y + 84f, StorageContent.Width, 20f);
+	internal static BookRect StorageCells => new BookRect(StorageContent.X, StorageContent.Y + 84f, StorageContent.Width, 20f);
 
-	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 128f, 48f, 48f);
+	internal static BookRect StorageSkipped => new BookRect(StorageContent.X, StorageContent.Y + 108f, StorageContent.Width, 20f);
+
+	internal static BookRect StorageItemIcon => new BookRect(StorageContent.X, StorageContent.Y + 152f, 48f, 48f);
 
 	// Up to five "Chests ×3: 120" rows under the selected stack.
-	internal static BookRect StorageWhere(int row) => new BookRect(StorageContent.X, StorageContent.Y + 188f + row * 24f, StorageContent.Width, 22f);
+	internal static BookRect StorageWhere(int row) => new BookRect(StorageContent.X, StorageContent.Y + 212f + row * 24f, StorageContent.Width, 22f);
 
 	internal static BookRect StorageMessage => new BookRect(StorageContent.X, StorageContent.Y + StorageContent.Height - 24f, StorageContent.Width, 20f);
 
