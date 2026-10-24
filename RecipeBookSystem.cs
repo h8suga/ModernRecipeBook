@@ -2347,17 +2347,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 			EnemyReadErrors++;
 		}
 		BookBestiary.AcidRainSpawn? rain = BookBestiary.AcidRainOf(npc.type);
-		if (rain.HasValue)
-		{
-			spawn.Insert(0, AcidRainText(rain.Value));
-		}
 		EnemyBiomes = string.Join(" · ", biomes.Distinct(StringComparer.Ordinal));
-		EnemySpawn = string.Join(" · ", spawn.Distinct(StringComparer.Ordinal));
+		// The card's line is short (the subtitle already says mini-boss, the Biome line Acid Rain); the hint has it all.
+		EnemySpawn = string.Join(" · ", (rain.HasValue ? spawn.Prepend(AcidRainText(rain.Value, full: false)) : spawn).Distinct(StringComparer.Ordinal));
 		EnemySpawnTip = "";
 		if (rain.HasValue)
 		{
-			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (T("Кислотный дождь начинается сам или если использовать: ", "Acid Rain starts on its own or with a ") + ItemName(tear.Type)) : T("Кислотный дождь начинается сам", "Acid Rain starts on its own");
-			EnemySpawnTip = EnemySpawn + "\n" + start + "\n" + T("Из таблиц события Calamity", "From Calamity's event tables");
+			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (T("Начинается сам или от предмета: ", "Starts on its own or with a ") + ItemName(tear.Type)) : T("Начинается сам", "Starts on its own");
+			EnemySpawnTip = string.Join(" · ", spawn.Prepend(AcidRainText(rain.Value, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + start + "\n" + T("Из таблиц события Calamity", "From Calamity's event tables");
 		}
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
@@ -2369,13 +2366,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// "Acid Rain in the Sulphurous Sea · in water · after Aquatic Scourge": the tier it first spawns in, and the one it
-	// stops at when a later tier leaves it out. Anywhere adds nothing.
-	private static string AcidRainText(BookBestiary.AcidRainSpawn rain)
+	// stops at when a later tier leaves it out. Anywhere adds nothing; the short form leaves out the event's name.
+	private static string AcidRainText(BookBestiary.AcidRainSpawn rain, bool full)
 	{
 		string[] bosses = { "EyeofCthulhu", "CalamityMod/AquaticScourgeHead", "CalamityMod/Polterghast" };
 		List<string> parts = new List<string>
 		{
-			rain.MiniBoss ? T("Мини-босс Кислотного дождя в Сернистом море", "Acid Rain mini-boss in the Sulphurous Sea") : T("Кислотный дождь в Сернистом море", "Acid Rain in the Sulphurous Sea"),
+			!full ? "" : (rain.MiniBoss ? T("Мини-босс Кислотного дождя в Сернистом море", "Acid Rain mini-boss in the Sulphurous Sea") : T("Кислотный дождь в Сернистом море", "Acid Rain in the Sulphurous Sea")),
 			rain.Requirement switch
 			{
 				"Water" => T("в воде", "in water"),
