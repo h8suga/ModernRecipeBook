@@ -10,5 +10,22 @@ internal enum BookSortMode
 	// Bestiary tab only: by when the player first met the mob.
 	Met,
 	// Items and Recipes: by the strongest station the easiest recipe needs.
-	Station
+	Station,
+	// Items, Recipes and Storage: every list (Rarity, Value), then what the listed category has (RecipeBookSystem.Sorts).
+	Rarity,
+	Value,
+	Damage,
+	Speed,
+	Crit,
+	Knockback,
+	Defense,
+	FlightTime,
+	HealLife,
+	HealMana,
+	BuffTime,
+	PickPower,
+	AxePower,
+	HammerPower,
+	FishingPower,
+	BaitPower
 }

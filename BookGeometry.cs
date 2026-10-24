@@ -157,7 +157,17 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect Sort => new BookRect(620f - FilterInset, 76f, 116f, 36f);
 
-	internal static BookRect SortMenuPanel => new BookRect(584f - FilterInset, 116f, 196f, 264f);
+	// The sort list drops under Sort and ends 44 units past it, as it always did; a category's sorts take a second
+	// column on its left, wider: «Длительность: от короткой» is 204 units.
+	internal const float SortColumnWidth = 196f;
+
+	internal const float SortGroupWidth = 240f;
+
+	internal static BookRect SortMenuPanel(bool group, int rows)
+	{
+		float width = SortColumnWidth + (group ? SortGroupWidth : 0f);
+		return new BookRect(Math.Max(16f, 780f - FilterInset - width), 116f, width, 8f + rows * 32f);
+	}
 
 	// Storage keeps a toolbar between the filter bar and its grid.
 	internal static BookRect StorageToolbar => new BookRect(212f, GridTop, 568f, 68f);
@@ -391,9 +401,14 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const float TabRight = 1044f;
 
-	internal static BookRect SortOption(int index)
+	// Column 0 is the general list (under Sort), column 1 the category's.
+	internal static BookRect SortOption(BookRect panel, int column, int row)
 	{
-		return new BookRect(SortMenuPanel.X + 4f, SortMenuPanel.Y + 4f + index * 32, SortMenuPanel.Width - 8f, 32f);
+		if (column == 0)
+		{
+			return new BookRect(panel.X + panel.Width - SortColumnWidth + 4f, panel.Y + 4f + row * 32, SortColumnWidth - 8f, 32f);
+		}
+		return new BookRect(panel.X + 4f, panel.Y + 4f + row * 32, SortGroupWidth - 4f, 32f);
 	}
 
 	// Detail panel: header (icon, name, subtitle) and the recipe block below it, whose top depends on

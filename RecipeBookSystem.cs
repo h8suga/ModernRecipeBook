@@ -3436,18 +3436,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static int CompareFilteredIndexes(int left, int right)
 	{
-		if (StationSort)
+		BookSortMode mode = SortPass.Mode;
+		if (mode >= BookSortMode.Station)
 		{
-			return CompareStationRank(left, right);
+			return CompareRank(left, right);
 		}
 		Item a = Result(left);
 		Item b = Result(right);
 		int comparison;
-		if (SortMode == BookSortMode.ItemId)
+		if (mode == BookSortMode.ItemId)
 		{
 			comparison = a.type.CompareTo(b.type);
 		}
-		else if (SortMode == BookSortMode.Mod)
+		else if (mode == BookSortMode.Mod)
 		{
 			comparison = string.Compare(SortOwner(left), SortOwner(right), StringComparison.CurrentCultureIgnoreCase);
 			if (comparison == 0)
@@ -3467,7 +3468,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			comparison = left.CompareTo(right);
 		}
-		if (!SortDescending)
+		if (!SortPass.Descending)
 		{
 			return comparison;
 		}
@@ -3489,26 +3490,38 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return MobSortShortLabel(SortOptionIndex);
 		}
-		// The closed dropdown has room for about ten letters: the station orders keep an arrow there, as Met does.
-		return SortOptionIndex switch
+		// The closed dropdown has room for about ten letters: Station and the category sorts keep an arrow there, as
+		// Met does.
+		BookSortMode mode = ActiveSort;
+		if (mode == BookSortMode.Name || mode == BookSortMode.ItemId || mode == BookSortMode.Mod)
 		{
-			6 => T("Станция ↑", "Station ↑"),
-			7 => T("Станция ↓", "Station ↓"),
-			_ => SortOptionLabel(SortOptionIndex),
-		};
+			return SortOptionLabel(SortOptionIndex);
+		}
+		return SortWords(mode).Short + (ActiveDescending ? " ↓" : " ↑");
 	}
 
-	// One list for field and direction: Name, ID and Mod, each ascending then descending, then Station on Items and
-	// Recipes. The Bestiary tab has its own list (MobSortOptions). A mode a tab does not offer reads as Name.
-	private static int SortOptionIndex => BestiaryView ? MobSortOptionIndex : (SortMode switch
+	// The open list's row for the sort in effect.
+	private static int SortOptionIndex
 	{
-		BookSortMode.ItemId => 2,
-		BookSortMode.Mod => 4,
-		BookSortMode.Station when StationFilterTab => 6,
-		_ => 0,
-	} + (SortDescending ? 1 : 0));
+		get
+		{
+			if (BestiaryView)
+			{
+				return MobSortOptionIndex;
+			}
+			(BookSortMode, bool) active = (ActiveSort, ActiveDescending);
+			for (int option = 0; option < SortOptionCount; option++)
+			{
+				if (SortOptionAt(option) == active)
+				{
+					return option;
+				}
+			}
+			return 0;
+		}
+	}
 
-	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : (StationFilterTab ? 8 : 6);
+	private static int SortOptionCount => BestiaryView ? MobSortOptions.Length : ((GeneralSorts.Length + GroupSortList.Length) * 2);
 
 	private static string SortOptionLabel(int option)
 	{
@@ -3516,36 +3529,26 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return MobSortOptionLabel(option);
 		}
-		return option switch
+		var (mode, descending) = SortOptionAt(option);
+		switch (mode)
 		{
-			0 => T("Имя А-Я", "Name A-Z"),
-			1 => T("Имя Я-А", "Name Z-A"),
-			2 => "ID 1-9",
-			3 => "ID 9-1",
-			4 => T("Мод А-Я", "Mod A-Z"),
-			5 => T("Мод Я-А", "Mod Z-A"),
-			6 => T("Станция: от слабой", "Station: weakest first"),
-			_ => T("Станция: от сильной", "Station: strongest first"),
-		};
+		case BookSortMode.Name:
+			return descending ? T("Имя Я-А", "Name Z-A") : T("Имя А-Я", "Name A-Z");
+		case BookSortMode.ItemId:
+			return descending ? "ID 9-1" : "ID 1-9";
+		case BookSortMode.Mod:
+			return descending ? T("Мод Я-А", "Mod Z-A") : T("Мод А-Я", "Mod A-Z");
+		default:
+		{
+			var (field, _, up, down) = SortWords(mode);
+			return field + ": " + (descending ? down : up);
+		}
+		}
 	}
 
 	private static void ApplySortOption(int option)
 	{
-		if (BestiaryView)
-		{
-			(SortMode, SortDescending) = MobSortOptions[Math.Clamp(option, 0, MobSortOptions.Length - 1)];
-		}
-		else
-		{
-			SortMode = (option / 2) switch
-			{
-				1 => BookSortMode.ItemId,
-				2 => BookSortMode.Mod,
-				3 => BookSortMode.Station,
-				_ => BookSortMode.Name,
-			};
-			SortDescending = option % 2 == 1;
-		}
+		(SortMode, SortDescending) = SortOptionAt(option);
 		Page = 0;
 		ApplyFilters();
 	}
@@ -3822,6 +3825,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		// After the stages: the Station sort ranks stations by them.
 		BuildStationIndex();
+		BuildStatGroups();
 		try
 		{
 			BookArmorSets.Rebuild();
@@ -3982,10 +3986,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		// Each group in the chosen order, the name matches first.
 		if (!RecentView)
 		{
-			if (StationSort)
+			SortGroup = ListGroup(Filtered, TextMatches);
+			SortPass = (ActiveSort, ActiveDescending);
+			if (SortPass.Mode >= BookSortMode.Station)
 			{
-				PrepareStationSort(Filtered);
-				PrepareStationSort(TextMatches);
+				PrepareRanks(Filtered);
+				PrepareRanks(TextMatches);
 			}
 			Filtered.Sort(CompareFilteredIndexes);
 			TextMatches.Sort(CompareFilteredIndexes);
@@ -4482,7 +4488,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			for (int option = 0; option < SortOptionCount; option++)
 			{
-				if (BookGeometry.SortOption(option).Contains(Mouse.X, Mouse.Y))
+				if (SortOptionRect(option).Contains(Mouse.X, Mouse.Y))
 				{
 					ApplySortOption(option);
 					break;
@@ -5565,11 +5571,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Dropdown (closed state): current value and a chevron; the list opens inside the book.
 	// highlight marks a filter that is narrowing the list: its value is drawn in Accent.
-	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false)
+	// fitWidth: a value a little too long shrinks instead of being cut ("Knockback ↓").
+	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false, bool fitWidth = false)
 	{
 		bool hover = enabled && !open && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 		Box(sb, rect, hover ? HoverFill : (enabled ? Raised : Surface), border: true, 8f, open ? new Color?(Accent) : null, (!open) ? 1 : 2);
-		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, (!enabled) ? Muted : (highlight ? Accent : TextColor), 0.85f, rightAligned: false, leftAligned: true);
+		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, (!enabled) ? Muted : (highlight ? Accent : TextColor), 0.85f, rightAligned: false, leftAligned: true, fitWidth);
 		if (enabled)
 		{
 			Chevron(sb, rect.X + rect.Width - 18f, rect.Y + rect.Height / 2f, 4f, open ? 1 : 0, Muted);
@@ -6286,7 +6293,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + T("Фильтр по моду", "Filter by mod"));
 		}
 		bool newest = RecentView || MobRecentCategory;
-		Dropdown(sb, BookGeometry.Sort, newest ? T("Новые", "Newest") : SortLabel(), SortMenu, !newest);
+		Dropdown(sb, BookGeometry.Sort, newest ? T("Новые", "Newest") : SortLabel(), SortMenu, !newest, highlight: false, fitWidth: true);
 		if (!MenuOpen && BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(RecentView ? T("Недавние всегда от новых к старым", "Recent crafts are always newest first") : (MobRecentCategory ? T("Недавние мобы всегда от новых к старым", "Recently seen mobs are always newest first") : T("Порядок сортировки", "Sort order")));
@@ -6970,13 +6977,36 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static BookRect CraftRect => BookGeometry.CraftAction;
 
+	private static bool SortGroupColumn => !BestiaryView && GroupSortList.Length > 0;
+
+	// The general list, and the category's under its name in a second column.
+	private static BookRect SortMenuRect
+	{
+		get
+		{
+			int general = BestiaryView ? MobSortOptions.Length : (GeneralSorts.Length * 2);
+			return BookGeometry.SortMenuPanel(SortGroupColumn, Math.Max(general, SortGroupColumn ? (GroupSortList.Length * 2 + 1) : 0));
+		}
+	}
+
+	private static BookRect SortOptionRect(int option)
+	{
+		int general = BestiaryView ? MobSortOptions.Length : (GeneralSorts.Length * 2);
+		return (option < general) ? BookGeometry.SortOption(SortMenuRect, 0, option) : BookGeometry.SortOption(SortMenuRect, 1, option - general + 1);
+	}
+
 	private static void DrawSortMenu(SpriteBatch sb)
 	{
-		BookRect panel = BookGeometry.SortMenuPanel;
-		Box(sb, panel.X, panel.Y, panel.Width, 8f + SortOptionCount * 32f, new Color(17, 25, 20), border: true, 10f, Accent);
+		BookRect panel = SortMenuRect;
+		Box(sb, panel, new Color(17, 25, 20), border: true, 10f, Accent);
+		if (SortGroupColumn)
+		{
+			BookRect header = BookGeometry.SortOption(panel, 1, 0);
+			SectionLabel(sb, GroupLabel(SortGroup), header.X + 12f, header.Y + 8f, header.Width - 24f);
+		}
 		for (int option = 0; option < SortOptionCount; option++)
 		{
-			BookRect rect = BookGeometry.SortOption(option);
+			BookRect rect = SortOptionRect(option);
 			bool active = option == SortOptionIndex;
 			bool hover = rect.Contains(Mouse.X, Mouse.Y);
 			if (active)
@@ -6987,7 +7017,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Box(sb, rect, HoverFill, border: false, 6f);
 			}
-			CenterLabel(sb, SortOptionLabel(option), rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, SortOptionLabel(option), rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true, fitWidth: true);
 		}
 	}
 

@@ -118,7 +118,8 @@ public sealed partial class RecipeBookSystem
 
 	private static int[] SortRankScratch = Array.Empty<int>();
 
-	private const int NoRecipeRank = int.MaxValue;
+	// No recipe for Station, no such number for a category sort.
+	private const int NoRank = int.MaxValue;
 
 	private static readonly List<int> RankedStations = new List<int>();
 
@@ -202,10 +203,10 @@ public sealed partial class RecipeBookSystem
 		if (!Catalogue)
 		{
 			int[] needs = ((uint)index < (uint)RecipeStationSet.Length) ? RecipeStationSet[index] : null;
-			return (needs == null) ? NoRecipeRank : SetRank(needs);
+			return (needs == null) ? NoRank : SetRank(needs);
 		}
 		int[][] sets = ((uint)index < (uint)ItemStationSets.Length) ? ItemStationSets[index] : null;
-		int best = NoRecipeRank;
+		int best = NoRank;
 		if (sets != null)
 		{
 			foreach (int[] set in sets)
@@ -219,29 +220,17 @@ public sealed partial class RecipeBookSystem
 		return best;
 	}
 
-	private static bool StationSort => SortMode == BookSortMode.Station && StationFilterTab;
-
-	private static void PrepareStationSort(List<int> entries)
+	// Station and the category numbers (PrepareRanks): low to high or high to low; what has no recipe or no such number
+	// goes last both ways; the name breaks ties in both directions.
+	private static int CompareRank(int left, int right)
 	{
-		foreach (int index in entries)
+		int a = ((uint)left < (uint)SortRankScratch.Length) ? SortRankScratch[left] : NoRank;
+		int b = ((uint)right < (uint)SortRankScratch.Length) ? SortRankScratch[right] : NoRank;
+		if ((a == NoRank) != (b == NoRank))
 		{
-			if ((uint)index < (uint)SortRankScratch.Length)
-			{
-				SortRankScratch[index] = StationSortRank(index);
-			}
+			return (a == NoRank) ? 1 : (-1);
 		}
-	}
-
-	// Weakest or strongest first; what has no recipe goes last both ways; the name breaks ties in both directions.
-	private static int CompareStationRank(int left, int right)
-	{
-		int a = ((uint)left < (uint)SortRankScratch.Length) ? SortRankScratch[left] : NoRecipeRank;
-		int b = ((uint)right < (uint)SortRankScratch.Length) ? SortRankScratch[right] : NoRecipeRank;
-		if ((a == NoRecipeRank) != (b == NoRecipeRank))
-		{
-			return (a == NoRecipeRank) ? 1 : (-1);
-		}
-		int comparison = SortDescending ? b.CompareTo(a) : a.CompareTo(b);
+		int comparison = SortPass.Descending ? b.CompareTo(a) : a.CompareTo(b);
 		if (comparison == 0)
 		{
 			comparison = string.Compare(Result(left).Name, Result(right).Name, StringComparison.CurrentCultureIgnoreCase);
