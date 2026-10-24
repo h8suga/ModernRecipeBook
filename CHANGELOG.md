@@ -3,7 +3,7 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
-## Unreleased
+## 1.13.0 — 2026-10-25
 
 ### Added
 - The Storage tab says how full your storage is: "Cells: 1,234 / 3,200" under the radius line. It counts the cells of
@@ -11,6 +11,10 @@ patch for fixes, minor for features.
   banks, the open container and a carried Void Bag. At 90% full the line turns amber. Hover it for each network and
   the chests apart. Inactive storage units are left out, and so is the Creative Storage Unit, which has no limit; the
   tooltip says when either is there. Works the same on a server.
+
+### Changed
+- The "Value" sort is called "Sell price", the game's own name for an item's price (it shows it while a shop is
+  open). The order is the same.
 
 ## 1.12.1 — 2026-10-25
 
