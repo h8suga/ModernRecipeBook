@@ -485,7 +485,7 @@ internal static class BookItemClasses
 			string text;
 			try
 			{
-				text = FullTooltip(sample);
+				text = BookItemTooltip.Full(sample);
 				BookArmorSets.Set set = BookArmorSets.Get(sample.type);
 				if (set != null)
 				{
@@ -508,24 +508,6 @@ internal static class BookItemClasses
 			}
 		}
 		return $"{found.Count} of {checkedCount} to look at\n" + string.Join("\n", found.OrderBy((string line) => line, StringComparer.Ordinal));
-	}
-
-	private static string FullTooltip(Item sample)
-	{
-		Item item = sample.Clone();
-		int yoyoLogo = -1;
-		int researchLine = -1;
-		int oneDropLogo = -1;
-		int numLines = 1;
-		string[] text = new string[60];
-		bool[] modifier = new bool[60];
-		bool[] badModifier = new bool[60];
-		string[] names = new string[60];
-		Main.MouseText_DrawItemTooltip_GetLinesInfo(item, ref yoyoLogo, ref researchLine, item.knockBack, ref numLines, text, modifier, badModifier, names, out var prefixLine);
-		List<TooltipLine> lines = ItemLoader.ModifyTooltips(item, ref numLines, names, ref text, ref modifier, ref badModifier, ref oneDropLogo, out _, prefixLine);
-		return string.Join("\n", from line in lines
-			where line.Visible
-			select line.Text);
 	}
 
 	private static void Audit(long milliseconds, int weapons, int equipment, int potions, int tooltipOnly, int failures)

@@ -221,9 +221,9 @@ public sealed partial class RecipeBookSystem
 
 	private static bool StationSort => SortMode == BookSortMode.Station && StationFilterTab;
 
-	private static void PrepareStationSort()
+	private static void PrepareStationSort(List<int> entries)
 	{
-		foreach (int index in Filtered)
+		foreach (int index in entries)
 		{
 			if ((uint)index < (uint)SortRankScratch.Length)
 			{

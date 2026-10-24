@@ -19,6 +19,11 @@ public sealed class BookTooltipShortcut : GlobalItem
 
 	public override void ModifyTooltips(Item item, List<TooltipLine> tooltips)
 	{
+		// The search reading every item's tooltip is not a hover.
+		if (BookItemTooltip.Building)
+		{
+			return;
+		}
 		BookInventoryShortcut.TryOpenTooltip(item);
 		// A Storage tab cell: where the item is ("Chests ×3: 120 · Magic Storage: 40").
 		Item cell = RecipeBookSystem.StorageHover;
