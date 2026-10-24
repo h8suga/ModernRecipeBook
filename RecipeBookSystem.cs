@@ -4506,7 +4506,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int wheel = scrollWheelValue - LastWheel;
 		LastWheel = scrollWheelValue;
-		if (wheel != 0 && MouseOver)
+		// The active stations panel is a popover: what is under it takes neither the wheel nor clicks.
+		bool overStations = OverActiveStationPanel;
+		if (wheel != 0 && MouseOver && !overStations)
 		{
 			int step = ((wheel <= 0) ? 1 : (-1));
 			if (TrackingView)
@@ -4545,7 +4547,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 		}
 
-		if (!click)
+		if (!click || overStations)
 		{
 			return;
 		}
@@ -5687,7 +5689,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void Icon(SpriteBatch sb, Item item, float x, float y, float size, bool tooltip = true)
+	private static void Icon(SpriteBatch sb, Item item, float x, float y, float size, bool tooltip = true, float alpha = 1f)
 	{
 		if (item != null && !item.IsAir && item.type < TextureAssets.Item.Length)
 		{
@@ -5695,7 +5697,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Texture2D texture = TextureAssets.Item[item.type].Value;
 			Rectangle frame = Main.itemAnimations[item.type]?.GetFrame(texture) ?? texture.Bounds;
 			float s = Math.Min(size / (float)Math.Max(1, frame.Width), size / (float)Math.Max(1, frame.Height));
-			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, Color.White * ModalOpacity, 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
+			sb.Draw(texture, Origin + new Vector2(x + size / 2f, y + size / 2f) * Scale, frame, Color.White * (ModalOpacity * alpha), 0f, frame.Size() / 2f, s * Scale, SpriteEffects.None, 0f);
 			if (Hit(x, y, size, size))
 			{
 				BookInventoryShortcut.TryOpenIcon(item);
@@ -6201,6 +6203,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (StationMenu)
 		{
 			DrawStationMenu(sb);
+		}
+		if (ActiveStationPanel)
+		{
+			DrawActiveStationPanel(sb);
 		}
 	}
 
@@ -7045,6 +7051,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 			MouseTip(T("Размер окна", "Window size"));
 		}
 		float hintRight = 924f;
+		if (ActiveStationsTab)
+		{
+			DrawActiveStationChip(sb);
+			hintRight = ActiveStationChip.X - 8f;
+		}
+		else
+		{
+			ActiveStationPanel = false;
+		}
 		string message = BookCrafting.LastMessage ?? "";
 		CenterLabel(sb, (message.Length > 0) ? message : FooterHint(), 140f, 660f, hintRight - 140f, 24f, (message.Length > 0) ? Accent : Muted, 0.8f, rightAligned: false, leftAligned: true);
 	}

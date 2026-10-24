@@ -517,40 +517,7 @@ public sealed class BookMagicStorage : ModSystem
 				int tile = item.createTile;
 				if (tile >= 0 && tile < tiles.Length)
 				{
-					tiles[tile] = true;
-					switch (tile)
-					{
-					case 77:
-					case 302:
-						tiles[17] = true;
-						break;
-					case 133:
-						tiles[17] = true;
-						tiles[77] = true;
-						break;
-					case 134:
-						tiles[16] = true;
-						break;
-					case 354:
-					case 469:
-					case 487:
-						tiles[14] = true;
-						break;
-					case 355:
-						tiles[13] = true;
-						tiles[14] = true;
-						alchemy = true;
-						break;
-					case 85:
-						graveyard = true;
-						break;
-					}
-					TileLoader.AdjTiles(player, tile);
-					// MS lets a table or work bench stand for a chair as well.
-					if (tiles[18] || tiles[14] || tiles[469])
-					{
-						tiles[15] = true;
-					}
+					AddStation(player, tiles, tile);
 					water |= TileID.Sets.CountsAsWaterSource[tile];
 					lava |= TileID.Sets.CountsAsLavaSource[tile];
 					honey |= TileID.Sets.CountsAsHoneySource[tile];
@@ -598,6 +565,49 @@ public sealed class BookMagicStorage : ModSystem
 		player.ZoneGraveyard |= graveyard;
 		return true;
 	}
+
+	// One station's tile and what it counts as, as Player.AdjTiles adds a placed one (the forges, anvils and tables,
+	// then mods through TileLoader.AdjTiles), plus MS's rule that a table or work bench stands for a chair. Mods write
+	// through player.adjTile, so it must be `tiles` during the call.
+	internal static void AddStation(Player player, bool[] tiles, int tile)
+	{
+		tiles[tile] = true;
+		switch (tile)
+		{
+		case 77:
+		case 302:
+			tiles[17] = true;
+			break;
+		case 133:
+			tiles[17] = true;
+			tiles[77] = true;
+			break;
+		case 134:
+			tiles[16] = true;
+			break;
+		case 354:
+		case 469:
+		case 487:
+			tiles[14] = true;
+			break;
+		case 355:
+			tiles[13] = true;
+			tiles[14] = true;
+			break;
+		}
+		TileLoader.AdjTiles(player, tile);
+		if (tiles[18] || tiles[14] || tiles[469])
+		{
+			tiles[15] = true;
+		}
+	}
+
+	// While BeginStations is in effect: the player's own adjacency and flags under the merged ones.
+	internal static bool[] OwnTiles => SavedTiles;
+
+	internal static (bool Water, bool Lava, bool Honey, bool Shimmer, bool Alchemy, bool Snow, bool Graveyard) OwnFlags => SavedFlags;
+
+	internal static int CraftingAccessTile => CraftingTile;
 
 	internal static void EndStations(Player player)
 	{

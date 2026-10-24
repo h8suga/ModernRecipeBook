@@ -3,6 +3,16 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## Unreleased
+
+### Added
+- Active stations: a small chip in the book's footer (Items, Recipes, Recent, Tracking) shows the strongest crafting
+  station in reach and how many count. Hover it for their icons, grouped: placed nearby, in a Magic Storage Crafting
+  Interface (near you or opened through Portable Crafting Access), and surroundings such as water or the snow biome.
+  A station that only counts through another is dimmed with that station's icon on its corner (the Adamantite Forge's
+  Furnace and Hellforge, the Alchemy Table's Bottle); hover an icon for its name and where it comes from. The list is
+  what the book itself crafts with, so it always matches what it calls craftable.
+
 ## 1.12.1 — 2026-10-25
 
 ### Fixed
