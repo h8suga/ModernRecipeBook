@@ -45,6 +45,9 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static bool CanHide;
 
+	// Storage cells (TEStorageUnit.Capacity / NumItems): a group of its own, so a rename there leaves the rest working.
+	private static bool Countable;
+
 	private static readonly HashSet<string> AccessTiles = new HashSet<string> { "StorageHeart", "StorageAccess", "CraftingAccess", "RemoteAccess" };
 
 	// Reading.
@@ -81,6 +84,12 @@ public sealed class BookMagicStorage : ModSystem
 	private static int SnowEmulator = -1;
 
 	private static int BiomeGlobe = -1;
+
+	private static Type UnitType;
+
+	private static PropertyInfo CapacityOf;
+
+	private static PropertyInfo NumItemsOf;
 
 	// The server's writes.
 	private static MethodInfo WithdrawOf;
@@ -127,6 +136,7 @@ public sealed class BookMagicStorage : ModSystem
 		Readable = TryBind("read", BindReading);
 		Writable = Readable && TryBind("write", BindWriting);
 		CanHide = !Main.dedServ && Readable && TryBind("hide", BindHiding);
+		Countable = !Main.dedServ && Readable && TryBind("cells", BindCells);
 		if (CanHide)
 		{
 			On_UserInterface.Update += UpdateNativeInterface;
@@ -200,6 +210,13 @@ public sealed class BookMagicStorage : ModSystem
 		BiomeGlobe = Owner.TryFind<ModItem>("BiomeGlobe", out var globe) ? globe.Type : -1;
 	}
 
+	private static void BindCells()
+	{
+		UnitType = Get("Components.TEStorageUnit");
+		CapacityOf = Property(UnitType, "Capacity");
+		NumItemsOf = Property(UnitType, "NumItems");
+	}
+
 	private static void BindWriting()
 	{
 		WithdrawOf = Method(HeartType, "Withdraw", typeof(Item), typeof(bool));
@@ -242,6 +259,10 @@ public sealed class BookMagicStorage : ModSystem
 		else if (group == "write")
 		{
 			Writable = false;
+		}
+		else if (group == "cells")
+		{
+			Countable = false;
 		}
 		else
 		{
@@ -426,6 +447,42 @@ public sealed class BookMagicStorage : ModSystem
 		}
 		return creative;
 	}
+
+	// A heart's cells as MS's own Capacity line counts them (BaseStorageUIAccessPage: NumItems / Capacity over the plain
+	// TEStorageUnits, so the Creative Storage Unit is never in it), minus inactive units, which take no deposits.
+	internal static (int Total, int Used, int Inactive) Cells(object heart)
+	{
+		int total = 0, used = 0, inactive = 0;
+		if (!Countable)
+		{
+			return (0, 0, 0);
+		}
+		try
+		{
+			foreach (object unit in (IEnumerable)UnitsOf.Invoke(heart, null))
+			{
+				if (!UnitType.IsInstanceOfType(unit))
+				{
+					continue;
+				}
+				if ((bool)InactiveOf.GetValue(unit))
+				{
+					inactive++;
+					continue;
+				}
+				total += (int)CapacityOf.GetValue(unit);
+				used += (int)NumItemsOf.GetValue(unit);
+			}
+		}
+		catch (Exception error)
+		{
+			Fail("cells", error);
+		}
+		return (total, used, inactive);
+	}
+
+	// In the game's language, as the player sees the item.
+	internal static string CreativeUnitName => (Owner != null && Owner.TryFind<ModItem>("CreativeStorageUnit", out var item)) ? Lang.GetItemNameValue(item.Type) : "Creative Storage Unit";
 
 	internal static object HeartAt(Point16 position)
 	{
@@ -725,7 +782,7 @@ public sealed class BookMagicStorage : ModSystem
 			On_ItemSlot.LeftClick_ItemArray_int_int -= BlockLeftClick;
 			On_ItemSlot.RightClick_ItemArray_int_int -= BlockRightClick;
 		}
-		Hooked = Installed = Readable = Writable = CanHide = false;
+		Hooked = Installed = Readable = Writable = CanHide = Countable = false;
 		Owner = null;
 		SavedTiles = null;
 		MergedTiles = Array.Empty<bool>();

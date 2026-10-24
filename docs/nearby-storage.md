@@ -232,7 +232,7 @@ One `byte` message id after tML's mod header: the mod's one `BookMessage` enum a
 | Id | Name | Dir | Fields |
 |---|---|---|---|
 | 8 | `NearbySubscribe` | C→S | `byte on` (1 = send me nearby chests, 0 = stop) |
-| 9 | `NearbyChestSync` | S→C | `byte flags` (bit0 Reset = clear mirror first, bit1 MsOk = server's MS adapter works, bit2 PullsOff = SSC server); `ushort skippedLocked`; `ushort skippedInUse`; `ushort upserts` → per chest `short index, short x, short y, byte n`, then n × (`7b type`, `7b prefix`, `7b count`) merged per (type, prefix); `ushort removes` → `short index` each |
+| 9 | `NearbyChestSync` | S→C | `byte flags` (bit0 Reset = clear mirror first, bit1 MsOk = server's MS adapter works, bit2 PullsOff = SSC server); `ushort skippedLocked`; `ushort skippedInUse`; `ushort upserts` → per chest `short index, short x, short y, byte usedSlots, byte n`, then n × (`7b type`, `7b prefix`, `7b count`) merged per (type, prefix); `ushort removes` → `short index` each |
 | 10 | `NearbyPull` | C→S | `int id`; `byte n` (1..32); n × (`7b type`, `7b prefixPlusOne` (0 = any prefix), `7b amount` (1..999,999)) |
 | 11 | `NearbyGive` | S→C | `int id`; `byte status` (0 Done, 1 Partial, 2 Nothing, 3 Off, 4 Busy, 5 Invalid); `ushort n` (≤ 256); n × `ItemIO.Send(item, w, writeStack: true)` (V18, keeps modded data) |
 | 12 | `NearbyAck` | C→S | `int id` |

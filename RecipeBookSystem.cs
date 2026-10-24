@@ -6001,6 +6001,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		FixedLabel(sb, on ? BookSources.Summary : StorageOffTitle, source.X, source.Y, on ? TextColor : Muted, 0.9f, source.Width, source.Height);
 		BookRect hint = BookGeometry.StorageHint;
 		FixedLabel(sb, on ? BookSources.RadiusLine : StorageOffHint, hint.X, hint.Y, Muted, 0.8f, hint.Width, hint.Height);
+		BookRect cells = BookGeometry.StorageCells;
+		string cellsText = on ? BookSources.Cells : "";
+		bool cellsCut = cellsText.Length > 0 && FixedLabel(sb, cellsText, cells.X, cells.Y, BookSources.CellsAlmostFull ? Caution : TextColor, 0.85f, cells.Width, cells.Height);
 		BookRect skipped = BookGeometry.StorageSkipped;
 		string skippedText = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? T("Связь с Magic Storage отключена (client.log)", "Magic Storage support is off (see client.log)") : (on ? BookSources.NotCounted : "");
 		if (skippedText.Length > 0)
@@ -6052,6 +6055,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				MouseTip(tip);
 			}
+		}
+		else if (cellsText.Length > 0 && cells.Contains(Mouse.X, Mouse.Y))
+		{
+			// A cut line keeps the truncation's own tip: the whole line, then the breakdown.
+			MouseTip(cellsCut ? (cellsText + "\n" + BookSources.CellsTip) : BookSources.CellsTip);
 		}
 		else if (on && skippedText.Length > 0 && skipped.Contains(Mouse.X, Mouse.Y))
 		{
