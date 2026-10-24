@@ -2360,7 +2360,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (gate != null)
 		{
-			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + T("По коду появления мода", "From the mod's own spawn code");
+			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + T("Мод пускает его и после других боссов, проба не нашла каких", "The mod lets it spawn after other bosses too; the probe could not tell which")) : "") + "\n" + T("По коду появления мода", "From the mod's own spawn code");
 		}
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
@@ -2405,22 +2405,48 @@ public sealed partial class RecipeBookSystem : ModSystem
 			group p by p.Family into family
 			where !family.All((BookSpawnGates.Place p) => p.Key.Contains('/') && biomes.Contains(PlaceName(p.Key)))
 			select PlaceName(family.Key))).Distinct().ToList();
-		string[] bosses = gate.Boss.Split('|');
-		string boss = bosses[(bosses.Length > 1 && WorldGen.crimson) ? 1 : 0];
 		string time = gate.Day switch
 		{
 			true => "Day",
 			false => "Night",
 			_ => null
 		};
-		return string.Join(" · ", new string[5]
+		return string.Join(" · ", gate.Terms.Select(GateTermText).Prepend((full || places.Count <= 1) ? string.Join(" · ", places) : (places[0] + " +" + (places.Count - 1))).Concat(new string[3]
 		{
-			(full || places.Count <= 1) ? string.Join(" · ", places) : (places[0] + " +" + (places.Count - 1)),
-			(boss == "Hardmode") ? GateText(boss) : boss.StartsWith("Enemies.", StringComparison.Ordinal) ? (T("после: ", "after ") + Language.GetTextValue(boss)) : GateText("boss:" + boss),
 			gate.Water ? T("в воде", "in water") : "",
 			(time != null && !tags.Contains(Language.GetTextValue("Bestiary_Times." + time + "Time"))) ? GateText(time) : "",
 			(gate.Rain && !tags.Contains(Language.GetTextValue("Bestiary_Events.Rain"))) ? T("в дождь", "in rain") : ""
-		}.Where((string p) => p.Length > 0));
+		}).Where((string p) => p.Length > 0));
+	}
+
+	// One of BookSpawnGates.Gate.Terms: "Hardmode or after Calamitas Clone", "after Golem or another boss", the
+	// mechanical bosses in a word.
+	private static string GateTermText(string term)
+	{
+		switch (term)
+		{
+			case "mechs:any":
+				return T("после любого механического босса", "after any mechanical boss");
+			case "mechs:two":
+				return T("после любых двух механических боссов", "after any two mechanical bosses");
+			case "mechs:all":
+				return T("после всех механических боссов", "after all mechanical bosses");
+		}
+		// Hardmode and PostHardmode ("after Moon Lord") have words of their own; the bosses share one "after".
+		string[] ways = term.Split(';');
+		string[] words = ways.Where((string way) => way is "Hardmode" or "PostHardmode").Select(GateText).ToArray();
+		string after = string.Join(T(" или ", " or "), from way in ways
+			where !(way is "Hardmode" or "PostHardmode")
+			select (way == "?") ? T("другой босс", "another boss") : string.Join(" + ", way.Split('+').Select(GateBossName)));
+		return string.Join(T(" или ", " or "), (after.Length > 0) ? words.Append(T("после: ", "after ") + after) : words);
+	}
+
+	// A step's boss: "A|B" is the corruption's and the crimson's, the world's evil picks; "Enemies.*" is a game text.
+	private static string GateBossName(string name)
+	{
+		string[] bosses = name.Split('|');
+		string boss = bosses[(bosses.Length > 1 && WorldGen.crimson) ? 1 : 0];
+		return boss.StartsWith("Enemies.", StringComparison.Ordinal) ? Language.GetTextValue(boss) : NpcTypeName(boss);
 	}
 
 	// The probe's places (BookSpawnGates.Places): its own names for the vanilla ones, the game's for mods' biomes.

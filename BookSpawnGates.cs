@@ -15,8 +15,9 @@ namespace ModernRecipeBook;
 // Mods gate many mobs inside ModNPC.SpawnChance (Calamity's Plague Charger: the hardmode jungle once Golem is down),
 // which no Bestiary tag shows. As BookItemClasses runs items on a throwaway player, this asks SpawnChance itself: a
 // throwaway player stands in each place while the world's progression flags open step by step in Boss Checklist
-// order, and the first step after which the mob may spawn is its gate. Once per load, in single player only, on the
-// main thread between two updates; every flag it sets is put back before it returns.
+// order; the first step after which the mob may spawn is its gate. Closing steps one at a time then tells which it
+// really needs: mods test OR and count conditions (Cryo Slime: Cryogen and any two mechanical bosses). Once per load,
+// in single player only, on the main thread between two updates; every flag it sets is put back before it returns.
 internal static class BookSpawnGates
 {
 	internal enum Layer
@@ -34,13 +35,17 @@ internal static class BookSpawnGates
 	// "sky", "temple" and "cave" (NPCSpawnInfo's Sky, Lihzahrd and DesertCave).
 	internal sealed record Place(string Key, string Family, Layer Height, int Tile, string Traits);
 
-	// A gated mob: the step that opens it (Steps' first word) and that step's stage, where it may spawn once everything
-	// is open, and what every try that worked had in common (Day null: day and night both work).
-	internal sealed record Gate(string Boss, BookStage Stage, Place[] Places, bool? Day, bool Rain, bool Water);
+	// A gated mob: what it waits for, the stage of the step after which it first spawns, where it may spawn once
+	// everything is open, and what every try that worked had in common (Day null: day and night both work). Each term
+	// is one requirement: one way or several (";"), a way being one step's boss (Steps' first word) or several
+	// together ("+"), "?" for a way the probe could not name; or "mechs:any", "mechs:two", "mechs:all".
+	internal sealed record Gate(string[] Terms, BookStage Stage, Place[] Places, bool? Day, bool Rain, bool Water);
+
+	private static readonly HashSet<string> Mechs = new HashSet<string>(StringComparer.Ordinal) { "Enemies.TheTwins", "TheDestroyer", "SkeletronPrime" };
 
 	// Progression in Boss Checklist order (its vanilla values; Calamity's from WeakReferenceSupport.
 	// BossChecklistProgressionValues in 2.2.4): the boss that names the step ("A|B": the corruption's and the
-	// crimson's), then the flags it sets: NPC.downed* fields, Main.hardMode and Calamity's DownedBossSystem fields
+	// crimson's; Hardmode and PostHardmode for the Wall of Flesh and Moon Lord, which have words), then the flags it sets: NPC.downed* fields, Main.hardMode and Calamity's DownedBossSystem fields
 	// (its properties' setters would also start a Lantern Night). Events and the pillars only open in the final,
 	// everything-on state, so a mob only they gate keeps its Bestiary tags.
 	private static readonly string[] Steps =
@@ -51,7 +56,8 @@ internal static class BookSpawnGates
 		"EyeofCthulhu downedBoss1",
 		"CalamityMod/Crabulon _downedCrabulon",
 		"EaterofWorldsHead|BrainofCthulhu downedBoss2",
-		"CalamityMod/HiveMind|CalamityMod/PerforatorHive _downedHiveMind _downedPerforator",
+		"CalamityMod/HiveMind _downedHiveMind",
+		"CalamityMod/PerforatorHive _downedPerforator",
 		"QueenBee downedQueenBee",
 		"SkeletronHead downedBoss3",
 		"Deerclops downedDeerclops",
@@ -59,7 +65,7 @@ internal static class BookSpawnGates
 		"Hardmode hardMode",
 		"QueenSlimeBoss downedQueenSlime",
 		"CalamityMod/Cryogen _downedCryogen",
-		"Enemies.TheTwins downedMechBoss2 downedMechBossAny",
+		"Enemies.TheTwins downedMechBoss2",
 		"CalamityMod/AquaticScourgeHead _downedAquaticScourge",
 		"CalamityMod/CragmawMire _downedCragmawMire",
 		"TheDestroyer downedMechBoss1",
@@ -77,7 +83,7 @@ internal static class BookSpawnGates
 		"CalamityMod/RavagerBody _downedRavager",
 		"CultistBoss downedAncientCultist",
 		"CalamityMod/AstrumDeusHead _downedAstrumDeus",
-		"MoonLordCore downedMoonlord",
+		"PostHardmode downedMoonlord",
 		"CalamityMod/ProfanedGuardianCommander _downedGuardians",
 		"CalamityMod/Dragonfolly _downedDragonfolly",
 		"CalamityMod/Providence _downedProvidence",
@@ -189,7 +195,22 @@ internal static class BookSpawnGates
 		return from pair in gates
 			orderby pair.Key
 			let gate = pair.Value
-			select string.Join('\t', pair.Key, NPCLoader.GetNPC(pair.Key)?.FullName, gate.Boss, gate.Stage, string.Join(",", gate.Places.Select((Place p) => p.Key)), gate.Day, gate.Rain, gate.Water);
+			select string.Join('\t', pair.Key, NPCLoader.GetNPC(pair.Key)?.FullName, string.Join(" & ", gate.Terms), gate.Stage, string.Join(",", gate.Places.Select((Place p) => p.Key)), gate.Day, gate.Rain, gate.Water);
+	}
+
+	// The mechanical bosses a mob waits for, from the sets of them that let it spawn (bit s of sets: set s, whose bit b
+	// is names[b]): the smallest such sets, in a word where there is one. Null when no set works.
+	private static string MechTerm(int sets, string[] names)
+	{
+		List<int> least = Enumerable.Range(1, 7).Where((int s) => (sets & (1 << s)) != 0 && !Enumerable.Range(1, 7).Any((int t) => t != s && (t & s) == t && (sets & (1 << t)) != 0)).ToList();
+		return string.Join(",", least) switch
+		{
+			"" => null,
+			"1,2,4" => "mechs:any",
+			"3,5,6" => "mechs:two",
+			"7" => "mechs:all",
+			_ => string.Join(";", least.Select((int s) => string.Join("+", Enumerable.Range(0, names.Length).Where((int b) => (s & (1 << b)) != 0).Select((int b) => names[b]))))
+		};
 	}
 
 	private static void Probe()
@@ -229,7 +250,12 @@ internal static class BookSpawnGates
 			}
 			FieldInfo[] set = words.Skip(1).Select((string name) => byName.GetValueOrDefault(name) ?? throw new MissingFieldException("progression flag " + name)).ToArray();
 			// Running maximum: a step the stage tables do not know (the Twins, Draedon) is as late as the one before.
-			reached = (BookStage)Math.Max((int)reached, (int)(boss == "Hardmode" ? BookStage.Hardmode : (type > 0 ? BookProgressionSources.NpcStage(type) : BookStage.Unknown)));
+			reached = (BookStage)Math.Max((int)reached, (int)(boss switch
+			{
+				"Hardmode" => BookStage.Hardmode,
+				"PostHardmode" => BookStage.PostHardmode,
+				_ => (type > 0) ? BookProgressionSources.NpcStage(type) : BookStage.Unknown
+			}));
 			steps.Add((words[0], set, reached));
 		}
 		List<(Place Place, Player Player, NPCSpawnInfo Info, int Variants)> stands = new List<(Place, Player, NPCSpawnInfo, int)>();
@@ -300,7 +326,13 @@ internal static class BookSpawnGates
 		int[] state = new int[npcs.Count];
 		int[,] open = new int[npcs.Count, stands.Count];
 		int[,] again = new int[npcs.Count, stands.Count];
-		int errors = 0, inconsistent = 0;
+		int errors = 0, inconsistent = 0, several = 0;
+		// Per gated mob: the steps it requires, the other ways to its gate, and the sets of mechanical bosses that let it
+		// spawn (bit s: set s, whose bit b is mechs[b]).
+		List<int>[] required = new List<int>[npcs.Count];
+		List<int>[] others = new List<int>[npcs.Count];
+		int[] mechSets = new int[npcs.Count];
+		int[] mechs = Enumerable.Range(0, steps.Count).Where((int k) => Mechs.Contains(steps[k].Boss)).ToArray();
 		object[] saved = flags.Select((FieldInfo f) => f.GetValue(null)).ToArray();
 		bool dayTime = Main.dayTime, raining = Main.raining, eclipse = Main.eclipse, bloodMoon = Main.bloodMoon, pumpkinMoon = Main.pumpkinMoon, snowMoon = Main.snowMoon;
 		float cloudAlpha = Main.cloudAlpha;
@@ -310,7 +342,7 @@ internal static class BookSpawnGates
 			// No event running: the probe asks about the place and the progression, not tonight's moon.
 			Main.eclipse = (Main.bloodMoon = (Main.pumpkinMoon = (Main.snowMoon = false)));
 			Main.invasionType = 0;
-			SetAll(true);
+			Open((int k) => true, rest: true);
 			Run((int i, int s, int v) => state[i] != Skip, (int i, int s, int v) => open[i, s] |= 1 << v);
 			Run((int i, int s, int v) => state[i] != Skip, (int i, int s, int v) => again[i, s] |= 1 << v);
 			for (int i = 0; i < npcs.Count; i++)
@@ -327,18 +359,65 @@ internal static class BookSpawnGates
 				}
 				state[i] = (state[i] == Skip || !same || !spawns) ? Skip : Unplaced;
 			}
-			SetAll(false);
 			for (int step = -1; step < steps.Count && state.Contains(Unplaced); step++)
 			{
-				if (step >= 0)
-				{
-					foreach (FieldInfo flag in steps[step].Flags)
-					{
-						flag.SetValue(null, true);
-					}
-				}
+				Open((int k) => k <= step, rest: false);
 				int opened = (step < 0) ? Ungated : step;
 				Run((int i, int s, int v) => state[i] == Unplaced && (open[i, s] & (1 << v)) != 0, (int i, int s, int v) => state[i] = opened);
+			}
+			// The walk names the step after which the mob first spawns in the usual order; that step need not be required.
+			// A step is required when the mob no longer spawns with everything else open. Only steps up to the gate can be:
+			// the walk saw it spawn with every later one closed.
+			List<int> gated = Enumerable.Range(0, npcs.Count).Where((int i) => state[i] >= 0).ToList();
+			foreach (int i in gated)
+			{
+				required[i] = new List<int>();
+				others[i] = new List<int>();
+			}
+			for (int k = 0; k <= gated.Select((int i) => state[i]).DefaultIfEmpty(-1).Max(); k++)
+			{
+				Open((int j) => j != k, rest: true);
+				HashSet<int> still = Spawning(gated.Where((int i) => state[i] >= k));
+				foreach (int i in gated.Where((int i) => state[i] >= k && !still.Contains(i)))
+				{
+					required[i].Add(k);
+				}
+			}
+			// The mechanical bosses come in any order (Cryo Slime wants any two): each of the 7 sets of them is tried with
+			// every other step before the last of them open and the later ones closed.
+			int latest = mechs.DefaultIfEmpty(-1).Max();
+			List<int> byMechs = gated.Where((int i) => mechs.Contains(state[i])).ToList();
+			for (int set = 1; set < 8 && byMechs.Count > 0; set++)
+			{
+				Open(delegate(int k)
+				{
+					int bit = Array.IndexOf(mechs, k);
+					return (bit >= 0) ? ((set & (1 << bit)) != 0) : (k < latest);
+				}, rest: false);
+				foreach (int i in Spawning(byMechs))
+				{
+					mechSets[i] |= 1 << set;
+				}
+			}
+			// Any other gate the mob also spawns without is one way of several (Eidolist: hardmode or Calamitas Clone):
+			// the steps whose closing as well stops it are the other ways.
+			foreach (IGrouping<int, int> loose in from i in gated
+				where !mechs.Contains(state[i]) && !required[i].Contains(state[i])
+				group i by state[i])
+			{
+				for (int j = 0; j < steps.Count; j++)
+				{
+					if (j == loose.Key)
+					{
+						continue;
+					}
+					Open((int k) => k != loose.Key && k != j, rest: true);
+					HashSet<int> still = Spawning(loose);
+					foreach (int i in loose.Where((int i) => state[i] >= 0 && !still.Contains(i)))
+					{
+						others[i].Add(j);
+					}
+				}
 			}
 		}
 		finally
@@ -375,16 +454,54 @@ internal static class BookSpawnGates
 			}
 			// Variant v is bit v: the day ones are 0, 2, 4, 6 (0x55), the rainy ones 2, 3, 6, 7 (0xCC), the wet ones 4-7 (0xF0).
 			bool day = (variants & 0x55) != 0, night = (variants & 0xAA) != 0;
-			gates[npcs[i].Type] = new Gate(steps[state[i]].Boss, steps[state[i]].Stage, places.ToArray(), (day == night) ? null : day, (variants & ~0xCC) == 0, (variants & ~0xF0) == 0);
+			// Terms in step order: the required steps, then the gate's own one when it is not simply required (the
+			// mechanical bosses' word, or its other ways; "?" when none of them was found).
+			int gate = state[i];
+			bool byMech = mechs.Contains(gate);
+			List<(int Order, string Term, BookStage Stage)> terms = (from k in required[i]
+				where !byMech || !mechs.Contains(k)
+				select (k, steps[k].Boss, steps[k].Stage)).ToList();
+			if (byMech)
+			{
+				terms.Add((gate, MechTerm(mechSets[i], mechs.Select((int k) => steps[k].Boss).ToArray()) ?? (steps[gate].Boss + ";?"), BookStage.Hardmode));
+			}
+			else if (!required[i].Contains(gate))
+			{
+				several++;
+				terms.Add((gate, steps[gate].Boss + ((others[i].Count > 0) ? string.Concat(others[i].Select((int k) => ";" + steps[k].Boss)) : ";?"), steps[gate].Stage));
+			}
+			// Hardmode goes without saying next to a hardmode boss.
+			if (terms.Any(t => t.Term != "Hardmode" && t.Stage >= BookStage.Hardmode))
+			{
+				terms.RemoveAll(t => t.Term == "Hardmode");
+			}
+			gates[npcs[i].Type] = new Gate(terms.OrderBy(t => t.Order).Select(t => t.Term).ToArray(), steps[gate].Stage, places.ToArray(), (day == night) ? null : day, (variants & ~0xCC) == 0, (variants & ~0xF0) == 0);
 		}
-		Summary = $"Spawn gate audit ({timer.ElapsedMilliseconds} ms): probed {npcs.Count} NPCs in {stands.Count} places over {steps.Count} steps; {gates.Count} got a gate, {state.Count((int s) => s == Ungated)} open from the start, {errors} errors ({inconsistent} inconsistent).";
+		Summary = $"Spawn gate audit ({timer.ElapsedMilliseconds} ms): probed {npcs.Count} NPCs in {stands.Count} places over {steps.Count} steps; {gates.Count} got a gate ({several} of them one way of several), {state.Count((int s) => s == Ungated)} open from the start, {errors} errors ({inconsistent} inconsistent).";
 		mod.Logger.Info(Summary);
-		void SetAll(bool value)
+		// Sets the named steps as on(k) says and every other flag (events, pillars) to rest; "any mechanical boss"
+		// follows the three, as in the game.
+		void Open(Func<int, bool> on, bool rest)
 		{
 			foreach (FieldInfo flag in flags)
 			{
-				flag.SetValue(null, value);
+				flag.SetValue(null, rest);
 			}
+			for (int k = 0; k < steps.Count; k++)
+			{
+				foreach (FieldInfo flag in steps[k].Flags)
+				{
+					flag.SetValue(null, on(k));
+				}
+			}
+			NPC.downedMechBossAny = NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3;
+		}
+		// Which of these gated mobs spawn as the flags stand, in any variant that worked with everything open.
+		HashSet<int> Spawning(IEnumerable<int> mobs)
+		{
+			HashSet<int> asked = mobs.ToHashSet(), yes = new HashSet<int>();
+			Run((int i, int s, int v) => asked.Contains(i) && !yes.Contains(i) && state[i] >= 0 && (open[i, s] & (1 << v)) != 0, (int i, int s, int v) => yes.Add(i));
+			return yes;
 		}
 		// Every place and variant some mob wants, the spawn conditions worked out once for it, then each such mob asked.
 		void Run(Func<int, int, int, bool> wants, Action<int, int, int> spawns)

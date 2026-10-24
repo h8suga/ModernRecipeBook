@@ -25,7 +25,20 @@ Charger: `!NPC.downedGolemBoss → 0`, else `SpawnCondition.HardmodeJungle.Chanc
   asked twice: a mob whose answers differ is inconsistent and left out. Then all flags are cleared and opened step by
   step. The first step after which one of the mob's working variants returns more than 0 is its gate. Open with
   nothing downed = no gate. Events and pillars only open in the everything-on state, so a mob only they gate keeps
-  its card.
+  its card. `NPC.downedMechBossAny` always follows the three mechanical flags.
+- **What it really needs.** The walk only finds the earliest point in the usual order. Mods test OR and count
+  conditions, so three more checks follow:
+  - *Required steps.* Every step up to the gate is closed alone with everything else open. If the mob stops
+    spawning, that step is required (Cryo Slime: Cryogen).
+  - *Mechanical bosses.* When the gate is one of them, each of the 7 sets of {The Twins, The Destroyer, Skeletron
+    Prime} is tried, with every other step before the last of them open and the later ones closed. The smallest
+    working sets give the words: all three singles = "after any mechanical boss", the three pairs = "after any two
+    mechanical bosses", the full set = "after all mechanical bosses", one single = "after X", else the sets are
+    listed ("after The Twins or The Destroyer + Skeletron Prime").
+  - *One way of several.* If the gate is not required, the gate and one other step are closed together, for each
+    other step. Each step whose closing stops the mob is another way: Eidolist "Hardmode or after Calamitas Clone".
+    If none is found, the text says "after X or another boss" and the hint says the probe could not tell which.
+  - "Hardmode" is left out next to a hardmode boss.
 - **Restore.** All flags, `Main.dayTime`, `raining`, `cloudAlpha`, `eclipse`, `bloodMoon`, `pumpkinMoon`,
   `snowMoon` and `invasionType` are saved first and put back in a `finally`. Events are off while it runs. Calamity's
   flags are written through their backing fields: the property setters call `NPC.SetEventFlagCleared`, which would
@@ -37,8 +50,9 @@ Charger: `!NPC.downedGolemBoss → 0`, else `SpawnCondition.HardmodeJungle.Chanc
 - **Errors.** A SpawnChance that throws is left out and counted. Any missing piece (tModLoader's spawn helper, a
   progression field) logs one warning and leaves every card as before.
 
-Audit line (client log): `Spawn gate audit (N ms): probed 124 NPCs in 27 places over 47 steps; 33 got a gate, 84
-open from the start, 0 errors (0 inconsistent).` Calamity 2.2.4: about 20 ms on the first run (JIT), 9–13 ms after.
+Audit line (client log): `Spawn gate audit (N ms): probed 124 NPCs in 27 places over 48 steps; 33 got a gate (2 of
+them one way of several), 84 open from the start, 0 errors (0 inconsistent).` Calamity 2.2.4: about 50 ms on the
+first run (JIT), 19–27 ms after.
 
 ## On the card
 
@@ -47,8 +61,11 @@ open from the start, 0 errors (0 inconsistent).` Calamity 2.2.4: about 20 ms on 
   how many more ("Forest +3"; Underground Jungle counts as Jungle). A mod's biome the Biome line already names is
   left out, so the gate stays in sight: Plague Charger "Jungle · after Golem", Anthozoan Crab "after Aquatic Scourge".
   Hovering shows every place and "From the mod's own spawn code".
-- **Gate text.** «после: <boss>» / "after <boss>" with the game's NPC name, «Хардмод»/"Hardmode" for the Wall of
-  Flesh step. The world's evil picks Eater of Worlds or Brain of Cthulhu, and The Hive Mind or The Perforators.
+- **Gate text.** One part per requirement, in progression order: «после: <boss>» / "after <boss>" with the game's
+  NPC name, «Хардмод»/"Hardmode" for the Wall of Flesh step, the mechanical bosses' words, "A or B" for several
+  ways. Cryo Slime: «Снег · после: Cryogen · после любых двух механических боссов». The world's evil picks Eater of
+  Worlds or Brain of Cthulhu (one flag). The Hive Mind and The Perforators are two steps, so Aero Slime, which
+  wants either, reads "after The Hive Mind or The Perforator Hive". Moon Lord's step reads "after Moon Lord".
 - **Stage.** `BookProgression.NpcStage` takes the later of the curated stage and the gate's stage. The stage
   filter and the Stage sort read the same function. BookStage has no step finer than Hardmode, so the gate text
   carries the detail. For Calamity 2.2.4 the curated tables already agree with all 33 gates.
@@ -68,6 +85,6 @@ open from the start, 0 errors (0 inconsistent).` Calamity 2.2.4: about 20 ms on 
 ```
 c call p=ModernRecipeBook.BookBestiary.EnsureBuilt -Instance 8     # runs the probe
 c get  p=ModernRecipeBook.BookSpawnGates.Summary -Instance 8
-c call p=ModernRecipeBook.BookSpawnGates.Audit -Instance 8         # type, name, gate, stage, places, day, rain, water
+c call p=ModernRecipeBook.BookSpawnGates.Audit -Instance 8         # type, name, terms (" & "), stage, places, day, rain, water
 c call p=ModernRecipeBook.BookSpawnGates.Clear -Instance 8         # then EnsureBuilt again to re-probe
 ```
