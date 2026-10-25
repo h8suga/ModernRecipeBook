@@ -14,6 +14,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 <img src="https://img.shields.io/badge/Magic%20Storage-0.7.0.11-7d3c98" alt="Magic Storage 0.7.0.11">
 <img src="https://img.shields.io/badge/multiplayer-supported-2ea44f" alt="Multiplayer supported">
 <img src="https://img.shields.io/badge/languages-EN%20%7C%20RU-555555" alt="English and Russian">
+<img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
 
 <p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
@@ -55,6 +56,7 @@ it right now from what I have*.
 - [Repository layout](#repository-layout)
 - [Contributing](#contributing)
 - [Changelog](#changelog)
+- [License](#license)
 - [Credits](#credits)
 
 ## About the project
@@ -518,6 +520,14 @@ user-facing text comes in both English and Russian, and every release gets a CHA
 
 Every release is in [CHANGELOG.md](CHANGELOG.md), newest first. The versions follow
 [Semantic Versioning](https://semver.org/).
+
+## License
+
+Modern Recipe Book is free software under the [GNU General Public License v3.0](LICENSE). You may use, change and
+share it, including a modified version of your own, as long as what you share stays under the same license with its
+source available.
+
+Copyright (C) 2026 h8suga
 
 ## Credits
 

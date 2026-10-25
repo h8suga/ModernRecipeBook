@@ -14,6 +14,7 @@
 <img src="https://img.shields.io/badge/Magic%20Storage-0.7.0.11-7d3c98" alt="Magic Storage 0.7.0.11">
 <img src="https://img.shields.io/badge/multiplayer-supported-2ea44f" alt="Мультиплеер">
 <img src="https://img.shields.io/badge/languages-EN%20%7C%20RU-555555" alt="Английский и русский">
+<img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="Лицензия GPL-3.0">
 </p>
 
 <p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
@@ -55,6 +56,7 @@
 - [Устройство репозитория](#устройство-репозитория)
 - [Участие в разработке](#участие-в-разработке)
 - [История изменений](#история-изменений)
+- [Лицензия](#лицензия)
 - [Авторы](#авторы)
 
 ## О проекте
@@ -530,6 +532,14 @@ Calamity и Magic Storage и приложи `tModLoader-Logs/client.log`. Pull r
 
 Все версии в [CHANGELOG.md](CHANGELOG.md), новые сверху, на английском. Номера версий следуют
 [семантическому версионированию](https://semver.org/lang/ru/).
+
+## Лицензия
+
+Modern Recipe Book — свободная программа под [GNU General Public License v3.0](LICENSE). Её можно использовать,
+менять и распространять, в том числе свою изменённую версию, если распространяемое остаётся под той же лицензией и с
+открытым исходным кодом.
+
+Copyright (C) 2026 h8suga
 
 ## Авторы
 
