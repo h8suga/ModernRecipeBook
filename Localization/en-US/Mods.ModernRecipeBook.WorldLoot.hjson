@@ -1,0 +1,49 @@
+InTheChest: in the chest
+BreakTheChest: break the chest
+MineIt: mine it
+CutWith: cut with {0}
+DrunkWorld: drunk world only
+SurfaceChests: Surface chests
+SurfaceChestsBody: In wooden chests just under the surface, from world creation
+UndergroundChests: Underground chests
+GoldChestBody: Gold Chests stand in underground caves, cabins and pyramids from world creation; empty one and break it with a pickaxe
+JungleChests: Jungle chests
+IvyChestBody: These chests stand in jungle shrines and living mahogany trees from world creation; empty one and break it with a pickaxe
+JungleChestsBody: In the chests of jungle shrines and living mahogany trees below the cavern layer, from world creation
+SpiderCaves: Spider caves
+WebCoveredChestBody: These chests stand in spider caves from world creation; empty one and break it with a pickaxe
+WebSlingerBody: Every web-covered chest in the spider caves holds one from world creation
+Underwater: Underwater chests
+WaterChestBody: These chests lie under water, in ocean caves and deep pools, from world creation; empty one and break it with a pickaxe
+TrappedChests: Trapped chests underground
+DeadMansChestBody: A few underground Gold Chests become this one, wired to dart traps, boulders and explosives; disarm the traps, empty it and break it with a pickaxe
+DeadMansSweaterBody: One trapped chest in three holds it from world creation
+IceChests: Ice biome chests
+IceChestsBody: In the chests of the underground ice biome below the cavern layer, from world creation
+DesertChests: Underground desert chests
+DesertChestsBody: In the chests of the underground desert below the cavern layer, from world creation
+LivingTrees: Living tree chests
+LivingTreesBody: In the chest of the room under a living tree, from world creation
+MushroomChests: Mushroom biome chests
+MushroomChestsBody: In the chests of mushroom biome cabins, from world creation
+MushroomSetBody: In the chests of mushroom biome cabins, the whole set together: 1 chest in 3 above the cavern layer, 1 in 2 below it
+AnyChests: Any chest
+MoonLordLegsBody: In a drunk world (seed 05162020), 1 chest in 15 gets one when the world is made
+Caves: Underground caves
+DartTrapBody: Dart traps wait in underground caves and by trapped chests, wired to pressure plates; break one with a pickaxe
+LavaCaves: Caverns near the lava
+GeyserBody: Geysers stand on the floor of the deepest caverns, near the lava, from world creation; break one with a pickaxe
+OreDeposits: Rigged ore deposits
+DetonatorBody: In the caverns an explosive sits on an ore deposit, wired to a Detonator a few blocks away; break the Detonator with a pickaxe
+Pyramids: Pyramids
+PyramidsBody: Hangs in a desert pyramid from world creation; break it with a pickaxe to pick it up
+SkyIslands: Sky island houses
+SkyIslandsBody: Hangs in a sky island house from world creation; break it with a pickaxe to pick it up
+Cabins: Underground cabins
+CabinsBody: Hangs on the wall of an underground cabin (wood, ice, jungle, mushroom, granite or marble) from world creation; break it with a pickaxe to pick it up
+DesertHouses: Underground desert houses
+DesertHousesBody: Hangs on the wall of a house in the underground desert from world creation; break it with a pickaxe to pick it up
+Dirt: Dirt across the world
+DirtiestBlockBody: When the world is made, a few dirt blocks (3 in a small world, 6 in a medium one, 9 in a large one) become this block; mine it
+CaveMoss: Long moss in the caverns
+CaveMossBody: Long moss grows in the caverns on moss of the same kind; cut it with a {0}: one tuft in nine drops this moss

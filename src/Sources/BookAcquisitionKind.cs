@@ -21,5 +21,6 @@ internal enum BookAcquisitionKind
 	World,
 	Machine,
 	DevSet,
+	WorldLoot,
 	Unknown
 }
