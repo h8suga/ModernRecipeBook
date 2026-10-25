@@ -19,8 +19,8 @@ patch for fixes, minor for features.
   columns with its head, downed ones ticked; "Next boss" (Alt+5) is the first one not yet down in this world and moves
   on by itself. Works on Items, Recipes, the Bestiary, Storage's own filter and the card's Used in list, and is saved
   with the other filters.
-- Every item, recipe and mob now has the boss it waits for, in Boss Checklist's order (Boss Checklist's own list when
-  it is loaded, else the vanilla and Calamity bosses), not just one of three stages. Boss loot follows its boss;
+- Every item, recipe and mob now has the boss it waits for, in Boss Checklist's order (the vanilla and Calamity
+  bosses), not just one of three stages. Boss loot follows its boss;
   enemies their spawn (post-Plantera Dungeon, eclipse, moons, Martians, pillars, Acid Rain, mods' spawn gates); shops
   and drops their conditions, Calamity's lambdas too; ores the boss that spawns them and the pickaxe they need,
   Calamity's hardmode ore rework included; fishing its biome.
@@ -37,6 +37,8 @@ patch for fixes, minor for features.
   description, in English too when the game speaks another language; a few vanilla weapons whose text does not say it
   (Razorblade Typhoon, Magic Missile, Wasp Gun and more) were checked in the code. Nothing is guessed: a trait the book
   cannot be sure of is left out.
+- The boss order needs no Boss Checklist: the book takes Calamity's bosses the way Calamity hands them to Boss
+  Checklist, with Calamity's own order and downed checks, and keeps its own table if that ever fails.
 
 ### Fixed
 - How to Get said Hallowed Ore comes after The Destroyer; with Calamity it comes with the third mechanical boss,

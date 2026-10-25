@@ -4,7 +4,7 @@ Owner: «возможно реализовать сортировку по бо�
 только появляется или моб, то не показывать его. я пикаю следующего босса и мне показывает то что я могу скрафтить еще
 не убив его... желательно модовых боссов тоже учитывать».
 
-Code: `BookSteps.cs` (the steps), `BookProgression.cs` / `BookProgressionSources.cs` / `BookProgressionRules.cs` (the
+Code: `BookSteps.cs` (the steps), `ModernRecipeBook.Call` (the bosses Calamity logs), `BookProgression.cs` / `BookProgressionSources.cs` / `BookProgressionRules.cs` (the
 model), `RecipeBookSystem.Bosses.cs` (the filter, the menu, the card's hint), `BookSpawnGates.ProbeSteps` (mods'
 opaque conditions).
 
@@ -13,18 +13,31 @@ opaque conditions).
 - **A step is a boss.** Step 0 is the start; step k means "boss k is down". Every item, recipe and mob gets the earliest
   step it can be had at. "Before: X" lists everything below X's step: what you can get with every boss before X down
   and X still alive.
-- **Order: Boss Checklist's.** When Boss Checklist is loaded, its `GetBossInfoDictionary` call gives the entries; the
-  book takes the bosses (not mini-bosses or events), sorted by progression value. Entries with the same value are one
-  step (the Eater of Worlds and the Brain of Cthulhu); the world's evil names it. Without Boss Checklist the book uses
-  its own table (`BookSteps.Table`): Boss Checklist's vanilla values merged with Calamity's
-  `WeakReferenceSupport.BossChecklistProgressionValues` (2.2.4), 44 bosses with Calamity. Both give the same steps and
-  the same item steps (checked: 0 differences over 8,317 items). Keys are the table's ("Terraria Golem",
-  "CalamityMod AstrumAureus") in both cases, so a saved boss survives Boss Checklist being enabled or disabled.
-- **Downed.** Boss Checklist's own check, else the flag in the table (vanilla `NPC.downed*`, `Main.hardMode`,
-  `DD2Event.DownedInvasionT3` for Betsy; Calamity's `DownedBossSystem._downed*` fields, read through compiled getters).
-- **Availability.** Calamity's Hive Mind needs a corruption world and the Perforators a crimson one (Boss Checklist's
-  own availability is not in its dictionary). The other evil's boss is dimmed in the menu, skipped by "next boss",
-  and an "either of them" requirement takes the one this world has.
+- **Order: Boss Checklist's, without Boss Checklist.** The book never asks Boss Checklist; it reads the data the way
+  Boss Checklist does (`ref\BossChecklist\src`):
+  - Boss Checklist hardcodes the vanilla bosses with fixed values (`BossTracker`: King Slime 1, Eye of Cthulhu 2 ...
+    Moon Lord 18). The book's table (`BookSteps.Table`) carries the same values.
+  - Mods push their bosses to Boss Checklist themselves with `Call("LogBoss", hostMod, name, value, downed, npcIds,
+    extra)`. Calamity 2.2.4 does it in `WeakReferenceSupport.AddCalamityBosses(Mod bossChecklist, Mod calamity)`, whose
+    receiver is a parameter. The book calls that method by reflection with its own Mod as the receiver, and
+    `ModernRecipeBook.Call` keeps the "LogBoss" calls it gets meanwhile (and accepts "LogMiniBoss" and "LogEvent",
+    which are no steps; anything else, and any call outside that moment, is ignored). Each entry gives the key
+    (`"CalamityMod " + name`), Calamity's value, its downed check, NPCs, display name and availability.
+    `AddCalamityEvents` and `RegisterCalamityExtraInfo` are not called: events and collectibles are no steps.
+  - Vanilla and Calamity entries are sorted by value: 44 steps. Checked against Boss Checklist itself on the same
+    world: the same order, names and next boss under four sets of downed flags, and 0 differences over 8,317 items'
+    steps, with Boss Checklist enabled and disabled.
+  - If Calamity's method cannot be called (renamed, other arguments), the log says so in one line and Calamity's rows
+    of the table stand in (Calamity's own values, 2.2.4); checked the same way, 0 differences.
+  - Mods other than Calamity only tell Boss Checklist about their bosses, so without it they are no steps; their
+    content keeps the stage model's places.
+  - Keys are Boss Checklist's ("Terraria Golem", "CalamityMod AstrumAureus"), so a saved "Before" survives.
+- **Downed.** Calamity's own check from its registration; vanilla's flag (`NPC.downed*`, `Main.hardMode`,
+  `DD2Event.DownedInvasionT3` for Betsy), and in the table's fallback Calamity's `DownedBossSystem._downed*` fields,
+  read through compiled getters.
+- **Availability.** Calamity registers it: the Hive Mind needs a corruption world and the Perforators a crimson one
+  (the table knows the same two). The other evil's boss is dimmed in the menu, skipped by "next boss", and an "either
+  of them" requirement takes the one this world has.
 - **Stages are buckets.** Below the Wall of Flesh's step is pre-hardmode, from it to Moon Lord's hardmode, from Moon
   Lord's on post-Moon Lord. Everything that read stages (the stage filter, Storage's filter, the Bestiary, the Station
   sort) keeps working.
@@ -126,7 +139,7 @@ c call p=ModernRecipeBook.BookProgression.Explain a=CalamityMod/ScoriaBar   # st
 c call p=ModernRecipeBook.BookSteps.Next                              # the next boss's step
 ```
 
-Spot checks (Calamity 2.2.4, Classic and Expert+Rev, with and without Boss Checklist):
+Spot checks (Calamity 2.2.4, Classic and Expert+Rev):
 
 | Item | Step | Why |
 |---|---|---|
@@ -161,6 +174,7 @@ Void Condenser.
 ## Limits
 
 - One order for everyone: "Before: X" assumes every boss before X in Boss Checklist's order is down.
+- Only Calamity's bosses beside the vanilla ones are steps (see Order).
 - Rarity-placed items (see above) sit at their stage's first step.
 - Events and mini-bosses are no steps; their content follows the curated tables.
 - Calamity has no Russian boss names in 2.2.4, so Calamity bosses read in English in Russian.
