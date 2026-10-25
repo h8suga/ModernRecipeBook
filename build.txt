@@ -1,7 +1,7 @@
 displayName = Modern Recipe Book
 author = h8suga
 homepage = https://github.com/h8suga/ModernRecipeBook
-version = 1.16.1
+version = 1.16.2
 side = Both
 weakReferences = MagicStorage
 sortAfter = MagicStorage

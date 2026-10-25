@@ -1,2 +1,2 @@
-en-US, 907/907, 100%, missing 0
-ru-RU, 907/907, 100%, missing 0
+en-US, 911/911, 100%, missing 0
+ru-RU, 911/911, 100%, missing 0

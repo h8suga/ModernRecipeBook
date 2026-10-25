@@ -111,7 +111,18 @@ public sealed partial class RecipeBookSystem
 			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label);
 		}
 		case BookAcquisitionKind.Chest:
-			return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
+		{
+			if (s.Where.Length == 0)
+			{
+				return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
+			}
+			// A chest that waits for a boss (BookItemSources.CalamityGatedWorldgenItems): its place, and the boss.
+			string boss = NpcTypeName(s.Note.Substring(5));
+			(string place, string body) = s.Where[0] == "AstralChest"
+				? (L("HowToGet.ChestAstralChest"), L("HowToGet.ChestAstralChestBody", boss))
+				: (L("HowToGet.ChestHellLab"), L("HowToGet.ChestHellLabBody", boss));
+			return new BookAcquisitionEntry(place, body, s.Kind, "", "", s.From, 0, true, -1, s.Owner, GateText(s.Note));
+		}
 		case BookAcquisitionKind.Fishing:
 			return FishingEntry(s);
 		default:

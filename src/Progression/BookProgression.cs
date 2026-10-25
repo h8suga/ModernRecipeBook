@@ -328,6 +328,12 @@ internal static class BookProgression
 		HashSet<int> modeItems = new HashSet<int>();
 		HashSet<int> modeRecipes = new HashSet<int>();
 		HashSet<int> sourced = AddDropSources(routes, floors, modeItems, recipesByItem, Seed);
+		// Calamity's boss-locked world generation loot waits for its boss, not for its rarity tier.
+		foreach (BookItemSource chest in BookItemSources.CalamityGatedWorldgen())
+		{
+			sourced.Add(chest.Item);
+			Seed(chest.Item, BookSteps.Resolve(chest.Note.Substring(5)), "chest:" + chest.Where[0]);
+		}
 		AddMining(all, routes, sourced);
 		AddFishing(routes, sourced, Seed);
 		AddGrown(sourced, Seed);

@@ -6,6 +6,10 @@ For: for {0}
 WorldChestsAndStructures: World chests and structures
 PlacedThereWhenTheWorldIs: Placed there when the world is made
 FromWorldCreation: from world creation
+ChestAstralChest: Astral Chest in the Dungeon
+ChestAstralChestBody: One per world, placed when the world is made; its lock opens after {0} is defeated
+ChestHellLab: Draedon's lab in the Underworld
+ChestHellLabBody: In the lab's chest from world creation; it only works after {0} is defeated
 UnknownCondition: Unknown condition
 AnyEnemy: Any enemy
 AnglerQuest: Angler quest

@@ -3,6 +3,15 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.16.2 — 2026-10-25
+
+### Fixed
+- Heavenfallen Stardisk had no source and passed the stage filter right after the Wall of Flesh. How to Get now
+  names the Astral Chest that Calamity places in the Dungeon (one per world), and the item waits for Astrum Aureus,
+  whose defeat opens that chest's lock.
+- Murasama had no source either: it is in the chest of Draedon's lab in the Underworld from world creation, and
+  How to Get says so; its stage is the Devourer of Gods, since it only works after that boss.
+
 ## 1.16.1 — 2026-10-25
 
 ### Changed

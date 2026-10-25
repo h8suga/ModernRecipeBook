@@ -81,6 +81,15 @@ internal static class BookItemSources
 	// machines that drop themselves when mined. All of it can be picked up before hardmode.
 	internal static readonly HashSet<string> CalamityWorldgenItems = Set("BloodyMary CoastalDemonfish CorruptionEffigy CrimsonEffigy CyanSeekingMechanism DraedonsLogHell DraedonsLogJungle DraedonsLogPlanetoid DraedonsLogSnowBiome DraedonsLogSunkenSea DubiousPlating EncryptedSchematicHell EncryptedSchematicIce EncryptedSchematicJungle EncryptedSchematicPlanetoid EncryptedSchematicSunkenSea FellerofEvergreens FrozenCube FungalSymbiote GladiatorsLocket GreenSeekingMechanism HadalStew LabSeekingMechanism LuxorsGift MysteriousCircuitry OddMushroom PlasmaDriveCore PrismShard RedSeekingMechanism SlagfireDouser SlurperPole SpelunkersAmulet SulphurskinPotion SuspiciousScrap Terminus TrinketofChi UnstableGraniteCore VoidTorch WhiteSeekingMechanism YellowSeekingMechanism PowerCellFactoryItem ChargingStationItem");
 
+	// World generation loot that waits for a boss, with no other source: the Astral Chest AstralChestGeneration puts
+	// in the Dungeon opens after Astrum Aureus (AstralChestLocked.UnlockChest); the Hell lab's Murasama lies there from
+	// the start but only swings after the Devourer of Gods (Murasama.CanUseItem). Item, place, chest icon, gate.
+	internal static readonly (string Item, string Place, string Icon, string Gate)[] CalamityGatedWorldgenItems =
+	{
+		("HeavenfallenStardisk", "AstralChest", "AstralChest", "CalamityMod/AstrumAureus"),
+		("Murasama", "HellLab", "AgedSecurityChest", "CalamityMod/DevourerofGodsHead")
+	};
+
 	// Vanilla items found in the world from the start: blocks, ores, gems, plants and the commonest monster
 	// materials. How to Get explains most of them through their tiles; the list keeps a generic "found in
 	// the world" row for the rest.
@@ -174,6 +183,19 @@ internal static class BookItemSources
 	internal static bool IsCalamityWorldgen(Item item)
 	{
 		return item.ModItem?.Mod.Name == "CalamityMod" && CalamityWorldgenItems.Contains(item.ModItem.Name);
+	}
+
+	// CalamityGatedWorldgenItems as sources: Where names the place, Note the gate ("boss:CalamityMod/AstrumAureus").
+	internal static IEnumerable<BookItemSource> CalamityGatedWorldgen()
+	{
+		foreach (var (name, place, icon, gate) in CalamityGatedWorldgenItems)
+		{
+			if (ModContent.TryFind("CalamityMod", name, out ModItem item))
+			{
+				int chest = ModContent.TryFind("CalamityMod", icon, out ModItem iconItem) ? iconItem.Type : ItemID.Chest;
+				yield return new BookItemSource(BookAcquisitionKind.Chest, item.Type) { From = chest, Owner = "CalamityMod", Where = new[] { place }, Note = "boss:" + gate };
+			}
+		}
 	}
 
 	private static void Build()
@@ -322,6 +344,10 @@ internal static class BookItemSources
 		foreach (Item item in ContentSamples.ItemsByType.Values.Where((Item i) => i != null && IsCalamityWorldgen(i)))
 		{
 			Add(new BookItemSource(BookAcquisitionKind.Chest, item.type) { From = item.type, Owner = "CalamityMod" });
+		}
+		foreach (BookItemSource source in CalamityGatedWorldgen())
+		{
+			Add(source);
 		}
 		foreach (BookItemSource source in BookWorldSources.CatalogueSources())
 		{
