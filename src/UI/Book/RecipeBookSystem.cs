@@ -764,10 +764,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Difficulty conditions get a one-word label; anything else keeps the mod's own description.
 	// A drop condition its mod left without a text (Calamity's AddIf lambdas, e.g. Hadarian Wings once Astrum Aureus is
-	// dead) cannot be named, but it can be asked whether it holds in this world now.
+	// dead) is named by the boss progression places it after (a known condition, or what the probe found), and asked
+	// whether it holds in this world now.
 	private static string HiddenConditionLabel(IItemDropRuleCondition condition, int npcNetId)
 	{
-		string name = L("Common.SpecialCondition");
+		string name = BookProgressionSources.DropConditionStep(condition) is int step && step > 0 ? StepName(step) : L("Common.SpecialCondition");
 		try
 		{
 			NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;

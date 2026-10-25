@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.17.0-4c8f5a" alt="Версия 1.17.0">
+<img src="https://img.shields.io/badge/version-1.17.1-4c8f5a" alt="Версия 1.17.1">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">

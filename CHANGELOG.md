@@ -3,6 +3,14 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.17.1 — 2026-10-26
+
+### Fixed
+- How to Get names the boss behind a drop condition its mod left without a text: Starbuster Core from Stellar Culex
+  reads "After Astrum Aureus · not met yet" instead of "Special condition", as do Hadarian Wings, the Eidolon Wyrm's
+  Ectoplasm ("After Plantera") and the rest of Calamity's boss-gated drops. Conditions that wait for something other
+  than a boss keep "Special condition".
+
 ## 1.17.0 — 2026-10-25
 
 ### Added
