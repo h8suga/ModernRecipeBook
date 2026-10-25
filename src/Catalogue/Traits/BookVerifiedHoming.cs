@@ -52,7 +52,23 @@ internal static class BookVerifiedHoming
 
 	private static readonly Dictionary<string, Entry> Modded = new Dictionary<string, Entry>
 	{
-		["CalamityMod/FrostyFlare"] = new Entry(BookTrait.StealthHoming, "VerifiedHoming.FrostyFlare")
+		["CalamityMod/FrostyFlare"] = new Entry(BookTrait.StealthHoming, "VerifiedHoming.FrostyFlare"),
+		["CalamityMod/Apotheosis"] = new Entry(BookTrait.Homing, "VerifiedHoming.Apotheosis"),
+		["CalamityMod/Poseidon"] = new Entry(BookTrait.Homing, "VerifiedHoming.Poseidon"),
+		["CalamityMod/RelicofRuin"] = new Entry(BookTrait.Homing, "VerifiedHoming.RelicofRuin"),
+		["CalamityMod/SubsumingVortex"] = new Entry(BookTrait.Homing, "VerifiedHoming.SubsumingVortex"),
+		["CalamityMod/TheDanceofLight"] = new Entry(BookTrait.Homing, "VerifiedHoming.TheDanceofLight"),
+		["CalamityMod/BrinyBaron"] = new Entry(BookTrait.Homing, "VerifiedHoming.BrinyBaron"),
+		["CalamityMod/DefiledGreatsword"] = new Entry(BookTrait.Homing, "VerifiedHoming.DefiledGreatsword"),
+		["CalamityMod/EssenceFlayer"] = new Entry(BookTrait.Homing, "VerifiedHoming.EssenceFlayer"),
+		["CalamityMod/Greentide"] = new Entry(BookTrait.Homing, "VerifiedHoming.Greentide"),
+		["CalamityMod/UltimusCleaver"] = new Entry(BookTrait.Homing, "VerifiedHoming.UltimusCleaver"),
+		["CalamityMod/VoidEdge"] = new Entry(BookTrait.Homing, "VerifiedHoming.VoidEdge"),
+		["CalamityMod/MagnomalyCannon"] = new Entry(BookTrait.Homing, "VerifiedHoming.MagnomalyCannon"),
+		["CalamityMod/CrushsawCrasher"] = new Entry(BookTrait.Homing, "VerifiedHoming.CrushsawCrasher"),
+		["CalamityMod/ScourgeoftheDesert"] = new Entry(BookTrait.Homing, "VerifiedHoming.ScourgeoftheDesert"),
+		["CalamityMod/SystemBane"] = new Entry(BookTrait.Homing, "VerifiedHoming.SystemBane"),
+		["CalamityMod/TheOldReaper"] = new Entry(BookTrait.StealthHoming, "VerifiedHoming.TheOldReaper")
 	};
 
 	internal static Entry Get(Item item)

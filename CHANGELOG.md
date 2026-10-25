@@ -3,6 +3,40 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.17.0 — 2026-10-25
+
+### Added
+- How to Get knows the items the game hands out without a drop table: of the 436 items that read "No regular
+  source", 4 are left (Bone Block and Lihzahrd Furnace, which nothing places, plus two leftovers).
+  - The Dungeon, the Jungle Temple and the Underworld houses: their furniture, paintings, banners, lights and traps,
+    the Biome Chest weapons, Gold and Shadow Chests, with the key, pickaxe power and boss each one waits for.
+  - World generation everywhere else: surface, jungle, ice, desert, living tree, mushroom, spider cave and underwater
+    chest finds, the chests themselves, Dead Man's Chests, traps, geysers and detonators, pyramid and sky island
+    banners, the paintings of underground cabins and desert houses, The Dirtiest Block. Cave mosses come from
+    scraping long moss with a Paint Scraper.
+  - Angler quest rewards: the fixed ones by quest count (Calamity's replacements included) and the random ones with
+    their threshold, hardmode gate and chance per quest.
+  - Items the game gives in code: the rest of the Traveling Merchant's stock, right-click forms (Shellphone,
+    Rubblemaker, the guide books), shimmering after Moon Lord, rare butterflies, the Torch God's Favor, Magic
+    Storage's cores and more.
+  - Calamity: the Brimstone Witch's Exhumed curse, Getfixedboi boss drops, rare critter catches, the Divine Swine,
+    the Gluttony Blender, shaken astral and acid wood trees, Lilies of Finality, Abyssal Pots, the Abyss's locked
+    chests, the starter bag and the Boss Rush rock; the Onyx Excavator Key, Crags Pylon and Astral Chest show their
+    structures.
+- Sixteen Calamity weapons whose text does not say it now carry Homing (Crushsaw Crasher, Poseidon, Void Edge,
+  Essence Flayer...) or Homing stealth strike (The Old Reaper), each checked in the mod's code.
+
+### Changed
+- Items nothing can give are no longer listed: pickup icons, unnamed placeholders, banners no enemy counts toward,
+  Magic Storage's UI icons, Calamity's cut fish, bricks, a wall and developer tools (43 items).
+- Stages: Dungeon pieces wait for Skeletron, Biome Chest loot for Plantera, the Temple's traps and altar for a 210%
+  pickaxe; the Dungeon's pre-hardmode enemies and their drops (Golden Key, Nazar, Tally Counter...) count from
+  Skeletron too.
+
+### Fixed
+- The banners of the colored slimes (Green, Pinky, Black, Purple, Red, Yellow, Jungle) were not found.
+- ru: the Astral Chest row says Темница (the Dungeon), not Подземелье.
+
 ## 1.16.2 — 2026-10-25
 
 ### Fixed

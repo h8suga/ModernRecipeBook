@@ -82,6 +82,22 @@ Weapons whose shots steer toward enemies in flight, verified in the decompiled c
 | Nightglow | 931 | P:38264-38320 | 800 px while 20 < timeLeft ≤ 180 |
 | Weather Pain | 969 | P:37944-37984 | 400 px, LOS |
 | Frosty Flare (Calamity) | stealth: FrostyFlareStealth drops FrostyFlareProj with ai[2] = 1 | FrostyFlareStealth.cs:45-49, FrostyFlareProj.cs:53-56 | Homing stealth strike: the phantom flares home within 400 px |
+| Apotheosis (Calamity) | ApotheosisWorm | ApotheosisWorm.cs:148-152, 243-335 | Whole flight, 4200 px, through walls; turns only while farther than 320 px |
+| Poseidon (Calamity) | PoseidonTyphoon | PoseidonTyphoon.cs:41 | From launch, 600 px, LOS |
+| RelicofRuin (Calamity) | ForbiddenAxeBlade | RelicofRuin.cs:44-50, ForbiddenAxeBlade.cs:45-60 | 40-tick cycle, darts on ticks 21-39, 300 px, LOS |
+| SubsumingVortex (Calamity) | ExoVortex2 (left click) | SubsumingVortex.cs:148-159, ExoVortex2.cs:43, 74-82 | After 18 ticks, 1300 px, through walls; the right-click vortex follows the cursor |
+| TheDanceofLight (Calamity) | LightBlade | TheDanceofLight.cs:105-119, LightBlade.cs:86-99 | From launch, 200 px, through walls, inertia 70 |
+| BrinyBaron (Calamity) | Razorwind (right click) | BrinyBaron.cs:56-67, Razorwind.cs:60 | Right click only; 250 px, LOS |
+| DefiledGreatsword (Calamity) | BlazingPhantomBlade | DefiledGreatsword.cs:66-72, BlazingPhantomBlade.cs:99-103, 156-170 | ai[1] 40: 250 px, 48: 500 px, through walls; 56 does not home |
+| EssenceFlayer (Calamity) | EssenceScythe | EssenceScythe.cs:27-28, 53 | From launch, 512 px, through walls |
+| Greentide (Calamity) | GreenWater | Greentide.cs:78-195, GreenWater.cs:155-159 | Side teeth (ai0 1), 155 px, LOS, weak turn |
+| UltimusCleaver (Calamity) | UltimusCleaverDust (MeleeEffects) | UltimusCleaver.cs:49-52, 116-165, UltimusCleaverDust.cs:55-69, 96 | Sparks from the swing, 150 px, through walls, under gravity |
+| VoidEdge (Calamity) | GhastlySoulLarge/Medium/Small | VoidEdge.cs:60-78, GhastlySoulLarge.cs:82-91 | After 10 ticks, 900 / 750 / 600 px, through walls |
+| MagnomalyCannon (Calamity) | MagnomalyRocket | MagnomalyCannon.cs:47-50, MagnomalyRocket.cs:31, 102 | Every rocket ammo; from launch, 300 px, through walls |
+| CrushsawCrasher (Calamity) | Crushax | CrushsawCrasher.cs:59-75, Crushax.cs:39-51 | After 20 ticks, 280 px, LOS; falls when nobody is near; stealth throws 6 |
+| ScourgeoftheDesert (Calamity) | ScourgeoftheDesertProj | ScourgeoftheDesertProj.cs:139-245 | Only while inside tiles, after about 12 ticks, 1800 px |
+| SystemBane (Calamity) | SystemBaneLightning | SystemBaneProjectile.cs:82-101, SystemBaneLightning.cs:72-118 | Released in flight (like Flairon); 800 px, through walls |
+| TheOldReaper (Calamity) | ReaperProjectile (stealth) | TheOldReaper.cs:60-75, ReaperProjectile.cs:252-258, 320-351 | Homing stealth strike: from about 50 ticks, 2000 px of the cursor, through walls |
 
 Left out on purpose (checked, not homing in flight): Chlorophyte Arrow and Nano Bullet (re-aim only when they bounce
 off a tile, P:16632-16680), Crystal Dart (jumps on a hit or a bounce), Vampire Knives (aiStyle 2 has no target search),
