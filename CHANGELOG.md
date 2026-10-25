@@ -12,6 +12,11 @@ patch for fixes, minor for features.
 - Murasama had no source either: it is in the chest of Draedon's lab in the Underworld from world creation, and
   How to Get says so; its stage is the Devourer of Gods, since it only works after that boss.
 
+### Added
+- How to Get knows machines that make an item by themselves: Calamity's Power Cell Factory is now a source of the
+  Draedon Power Cell ("Machine · one every 15 s"; it keeps up to 9999 until you take them out), next to the Repair
+  Unit's drop.
+
 ## 1.16.1 — 2026-10-25
 
 ### Changed

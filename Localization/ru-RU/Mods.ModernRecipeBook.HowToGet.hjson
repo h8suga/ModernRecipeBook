@@ -6,6 +6,8 @@ For: за {0}
 WorldChestsAndStructures: Сундуки и постройки мира
 PlacedThereWhenTheWorldIs: Лежит там с создания мира
 FromWorldCreation: с создания мира
+MachineMakesOneEvery: Поставленный, делает по одной каждые {0} с игрового времени и копит до {1}, пока их не заберут
+OneEverySeconds: по одной каждые {0} с
 ChestAstralChest: Астральный сундук в Подземелье
 ChestAstralChestBody: Один на мир, появляется при создании мира; замок открывается после победы над боссом {0}
 ChestHellLab: Лаборатория Дрейдона в Преисподней

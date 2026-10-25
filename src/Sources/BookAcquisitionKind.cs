@@ -19,5 +19,6 @@ internal enum BookAcquisitionKind
 	Fishing,
 	Chest,
 	World,
+	Machine,
 	Unknown
 }

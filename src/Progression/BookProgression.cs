@@ -801,6 +801,12 @@ internal static class BookProgression
 				sourced.Add(to);
 				routes.Add(new BookProgressionRules.Route(sourceKey--, to, 0, new int[1][] { new int[1] { from } }, Source: "use:" + ItemName(ContentSamples.ItemsByType[from])));
 			}
+			// A machine's product comes with the machine.
+			foreach (var (machine, product, _) in BookItemSources.Machines)
+			{
+				sourced.Add(product);
+				routes.Add(new BookProgressionRules.Route(sourceKey--, product, 0, new int[1][] { new int[1] { machine } }, Source: "machine:" + ItemName(ContentSamples.ItemsByType[machine])));
+			}
 			// Recorded music boxes come from a blank Music Box worn while the track plays.
 			foreach (int box in BookItemSources.RecordedBoxes)
 			{

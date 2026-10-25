@@ -102,6 +102,12 @@ public sealed partial class RecipeBookSystem
 		case BookAcquisitionKind.Shimmer:
 		case BookAcquisitionKind.Use:
 			return new BookAcquisitionEntry(ItemName(s.From), "", s.Kind, "", "×1", s.From, 0, false, -1, s.Owner);
+		case BookAcquisitionKind.Machine:
+		{
+			string seconds = (s.NoteValue / 60f).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture);
+			int keeps = ContentSamples.ItemsByType[s.Item].maxStack;
+			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.MachineMakesOneEvery", seconds, keeps), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.OneEverySeconds", seconds));
+		}
 		case BookAcquisitionKind.Record:
 			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.WhileItsTrackPlays"));
 		case BookAcquisitionKind.Trade:

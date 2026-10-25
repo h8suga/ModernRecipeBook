@@ -108,6 +108,10 @@ internal static class BookItemSources
 	// Items another item turns into when used (from → to), outside recipes and shimmer.
 	internal static readonly (string From, string To)[] CalamityConversions = { ("XyksBlessingBlue", "XyksBlessingOrange") };
 
+	// Machines that make an item by themselves once placed: TEPowerCellFactory.Update adds a cell every 900 ticks of
+	// world time and keeps them, up to the cell's max stack, until they are taken out. Machine, product, ticks each.
+	internal static readonly (string Machine, string Product, int Ticks)[] CalamityMachines = { ("PowerCellFactoryItem", "DraedonPowerCell", 900) };
+
 	// The catalogue --------------------------------------------------------------------------------------
 
 	private static bool built;
@@ -120,6 +124,8 @@ internal static class BookItemSources
 	internal static List<ItemRoutes> Items { get; private set; } = new List<ItemRoutes>();
 
 	internal static List<(int From, int To)> Conversions { get; private set; } = new List<(int, int)>();
+
+	internal static List<(int Machine, int Product, int Ticks)> Machines { get; private set; } = new List<(int, int, int)>();
 
 	// Recorded music boxes: made by wearing a blank Music Box while the track plays.
 	internal static List<int> RecordedBoxes { get; private set; } = new List<int>();
@@ -138,6 +144,7 @@ internal static class BookItemSources
 		GlobalReports = new List<DropRateInfo>();
 		Items = new List<ItemRoutes>();
 		Conversions = new List<(int, int)>();
+		Machines = new List<(int, int, int)>();
 		RecordedBoxes = new List<int>();
 		Shops = new List<ShopSource>();
 		byItem = new Dictionary<int, List<BookItemSource>>();
@@ -247,6 +254,13 @@ internal static class BookItemSources
 				Conversions.Add((fromItem.Type, toItem.Type));
 			}
 		}
+		foreach (var (machine, product, ticks) in CalamityMachines)
+		{
+			if (ModContent.TryFind("CalamityMod", machine, out ModItem machineItem) && ModContent.TryFind("CalamityMod", product, out ModItem productItem))
+			{
+				Machines.Add((machineItem.Type, productItem.Type, ticks));
+			}
+		}
 		// Vanilla boxes place the MusicBoxes tile; modded ones are registered with MusicLoader.
 		var modBoxes = typeof(MusicLoader).GetField("itemToMusic", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) as Dictionary<int, int>;
 		RecordedBoxes = (from i in ContentSamples.ItemsByType.Values
@@ -329,6 +343,10 @@ internal static class BookItemSources
 		foreach (var (from, to) in Conversions)
 		{
 			Add(new BookItemSource(BookAcquisitionKind.Use, to) { From = from, Owner = "CalamityMod" });
+		}
+		foreach (var (machine, product, ticks) in Machines)
+		{
+			Add(new BookItemSource(BookAcquisitionKind.Machine, product) { From = machine, Owner = "CalamityMod", NoteValue = ticks });
 		}
 		foreach (int box in RecordedBoxes)
 		{

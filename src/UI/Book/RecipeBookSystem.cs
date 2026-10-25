@@ -917,6 +917,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionKind.Fishing => L("Common.Fishing"),
 			BookAcquisitionKind.Chest => L("Common.Chest"),
 			BookAcquisitionKind.World => L("Common.World"),
+			BookAcquisitionKind.Machine => L("Common.Machine"),
 			_ => L("Common.NoData"),
 		};
 	}
@@ -1045,7 +1046,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			// A source that is an item (a bag, a crate, what shimmers into it) shows that item's own tooltip with the
 			// row's lines under it; the item's name is its title.
-			Item sourceItem = (source.Kind is BookAcquisitionKind.Container or BookAcquisitionKind.Shimmer or BookAcquisitionKind.Use or BookAcquisitionKind.Record && source.ItemType > 0) ? ContentSamples.ItemsByType.GetValueOrDefault(source.ItemType) : null;
+			Item sourceItem = (source.Kind is BookAcquisitionKind.Container or BookAcquisitionKind.Shimmer or BookAcquisitionKind.Use or BookAcquisitionKind.Record or BookAcquisitionKind.Machine && source.ItemType > 0) ? ContentSamples.ItemsByType.GetValueOrDefault(source.ItemType) : null;
 			if (hover && opens)
 			{
 				if (sourceItem != null)
