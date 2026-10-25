@@ -12,34 +12,43 @@ internal static class BookCurated
 {
 	internal static IEnumerable<BookItemSource> Sources()
 	{
-		foreach (BookItemSource x in BookStructures.Sources()) yield return x;
+		foreach (BookItemSource source in BookStructures.Sources()) yield return source;
+		foreach (BookItemSource source in BookWorldLoot.Sources()) yield return source;
+		foreach (BookItemSource source in BookCalamityLoot.Sources()) yield return source;
+		foreach (BookItemSource source in BookRewardSources.Sources()) yield return source;
 	}
 
 	// An item available from that step on (BookSteps index), with the reason the progression audit shows.
 	internal static IEnumerable<(int Item, int Step, string Why)> Steps()
 	{
-		foreach (var x in BookStructures.Steps()) yield return x;
+		foreach (var step in BookStructures.Steps()) yield return step;
+		foreach (var step in BookWorldLoot.Steps()) yield return step;
+		foreach (var step in BookCalamityLoot.Steps()) yield return step;
+		foreach (var step in BookRewardSources.Steps()) yield return step;
 	}
 
 	// An item that comes from any of each input group (one of every inner array), never before Floor.
 	internal static IEnumerable<(int Item, int[][] Inputs, int Floor, string Why)> Routes()
 	{
-		foreach (var x in BookStructures.Routes()) yield return x;
+		foreach (var route in BookStructures.Routes()) yield return route;
+		foreach (var route in BookWorldLoot.Routes()) yield return route;
+		foreach (var route in BookCalamityLoot.Routes()) yield return route;
+		foreach (var route in BookRewardSources.Routes()) yield return route;
 	}
 
 	internal static BookAcquisitionEntry Entry(BookItemSource s)
 	{
-		return BookStructures.Entry(s);
+		return BookStructures.Entry(s) ?? BookWorldLoot.Entry(s) ?? BookCalamityLoot.Entry(s) ?? BookRewardSources.Entry(s);
 	}
 
 	// The kind's word on a How to Get row ("Chest", "Quest"), for the areas' own kinds; null for any other kind.
 	internal static string KindName(BookAcquisitionKind kind)
 	{
-		return BookStructures.KindName(kind);
+		return BookStructures.KindName(kind) ?? BookWorldLoot.KindName(kind) ?? BookCalamityLoot.KindName(kind) ?? BookRewardSources.KindName(kind);
 	}
 
 	internal static bool Hidden(Item item)
 	{
-		return false;
+		return BookCalamityLoot.Hidden(item) || BookRewardSources.Hidden(item);
 	}
 }

@@ -22,5 +22,12 @@ internal enum BookAcquisitionKind
 	Machine,
 	DevSet,
 	Structure,
+	WorldLoot,
+	CalamityLoot,
+	Enchant,
+	Gift,
+	SetBonus,
+	Quest,
+	Event,
 	Unknown
 }
