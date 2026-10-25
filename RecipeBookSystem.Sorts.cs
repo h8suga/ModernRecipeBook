@@ -47,7 +47,7 @@ public sealed partial class RecipeBookSystem
 	// Every list: Items and Recipes also have Station; Storage has no recipes to rank.
 	private static readonly BookSortMode[] ListSorts = new BookSortMode[6] { BookSortMode.Name, BookSortMode.ItemId, BookSortMode.Mod, BookSortMode.Station, BookSortMode.Rarity, BookSortMode.Value };
 
-	private static readonly BookSortMode[] StorageSorts = new BookSortMode[5] { BookSortMode.Name, BookSortMode.ItemId, BookSortMode.Mod, BookSortMode.Rarity, BookSortMode.Value };
+	private static readonly BookSortMode[] StorageSorts = new BookSortMode[6] { BookSortMode.Name, BookSortMode.ItemId, BookSortMode.Mod, BookSortMode.Rarity, BookSortMode.Value, BookSortMode.Changed };
 
 	private static readonly long ListMask = Mask(ListSorts);
 
@@ -201,7 +201,13 @@ public sealed partial class RecipeBookSystem
 		{
 			if ((uint)index < (uint)SortRankScratch.Length)
 			{
-				SortRankScratch[index] = (mode == BookSortMode.Station) ? StationSortRank(index) : StatKey(Result(index), mode);
+				SortRankScratch[index] = mode switch
+				{
+					BookSortMode.Station => StationSortRank(index),
+					// 0 (no time, before tracking) is the oldest, so it leads oldest-first and trails newest-first.
+					BookSortMode.Changed => BookSources.ChangedRank(Result(index)),
+					_ => StatKey(Result(index), mode),
+				};
 			}
 		}
 	}
@@ -274,6 +280,7 @@ public sealed partial class RecipeBookSystem
 		return mode switch
 		{
 			BookSortMode.Station => (T("Станция", "Station"), T("Станция", "Station"), T("от слабой", "weakest first"), T("от сильной", "strongest first")),
+			BookSortMode.Changed => (T("Изменено", "Changed"), T("Изменено", "Changed"), T("сначала старые", "oldest first"), T("сначала новые", "newest first")),
 			BookSortMode.Rarity => (T("Редкость", "Rarity"), T("Редкость", "Rarity"), T("от низкой", "lowest first"), T("от высокой", "highest first")),
 			// Item.value, in the words of the game's own tooltip line (sell price is a fifth of it, so the order is the same).
 			BookSortMode.Value => (T("Цена продажи", "Sell price"), T("Цена", "Price"), T("от низкой", "lowest first"), T("от высокой", "highest first")),

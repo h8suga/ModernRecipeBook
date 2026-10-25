@@ -264,6 +264,13 @@ public sealed class BookSources : ModSystem
 
 	public override void OnWorldUnload()
 	{
+		// The Changed times go to the player's save data first (they are written with the next player save).
+		if (!Main.dedServ && Main.LocalPlayer != null && Main.LocalPlayer.active)
+		{
+			Main.LocalPlayer.GetModPlayer<BookPlayer>().KeepChanged();
+		}
+		ChangedAt.Clear();
+		ChangedWorld = null;
 		Clear();
 	}
 
@@ -287,6 +294,8 @@ public sealed class BookSources : ModSystem
 		StayAround = Ticks = AwaitingTicks = 0;
 		ScanDue = LocalDue = true;
 		AppliedInputs = int.MinValue;
+		HaveBaseline = false;
+		LastTotals.Clear();
 		MessageText = null;
 		Version++;
 		ItemsVersion++;
@@ -626,8 +635,137 @@ public sealed class BookSources : ModSystem
 			}
 			Infinite = NetworkCreative.Contains(true);
 		}
+		TrackChanges(SourceSet(player, bag));
 		RebuildItems();
 		Version++;
+	}
+
+	// When each listed kind (the Storage tab's (type, prefix)) first appeared or its total last changed, in UTC ticks;
+	// for the Changed sort (docs/storage-changed.md). Found by comparing totals at each rebuild, whatever moved them:
+	// a deposit, a take, a craft, another player. A rebuild whose containers differ from the last one (the player walked
+	// to another base, a network finished loading, a chest was opened) only takes a new baseline: what appears was not
+	// changed, what leaves was not taken, and its time stays for when it is back. The very first rebuild is such a
+	// baseline too, so the kinds there before have no time and sort as oldest.
+	private static readonly Dictionary<(int Type, int Prefix), long> ChangedAt = new Dictionary<(int, int), long>();
+
+	private static readonly Dictionary<(int Type, int Prefix), long> LastTotals = new Dictionary<(int, int), long>();
+
+	private static int LastSources;
+
+	private static bool HaveBaseline;
+
+	// The containers in the set, the same whatever order the mirror and the scan list them in.
+	private static int SourceSet(Player player, bool bag)
+	{
+		int set = HashCode.Combine(player.chest, bag, Enabled);
+		if (!Enabled)
+		{
+			return set;
+		}
+		foreach (int bank in Banks)
+		{
+			set ^= HashCode.Combine(bank, 1);
+		}
+		foreach (int index in Mirror.Keys)
+		{
+			set ^= HashCode.Combine(index, 2);
+		}
+		foreach (BookMagicStorage.Network network in Networks)
+		{
+			set ^= HashCode.Combine(network.Position, 3);
+		}
+		return set;
+	}
+
+	private static void TrackChanges(int sources)
+	{
+		if (HaveBaseline && sources == LastSources)
+		{
+			long now = DateTime.UtcNow.Ticks;
+			foreach (KeyValuePair<(int Type, int Prefix), (long Local, long Remote)> pair in Listed)
+			{
+				if (!LastTotals.TryGetValue(pair.Key, out long before) || before != pair.Value.Local + pair.Value.Remote)
+				{
+					ChangedAt[pair.Key] = now;
+				}
+			}
+			foreach ((int Type, int Prefix) kind in LastTotals.Keys)
+			{
+				if (!Listed.ContainsKey(kind))
+				{
+					ChangedAt.Remove(kind);
+				}
+			}
+		}
+		HaveBaseline = true;
+		LastSources = sources;
+		LastTotals.Clear();
+		foreach (KeyValuePair<(int Type, int Prefix), (long Local, long Remote)> pair in Listed)
+		{
+			LastTotals[pair.Key] = pair.Value.Local + pair.Value.Remote;
+		}
+	}
+
+	// The Changed sort's key: seconds since 2000, 0 for a kind with no time (before tracking), which then sorts oldest.
+	internal static int ChangedRank(Item item)
+	{
+		return (item != null && ChangedAt.TryGetValue((item.type, item.prefix), out long ticks)) ? (int)Math.Clamp((ticks - ChangedEpoch) / TimeSpan.TicksPerSecond, 1L, int.MaxValue - 1) : 0;
+	}
+
+	private static readonly long ChangedEpoch = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
+
+	internal static bool TryGetChanged(Item item, out long ticks)
+	{
+		ticks = 0;
+		return item != null && ChangedAt.TryGetValue((item.type, item.prefix), out ticks);
+	}
+
+	// Saved with the player per world (BookPlayer): "item|prefix|ticks" with stable names (vanilla ItemID / PrefixID
+	// names, a mod's FullName), newest first, at most MaxChanged.
+	internal const int MaxChanged = 2000;
+
+	internal static List<string> SnapshotChanged()
+	{
+		List<string> lines = new List<string>(Math.Min(ChangedAt.Count, MaxChanged));
+		foreach (KeyValuePair<(int Type, int Prefix), long> pair in ChangedAt.OrderByDescending((KeyValuePair<(int Type, int Prefix), long> p) => p.Value).Take(MaxChanged))
+		{
+			string item = (pair.Key.Type < ItemID.Count) ? ItemID.Search.GetName(pair.Key.Type) : ItemLoader.GetItem(pair.Key.Type)?.FullName;
+			string prefix = (pair.Key.Prefix == 0) ? "" : ((pair.Key.Prefix < PrefixID.Count) ? PrefixID.Search.GetName(pair.Key.Prefix) : PrefixLoader.GetPrefix(pair.Key.Prefix)?.FullName);
+			if (item != null && prefix != null)
+			{
+				lines.Add(item + "|" + prefix + "|" + pair.Value);
+			}
+		}
+		return lines;
+	}
+
+	// The world the times belong to: its unique id, which a multiplayer client gets from the server.
+	internal static string WorldKey => Main.ActiveWorldFileData?.UniqueId.ToString() ?? "";
+
+	internal static string ChangedWorld { get; private set; }
+
+	// On entering a world; an item or prefix whose mod is gone is dropped.
+	internal static void LoadChanged(IEnumerable<string> lines)
+	{
+		ChangedWorld = WorldKey;
+		ChangedAt.Clear();
+		LastTotals.Clear();
+		HaveBaseline = false;
+		foreach (string line in lines ?? Array.Empty<string>())
+		{
+			string[] parts = line.Split('|');
+			if (parts.Length != 3 || !long.TryParse(parts[2], out long ticks))
+			{
+				continue;
+			}
+			int type = ItemID.Search.TryGetId(parts[0], out int id) ? id : (ModContent.TryFind(parts[0], out ModItem modItem) ? modItem.Type : 0);
+			int prefix = (parts[1].Length == 0) ? 0 : (PrefixID.Search.TryGetId(parts[1], out int p) ? p : (ModContent.TryFind(parts[1], out ModPrefix modPrefix) ? modPrefix.Type : -1));
+			if (type > 0 && prefix >= 0)
+			{
+				ChangedAt[(type, prefix)] = ticks;
+			}
+		}
+		ItemsVersion++;
 	}
 
 	private static void AddContainer(Item[] items, int bank, bool craft)

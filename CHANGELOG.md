@@ -3,6 +3,14 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## Unreleased
+
+### Added
+- Storage sort "Changed: newest first / oldest first": what you just put in, took out or crafted with comes first,
+  whoever moved it, you or another player. The selected stack says how long ago ("×27 · Terraria · 5 min ago") while
+  this sort is on. The times are kept with your character, per world. What was already in storage before the update
+  has no time yet and counts as oldest; walking to another base does not count as a change.
+
 ## 1.14.0 — 2026-10-25
 
 ### Added

@@ -5968,6 +5968,26 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static string StorageOffHint => BookSources.PullsOff ? T("Сервер сам хранит инвентари", "The server keeps inventories itself") : ((Main.netMode == NetmodeID.MultiplayerClient) ? T("Хост выключил эту функцию", "The host turned it off") : T("Включите в настройках мода", "Turn it on in the mod settings"));
 
+	// " · 5 min ago" after the selected stack's count while the Changed sort is in effect, the one time it explains the
+	// order; nothing for a kind with no time (there before tracking began). Rebuilt when the kind, its time, the minute or
+	// the language changes.
+	private static ((int Type, int Prefix) Kind, long Ticks, long Minute, bool Ru, string Text) ChangedSuffixCache;
+
+	private static string ChangedSuffix(Item selected)
+	{
+		if (ActiveSort != BookSortMode.Changed || !BookSources.TryGetChanged(selected, out long ticks))
+		{
+			return "";
+		}
+		bool ru = Ru;
+		var key =((selected.type, selected.prefix), ticks, DateTime.UtcNow.Ticks / TimeSpan.TicksPerMinute, ru);
+		if (key != (ChangedSuffixCache.Kind, ChangedSuffixCache.Ticks, ChangedSuffixCache.Minute, ChangedSuffixCache.Ru))
+		{
+			ChangedSuffixCache = (key.Item1, ticks, key.Item3, ru, " · " + BookMobEncounters.Ago(ticks, ru));
+		}
+		return ChangedSuffixCache.Text;
+	}
+
 	// Details panel, top to bottom: label + pill (the state); what is nearby; the radius; what was not counted; the
 	// selected stack and where it is; the last action. Gestures are in the stack's tooltip and in F1.
 	private static void DrawStorageDetails(SpriteBatch sb)
@@ -6020,7 +6040,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			// A long name shrinks to fit before it is cut; the stack's tooltip then repeats it whole.
 			float nameSize = Math.Clamp((content.Width - 60f) / Math.Max(1f, TextWidth(selected.Name, 1f)), 0.8f, 1f);
 			FixedLabel(sb, selected.Name, icon.X + 60f, icon.Y + (1f - nameSize) * 12f, TextColor, nameSize, content.Width - 60f, 26f);
-			FixedLabel(sb, "×" + Count(selected.stack) + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria"), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
+			FixedLabel(sb, "×" + Count(selected.stack) + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria") + ChangedSuffix(selected), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
 			string[] rows = BookSources.BreakdownRows(selected.type);
 			for (int row = 0; row < rows.Length && row < 5; row++)
 			{

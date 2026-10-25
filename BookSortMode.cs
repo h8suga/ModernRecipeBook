@@ -27,5 +27,8 @@ internal enum BookSortMode
 	AxePower,
 	HammerPower,
 	FishingPower,
-	BaitPower
+	BaitPower,
+	// Storage only: when the stack's kind appeared or its total last changed (BookSources.ChangedAt). Appended last:
+	// UI state stores the mode by name, and the masks by value.
+	Changed
 }
