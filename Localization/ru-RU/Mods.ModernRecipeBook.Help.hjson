@@ -1,0 +1,73 @@
+KeyCtrl16: Ctrl+1…6
+GoToATab: Вкладка по номеру
+KeyCtrlTab: Ctrl+Tab
+NextTab: Следующая вкладка
+KeyMouse4Alt: Mouse4 · Alt+←
+Back: Назад
+KeyMouse5Alt: Mouse5 · Alt+→
+Forward: Вперёд
+KeyText: ← ↑ → ↓
+MoveTheSelection: Выбор в сетке
+KeyPgUpPgDn: PgUp · PgDn
+TurnPages: Листать страницы
+KeyHomeEnd: Home · End
+FirstLastPage: Первая · последняя
+KeyEsc: Esc
+CloseTheTopWindow: Закрыть верхнее окно
+KeyF1: F1
+ThisHelp: Эта справка
+KeyMouse3Middle: Колёсико (Mouse3)
+TeleportThere: Телепорт туда
+KeyRMB: ПКМ
+PlaceAMarker: Поставить метку
+KeyRMBOnAMarker: ПКМ по метке
+EditOrDeleteIt: Изменить, удалить
+KeyCtrlEnter: Ctrl+Enter
+Craft: Создать
+KeyCtrlShiftEnter: Ctrl+Shift+Enter
+CraftTheMost: Создать максимум
+KeyAltT: Alt+T
+Track: Отслеживать
+KeyAltF: Alt+F
+Favorite: В избранное
+KeyAltG: Alt+G
+HowToGet: Где взять
+KeyAltU: Alt+U
+RecipeUsedIn: Рецепт · применение
+MobLootStats: Добыча · параметры
+KeyLMB: ЛКМ
+OpenAnIngredient: Открыть материал
+KeyShiftLMB: Shift+ЛКМ
+WhereItSUsed: Где используется
+KeyAltLMB: Alt+ЛКМ
+FavoriteInTheGrid: Избранное из сетки
+KeyMouse3: Mouse3
+LookUpItemOrMob: Предмет или моб
+KeyCtrlF: Ctrl+F
+Search: Поиск
+KeyCtrlBackspace: Ctrl+Backspace
+ResetFilters: Сбросить фильтры
+KeyAlt15: Alt+1…5
+Stage5BeforeTheNextBoss: Этап · 5: до следующего босса
+KeyClassButtons: Кнопки класса
+FilterByClass: Фильтр по классу
+KeyF5: F5
+Refresh: Обновить
+TakeAStack: Взять стопку
+KeyRMBHold: ПКМ, держать
+OneAtATime: По одной
+StackToInventory: Стопку в инвентарь
+KeyCtrlLMB: Ctrl+ЛКМ
+ToTheTrash: В корзину
+SelectedToInventory: Взять выбранное
+KeyCtrlQCtrlR: Ctrl+Q · Ctrl+R
+QuickStackRestock: Стак · пополнить
+KeyShiftLMBInInv: Shift+ЛКМ в инв.
+PutAStackIn: Сложить стопку
+KeyLMBHoldingItem: ЛКМ с предметом
+PutTheHeldItemIn: Сложить с курсора
+SectionMOVINGAROUND: НАВИГАЦИЯ
+SectionFULLMAPMOUSE3REBINDABLE: КАРТА · КОЛЁСИКО МЕНЯЕТСЯ
+SectionTHEITEMCARD: ПРЕДМЕТ В КАРТОЧКЕ
+SectionFINDINGTHINGS: ПОИСК И ФИЛЬТРЫ
+SectionSTORAGE: ХРАНИЛИЩЕ

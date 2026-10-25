@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using Terraria;
 using Terraria.Localization;
 
 namespace ModernRecipeBook;
@@ -25,8 +29,49 @@ internal static class BookText
 		return Text(key).Format(args);
 	}
 
+	// The language shown, for caches of built texts.
+	internal static int Culture => Language.ActiveCulture.LegacyId;
+
+	// "just now", "5 min ago", "3 h ago", "2 d ago".
+	internal static string Ago(TimeSpan span)
+	{
+		if (span.TotalMinutes < 1.0)
+		{
+			return L("Time.JustNow");
+		}
+		if (span.TotalHours < 1.0)
+		{
+			return L("Time.MinutesAgo", (int)span.TotalMinutes);
+		}
+		if (span.TotalDays < 1.0)
+		{
+			return L("Time.HoursAgo", (int)span.TotalHours);
+		}
+		return L("Time.DaysAgo", (int)span.TotalDays);
+	}
+
 	internal static LocalizedText Text(string key)
 	{
 		return Texts.GetOrAdd(key, (string k) => Language.GetOrRegister(Prefix + k));
+	}
+
+	// Dev audit for the test stand: every book text as the game loaded it in the language shown ("Area.Key<TAB>value"
+	// with \n escaped), the settings and keybinds left out.
+	internal static IEnumerable<string> Audit()
+	{
+		return from t in Language.FindAll(Lang.CreateDialogFilter(Prefix))
+			let key = t.Key.Substring(Prefix.Length)
+			where !key.StartsWith("Configs.") && !key.StartsWith("Keybinds.")
+			orderby key
+			select key + "\t" + t.Value.Replace("\\", "\\\\").Replace("\n", "\\n");
+	}
+
+	// Dev audit for the test stand: the counted texts at the numbers each language's plural rules tell apart.
+	internal static IEnumerable<string> PluralAudit()
+	{
+		string[] keys = new string[8] { "Crafting.InventoryFullFreeSlots", "Storage.CountChests", "Storage.CountLocked", "Storage.WithinTiles", "HowToGet.CountSources", "Stations.WithoutStations", "MobCard.CountPlayers", "Markers.MarkersAtMost" };
+		return from key in keys
+			from n in new int[7] { 1, 2, 5, 11, 21, 22, 111 }
+			select key + " " + n + ": " + L(key, n);
 	}
 }

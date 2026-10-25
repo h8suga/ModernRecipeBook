@@ -10,6 +10,8 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 
+using static ModernRecipeBook.BookText;
+
 namespace ModernRecipeBook;
 
 internal enum BookMobKind
@@ -50,7 +52,8 @@ internal static class BookBestiary
 	// A sidebar icon: an item, or a frame of a texture (the Bestiary's tag icons, a mod biome's icon).
 	internal readonly record struct Icon(int ItemType, string Texture, Rectangle? Frame);
 
-	internal sealed record Tag(string Key, string Russian, string English, string LabelKey, Icon Icon, HashSet<int> Members);
+	// LabelKey: the game's localization key of its name, or the book's own for its kinds.
+	internal sealed record Tag(string Key, string LabelKey, Icon Icon, HashSet<int> Members);
 
 	// A mob of Calamity's Acid Rain: the first and last tier it spawns in (0 after the Eye of Cthulhu, 1 after
 	// Aquatic Scourge, 2 after Polterghast), from a mini-boss table or not, and where (AcidRainSpawnRequirement:
@@ -243,21 +246,21 @@ internal static class BookBestiary
 			ByCredit[credit] = mob.Index;
 			Mobs.Add(mob);
 		}
-		Add("all", "Все мобы", "All mobs", null, new Icon(ItemID.Book, null, null), Mobs.Select((BookMob m) => m.Index));
+		Add("all", "Mods.ModernRecipeBook.BestiaryCategories.AllMobs", new Icon(ItemID.Book, null, null), Mobs.Select((BookMob m) => m.Index));
 		// Members come from the player's list at filter time.
-		Add(RecentKey, "Недавние", "Recently seen", null, new Icon(ItemID.LifeformAnalyzer, null, null), Array.Empty<int>());
-		Add("kind:boss", "Боссы", "Bosses", null, new Icon(ItemID.SuspiciousLookingEye, null, null), Kind(BookMobKind.Boss));
-		Add("kind:miniboss", "Мини-боссы", "Mini-bosses", null, new Icon(ItemID.PumpkinMoonMedallion, null, null), Kind(BookMobKind.MiniBoss));
-		Add("kind:enemy", "Враги", "Enemies", null, new Icon(ItemID.ZombieBanner, null, null), Kind(BookMobKind.Enemy));
-		Add("kind:town", "Жители", "Town NPCs", null, new Icon(ItemID.Bed, null, null), Kind(BookMobKind.Town));
-		Add("kind:critter", "Существа", "Critters", null, new Icon(ItemID.Bunny, null, null), Kind(BookMobKind.Critter));
+		Add(RecentKey, "Mods.ModernRecipeBook.BestiaryCategories.RecentlySeen", new Icon(ItemID.LifeformAnalyzer, null, null), Array.Empty<int>());
+		Add("kind:boss", "Mods.ModernRecipeBook.BestiaryCategories.Bosses", new Icon(ItemID.SuspiciousLookingEye, null, null), Kind(BookMobKind.Boss));
+		Add("kind:miniboss", "Mods.ModernRecipeBook.BestiaryCategories.MiniBosses", new Icon(ItemID.PumpkinMoonMedallion, null, null), Kind(BookMobKind.MiniBoss));
+		Add("kind:enemy", "Mods.ModernRecipeBook.BestiaryCategories.Enemies", new Icon(ItemID.ZombieBanner, null, null), Kind(BookMobKind.Enemy));
+		Add("kind:town", "Mods.ModernRecipeBook.BestiaryCategories.TownNPCs", new Icon(ItemID.Bed, null, null), Kind(BookMobKind.Town));
+		Add("kind:critter", "Mods.ModernRecipeBook.BestiaryCategories.Critters", new Icon(ItemID.Bunny, null, null), Kind(BookMobKind.Critter));
 		// Events, then the vanilla biomes in the Bestiary's own icon order (surface, underground, evil, ...),
 		// then mods' biomes grouped by mod.
 		foreach (var (key, info) in from x in found
 			orderby x.Value.Group, x.Value.ModName, x.Value.Order, x.Key
 			select (x.Key, x.Value))
 		{
-			Add(key, "", "", info.LabelKey, info.Icon, members[key]);
+			Add(key, info.LabelKey, info.Icon, members[key]);
 		}
 		ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Bestiary index: {Mobs.Count} entries, {Tags.Count - 7} spawn tags; bosses {Kind(BookMobKind.Boss).Count()}, mini-bosses {Kind(BookMobKind.MiniBoss).Count()}, town {Kind(BookMobKind.Town).Count()}, critters {Kind(BookMobKind.Critter).Count()}.");
 		IEnumerable<int> Kind(BookMobKind kind)
@@ -266,12 +269,12 @@ internal static class BookBestiary
 				where m.Kind == kind
 				select m.Index;
 		}
-		void Add(string key, string ru, string en, string labelKey, Icon icon, IEnumerable<int> indexes)
+		void Add(string key, string labelKey, Icon icon, IEnumerable<int> indexes)
 		{
 			HashSet<int> set = new HashSet<int>(indexes);
 			if (set.Count > 0 || key == "all" || key == RecentKey)
 			{
-				Tag tag = new Tag(key, ru, en, labelKey, icon, set);
+				Tag tag = new Tag(key, labelKey, icon, set);
 				Tags.Add(tag);
 				TagsByKey[key] = tag;
 			}
@@ -323,24 +326,20 @@ internal static class BookBestiary
 	}
 
 	// The game's invasion names are long for a sidebar row ("Нашествие гоблинов"); these read the same, shorter.
-	private static readonly Dictionary<string, (string Russian, string English)> ShortLabels = new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+	private static readonly Dictionary<string, string> ShortLabels = new Dictionary<string, string>(StringComparer.Ordinal)
 	{
-		["tag:Bestiary_Invasions.Goblins"] = ("Гоблины", "Goblin Army"),
-		["tag:Bestiary_Invasions.Pirates"] = ("Пираты", "Pirates"),
-		["tag:Bestiary_Invasions.Martian"] = ("Марсиане", "Martians"),
-		["tag:Bestiary_Biomes.UndergroundSnow"] = ("Подземный снег", "Underground Snow")
+		["tag:Bestiary_Invasions.Goblins"] = "BestiaryCategories.GoblinArmy",
+		["tag:Bestiary_Invasions.Pirates"] = "BestiaryCategories.Pirates",
+		["tag:Bestiary_Invasions.Martian"] = "BestiaryCategories.Martians",
+		["tag:Bestiary_Biomes.UndergroundSnow"] = "BestiaryCategories.UndergroundSnow"
 	};
 
 	// Tag labels come from the game's localization, so the sidebar follows the language.
-	internal static string Label(Tag tag, bool russian)
+	internal static string Label(Tag tag)
 	{
 		if (ShortLabels.TryGetValue(tag.Key, out var shortLabel))
 		{
-			return russian ? shortLabel.Russian : shortLabel.English;
-		}
-		if (tag.LabelKey == null)
-		{
-			return russian ? tag.Russian : tag.English;
+			return L(shortLabel);
 		}
 		return Language.GetTextValue(tag.LabelKey);
 	}

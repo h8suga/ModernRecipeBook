@@ -33,7 +33,7 @@ internal sealed class BookMapMarkerLayer : ModMapLayer
 
 	private static string Tip = "";
 
-	private static (int Id, long Edited, long Minute, bool Ru) TipKey = (-1, 0L, 0L, false);
+	private static (int Id, long Edited, long Minute, int Culture) TipKey = (-1, 0L, 0L, -1);
 
 	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
 
@@ -76,7 +76,7 @@ internal sealed class BookMapMarkerLayer : ModMapLayer
 
 	private static string TipFor(BookMapMarker marker)
 	{
-		(int, long, long, bool) key = (marker.Id, marker.Edited, BookMapMarkers.Now / TimeSpan.TicksPerMinute, RecipeBookSystem.Ru);
+		(int, long, long, int) key = (marker.Id, marker.Edited, BookMapMarkers.Now / TimeSpan.TicksPerMinute, BookText.Culture);
 		if (key != TipKey)
 		{
 			TipKey = key;

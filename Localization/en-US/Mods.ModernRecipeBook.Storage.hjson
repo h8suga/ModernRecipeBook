@@ -1,49 +1,59 @@
 Inventory: "Inventory: "
 OpenChest: "Open chest: "
-Chests: "Chests"
-NothingNearby: "Nothing nearby"
+Chests: Chests
+NothingNearby: Nothing nearby
 Network: "Network "
 Text: " / "
 Remote: " (remote)"
-OpenChest2: "Open chest"
+OpenChest2: Open chest
 NotCounted: "Not counted: "
 UnlimitedNotInTheTotal: ": unlimited, not in the total"
 Cells: "Cells: "
 Remote2: "Remote "
-Within: "Within "
 SetByTheHost: " · set by the host"
-ViaPortableAccess: "via Portable Access"
-ViaTheMagicStorageWindow: "via the Magic Storage window"
+ViaPortableAccess: via Portable Access
+ViaTheMagicStorageWindow: via the Magic Storage window
 Password: " password"
-PortableCraftingAccess: "Portable Crafting Access"
-PortableAccess: "Portable Access"
-OutOfRange: "out of range"
-NoPylonNearTheStorage: "no pylon near the storage"
-StorageMissing: "storage missing"
-Loading: "loading"
-LockedChestsAndChestsAnotherPlayer: "Locked chests and chests another player has open are skipped."
-AStorageWithAPasswordCounts: "A storage with a password counts once you join it in Magic Storage."
-APortableAccessInYourInventory: "A Portable Access in your inventory counts by Magic Storage's own rules: within its range of the storage, or at a pylon while the storage has a pylon near it."
-Inventory2: "inventory"
+PortableCraftingAccess: Portable Crafting Access
+PortableAccess: Portable Access
+OutOfRange: out of range
+NoPylonNearTheStorage: no pylon near the storage
+StorageMissing: storage missing
+Loading: loading
+LockedChestsAndChestsAnotherPlayer: Locked chests and chests another player has open are skipped.
+AStorageWithAPasswordCounts: A storage with a password counts once you join it in Magic Storage.
+APortableAccessInYourInventory: A Portable Access in your inventory counts by Magic Storage's own rules: within its range of the storage, or at a pylon while the storage has a pylon near it.
+Inventory2: inventory
 From: "From: "
-NoLongerNearby: "No longer nearby"
-InventoryFull: "Inventory full"
-TakenToInventory: "Taken to inventory"
-ClickTakeRightClickTakeOne: "Click: take · Right-click: take one · Shift+Click: to inventory"
-StacksToppedUp: "Stacks topped up"
-NothingToTopUp: "Nothing to top up"
-StackedIntoNearbyChests: "Stacked into nearby chests"
-TooFastWaitAMoment: "Too fast: wait a moment"
-NearbyStorageIsOff: "Nearby storage is off"
-StackedIntoNearbyChestsNoRoom: "Stacked into nearby chests · no room in storage"
-ShiftClickAnInventoryItemOr: "Shift+Click an inventory item or drop it here: put into storage"
-NothingNearbyToDepositInto: "Nothing nearby to deposit into"
-NothingToDeposit: "Nothing to deposit"
-InventoryFullRestOnCursor: "Inventory full: rest on cursor"
+NoLongerNearby: No longer nearby
+InventoryFull: Inventory full
+TakenToInventory: Taken to inventory
+ClickTakeRightClickTakeOne: Click: take · Right-click: take one · Shift+Click: to inventory
+StacksToppedUp: Stacks topped up
+NothingToTopUp: Nothing to top up
+StackedIntoNearbyChests: Stacked into nearby chests
+TooFastWaitAMoment: Too fast: wait a moment
+NearbyStorageIsOff: Nearby storage is off
+StackedIntoNearbyChestsNoRoom: Stacked into nearby chests · no room in storage
+ShiftClickAnInventoryItemOr: Shift+Click an inventory item or drop it here: put into storage
+NothingNearbyToDepositInto: Nothing nearby to deposit into
+NothingToDeposit: Nothing to deposit
+InventoryFullRestOnCursor: Inventory full: rest on cursor
 Took: "Took "
 Of: " of "
 TheRestIsGone: ": the rest is gone"
-StoredNearby: "Stored nearby"
+StoredNearby: Stored nearby
 NearbyStorageIsFull: "Nearby storage is full: "
 Left: " left"
-NoReplyFromTheServerTry: "No reply from the server: try again"
+NoReplyFromTheServerTry: No reply from the server: try again
+CountChests: "{0} {^0:chest;chests}"
+CountStorages: "{0} {^0:storage;storages}"
+CountRemoteStorages: "{0} {^0:remote storage;remote storages}"
+CountBanks: "{0} {^0:bank;banks}"
+CountInactiveUnits: "{0} {^0:inactive storage unit;inactive storage units}"
+WithinTiles: Within {0} {^0:tile;tiles}
+CountLocked: "{0} locked"
+CountInUse: "{0} in use"
+StackedRemote: Stacked {0} items into remote storage
+StackedSomeRemote: Stacked {0} items · {1} into remote storage
+StackedLocal: Stacked {0} items into storage

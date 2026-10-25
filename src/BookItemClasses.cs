@@ -11,6 +11,8 @@ using Terraria.ModLoader;
 using Terraria.UI;
 using Terraria.Utilities;
 
+using static ModernRecipeBook.BookText;
+
 namespace ModernRecipeBook;
 
 [Flags]
@@ -60,16 +62,16 @@ internal static class BookItemClasses
 		return value;
 	}
 
-	internal static string Label(BookClass value, bool ru)
+	internal static string Label(BookClass value)
 	{
 		return value switch
 		{
-			BookClass.Melee => ru ? "Ближний бой" : "Melee",
-			BookClass.Ranged => ru ? "Дальний бой" : "Ranged",
-			BookClass.Magic => ru ? "Магия" : "Magic",
-			BookClass.Summon => ru ? "Призыв" : "Summoner",
-			BookClass.Rogue => ru ? "Разбойник" : "Rogue",
-			_ => ru ? "Все классы" : "All classes",
+			BookClass.Melee => L("Classes.Melee"),
+			BookClass.Ranged => L("Classes.Ranged"),
+			BookClass.Magic => L("Classes.Magic"),
+			BookClass.Summon => L("Classes.Summoner"),
+			BookClass.Rogue => L("Classes.Rogue"),
+			_ => L("Classes.AllClasses"),
 		};
 	}
 
@@ -514,7 +516,7 @@ internal static class BookItemClasses
 	{
 		ModernRecipeBook mod = ModContent.GetInstance<ModernRecipeBook>();
 		string totals = string.Join(", ", from BookClass value in Buttons.Skip(1)
-			select Label(value, ru: false).ToLowerInvariant() + " " + classes.Values.Count((BookClass c) => (c & value) != 0));
+			select value.ToString().ToLowerInvariant() + " " + classes.Values.Count((BookClass c) => (c & value) != 0));
 		mod.Logger.Info($"Class audit ({milliseconds} ms) {totals}; checked {weapons} weapons/ammo, {equipment} armor/accessories, {potions} potions ({tooltipOnly} of them by tooltip); {classes.Values.Count((BookClass c) => c == BookClass.None)} without class, {failures} failed.");
 		// Well-known items; a mismatch here means the probe broke, not that the item changed.
 		List<string> wrong = new List<string>();

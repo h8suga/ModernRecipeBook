@@ -1,20 +1,20 @@
 PlacedBy: "Поставил "
-JustNow: "только что"
-MarkersAreOffOnThisServer: "Метки выключены на сервере"
-NotHere: "Здесь нельзя"
-TooFastTryAgain: "Слишком часто, ещё раз"
-NotYourMarker: "Это чужая метка"
-ThatMarkerIsGone: "Метки уже нет"
-NewMarker: "Новая метка"
-EditMarker: "Изменить метку"
-NameOptional: "Название (необязательно)"
-Cancel: "Отмена"
-Save: "Сохранить"
-CancelEsc: "Отмена · Esc"
-SaveEnter: "Сохранить · Enter"
+MarkersAreOffOnThisServer: Метки выключены на сервере
+NotHere: Здесь нельзя
+TooFastTryAgain: Слишком часто, ещё раз
+NotYourMarker: Это чужая метка
+ThatMarkerIsGone: Метки уже нет
+NewMarker: Новая метка
+EditMarker: Изменить метку
+NameOptional: Название (необязательно)
+Cancel: Отмена
+Save: Сохранить
+CancelEsc: Отмена · Esc
+SaveEnter: Сохранить · Enter
 Edited: "Изменено "
-Edit: "Изменить"
-Delete: "Удалить"
-AuthorOrHostOnly: "Только автор или хозяин"
-Close: "Закрыть"
-CloseEsc: "Закрыть · Esc"
+Edit: Изменить
+Delete: Удалить
+AuthorOrHostOnly: Только автор или хозяин
+Close: Закрыть
+CloseEsc: Закрыть · Esc
+MarkersAtMost: Не больше {0} {^0:метки;меток;меток}

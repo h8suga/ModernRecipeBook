@@ -3,6 +3,25 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.16.0 — 2026-10-25
+
+### Added
+- The book can be translated into any language, the way Calamity is. Every text it shows (875 of them) now lives in
+  `Localization/<culture>/Mods.ModernRecipeBook.<Area>.hjson`, one file per part of the book, instead of being built
+  into the code as English/Russian pairs. A language without its own files, or a line they leave out, shows English,
+  so a partial translation already works; a translation can come as a pull request or as a separate translation mod.
+  [TRANSLATING.md](TRANSLATING.md) explains the files, placeholders and plurals.
+- Counted texts use each language's own plural rules ("21 сундук", "22 сундука", "25 сундуков") through
+  tModLoader's `{^0:...}` forms.
+- The build checks the localization: every key the code names exists in English, Russian is complete, and a
+  translation keeps the English placeholders.
+
+### Changed
+- Settings and control names moved into the same per-culture folders.
+- Texts cached while drawing (station rows, trait labels, marker tooltips, the Changed sort's "5 min ago") follow
+  any language change, not only one between English and Russian.
+- Russian "days ago" reads "дн. назад" everywhere; the Bestiary wrote "дн назад".
+
 ## 1.15.1 — 2026-10-25
 
 ### Changed

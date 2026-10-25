@@ -51,7 +51,7 @@ public sealed partial class RecipeBookSystem
 	// Shown in the last frame drawn; the next update swallows clicks and the wheel over it.
 	private static bool ActiveStationPanel;
 
-	private static (int Index, int Version, bool Ru) StationTipKey = (-1, -1, false);
+	private static (int Index, int Version, int Culture) StationTipKey = (-1, -1, -1);
 
 	private static string StationTipText = "";
 
@@ -310,7 +310,7 @@ public sealed partial class RecipeBookSystem
 	// Rebuilt only when the hovered icon, the list or the language changed.
 	private static string ActiveStationTip(int index)
 	{
-		(int, int, bool) key = (index, ActiveStationsVersion, Ru);
+		(int, int, int) key = (index, ActiveStationsVersion, Culture);
 		if (StationTipKey == key)
 		{
 			return StationTipText;
@@ -350,14 +350,14 @@ public sealed partial class RecipeBookSystem
 
 	private static int StationRowsOf(int count) => (count + StationColumns - 1) / StationColumns;
 
-	private static (int Version, bool Ru, float Scale) PanelWidthKey = (-1, false, 0f);
+	private static (int Version, int Culture, float Scale) PanelWidthKey = (-1, -1, 0f);
 
 	private static float PanelWidth;
 
 	// The icon columns, or the title or a group's name if wider (up to eight columns' width), measured once per list.
 	private static float ActiveStationPanelWidth()
 	{
-		(int, bool, float) key = (ActiveStationsVersion, Ru, TextScale);
+		(int, int, float) key = (ActiveStationsVersion, Culture, TextScale);
 		if (PanelWidthKey == key)
 		{
 			return PanelWidth;

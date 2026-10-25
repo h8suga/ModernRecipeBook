@@ -57,7 +57,7 @@ public sealed partial class RecipeBookSystem
 
 	private static readonly List<(int Tile, int Count)> StationRows = new List<(int, int)>();
 
-	private static (int Version, bool Ru, int Excluded) StationRowsKey = (-1, false, -1);
+	private static (int Version, int Culture, int Excluded) StationRowsKey = (-1, -1, -1);
 
 	internal static bool StationMenuOpen => Open && StationMenu;
 
@@ -308,7 +308,7 @@ public sealed partial class RecipeBookSystem
 	// even at 0; by count, then name. Rebuilt only when the list or the language changed.
 	private static List<(int Tile, int Count)> StationList()
 	{
-		(int, bool, int) key = (StationCandidatesVersion, Ru, ExcludedTileCount);
+		(int, int, int) key = (StationCandidatesVersion, Culture, ExcludedTileCount);
 		if (StationRowsKey == key)
 		{
 			return StationRows;
@@ -350,7 +350,7 @@ public sealed partial class RecipeBookSystem
 			{
 				return L("Stations.Stations");
 			}
-			return Ru ? ("Без " + n + " " + BookSourceRules.Plural(n, "станции", "станций", "станций")) : ("Without " + n + ((n == 1) ? " station" : " stations"));
+			return L("Stations.WithoutStations", n);
 		}
 	}
 

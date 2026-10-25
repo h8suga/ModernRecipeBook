@@ -1,0 +1,20 @@
+NoCraftingRecipe: No crafting recipe
+GatheringMaterials: Gathering materials…
+EmptyTheGuideSlotFirst: Empty the Guide slot first
+ClearTheCursorFirst: Clear the cursor first
+CantCraftRightNow: Can't craft right now
+MissingMaterialsStationOrCondition: Missing materials, station or condition
+ReadyToCraft: Ready to craft
+InventoryFullFreeSlots: Inventory full: free {0} {^0:slot;slots}
+MaterialsInInventoryInventoryFull: Materials are in the inventory; craft stopped: inventory full
+MaterialsAreInTheInventory: Materials are in the inventory
+NearbyStorageIsOff: Nearby storage is off
+TooFastWaitAMoment: Too fast: wait a moment
+CraftCancelledConditionsChanged: Craft cancelled: conditions changed
+CraftingStoppedSomethingChanged: Crafting stopped: something changed
+StoppedOutOfMaterials: Stopped: out of materials
+CraftingFailed: Crafting failed
+InventoryFullResultOnCursor: Inventory full: result on cursor
+MaterialsInInventoryCraftStopped: "Materials are in the inventory; craft stopped: "
+Crafted: Crafted: {0}
+CraftedSome: Crafted {0}/{1} · {2}

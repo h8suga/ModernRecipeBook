@@ -1,6 +1,6 @@
 displayName = Modern Recipe Book
 author = 2k17clubbb
-version = 1.15.1
+version = 1.16.0
 side = Both
 weakReferences = MagicStorage
 sortAfter = MagicStorage

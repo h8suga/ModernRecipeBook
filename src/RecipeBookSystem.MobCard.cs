@@ -44,7 +44,7 @@ public sealed partial class RecipeBookSystem
 		string scope = (EnemyStatsLive ? L("MobCard.ThisMobInTheWorld") : L("MobCard.ForThisWorld")) + " · " + WorldModeName();
 		if (Main.netMode == NetmodeID.MultiplayerClient && Main.expertMode && EnemyStatsPlayers > 1)
 		{
-			scope += " · " + BookSourceRules.Count(EnemyStatsPlayers, Ru, "player", "players", "игрок", "игрока", "игроков");
+			scope += " · " + L("MobCard.CountPlayers", EnemyStatsPlayers);
 		}
 		return scope;
 	}

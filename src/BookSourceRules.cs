@@ -44,18 +44,6 @@ internal static class BookSourceRules
 	}
 
 	// 1 сундук, 2 сундука, 5 сундуков, 11 сундуков, 21 сундук.
-	internal static string Plural(int n, string one, string few, string many)
-	{
-		int last = n % 10;
-		bool teens = n % 100 >= 11 && n % 100 <= 14;
-		return (last == 1 && !teens) ? one : ((last >= 2 && last <= 4 && !teens) ? few : many);
-	}
-
-	internal static string Count(int n, bool ru, string enOne, string enMany, string ruOne, string ruFew, string ruMany)
-	{
-		return n + " " + (ru ? Plural(n, ruOne, ruFew, ruMany) : ((n == 1) ? enOne : enMany));
-	}
-
 	internal readonly record struct Slot(int Type, int Prefix, int Stack, int MaxStack);
 
 	internal readonly record struct Incoming(int Type, int Prefix, long Amount, int MaxStack);
@@ -131,9 +119,6 @@ internal static class BookSourceRules
 		Expect(ChestCenter(10, 20, dresser: false) == new Vector2(176f, 336f), "centre: chest");
 		Expect(ChestCenter(10, 20, dresser: true) == new Vector2(184f, 336f), "centre: dresser");
 		Expect(BankOf(29) == -2 && BankOf(97) == -3 && BankOf(463) == -4 && BankOf(491) == -5 && BankOf(21) == 0, "banks");
-		Expect(Plural(1, "a", "b", "c") == "a" && Plural(2, "a", "b", "c") == "b" && Plural(5, "a", "b", "c") == "c", "plural 1/2/5");
-		Expect(Plural(11, "a", "b", "c") == "c" && Plural(12, "a", "b", "c") == "c" && Plural(21, "a", "b", "c") == "a" && Plural(22, "a", "b", "c") == "b" && Plural(111, "a", "b", "c") == "c", "plural 11/12/21/22/111");
-		Expect(Count(1, ru: false, "chest", "chests", "", "", "") == "1 chest" && Count(7, ru: true, "", "", "сундук", "сундука", "сундуков") == "7 сундуков", "count text");
 		Expect(CursorAfterLeftClick(750, 0, 9999) == 750, "click: an empty cursor picks the slot up");
 		Expect(CursorAfterLeftClick(9999, 10, 9999) == 9999, "click: a full slot swaps, the cursor ends full");
 		Expect(CursorAfterLeftClick(50, 10, 9999) == 0, "click: a partial slot takes the whole cursor");

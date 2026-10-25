@@ -38,11 +38,11 @@ public sealed partial class RecipeBookSystem
 
 	private static (int Candidates, int Traits) TraitCountsKey = (-1, -1);
 
-	private static (BookTrait Filter, bool Ru) TraitLabelKey = (BookTrait.None, false);
+	private static (BookTrait Filter, int Culture) TraitLabelKey = (BookTrait.None, -1);
 
 	private static string TraitLabelText = "";
 
-	private static (int Type, bool Ru, int Version) TraitLineKey = (-1, false, -1);
+	private static (int Type, int Culture, int Version) TraitLineKey = (-1, -1, -1);
 
 	private static string TraitLineText = "";
 
@@ -92,17 +92,17 @@ public sealed partial class RecipeBookSystem
 
 	private static string TraitButtonLabel()
 	{
-		if (TraitLabelKey == (TraitFilter, Ru) && TraitLabelText.Length > 0)
+		if (TraitLabelKey == (TraitFilter, Culture) && TraitLabelText.Length > 0)
 		{
 			return TraitLabelText;
 		}
-		TraitLabelKey = (TraitFilter, Ru);
+		TraitLabelKey = (TraitFilter, Culture);
 		List<string> names = new List<string>();
 		foreach (BookTrait trait in BookItemTraits.Rows)
 		{
 			if ((TraitFilter & trait) != 0)
 			{
-				names.Add(BookItemTraits.Label(trait, Ru));
+				names.Add(BookItemTraits.Label(trait));
 			}
 		}
 		float room = BookGeometry.TraitButton.Width - 40f;
@@ -129,7 +129,7 @@ public sealed partial class RecipeBookSystem
 			{
 				if ((TraitFilter & trait) != 0)
 				{
-					tip.Append("\n· ").Append(BookItemTraits.Label(trait, Ru));
+					tip.Append("\n· ").Append(BookItemTraits.Label(trait));
 				}
 			}
 			tip.Append('\n').Append(L("Traits.Hidden")).Append(Count(TraitHidden));
@@ -342,13 +342,13 @@ public sealed partial class RecipeBookSystem
 			{
 				Box(sb, boxX, boxY, 16f, 16f, FieldFill, border: true, 4f, Border);
 			}
-			string name = BookItemTraits.Label(trait, Ru);
+			string name = BookItemTraits.Label(trait);
 			CenterLabel(sb, name, rect.X + 40f, rect.Y + 4f, rect.Width - 40f - 56f, rect.Height - 8f, on ? Accent : ((count > 0) ? TextColor : Muted), 0.9f, rightAligned: false, leftAligned: true);
 			CenterLabel(sb, Count(count), rect.X + rect.Width - 52f, rect.Y + 4f, 40f, rect.Height - 8f, Muted, 0.8f, rightAligned: true);
 			if (row == hovered)
 			{
 				string listed = Catalogue ? L("Traits.ListedItemsWithIt") : L("Traits.ListedRecipesWithIt");
-				MouseTip(name + "\n" + BookItemTraits.Tip(trait, Ru) + "\n" + listed + Count(count) + "\n" + (on ? L("Traits.ClickUntick") : L("Traits.ClickTickEveryTickedTraitMust")));
+				MouseTip(name + "\n" + BookItemTraits.Tip(trait) + "\n" + listed + Count(count) + "\n" + (on ? L("Traits.ClickUntick") : L("Traits.ClickTickEveryTickedTraitMust")));
 			}
 		}
 		string footer = BookItemTraits.Ready ? L("Traits.AllTickedMustMatchEscClose") : ReadingLine();
@@ -362,7 +362,7 @@ public sealed partial class RecipeBookSystem
 		{
 			return "";
 		}
-		(int, bool, int) key = (item.type, Ru, BookItemTraits.Version);
+		(int, int, int) key = (item.type, Culture, BookItemTraits.Version);
 		if (TraitLineKey == key)
 		{
 			return TraitLineText;
@@ -374,7 +374,7 @@ public sealed partial class RecipeBookSystem
 		{
 			if ((has & trait) != 0)
 			{
-				names.Add(BookItemTraits.Label(trait, Ru));
+				names.Add(BookItemTraits.Label(trait));
 			}
 		}
 		// As many names as fit, then "+N": the hover lists them all.
@@ -408,12 +408,12 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			BookItemTraits.Why why = BookItemTraits.Reason(type, trait);
-			tip.Append("\n· ").Append(BookItemTraits.Label(trait, Ru)).Append(" — ");
+			tip.Append("\n· ").Append(BookItemTraits.Label(trait)).Append(" — ");
 			switch (trait)
 			{
 			case BookTrait.Homing:
 			case BookTrait.StealthHoming:
-				tip.Append(BookItemTraits.SourceLabel(why.Source, Ru)).Append(": ").Append((why.Source == BookItemTraits.Source.Verified) ? why.Detail : T("«" + why.Detail + "»", "\"" + why.Detail + "\""));
+				tip.Append(BookItemTraits.SourceLabel(why.Source)).Append(": ").Append((why.Source == BookItemTraits.Source.Verified) ? why.Detail : L("Traits.Quoted", why.Detail));
 				break;
 			case BookTrait.Pierces:
 				tip.Append((why.Detail == "-1") ? L("Traits.NoHitLimitPenetrate1") : (L("Traits.UpTo") + why.Detail + L("Traits.HitsPenetrate")));

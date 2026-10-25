@@ -1,52 +1,73 @@
 BookConfig: {
-	DisplayName: "Recipe Book"
+	DisplayName: Recipe Book
+
 	WindowScalePercent: {
-		Label: "Window Size (%)"
-		Tooltip: "Default 90%. Shrinks to fit small screens."
+		Label: Window Size (%)
+		Tooltip: Default 90%. Shrinks to fit small screens.
 	}
+
 	TextScalePercent: {
-		Label: "Text Size (%)"
-		Tooltip: "Default 100%. Changes text only, not the window."
+		Label: Text Size (%)
+		Tooltip: Default 100%. Changes text only, not the window.
 	}
+
 	InventoryAltRightClick: {
-		Label: "Middle-Click Item Search"
-		Tooltip: "Middle-click an item in any slot to open it in the book. Elsewhere Mouse3 opens the book."
+		Label: Middle-Click Item Search
+		Tooltip: Middle-click an item in any slot to open it in the book. Elsewhere Mouse3 opens the book.
 	}
+
 	TrackerOpacityPercent: {
-		Label: "Tracking Cards Opacity (%)"
-		Tooltip: "Background of the cards panel; text and icons stay solid."
+		Label: Tracking Cards Opacity (%)
+		Tooltip: Background of the cards panel; text and icons stay solid.
 	}
+
 	TrackerScalePercent: {
-		Label: "Tracking Cards Size (%)"
-		Tooltip: "Cards panel only; compact lines use the game's text size."
+		Label: Tracking Cards Size (%)
+		Tooltip: Cards panel only; compact lines use the game's text size.
 	}
+
 	ResourceOnlyTracker: {
-		Label: "Tracking Overlay: Compact Lines"
-		Tooltip: "Material lines under the minimap, like an info accessory. Off: cards for up to 5 goals."
+		Label: Tracking Overlay: Compact Lines
+		Tooltip: Material lines under the minimap, like an info accessory. Off: cards for up to 5 goals.
 	}
-	Headers.Movement: "Movement"
+
+	Headers.Movement: Movement
+
 	DoubleTapDash: {
-		Label: "Double-Tap Dash (Calamity)"
-		Tooltip: "Double-tap left or right to dash; Calamity's dash key keeps working."
+		Label: Double-Tap Dash (Calamity)
+		Tooltip: Double-tap left or right to dash; Calamity's dash key keeps working.
 	}
 }
+
 BookServerConfig: {
-	DisplayName: "Recipe Book: Server"
-	Headers.QualityOfLife: "Quality of Life"
+	DisplayName: Recipe Book: Server
+	Headers.QualityOfLife: Quality of Life
+
 	NearbyStorage: {
-		Label: "Nearby Storage"
-		Tooltip: "The book shows, counts and crafts from chests and Magic Storage within the radius."
+		Label: Nearby Storage
+		Tooltip: The book shows, counts and crafts from chests and Magic Storage within the radius.
 	}
+
 	NearbyRadius: {
-		Label: "Nearby Storage Radius (tiles)"
-		Tooltip: "Default 30 tiles around the player."
+		Label: Nearby Storage Radius (tiles)
+		Tooltip: Default 30 tiles around the player.
 	}
+
 	MapTeleport: {
-		Label: "Map Teleport"
-		Tooltip: "Mouse3 / middle click on an explored spot of the full map teleports you there.\nRebindable in Controls."
+		Label: Map Teleport
+		Tooltip:
+			'''
+			Mouse3 / middle click on an explored spot of the full map teleports you there.
+			Rebindable in Controls.
+			'''
 	}
+
 	MapMarkers: {
-		Label: "Shared Map Markers"
-		Tooltip: "Markers everyone on the server sees, kept with the world.\nRight-click the full map to place one, right-click a marker to edit or delete it."
+		Label: Shared Map Markers
+		Tooltip:
+			'''
+			Markers everyone on the server sees, kept with the world.
+			Right-click the full map to place one, right-click a marker to edit or delete it.
+			'''
 	}
 }

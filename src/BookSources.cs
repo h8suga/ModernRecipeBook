@@ -207,10 +207,10 @@ public sealed class BookSources : ModSystem
 		MessageTick = Main.GameUpdateCount;
 	}
 
-	private static (int Type, int Version, bool Ru, string Text, string[] Rows) BreakdownCache = (0, -1, false, "", Array.Empty<string>());
+	private static (int Type, int Version, int Culture, string Text, string[] Rows) BreakdownCache = (0, -1, -1, "", Array.Empty<string>());
 
 	// The details panel's texts, rebuilt only when what they show changed (they are read every frame).
-	private static (int Version, bool Ru, int Locked, int InUse, int Password, int Radius) TextsKey = (-1, false, 0, 0, 0, 0);
+	private static (int Version, int Culture, int Locked, int InUse, int Password, int Radius) TextsKey = (-1, -1, 0, 0, 0, 0);
 
 	private static string SummaryText = "";
 
@@ -218,12 +218,6 @@ public sealed class BookSources : ModSystem
 
 	private static string RadiusText = "";
 
-	private static bool Ru => Language.ActiveCulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
-
-	private static string T(string ru, string en)
-	{
-		return Ru ? ru : en;
-	}
 
 	internal static bool Enabled => BookNearbyConfig.Enabled && !PullsOff;
 
@@ -900,8 +894,8 @@ public sealed class BookSources : ModSystem
 	// "Inventory: 12 · Open chest: 40 · Piggy Bank: 5 · Chests ×3: 120 · Magic Storage: 40"
 	internal static string Breakdown(int type)
 	{
-		bool ru = Ru;
-		if (BreakdownCache.Type == type && BreakdownCache.Version == Version && BreakdownCache.Ru == ru)
+		int culture = Culture;
+		if (BreakdownCache.Type == type && BreakdownCache.Version == Version && BreakdownCache.Culture == culture)
 		{
 			return BreakdownCache.Text;
 		}
@@ -937,7 +931,7 @@ public sealed class BookSources : ModSystem
 			parts.Add("Magic Storage: ∞");
 		}
 		string text = string.Join(" · ", parts);
-		BreakdownCache = (type, Version, ru, text, parts.ToArray());
+		BreakdownCache = (type, Version, culture, text, parts.ToArray());
 		return text;
 	}
 
@@ -950,7 +944,7 @@ public sealed class BookSources : ModSystem
 
 	private static void UpdateTexts()
 	{
-		var key = (Version, Ru, SkippedLocked, SkippedInUse, SkippedPassword, BookNearbyConfig.Radius);
+		var key = (Version, Culture, SkippedLocked, SkippedInUse, SkippedPassword, BookNearbyConfig.Radius);
 		if (key == TextsKey)
 		{
 			return;
@@ -1014,26 +1008,25 @@ public sealed class BookSources : ModSystem
 
 	private static string BuildSummary()
 	{
-		bool ru = Ru;
 		List<string> parts = new List<string>();
 		if (ChestsShown > 0)
 		{
-			parts.Add(BookSourceRules.Count(ChestsShown, ru, "chest", "chests", "сундук", "сундука", "сундуков"));
+			parts.Add(L("Storage.CountChests", ChestsShown));
 		}
 		// A network reached from afar (a carried Portable Access, Magic Storage's own window) is not "nearby": it is
 		// counted apart, so the line never claims it sits within the radius.
 		int remote = Networks.Count((BookMagicStorage.Network n) => n.Remote);
 		if (Networks.Count - remote > 0)
 		{
-			parts.Add(BookSourceRules.Count(Networks.Count - remote, ru, "storage", "storages", "хранилище", "хранилища", "хранилищ"));
+			parts.Add(L("Storage.CountStorages", Networks.Count - remote));
 		}
 		if (remote > 0)
 		{
-			parts.Add(BookSourceRules.Count(remote, ru, "remote storage", "remote storages", "удалённое хранилище", "удалённых хранилища", "удалённых хранилищ"));
+			parts.Add(L("Storage.CountRemoteStorages", remote));
 		}
 		if (BanksShown > 0)
 		{
-			parts.Add(BookSourceRules.Count(BanksShown, ru, "bank", "banks", "банк", "банка", "банков"));
+			parts.Add(L("Storage.CountBanks", BanksShown));
 		}
 		return (parts.Count == 0) ? L("Storage.NothingNearby") : string.Join(" · ", parts);
 	}
@@ -1140,7 +1133,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (inactive > 0)
 		{
-			rows.Add(L("Storage.NotCounted") + BookSourceRules.Count(inactive, Ru, "inactive storage unit", "inactive storage units", "неактивный блок хранения", "неактивных блока хранения", "неактивных блоков хранения"));
+			rows.Add(L("Storage.NotCounted") + L("Storage.CountInactiveUnits", inactive));
 		}
 		if (Infinite)
 		{
@@ -1169,7 +1162,7 @@ public sealed class BookSources : ModSystem
 		{
 			return L("Storage.Remote2") + RemoteHow(far);
 		}
-		string within = L("Storage.Within") + BookSourceRules.Count(BookNearbyConfig.Radius, Ru, "tile", "tiles", "блока", "блоков", "блоков");
+		string within = L("Storage.WithinTiles", BookNearbyConfig.Radius);
 		return (Main.netMode == NetmodeID.MultiplayerClient) ? (within + L("Storage.SetByTheHost")) : within;
 	}
 
@@ -1194,11 +1187,11 @@ public sealed class BookSources : ModSystem
 		List<string> parts = new List<string>();
 		if (SkippedLocked > 0)
 		{
-			parts.Add(SkippedLocked + T(" " + BookSourceRules.Plural(SkippedLocked, "заперт", "заперты", "заперты"), " locked"));
+			parts.Add(L("Storage.CountLocked", SkippedLocked));
 		}
 		if (SkippedInUse > 0)
 		{
-			parts.Add(SkippedInUse + T(" " + BookSourceRules.Plural(SkippedInUse, "занят", "заняты", "заняты"), " in use"));
+			parts.Add(L("Storage.CountInUse", SkippedInUse));
 		}
 		if (SkippedPassword > 0)
 		{
@@ -1262,7 +1255,7 @@ public sealed class BookSources : ModSystem
 		List<string> parts = new List<string> { L("Storage.Inventory2") };
 		if (usesBanks)
 		{
-			parts.Add(BookSourceRules.Count(BanksShown, Ru, "bank", "banks", "банк", "банка", "банков"));
+			parts.Add(L("Storage.CountBanks", BanksShown));
 		}
 		if (usesRemote)
 		{
@@ -1279,7 +1272,7 @@ public sealed class BookSources : ModSystem
 			int holding = chests ? ChestsHolding(remote) : 0;
 			if (holding > 0)
 			{
-				parts.Add(BookSourceRules.Count(holding, Ru, "chest", "chests", "сундук", "сундука", "сундуков"));
+				parts.Add(L("Storage.CountChests", holding));
 			}
 			if (storage)
 			{
@@ -1706,7 +1699,7 @@ public sealed class BookSources : ModSystem
 	{
 		if (moved > 0)
 		{
-			Say(() => Ru ? ((remote == moved) ? ("Сложено в удалённое хранилище: " + Count(moved)) : ("Сложено в хранилище: " + Count(moved) + ((remote > 0) ? (" · в удалённое: " + Count(remote)) : ""))) : ("Stacked " + Count(moved) + " items" + ((remote == moved) ? " into remote storage" : ((remote > 0) ? (" · " + Count(remote) + " into remote storage") : " into storage"))));
+			Say(() => (remote == moved) ? L("Storage.StackedRemote", Count(moved)) : ((remote > 0) ? L("Storage.StackedSomeRemote", Count(moved), Count(remote)) : L("Storage.StackedLocal", Count(moved))));
 		}
 		else
 		{
@@ -2071,7 +2064,7 @@ public sealed class BookSources : ModSystem
 			Waiting.Remove(id);
 		}
 		Say(() => L("Storage.NoReplyFromTheServerTry"));
-		BookCrafting.Say("Сервер не отвечает: повторите", "No reply from the server: try again");
+		BookCrafting.Say("Storage.NoReplyFromTheServerTry");
 	}
 
 	internal static void CancelCraft()

@@ -1,0 +1,73 @@
+KeyCtrl16: Ctrl+1…6
+GoToATab: Go to a tab
+KeyCtrlTab: Ctrl+Tab
+NextTab: Next tab
+KeyMouse4Alt: Mouse4 · Alt+←
+Back: Back
+KeyMouse5Alt: Mouse5 · Alt+→
+Forward: Forward
+KeyText: ← ↑ → ↓
+MoveTheSelection: Move the selection
+KeyPgUpPgDn: PgUp · PgDn
+TurnPages: Turn pages
+KeyHomeEnd: Home · End
+FirstLastPage: First · last page
+KeyEsc: Esc
+CloseTheTopWindow: Close the top window
+KeyF1: F1
+ThisHelp: This help
+KeyMouse3Middle: Mouse3 / middle
+TeleportThere: Teleport there
+KeyRMB: RMB
+PlaceAMarker: Place a marker
+KeyRMBOnAMarker: RMB on a marker
+EditOrDeleteIt: Edit or delete it
+KeyCtrlEnter: Ctrl+Enter
+Craft: Craft
+KeyCtrlShiftEnter: Ctrl+Shift+Enter
+CraftTheMost: Craft the most
+KeyAltT: Alt+T
+Track: Track
+KeyAltF: Alt+F
+Favorite: Favorite
+KeyAltG: Alt+G
+HowToGet: How to Get
+KeyAltU: Alt+U
+RecipeUsedIn: Recipe · Used in
+MobLootStats: Mob: Loot · Stats
+KeyLMB: LMB
+OpenAnIngredient: Open an ingredient
+KeyShiftLMB: Shift+LMB
+WhereItSUsed: Where it's used
+KeyAltLMB: Alt+LMB
+FavoriteInTheGrid: Favorite in the grid
+KeyMouse3: Mouse3
+LookUpItemOrMob: Look up item or mob
+KeyCtrlF: Ctrl+F
+Search: Search
+KeyCtrlBackspace: Ctrl+Backspace
+ResetFilters: Reset filters
+KeyAlt15: Alt+1…5
+Stage5BeforeTheNextBoss: Stage · 5: before the next boss
+KeyClassButtons: Class buttons
+FilterByClass: Filter by class
+KeyF5: F5
+Refresh: Refresh
+TakeAStack: Take a stack
+KeyRMBHold: RMB, hold
+OneAtATime: One at a time
+StackToInventory: Stack to inventory
+KeyCtrlLMB: Ctrl+LMB
+ToTheTrash: To the trash
+SelectedToInventory: Selected to inventory
+KeyCtrlQCtrlR: Ctrl+Q · Ctrl+R
+QuickStackRestock: Quick stack · restock
+KeyShiftLMBInInv: Shift+LMB in inv.
+PutAStackIn: Put a stack in
+KeyLMBHoldingItem: LMB holding item
+PutTheHeldItemIn: Put the held item in
+SectionMOVINGAROUND: MOVING AROUND
+SectionFULLMAPMOUSE3REBINDABLE: FULL MAP · MOUSE3 REBINDABLE
+SectionTHEITEMCARD: THE ITEM CARD
+SectionFINDINGTHINGS: FINDING THINGS
+SectionSTORAGE: STORAGE

@@ -1,25 +1,26 @@
-ThisMobInTheWorld: "This mob in the world"
-ForThisWorld: "For this world"
-Expert: "Expert"
-Master: "Master"
-Journey: "Journey"
-Classic: "Classic"
-Death: "Death"
-Revengeance: "Revengeance"
-SeeItOnce: "See it once"
-TalkToThemOnce: "Talk to them once"
-KillItOnceToSeeThem: "Kill it once to see them"
-Locked: "Locked"
-UnlockedAsInTheBestiary: "Unlocked as in the Bestiary"
-Life: "Life"
-Defense: "Defense"
-Damage: "Damage"
-KnockbackResist: "Knockback resist"
-HowMuchLessItIsKnocked: "How much less it is knocked back"
-Coins: "Coins"
-Kills: "Kills"
-KilledInThisWorld: "Killed in this world"
-Banner: "Banner"
-KillsTowardTheNextBanner: "Kills toward the next banner"
-DamageReduction: "Damage reduction"
-CalamityShareOfDamageItIgnores: "Calamity: share of damage it ignores"
+ThisMobInTheWorld: This mob in the world
+ForThisWorld: For this world
+Expert: Expert
+Master: Master
+Journey: Journey
+Classic: Classic
+Death: Death
+Revengeance: Revengeance
+SeeItOnce: See it once
+TalkToThemOnce: Talk to them once
+KillItOnceToSeeThem: Kill it once to see them
+Locked: Locked
+UnlockedAsInTheBestiary: Unlocked as in the Bestiary
+Life: Life
+Defense: Defense
+Damage: Damage
+KnockbackResist: Knockback resist
+HowMuchLessItIsKnocked: How much less it is knocked back
+Coins: Coins
+Kills: Kills
+KilledInThisWorld: Killed in this world
+Banner: Banner
+KillsTowardTheNextBanner: Kills toward the next banner
+DamageReduction: Damage reduction
+CalamityShareOfDamageItIgnores: Calamity: share of damage it ignores
+CountPlayers: "{0} {^0:player;players}"

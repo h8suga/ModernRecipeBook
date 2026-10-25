@@ -1,49 +1,59 @@
 Inventory: "Инвентарь: "
 OpenChest: "Открытый сундук: "
-Chests: "Сундуки"
-NothingNearby: "Рядом ничего нет"
+Chests: Сундуки
+NothingNearby: Рядом ничего нет
 Network: "Сеть "
 Text: " из "
 Remote: " (удалённо)"
-OpenChest2: "Открытый сундук"
+OpenChest2: Открытый сундук
 NotCounted: "Не учтены: "
 UnlimitedNotInTheTotal: ": без предела, в сумму не входит"
 Cells: "Ячейки: "
 Remote2: "Удалённо "
-Within: "В радиусе "
 SetByTheHost: " · задаёт хост"
-ViaPortableAccess: "через Portable Access"
-ViaTheMagicStorageWindow: "через окно Magic Storage"
+ViaPortableAccess: через Portable Access
+ViaTheMagicStorageWindow: через окно Magic Storage
 Password: " с паролем"
-PortableCraftingAccess: "Портативный доступ к созданию"
-PortableAccess: "Портативный доступ"
-OutOfRange: "вне досягаемости"
-NoPylonNearTheStorage: "у хранилища нет пилона"
-StorageMissing: "хранилища нет на месте"
-Loading: "загружается"
-LockedChestsAndChestsAnotherPlayer: "Запертые сундуки и сундуки, открытые другим игроком, пропускаются."
-AStorageWithAPasswordCounts: "Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage."
-APortableAccessInYourInventory: "Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон."
-Inventory2: "инвентарь"
+PortableCraftingAccess: Портативный доступ к созданию
+PortableAccess: Портативный доступ
+OutOfRange: вне досягаемости
+NoPylonNearTheStorage: у хранилища нет пилона
+StorageMissing: хранилища нет на месте
+Loading: загружается
+LockedChestsAndChestsAnotherPlayer: Запертые сундуки и сундуки, открытые другим игроком, пропускаются.
+AStorageWithAPasswordCounts: Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.
+APortableAccessInYourInventory: Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон.
+Inventory2: инвентарь
 From: "Откуда: "
-NoLongerNearby: "Этого уже нет рядом"
-InventoryFull: "Инвентарь полон"
-TakenToInventory: "Забрано в инвентарь"
-ClickTakeRightClickTakeOne: "Клик — взять · ПКМ — одну · Shift+клик — в инвентарь"
-StacksToppedUp: "Стопки пополнены"
-NothingToTopUp: "Нечего пополнять"
-StackedIntoNearbyChests: "Сложено в сундуки рядом"
-TooFastWaitAMoment: "Слишком часто: подождите"
-NearbyStorageIsOff: "Хранилища рядом выключены"
-StackedIntoNearbyChestsNoRoom: "Сложено в сундуки рядом · в хранилище нет места"
-ShiftClickAnInventoryItemOr: "Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище"
-NothingNearbyToDepositInto: "Рядом некуда складывать"
-NothingToDeposit: "Нечего складывать"
-InventoryFullRestOnCursor: "Инвентарь полон: остаток на курсоре"
+NoLongerNearby: Этого уже нет рядом
+InventoryFull: Инвентарь полон
+TakenToInventory: Забрано в инвентарь
+ClickTakeRightClickTakeOne: Клик — взять · ПКМ — одну · Shift+клик — в инвентарь
+StacksToppedUp: Стопки пополнены
+NothingToTopUp: Нечего пополнять
+StackedIntoNearbyChests: Сложено в сундуки рядом
+TooFastWaitAMoment: Слишком часто: подождите
+NearbyStorageIsOff: Хранилища рядом выключены
+StackedIntoNearbyChestsNoRoom: Сложено в сундуки рядом · в хранилище нет места
+ShiftClickAnInventoryItemOr: Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище
+NothingNearbyToDepositInto: Рядом некуда складывать
+NothingToDeposit: Нечего складывать
+InventoryFullRestOnCursor: Инвентарь полон: остаток на курсоре
 Took: "Взято "
 Of: " из "
 TheRestIsGone: ": остального уже нет"
-StoredNearby: "Сложено рядом"
+StoredNearby: Сложено рядом
 NearbyStorageIsFull: "Рядом нет места: осталось "
 Left: ""
-NoReplyFromTheServerTry: "Сервер не отвечает: повторите"
+NoReplyFromTheServerTry: Сервер не отвечает: повторите
+CountChests: "{0} {^0:сундук;сундука;сундуков}"
+CountStorages: "{0} {^0:хранилище;хранилища;хранилищ}"
+CountRemoteStorages: "{0} {^0:удалённое хранилище;удалённых хранилища;удалённых хранилищ}"
+CountBanks: "{0} {^0:банк;банка;банков}"
+CountInactiveUnits: "{0} {^0:неактивный блок хранения;неактивных блока хранения;неактивных блоков хранения}"
+WithinTiles: В радиусе {0} {^0:блока;блоков;блоков}
+CountLocked: "{0} {^0:заперт;заперты;заперты}"
+CountInUse: "{0} {^0:занят;заняты;заняты}"
+StackedRemote: Сложено в удалённое хранилище: {0}
+StackedSomeRemote: Сложено в хранилище: {0} · в удалённое: {1}
+StackedLocal: Сложено в хранилище: {0}

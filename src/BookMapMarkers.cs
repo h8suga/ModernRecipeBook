@@ -139,10 +139,10 @@ internal sealed class BookMapMarkers : ModSystem
 			return marker.Name;
 		}
 		BookMarkerBadges.Badge badge = BookMarkerBadges.Get(marker.Badge);
-		return RecipeBookSystem.T(badge.Ru, badge.En);
+		return L(badge.Name);
 	}
 
-	// "Placed by X · 2 h ago". The RU units are abbreviations, so no plural forms are needed.
+	// "Placed by X · 2 h ago".
 	internal static string Placed(BookMapMarker marker)
 	{
 		return L("Markers.PlacedBy") + marker.Author + " · " + Ago(marker.Created);
@@ -150,20 +150,7 @@ internal sealed class BookMapMarkers : ModSystem
 
 	internal static string Ago(long stamp)
 	{
-		TimeSpan age = TimeSpan.FromTicks(Math.Max(0L, Now - stamp));
-		if (age.TotalMinutes < 1.0)
-		{
-			return L("Markers.JustNow");
-		}
-		if (age.TotalHours < 1.0)
-		{
-			return RecipeBookSystem.T($"{(int)age.TotalMinutes} мин назад", $"{(int)age.TotalMinutes} min ago");
-		}
-		if (age.TotalDays < 1.0)
-		{
-			return RecipeBookSystem.T($"{(int)age.TotalHours} ч назад", $"{(int)age.TotalHours} h ago");
-		}
-		return RecipeBookSystem.T($"{(int)age.TotalDays} дн. назад", $"{(int)age.TotalDays} d ago");
+		return BookText.Ago(TimeSpan.FromTicks(Math.Max(0L, Now - stamp)));
 	}
 
 	internal static BookMapMarker Find(int id)
@@ -398,7 +385,7 @@ internal sealed class BookMapMarkers : ModSystem
 		{
 			Refusal.Off => L("Markers.MarkersAreOffOnThisServer"),
 			Refusal.Place => L("Markers.NotHere"),
-			Refusal.Limit => RecipeBookSystem.T($"Не больше {PerPlayer} меток", $"{PerPlayer} markers at most"),
+			Refusal.Limit => L("Markers.MarkersAtMost", PerPlayer),
 			Refusal.TooFast => L("Markers.TooFastTryAgain"),
 			Refusal.NotYours => L("Markers.NotYourMarker"),
 			Refusal.Missing => L("Markers.ThatMarkerIsGone"),

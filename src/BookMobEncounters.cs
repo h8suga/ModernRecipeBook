@@ -6,6 +6,8 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 
+using static ModernRecipeBook.BookText;
+
 namespace ModernRecipeBook;
 
 // When the player first and last met each Bestiary entry, saved per character. "Met" is the game's own rule for
@@ -113,31 +115,18 @@ internal sealed class BookMobEncounters
 		Version++;
 	}
 
-	// "just now", "5 min ago", "3 h ago", "2 d ago": real time, so it also counts time away from the game.
-	internal static string Ago(long utc, bool russian)
+	// Real time, so it also counts time away from the game.
+	internal static string Ago(long utc)
 	{
-		TimeSpan span = TimeSpan.FromTicks(Math.Max(0, DateTime.UtcNow.Ticks - utc));
-		if (span.TotalMinutes < 1)
-		{
-			return russian ? "только что" : "just now";
-		}
-		if (span.TotalHours < 1)
-		{
-			return russian ? ((int)span.TotalMinutes + " мин назад") : ((int)span.TotalMinutes + " min ago");
-		}
-		if (span.TotalDays < 1)
-		{
-			return russian ? ((int)span.TotalHours + " ч назад") : ((int)span.TotalHours + " h ago");
-		}
-		return russian ? ((int)span.TotalDays + " дн назад") : ((int)span.TotalDays + " d ago");
+		return BookText.Ago(TimeSpan.FromTicks(Math.Max(0, DateTime.UtcNow.Ticks - utc)));
 	}
 
-	// "12 окт." / "Oct 12" (with the year when it is not this one), and the full form with the time for tooltips.
-	internal static string Date(long utc, bool russian, bool full)
+	// "Oct 12" / "12 окт." (with the year when it is not this one), and the full form with the time for tooltips; the
+	// patterns are localized (Time.DateShort, Time.DateLong), the month names come from the game's culture.
+	internal static string Date(long utc, bool full)
 	{
 		DateTime local = new DateTime(utc, DateTimeKind.Utc).ToLocalTime();
-		CultureInfo culture = CultureInfo.GetCultureInfo(russian ? "ru-RU" : "en-US");
-		string day = russian ? ((local.Year == DateTime.Now.Year && !full) ? "d MMM" : "d MMMM yyyy") : ((local.Year == DateTime.Now.Year && !full) ? "MMM d" : "MMMM d, yyyy");
-		return local.ToString(full ? (day + ", HH:mm") : day, culture);
+		string day = L((local.Year == DateTime.Now.Year && !full) ? "Time.DateShort" : "Time.DateLong");
+		return local.ToString(full ? (day + ", HH:mm") : day, Terraria.Localization.Language.ActiveCulture.CultureInfo);
 	}
 }

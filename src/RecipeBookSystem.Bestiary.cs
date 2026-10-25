@@ -137,8 +137,8 @@ public sealed partial class RecipeBookSystem
 				MobCategoryCulture = culture;
 				MobCategoryList = BookBestiary.Tags.Select((BookBestiary.Tag tag) =>
 				{
-					string label = BookBestiary.Label(tag, Ru);
-					return new BookCategory(tag.Key, label, label, tag.Icon.ItemType, (Item _) => false);
+					string label = BookBestiary.Label(tag);
+					return new BookCategory(tag.Key, () => label, tag.Icon.ItemType, (Item _) => false);
 				}).ToList();
 			}
 			return MobCategoryList;
@@ -337,7 +337,7 @@ public sealed partial class RecipeBookSystem
 					var ranks = RecentMobRanks();
 					if (ranks.TryGetValue(mob.Index, out var entry))
 					{
-						seen = "\n" + L("Bestiary.Seen") + BookMobEncounters.Ago(entry.SeenUtc, Ru);
+						seen = "\n" + L("Bestiary.Seen") + BookMobEncounters.Ago(entry.SeenUtc);
 					}
 				}
 				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : L("Bestiary.NotInTheBestiaryYet")) + seen);
@@ -700,12 +700,12 @@ public sealed partial class RecipeBookSystem
 		{
 			SeenMobs.TryGet(credit, out met);
 		}
-		TagLine(3, L("Bestiary.Met3"), tracked ? (BookMobEncounters.Date(met.First, Ru, full: false) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? L("Bestiary.Earlier") : L("Bestiary.NotYet")));
+		TagLine(3, L("Bestiary.Met3"), tracked ? (BookMobEncounters.Date(met.First, full: false) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.Earlier") : L("Bestiary.NotYet")));
 		BookRect spawnLine = new BookRect(tags.X, tags.Y + 3f + 2 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		BookRect metLine = new BookRect(tags.X, tags.Y + 3f + 3 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		if (!MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(tracked ? (L("Bestiary.FirstMet") + BookMobEncounters.Date(met.First, Ru, full: true) + "\n" + L("Bestiary.LastMet") + BookMobEncounters.Date(met.Last, Ru, full: true) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? L("Bestiary.MetBeforeTheBookStartedRecording") : L("Bestiary.EncountersAreRecordedWhenTheMob")));
+			MouseTip(tracked ? (L("Bestiary.FirstMet") + BookMobEncounters.Date(met.First, full: true) + "\n" + L("Bestiary.LastMet") + BookMobEncounters.Date(met.Last, full: true) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.MetBeforeTheBookStartedRecording") : L("Bestiary.EncountersAreRecordedWhenTheMob")));
 		}
 		else if (!MenuOpen && EnemySpawnTip.Length > 0 && spawnLine.Contains(Mouse.X, Mouse.Y))
 		{

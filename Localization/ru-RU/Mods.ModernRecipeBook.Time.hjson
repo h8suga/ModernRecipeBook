@@ -1,0 +1,6 @@
+JustNow: только что
+MinutesAgo: "{0} мин назад"
+HoursAgo: "{0} ч назад"
+DaysAgo: "{0} дн. назад"
+DateShort: d MMM
+DateLong: d MMMM yyyy

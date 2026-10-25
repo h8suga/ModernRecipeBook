@@ -313,7 +313,7 @@ public sealed partial class RecipeBookSystem
 			if (hover)
 			{
 				BookMarkerBadges.Badge badge = BookMarkerBadges.All[i];
-				MouseTip(T(badge.Ru, badge.En));
+				MouseTip(L(badge.Name));
 				if (click)
 				{
 					MarkerBadge = (byte)i;
@@ -357,7 +357,7 @@ public sealed partial class RecipeBookSystem
 		Text(sb, BookMapMarkers.Title(marker), 74f, 14f, TextColor, 1.05f, MarkerWidth - 92f, 26f);
 		if (marker.Name.Length > 0)
 		{
-			Text(sb, T(badge.Ru, badge.En), 74f, 40f, Muted, 0.8f, MarkerWidth - 92f, 18f);
+			Text(sb, L(badge.Name), 74f, 40f, Muted, 0.8f, MarkerWidth - 92f, 18f);
 		}
 		Text(sb, BookMapMarkers.Placed(marker), 18f, 74f, TextColor, 0.85f, MarkerWidth - 36f, 22f);
 		if (marker.Edited != marker.Created)

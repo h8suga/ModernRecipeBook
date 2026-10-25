@@ -1,50 +1,51 @@
 Where: "Где: "
 Text0: " и ещё {0}"
-Every0Kills: "каждые {0} убийств"
-WearABlankBoxWhileIts: "Наденьте пустую шкатулку, пока играет мелодия"
-WhileItsTrackPlays: "пока играет мелодия"
+Every0Kills: каждые {0} убийств
+WearABlankBoxWhileIts: Наденьте пустую шкатулку, пока играет мелодия
+WhileItsTrackPlays: пока играет мелодия
 For: "за "
-WorldChestsAndStructures: "Сундуки и постройки мира"
-PlacedThereWhenTheWorldIs: "Лежит там с создания мира"
-FromWorldCreation: "с создания мира"
-UnknownCondition: "Неизвестное условие"
-AnyEnemy: "Любые враги"
-AnglerQuest: "Задание рыбака"
-CaughtOnlyWhileTheAnglerAsks: "Ловится, только когда её просит Рыбак"
-AnglerQuest2: "задание рыбака"
-FoundInTheWorld: "Встречается в мире"
-FallsAtNight: "падает ночью"
-AfterAMechanicalBoss: "после механического босса"
-Treetop: "верхушка"
-ShakeIt: "потрясите"
-Halloween: "Хэллоуин"
-OnGrass: "на траве"
+WorldChestsAndStructures: Сундуки и постройки мира
+PlacedThereWhenTheWorldIs: Лежит там с создания мира
+FromWorldCreation: с создания мира
+UnknownCondition: Неизвестное условие
+AnyEnemy: Любые враги
+AnglerQuest: Задание рыбака
+CaughtOnlyWhileTheAnglerAsks: Ловится, только когда её просит Рыбак
+AnglerQuest2: задание рыбака
+FoundInTheWorld: Встречается в мире
+FallsAtNight: падает ночью
+AfterAMechanicalBoss: после механического босса
+Treetop: верхушка
+ShakeIt: потрясите
+Halloween: Хэллоуин
+OnGrass: на траве
 Pickaxe: "кирка "
-GrowsOnGrass: "Растёт на траве"
+GrowsOnGrass: Растёт на траве
 GrowsOn: "Растёт на: "
-InTheWorld: "В мире"
-AnyWater: "Любая вода"
-Lava: "Лава"
-Honey: "Мёд"
-BloomsByDay: "цветёт днём"
-BloomsAtNight: "цветёт ночью"
-BloomsAtABloodOrFull: "цветёт в кровавую луну и полнолуние"
-BloomsInRain: "цветёт в дождь"
-BloomsAtSunset: "цветёт на закате"
-BloomsWhenGrown: "цветёт, когда вырастет"
-Common: "обычный улов"
-Uncommon: "необычный улов"
-Rare: "редкий улов"
-VeryRare: "очень редкий улов"
-Legendary: "легендарный улов"
-Crate: "ящик"
-JunkInSmallPonds: "мусор в мелкой воде"
+InTheWorld: В мире
+AnyWater: Любая вода
+Lava: Лава
+Honey: Мёд
+BloomsByDay: цветёт днём
+BloomsAtNight: цветёт ночью
+BloomsAtABloodOrFull: цветёт в кровавую луну и полнолуние
+BloomsInRain: цветёт в дождь
+BloomsAtSunset: цветёт на закате
+BloomsWhenGrown: цветёт, когда вырастет
+Common: обычный улов
+Uncommon: необычный улов
+Rare: редкий улов
+VeryRare: очень редкий улов
+Legendary: легендарный улов
+Crate: ящик
+JunkInSmallPonds: мусор в мелкой воде
 With: "нужно: "
 With2: "удочкой: "
-Hardmode: "Хардмод"
-AfterMoonLord: "после Лунного лорда"
-BloodMoon: "Кровавая луна"
-ByDay: "днём"
-AtNight: "ночью"
-InLava: "в лаве"
-Grass: "трава"
+Hardmode: Хардмод
+AfterMoonLord: после Лунного лорда
+BloodMoon: Кровавая луна
+ByDay: днём
+AtNight: ночью
+InLava: в лаве
+Grass: трава
+CountSources: "{0} {^0:источник;источника;источников}"
