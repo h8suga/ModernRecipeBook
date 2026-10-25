@@ -552,5 +552,5 @@ Copyright (C) 2026 h8suga
 - Made by [h8suga](https://github.com/h8suga).
 - [psychological1nstability](https://github.com/psychological1nstability) laid the foundation of the mod.
 - Built on [tModLoader](https://github.com/tModLoader/tModLoader).
-- Integrates with [Calamity Mod](https://calamitymod.wiki.gg/) and
-  [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); both belong to their authors.
+- Integrates with [Calamity Mod](https://steamcommunity.com/sharedfiles/filedetails/?id=2824688072) and
+  [Magic Storage](https://steamcommunity.com/sharedfiles/filedetails/?id=2563309347); both belong to their authors.

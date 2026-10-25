@@ -564,5 +564,5 @@ Copyright (C) 2026 h8suga
 - Автор: [h8suga](https://github.com/h8suga).
 - [psychological1nstability](https://github.com/psychological1nstability) заложил основу мода.
 - Сделано на [tModLoader](https://github.com/tModLoader/tModLoader).
-- Интеграция с [Calamity Mod](https://calamitymod.wiki.gg/) и
-  [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); оба мода принадлежат своим авторам.
+- Интеграция с [Calamity Mod](https://steamcommunity.com/sharedfiles/filedetails/?id=2824688072) и
+  [Magic Storage](https://steamcommunity.com/sharedfiles/filedetails/?id=2563309347); оба мода принадлежат своим авторам.
