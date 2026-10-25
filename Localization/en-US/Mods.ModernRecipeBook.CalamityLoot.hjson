@@ -1,0 +1,28 @@
+Enchantment: Enchantment
+Gift: Gift
+SetBonus: Set bonus
+EnchantLabel: "{0} curse · after {1}"
+EnchantBody: "{0} turns {1} into this item with the {2} curse. It costs four times the item's value, at most 10 gold, adjusted by her happiness and the {4}. She moves in once {3} is defeated."
+RareCatchLabel: only the ones that carry it
+RareCatchBody: One in {0} of them spawns carrying it; catch that one with a bug net
+AbyssChests: Locked chests in the Abyss
+AbyssChestsBody: Each island of the Abyss holds one from world creation. They unlock once {0} is defeated, and an emptied one can be broken and taken.
+BlenderLabel: use a food on it
+BlenderBody:
+	'''
+	A food used on a placed blender is blended:
+	{2} with a chance in percent of its buff minutes ÷ 10
+	(×2 for {0}, ×10 for {1}), otherwise {3}
+	{1} foods of 30 minutes or more are eaten as usual
+	'''
+AltarLabel: dropped on a {0}
+AltarBody: Drop it onto a {0} and it turns into this item, keeping its modifier
+NewCharacter: A new character
+NewCharacterBody: Calamity gives one to every new character; it is not given again after a mediumcore death
+BossRush: Boss Rush
+BossRushLabel: for winning it
+BossRushBody: Every player in the world gets one when the Boss Rush, started with the {0}, is won
+WulfrumArmor: Wulfrum armor
+WulfrumLabel: while the Wulfrum Bastion lasts
+WulfrumBody: With {0}, {1} and {2} on, the set bonus's Wulfrum Bastion puts it in your hand until the bastion ends; it cannot be kept
+ExoMechdusa: as the Exo Mechdusa, called by contacting Draedon with a {0} in the {1}
