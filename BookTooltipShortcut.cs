@@ -46,6 +46,21 @@ public sealed class BookTooltipShortcut : GlobalItem
 				OverrideColor = new Color(150, 165, 155)
 			});
 		}
+		// A card list row: its counts and click hint under the item's own lines.
+		if (RecipeBookSystem.Open && RecipeBookSystem.RowHoverFrame == Main.GameUpdateCount && item.type == RecipeBookSystem.RowHoverType)
+		{
+			int n = 0;
+			foreach (string text in RecipeBookSystem.RowHoverLines.Split('\n'))
+			{
+				if (text.Length > 0)
+				{
+					tooltips.Add(new TooltipLine(Mod, "BookRow" + n++, text)
+					{
+						OverrideColor = new Color(170, 200, 180)
+					});
+				}
+			}
+		}
 	}
 
 	// Item tooltips over the book get the book's panel instead of vanilla's blue box: it is drawn right before this

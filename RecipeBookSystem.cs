@@ -127,6 +127,24 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// The Storage tab cell under the mouse this frame; its tooltip gets the "Chests ×3: 120" line.
 	internal static Item StorageHover;
 
+	// A card list row (an ingredient, a Used in recipe) under the mouse this frame: it shows its item's own tooltip, as a
+	// grid cell does, and the book's lines for the row (counts, the click hint) go under it (BookTooltipShortcut). The
+	// owner wanted the description at once instead of a click to open the item.
+	internal static int RowHoverType = -1;
+
+	internal static string RowHoverLines = "";
+
+	internal static uint RowHoverFrame;
+
+	private static void HoverItemRow(Item item, string lines)
+	{
+		Main.HoverItem = item.Clone();
+		Main.hoverItemName = item.Name;
+		RowHoverType = item.type;
+		RowHoverLines = lines;
+		RowHoverFrame = Main.GameUpdateCount;
+	}
+
 	private static TrackedGoal ActiveGoal;
 
 	private static int TrackerTicks;
@@ -6981,9 +6999,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Chevron(sb, row.X + row.Width - 14f, row.Y + row.Height / 2f, 4f, 3, hover ? TextColor : Muted);
 			if (hover)
 			{
-				Main.HoverItem = new Item();
-				Main.hoverItemName = "";
-				MouseTip(preview.Materials + "\n" + T("Клик: открыть этот предмет", "Click: open this item"));
+				HoverItemRow(output, preview.Materials + "\n" + T("Клик: открыть этот предмет", "Click: open this item"));
 			}
 		}
 		if (pages > 1)
@@ -7099,7 +7115,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 				detail = detail.Substring(0, cut);
 			}
 			string body = string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0));
-			MouseTip(d.Name + ((body.Length > 0) ? ("\n" + body) : "") + where);
+			if (hasItem && d.Icon != null && !d.Icon.IsAir)
+			{
+				// The item's own tooltip; the row's name line is the tooltip's title already.
+				HoverItemRow(d.Icon, body + where);
+			}
+			else
+			{
+				MouseTip(d.Name + ((body.Length > 0) ? ("\n" + body) : "") + where);
+			}
 		}
 	}
 

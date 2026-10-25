@@ -3,6 +3,13 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.15.1 — 2026-10-25
+
+### Changed
+- Hovering an ingredient or a Used in row in the item card shows that item's own tooltip at once, as a grid cell
+  does, with the row's counts and the click hint under it. Before, it showed only the counts and needed a click to
+  read the item.
+
 ## 1.15.0 — 2026-10-25
 
 ### Added
