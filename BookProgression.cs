@@ -423,6 +423,38 @@ internal static class BookProgression
 		}
 		Dictionary<int, BookProgressionRules.Route> via = new Dictionary<int, BookProgressionRules.Route>();
 		(items, recipes) = BookProgressionRules.Resolve(seeds, floors, routes, via);
+		// Blocks dug out of the world (mods' tiles, vanilla ores) are also floored at the first pickaxe strong enough
+		// for them, as other sources only guess (Voidstone: a drop of an Abyss mob the tables cannot place, by its
+		// White rarity; the 180 pickaxe makes it hardmode).
+		var picks = (from i in all
+			where i.pick > 0 && items.ContainsKey(i.type)
+			select (Power: i.pick, Step: items[i.type])).ToList();
+		bool raised = false;
+		foreach (Item item in all)
+		{
+			int tile = item.createTile;
+			int minPick = (tile >= TileID.Count || (tile >= 0 && BookWorldSources.Natural(tile))) ? BookWorldSources.PickPower(tile) : 0;
+			if (minPick <= 0)
+			{
+				continue;
+			}
+			int pick = picks.Where(p => p.Power >= minPick).Select(p => p.Step).DefaultIfEmpty(-1).Min();
+			if (pick > floors.GetValueOrDefault(item.type))
+			{
+				floors[item.type] = pick;
+				if (seeds.TryGetValue(item.type, out int mined) && mined < pick)
+				{
+					seeds[item.type] = pick;
+					why[item.type] = "pickaxe:" + minPick;
+					sources[item.type] = minPick;
+				}
+				raised = true;
+			}
+		}
+		if (raised)
+		{
+			(items, recipes) = BookProgressionRules.Resolve(seeds, floors, routes, via);
+		}
 		// Second pass: whatever the graph could not place gets its curated floor (Pearlwood), the graph runs again so
 		// what is made of it follows, and only then the rest gets its rarity tier. What the world's difficulty rules
 		// out (boss bags in Classic) stays out; listing it would open its loot.
@@ -560,8 +592,9 @@ internal static class BookProgression
 			{
 				continue;
 			}
-			// The Hallow and Calamity's Astral Infection only exist from hardmode on: a catch only they give waits for it.
-			int step = source.Where.Length > 0 && source.Where.All((string where) => where.Contains("Hallow") || where.Contains("Astral")) ? BookSteps.HardmodeStep : 0, rod = 0;
+			// The Hallow and Calamity's Astral Infection only exist from hardmode on, and the Dungeon is open after
+			// Skeletron: a catch only they give waits for it.
+			int step = source.Where.Length == 0 ? 0 : (source.Where.All((string where) => where.Contains("Hallow") || where.Contains("Astral")) ? BookSteps.HardmodeStep : (source.Where.All((string where) => where.EndsWith("TheDungeon", StringComparison.Ordinal)) ? Max(0, BookSteps.Resolve("SkeletronHead")) : 0)), rod = 0;
 			foreach (string part in source.Note.Split('|', ','))
 			{
 				if (part.StartsWith("rod:", StringComparison.Ordinal))

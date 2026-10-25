@@ -2540,11 +2540,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// The stage filter spans tabs (one for Storage, one for the rest), so it sits in the header next to the title, not in a tab's filter bar.
-	// Its width fits the longest stage option, so picking another stage never moves the tabs ("Before: <boss>" is
-	// shrunk to fit).
+	// Its width fits the longest stage option and leaves "Before: <boss>" some room (205 keeps both languages' tabs
+	// as they were), so picking another stage never moves the tabs; a long boss name is shrunk to fit.
 	private static BookRect StageDropdownRect()
 	{
-		float width = Math.Max(StageLabels().Max((string label) => TextWidth(label, 0.85f)), TextWidth(UnknownStageLabel, 0.85f)) + 52f;
+		float width = Math.Max(Math.Max(StageLabels().Max((string label) => TextWidth(label, 0.85f)), TextWidth(UnknownStageLabel, 0.85f)) + 52f, 205f);
 		return new BookRect(TitleRight() + 16f, BookGeometry.TabTop + 2f, width, BookGeometry.TabHeight - 4f);
 	}
 

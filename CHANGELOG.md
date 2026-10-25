@@ -3,6 +3,30 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## Unreleased
+
+### Added
+- "Before: <boss>" in the stage filter: pick a boss and the book lists what you can get or craft with every boss
+  before it down and that one still alive. The stage menu is one panel with the stages and every boss in three
+  columns with its head, downed ones ticked; "Next boss" (Alt+5) is the first one not yet down in this world and moves
+  on by itself. Works on Items, Recipes, the Bestiary, Storage's own filter and the card's Used in list, and is saved
+  with the other filters.
+- Every item, recipe and mob now has the boss it waits for, in Boss Checklist's order (Boss Checklist's own list when
+  it is loaded, else the vanilla and Calamity bosses), not just one of three stages. Boss loot follows its boss;
+  enemies their spawn (post-Plantera Dungeon, eclipse, moons, Martians, pillars, Acid Rain, mods' spawn gates); shops
+  and drops their conditions, Calamity's lambdas too; ores the boss that spawns them and the pickaxe they need,
+  Calamity's hardmode ore rework included; fishing its biome.
+- The card's stage line names that boss ("After Plantera"), and its hint shows why: "Spectre Bar ← Ectoplasm ← drop:
+  Dungeon Spirit".
+- "Unknown stage" in the stage menu lists what the book cannot place, and the footer counts what the stage filter hid
+  for that reason.
+
+### Fixed
+- How to Get said Hallowed Ore comes after The Destroyer; with Calamity it comes with the third mechanical boss,
+  whichever it is. Astral Ore now says it waits for Astrum Deus, and Aerialite names both evil bosses.
+- Fishing crates, the Golden Carp, the Alchemy Table and other catches had a hardmode stage from their rarity; they
+  follow their fishing spot now. Catches only the Hallow or the Astral Infection give wait for hardmode.
+
 ## 1.14.0 — 2026-10-25
 
 ### Added

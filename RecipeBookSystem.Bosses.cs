@@ -373,12 +373,13 @@ public sealed partial class RecipeBookSystem
 	private static string StageExplanation(Item item, Recipe recipe)
 	{
 		int step = recipe != null ? BookProgression.RecipeStep(recipe.RecipeIndex) : BookProgression.ItemStep(item.type);
-		string head = StepName(step);
+		bool modeExcluded = recipe != null ? BookProgression.RecipeModeExcluded(recipe.RecipeIndex) : BookProgression.ItemModeExcluded(item.type);
+		string head = StageName(item, recipe);
 		if (step > 0 && step != BookSteps.HardmodeStep && step != BookSteps.MoonLordStep)
 		{
 			head += " · " + StageName(BookSteps.StageOf(step));
 		}
-		string chain = ChainText(BookProgression.Chain(item.type, recipe?.RecipeIndex ?? -1));
+		string chain = modeExcluded ? ItemName(item.type) + " ← " + T("источник есть только при другой сложности мира", "its source is only there at another world difficulty") : ChainText(BookProgression.Chain(item.type, recipe?.RecipeIndex ?? -1));
 		string lead = recipe != null ? T("Этап рецепта: по материалам, станции и условиям", "Recipe stage: from its materials, station and conditions") : T("Самый ранний этап, когда предмет можно получить", "The earliest stage you can get this item");
 		return head + (chain.Length > 0 ? "\n" + chain : "") + "\n" + lead + "\n" + T("Учитывается сложность мира; боссы — в порядке Boss Checklist", "The world's difficulty counts; bosses go in Boss Checklist's order");
 	}
@@ -403,6 +404,7 @@ public sealed partial class RecipeBookSystem
 				"list" or "worldgen" => T("есть в мире", "found in the world"),
 				"fishing" => T("рыбалка", "fishing"),
 				"grows" => T("растёт в мире", "grows in the world"),
+				"pickaxe" => T("нужна кирка с силой ", "needs pickaxe power ") + link.Id + " · " + StepPhrase(link.Step),
 				"rarity" => T("по редкости (оценка)", "by rarity (a guess)"),
 				"gate" => link.Id <= 0 ? T("с самого начала", "from the start") : StepPhrase(link.Id),
 				"recipe" or "bag" or "use" or "record" or "carried" or "mine" or "shimmer" or "trade" or "rod" => null,

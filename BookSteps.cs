@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
 using Terraria.GameContent.Events;
@@ -188,7 +189,9 @@ internal static class BookSteps
 				continue;
 			}
 			string key = words[0] + " " + words[1];
-			list.Add(new Step(key, words[0], npcs, () => (bool)flag.GetValue(null), TableName(words[0], words[1], npcs), Availability.GetValueOrDefault(key) ?? (() => true)));
+			// A compiled read: FieldInfo.GetValue would box the flag on every "next boss" check.
+			Func<bool> downed = Expression.Lambda<Func<bool>>(Expression.Field(null, flag)).Compile();
+			list.Add(new Step(key, words[0], npcs, downed, TableName(words[0], words[1], npcs), Availability.GetValueOrDefault(key) ?? (() => true)));
 		}
 		return list;
 	}
@@ -229,14 +232,15 @@ internal static class BookSteps
 			string key = (string)same[0]["key"];
 			Func<bool>[] downed = same.Select((Dictionary<string, object> e) => e.GetValueOrDefault("downed") as Func<bool>).Where((Func<bool> f) => f != null).ToArray();
 			LocalizedText[] names = same.Select((Dictionary<string, object> e) => e.GetValueOrDefault("displayName") as LocalizedText).Where((LocalizedText t) => t != null).ToArray();
+			// The Eater of Worlds and the Brain of Cthulhu share a step: the world's evil names it.
+			int brain = same.FindIndex((Dictionary<string, object> e) => (e.GetValueOrDefault("npcIDs") as List<int>)?.Contains(NPCID.BrainofCthulhu) == true);
 			// The built-in row with the same NPCs: its key, so a saved "Before" boss survives Boss Checklist coming or
 			// going (Boss Checklist names vanilla bosses its own way, "Terraria Skeleton").
 			int[] listed = same.SelectMany((Dictionary<string, object> e) => e.GetValueOrDefault("npcIDs") as List<int> ?? new List<int>()).ToArray();
 			Step own = table.FirstOrDefault((Step s) => s.Npcs.Intersect(listed).Any());
 			int[] npcs = listed.Concat(own?.Npcs ?? Array.Empty<int>()).Distinct().ToArray();
 			string mod = same[0].GetValueOrDefault("modSource") as string ?? key.Split(' ')[0];
-			// The world's evil picks between two entries of one step.
-			Func<string> name = (names.Length == 2 && key == "Terraria EaterofWorldsHead") ? () => names[WorldGen.crimson ? 1 : 0].Value : () => string.Join(" / ", names.Select((LocalizedText t) => t.Value));
+			Func<string> name = (names.Length == 2 && same.Count == 2 && brain >= 0) ? () => names[WorldGen.crimson ? brain : 1 - brain].Value : () => string.Join(" / ", names.Select((LocalizedText t) => t.Value));
 			list.Add(new Step(own?.Key ?? key, mod, npcs, () => downed.Any((Func<bool> f) => f()), name, Availability.GetValueOrDefault(key) ?? (() => true)));
 		}
 		return list.Count > 0 ? list : null;
