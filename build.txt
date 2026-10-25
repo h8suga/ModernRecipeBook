@@ -1,7 +1,8 @@
 displayName = Modern Recipe Book
 author = h8suga
+homepage = https://github.com/h8suga/ModernRecipeBook
 version = 1.16.1
 side = Both
 weakReferences = MagicStorage
 sortAfter = MagicStorage
-buildIgnore = *.md, docs/*, .github/*, Localization/TranslationsNeeded.txt
+buildIgnore = *.md, docs/*, .github/*, Localization/TranslationsNeeded.txt, description_workshop.txt, icon_workshop.png, changelog.txt

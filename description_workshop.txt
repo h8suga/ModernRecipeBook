@@ -1,0 +1,52 @@
+[h1]Modern Recipe Book[/h1]
+A recipe book, bestiary and storage browser for every item and mob in Terraria and its mods. Press [b]Mouse3[/b] (middle click) and the book opens over the game. Everything in it is read from the game and its mods, not from a wiki: recipes, drops, bags, shops, crates, fishing, world generation and spawn rules.
+
+[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/items.png[/img]
+
+[h2]Highlights[/h2]
+[list]
+[*][b]Six tabs in one window[/b]: Items, Recipes, Bestiary, Storage, Recent crafts and Tracking.
+[*][b]How to Get[/b] for any item: recipes, drops, bags, crates, shops, fishing, shimmer and the world itself, with the drop chances of your world's difficulty and seed.
+[*][b]It knows where you are in the game[/b]: every item, recipe and mob has the boss it waits for, and "Before: <boss>" shows exactly what you can get right now. "Next boss" follows your world by itself.
+[*][b]Craft from everything around you[/b]: inventory, chests, banks and Magic Storage, even a network far away.
+[*][b]Bestiary[/b] with animated portraits, drops, where and after which boss a mob spawns, and the stats you have earned.
+[*]Search by name or by the item's own text, sorts by damage, defense, healing, tool power and more, class buttons and weapon traits (homing, piercing, through walls...), a crafting station filter and "Craftable now".
+[*]Hover any row that stands for an item to read its own tooltip.
+[*]Tracking cards or compact lines under the minimap, map teleport and shared map markers.
+[*]Every action has a shortcut; F1 lists them all. Back and Forward walk through everything you opened.
+[/list]
+
+[h2]Built-in Magic Storage and Calamity support[/h2]
+[b]Magic Storage[/b]: every network in reach is part of the Storage tab, with its cells and its Crafting Interface stations. Craft straight from it, bring a far network in with a Portable Access, and Quick Stack, Deposit All and Restock into it, the remote one included.
+
+[b]Calamity[/b]: every Calamity boss is a progression step (no Boss Checklist needed), Calamity's biomes and the Acid Rain tiers sort the Bestiary, spawn rules are read from Calamity's own code, drop chances follow Revengeance, boss-kill ores say which boss spawns them, and the Rogue class has its own button.
+
+[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/storage.png[/img]
+
+[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/bestiary-spawns.png[/img]
+
+[h2]Compatibility[/h2]
+[table]
+[tr][th]Tested with[/th][th]Version[/th][/tr]
+[tr][td]Terraria[/td][td]1.4.4.9[/td][/tr]
+[tr][td]tModLoader[/td][td]2026.08.3.0 (stable)[/td][/tr]
+[tr][td]Calamity Mod[/td][td]2.2.4, optional, fully supported[/td][/tr]
+[tr][td]Magic Storage[/td][td]0.7.0.11, optional, fully supported[/td][/tr]
+[/table]
+The mod is needed on the server and on every client; players joining a server download it. Without Calamity or Magic Storage it works with whatever the game has.
+
+[h2]Languages[/h2]
+English and Russian, including everything the book writes about items, sources and mobs. Every text lives in localization files as a whole phrase, so the book can be translated into any language the way Calamity is: see [url=https://github.com/h8suga/ModernRecipeBook/blob/main/TRANSLATING.md]TRANSLATING.md[/url].
+
+[h2]Links[/h2]
+[list]
+[*][url=https://github.com/h8suga/ModernRecipeBook]Source code, every feature and all screenshots on GitHub[/url]
+[*][url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]Changelog[/url]
+[*]Bugs and ideas: [url=https://github.com/h8suga/ModernRecipeBook/issues]GitHub Issues[/url] or the comments below
+[/list]
+
+[h2]На русском[/h2]
+Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском. Открывается на колёсико мыши (Mouse3). Показывает, где взять любой предмет и после какого босса он доступен, крафтит из сундуков и Magic Storage рядом (даже из удалённой сети), полностью поддерживает Calamity и Magic Storage и работает в мультиплеере. Подробности и скриншоты — на [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]GitHub[/url].
+
+[hr][/hr]
+Free software under the [url=https://github.com/h8suga/ModernRecipeBook/blob/main/LICENSE]GNU GPL v3.0[/url]. Made by h8suga; psychological1nstability laid the foundation of the mod.

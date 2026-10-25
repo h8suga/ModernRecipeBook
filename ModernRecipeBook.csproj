@@ -5,4 +5,86 @@
     <AssemblyName>ModernRecipeBook</AssemblyName>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
+  <!-- Steam's Change Notes: tModLoader publishes changelog.txt with each upload. Every build writes it from the
+       CHANGELOG.md section of the version build.txt names, in Steam's markup; its Developer part is left out. -->
+  <UsingTask TaskName="WriteWorkshopChangeNotes" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <Folder ParameterType="System.String" Required="true" />
+      <Repository ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+string version = File.ReadAllLines(Path.Combine(Folder, "build.txt"))
+    .Select(l => Regex.Match(l, @"^\s*version\s*=\s*(\S+)")).Where(m => m.Success).Select(m => m.Groups[1].Value).FirstOrDefault();
+string[] lines = File.ReadAllLines(Path.Combine(Folder, "CHANGELOG.md"));
+int start = Array.FindIndex(lines, l => Regex.IsMatch(l, @"^## " + Regex.Escape(version ?? "-") + @"(\s|$)"));
+if (start < 0)
+{
+    Log.LogWarning("CHANGELOG.md has no section for " + version + "; changelog.txt is left as it is.");
+    return true;
+}
+Func<string, string> inline = text =>
+{
+    text = Regex.Replace(text, @"\[([^\]]+)\]\(([^)]+)\)", m => "[url=" + (m.Groups[2].Value.StartsWith("http") ? m.Groups[2].Value : Repository + "/blob/main/" + m.Groups[2].Value) + "]" + m.Groups[1].Value + "[/url]");
+    text = Regex.Replace(text, @"\*\*([^*]+)\*\*", "[b]$1[/b]");
+    return text.Replace("`", "");
+};
+var notes = new StringBuilder("Version " + version + "\n");
+bool inList = false;
+bool skip = false;
+string item = null;
+Action flush = () =>
+{
+    if (item != null) { notes.Append("[*]").Append(inline(item)).Append('\n'); item = null; }
+};
+for (int i = start + 1; i < lines.Length && !lines[i].StartsWith("## "); i++)
+{
+    string line = lines[i];
+    if (line.StartsWith("### "))
+    {
+        flush();
+        if (inList) { notes.Append("[/list]\n"); inList = false; }
+        skip = line.Substring(4).Trim() == "Developer";
+        if (!skip) notes.Append("\n[b]").Append(line.Substring(4).Trim()).Append("[/b]\n");
+    }
+    else if (skip)
+    {
+        continue;
+    }
+    else if (line.StartsWith("- "))
+    {
+        flush();
+        if (!inList) { notes.Append("[list]\n"); inList = true; }
+        item = line.Substring(2).Trim();
+    }
+    else if (item != null && line.StartsWith("  "))
+    {
+        item += " " + line.Trim();
+    }
+    else if (line.Trim().Length > 0)
+    {
+        flush();
+        notes.Append(inline(line.Trim())).Append('\n');
+    }
+}
+flush();
+if (inList) notes.Append("[/list]\n");
+string path = Path.Combine(Folder, "changelog.txt");
+string text = notes.ToString().TrimEnd() + "\n";
+if (!File.Exists(path) || File.ReadAllText(path) != text)
+{
+    File.WriteAllText(path, text, new UTF8Encoding(false));
+}
+]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="WorkshopChangeNotes" BeforeTargets="Build">
+    <WriteWorkshopChangeNotes Folder="$(MSBuildProjectDirectory)" Repository="https://github.com/h8suga/ModernRecipeBook" />
+  </Target>
 </Project>
