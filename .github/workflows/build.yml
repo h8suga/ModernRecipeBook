@@ -43,8 +43,12 @@ jobs:
           </Project>
           EOF
 
+      # Packing the .tmod converts the images through FNA3D; tModLoader's own launch scripts put its native libraries
+      # on the library path, a bare dotnet call does not.
       - name: Build
         run: |
+          ls tModLoader/Libraries/Native/Linux
+          export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/tModLoader/Libraries/Native/Linux${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           dotnet build ModSources/ModernRecipeBook/ModernRecipeBook.csproj -c Release -nologo \
             "-p:ExtraBuildModFlags=-tmlsavedirectory $GITHUB_WORKSPACE/save"
           test -f save/Mods/ModernRecipeBook.tmod
