@@ -237,6 +237,8 @@ One `byte` message id after tML's mod header: the mod's one `BookMessage` enum a
 | 11 | `NearbyGive` | S→C | `int id`; `byte status` (0 Done, 1 Partial, 2 Nothing, 3 Off, 4 Busy, 5 Invalid); `ushort n` (≤ 256); n × `ItemIO.Send(item, w, writeStack: true)` (V18, keeps modded data) |
 | 12 | `NearbyAck` | C→S | `int id` |
 | 13 | `NearbyDeposit` | C→S | `int id`; `byte n` (1..60); n × `ItemIO.Send(item, w, writeStack: true)`. The server places them (§4.9) and answers with a `Give` holding what did not fit. |
+| 14 | `NearbyQuickStack` | C→S | `byte n` (1..80); n × `short` slot (`PlayerItemSlotID`: inventory 10..49, `Bank4_0`..+39). The client locked those slots; the server quick-stacks them on its copy of the inventory (§4.10), sends each slot back (vanilla message 5) and then a `Stacked`. |
+| 15 | `NearbyStacked` | S→C | `byte status`; `7b moved`; `7b remote`: the items stacked and how many of them went into remote networks. |
 
 The config change needs no packet: tML broadcasts it (V17). Clients clear the mirror and unsubscribe when `NearbyStorage` turns off; the server stops scanning.
 
@@ -366,6 +368,25 @@ the client's slots when it sends them; the server places them and returns the le
 call does it all (V14). An exception keeps what was already placed (it is in storage) and returns the rest. A
 leftover the client never acknowledges drops where the player stood when the player leaves (§4.6). The chest mirror
 and Magic Storage's own sync carry the change to every client.
+
+### 4.10 Quick Stack: the Storage tab's button reaches every counted network (owner, 1.14: «почему кнопка не работает для удаленного хранилища?»)
+
+The Storage tab's Quick Stack (and Ctrl+Q) first runs vanilla's `Player.QuickStackAllChests`, as before: nearby chests and banks, plus Magic Storage's own hook for networks near the player. Then it quick-stacks into every network the book counts, the remote ones reached through a carried Portable Access included. Vanilla's inventory button is left alone: the owner uses the book's.
+
+**Rules (vanilla's quick stack).**
+- **Slots.** The main inventory 10..49 and, while a Void Bag is in use, its 40 slots. Never the hotbar, coins, favorites or a Magic Storage locator (`BookMagicStorage.IsLocator`).
+- **Targets.** An item goes only into a counted network that already holds its type, nearest first. What does not fit stays in its slot. There is no fallback to another network or to a free chest slot, unlike Deposit (§4.9).
+- **Nothing extra while off.** With nearby storage off, or no counted network, only vanilla's part runs.
+
+**Multiplayer, done like vanilla's own quick stack** (`MessageID.QuickStackChests` 85 → `Chest.ServerPlaceItem`): the server works on its copy of the inventory and sends each slot back.
+1. The client waits until vanilla's round trip is over. Until the server has sent back every slot vanilla locked, `HasLockedInventory` stays true; once it is false, the client ignores server slot updates for its own player.
+2. It locks the slots whose type a counted network holds (`inventoryChestStack`, `disableVoidBag` for the last Void Bag slot) and sends `NearbyQuickStack`.
+3. The server checks the rate limit, finds networks as for a pull (the carried Portable Access checked again on the server, §5.7) and applies the rules above to its copy. Favorites are not synced to the server, so for them the client's slot list decides, as with vanilla's message 85.
+4. It sends every listed slot back, changed or not, which unlocks them, then `NearbyStacked`.
+
+Nothing travels as an item, so nothing can be doubled or lost on the way. Single player calls the same function directly.
+
+**Message.** "Stacked 18 items into remote storage" / «Сложено в удалённое хранилище: 18». Also "Stacked 12 items · 3 into remote storage" / «Сложено в хранилище: 12 · в удалённое: 3», and "Stacked into nearby chests · no room in storage" when nothing fit.
 
 ---
 

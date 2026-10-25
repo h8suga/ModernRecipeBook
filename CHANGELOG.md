@@ -10,6 +10,10 @@ patch for fixes, minor for features.
   whoever moved it, you or another player. The selected stack says how long ago ("×27 · Terraria · 5 min ago") while
   this sort is on. The times are kept with your character, per world. What was already in storage before the update
   has no time yet and counts as oldest; walking to another base does not count as a change.
+- The Storage tab's Quick Stack also reaches the Magic Storage the book counts, including the remote one through your
+  Portable Access. As with any quick stack, an item goes only where the same item already is, what does not fit stays
+  with you, and the hotbar, favorites, coins and your Portable Access are never touched. The book says what went where
+  ("Stacked 18 items into remote storage").
 
 ## 1.14.0 — 2026-10-25
 
