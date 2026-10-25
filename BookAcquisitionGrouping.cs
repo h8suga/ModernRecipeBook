@@ -23,6 +23,6 @@ internal static class BookAcquisitionGrouping
 				BookAcquisitionKind.Craft => (Kind: x.Kind, Owner: x.Owner, "", x.RecipeIndex), 
 				_ => (Kind: x.Kind, Owner: x.Owner, x.Name + "\n" + x.ConditionLabel, (x.ItemType != 0) ? x.ItemType : (-1 - x.TileType)), 
 			} into x
-			select new BookAcquisitionGroup(x)).ToList();
+			select new BookAcquisitionGroup(x)).OrderBy((BookAcquisitionGroup x) => x.OtherWorld).ToList();
 	}
 }

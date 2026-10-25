@@ -127,6 +127,24 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// The Storage tab cell under the mouse this frame; its tooltip gets the "Chests ×3: 120" line.
 	internal static Item StorageHover;
 
+	// A card list row (an ingredient, a Used in recipe) under the mouse this frame: it shows its item's own tooltip, as a
+	// grid cell does, and the book's lines for the row (counts, the click hint) go under it (BookTooltipShortcut). The
+	// owner wanted the description at once instead of a click to open the item.
+	internal static int RowHoverType = -1;
+
+	internal static string RowHoverLines = "";
+
+	internal static uint RowHoverFrame;
+
+	private static void HoverItemRow(Item item, string lines)
+	{
+		Main.HoverItem = item.Clone();
+		Main.hoverItemName = item.Name;
+		RowHoverType = item.type;
+		RowHoverLines = lines;
+		RowHoverFrame = Main.GameUpdateCount;
+	}
+
 	private static TrackedGoal ActiveGoal;
 
 	private static int TrackerTicks;
@@ -951,6 +969,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return (source.ConditionLabel.Length > 0) ? (materials + " · " + source.ConditionLabel) : materials;
 		}
 		string kind = AcquisitionKindName(source.Kind);
+		if (group.OtherWorld)
+		{
+			return kind + " · " + T("не в этом мире", "not in this world") + ((group.Rules.Length == 1 && source.ConditionLabel.Length > 0) ? (" · " + source.ConditionLabel) : "");
+		}
 		if (group.Rules.Length > 1)
 		{
 			return kind + " · " + T("зависит от условий", "varies by condition");
@@ -1006,7 +1028,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionRule rule = (expanded ? group.Rules[index] : group.Rules[0]);
 			BookAcquisitionEntry source = (expanded ? rule.Source : group.Source);
 			bool opens = !expanded && AcquisitionOpens(group);
-			bool varies = !expanded && group.Rules.Length > 1;
+			bool varies = !expanded && (group.Rules.Length > 1 || group.OtherWorld);
 			BookRect bounds = BookGeometry.AcquisitionRow(row);
 			bool hover = bounds.Contains(Mouse.X, Mouse.Y);
 			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
@@ -1022,17 +1044,35 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Label(sb, BookGeometry.AcquisitionSourceAction(row), ">", hover ? TextColor : Muted);
 			}
+			// A source that is an item (a bag, a crate, what shimmers into it) shows that item's own tooltip with the
+			// row's lines under it; the item's name is its title.
+			Item sourceItem = (source.Kind is BookAcquisitionKind.Container or BookAcquisitionKind.Shimmer or BookAcquisitionKind.Use or BookAcquisitionKind.Record && source.ItemType > 0) ? ContentSamples.ItemsByType.GetValueOrDefault(source.ItemType) : null;
 			if (hover && opens)
 			{
-				MouseTip(AcquisitionHint(group, Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
+				if (sourceItem != null)
+				{
+					HoverItemRow(sourceItem, AcquisitionHint(group, withName: false));
+				}
+				else
+				{
+					MouseTip(AcquisitionHint(group, Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
+				}
 			}
 			else if (hover && expanded)
 			{
 				string report = AcquisitionRuleReport(rule);
-				if (report.Length > 0 && report != title)
+				if (sourceItem != null)
+				{
+					HoverItemRow(sourceItem, report);
+				}
+				else if (report.Length > 0 && report != title)
 				{
 					MouseTip(report);
 				}
+			}
+			else if (hover && sourceItem != null)
+			{
+				HoverItemRow(sourceItem, (source.Body != source.ConditionLabel) ? source.Body : "");
 			}
 			else if (hover && source.Kind != BookAcquisitionKind.Craft && source.Body.Length > 0 && source.Body != source.ConditionLabel)
 			{
@@ -1292,7 +1332,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (hover)
 			{
 				string action = active ? ((set.Parts[slot].Length > 1) ? T("Клик: следующий вариант", "Click: next variant") : "") : T("Клик: показать эту часть", "Click: show this piece");
-				MouseTip(part.Name + " · " + T("защита ", "defense ") + part.defense + ((action.Length > 0) ? ("\n" + action) : ""));
+				// The piece's own tooltip (its defense among its lines), then what a click does.
+				HoverItemRow(part, action);
 			}
 		}
 		return true;
@@ -3000,7 +3041,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 				if (obtain.Contains(Mouse.X, Mouse.Y))
 				{
 					MouseTip(T("Где взять: ", "How to Get: ") + line.Name);
+					continue;
 				}
+			}
+			// The whole row, not just its icon, shows the item's own tooltip.
+			if (line.Icon != null && !line.Icon.IsAir && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
+			{
+				HoverItemRow(line.Icon, "");
 			}
 		}
 		if (pages.Count > 1)
@@ -6981,9 +7028,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Chevron(sb, row.X + row.Width - 14f, row.Y + row.Height / 2f, 4f, 3, hover ? TextColor : Muted);
 			if (hover)
 			{
-				Main.HoverItem = new Item();
-				Main.hoverItemName = "";
-				MouseTip(preview.Materials + "\n" + T("Клик: открыть этот предмет", "Click: open this item"));
+				HoverItemRow(output, preview.Materials + "\n" + T("Клик: открыть этот предмет", "Click: open this item"));
 			}
 		}
 		if (pages > 1)
@@ -7099,7 +7144,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 				detail = detail.Substring(0, cut);
 			}
 			string body = string.Join(d.Alternatives ? "\n" : " · ", new string[2] { detail, action }.Where((string s) => s.Length > 0));
-			MouseTip(d.Name + ((body.Length > 0) ? ("\n" + body) : "") + where);
+			if (hasItem && d.Icon != null && !d.Icon.IsAir)
+			{
+				// The item's own tooltip; the row's name line is the tooltip's title already.
+				HoverItemRow(d.Icon, body + where);
+			}
+			else
+			{
+				MouseTip(d.Name + ((body.Length > 0) ? ("\n" + body) : "") + where);
+			}
 		}
 	}
 

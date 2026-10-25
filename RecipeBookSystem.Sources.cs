@@ -125,12 +125,25 @@ public sealed partial class RecipeBookSystem
 		List<string> conditions = new List<string>();
 		List<string> conditionKeys = new List<string>();
 		List<string> shortConditions = new List<string>();
+		bool otherMode = false;
 		foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 		{
 			conditionKeys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
 			try
 			{
+				// As the Bestiary reads it (ReadLoot): a met difficulty or seed gate is no condition in this world.
+				bool? gate = BookProgressionSources.WorldGate(condition);
+				otherMode |= gate == false;
+				if (gate == true)
+				{
+					continue;
+				}
+				// Vanilla's difficulty conditions without a text of their own get their word.
 				string description = condition.GetConditionDescription();
+				if (string.IsNullOrWhiteSpace(description))
+				{
+					description = DropConditionLabel(condition, "");
+				}
 				string full = string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, s.Npc) : description;
 				conditions.Add(full);
 				shortConditions.Add(DropConditionLabel(condition, full));
@@ -144,7 +157,7 @@ public sealed partial class RecipeBookSystem
 			}
 		}
 		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? T("Любые враги", "Any enemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
-		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))));
+		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))), OtherMode: otherMode);
 	}
 
 	private static BookAcquisitionEntry FishingEntry(BookItemSource s)

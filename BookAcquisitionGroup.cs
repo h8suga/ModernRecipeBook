@@ -12,6 +12,9 @@ internal sealed class BookAcquisitionGroup
 
 	internal int VariantCount { get; }
 
+	// Every rule needs another difficulty or seed (BookEnemyLoot.OtherWorld).
+	internal bool OtherWorld { get; }
+
 	internal bool CanExpand
 	{
 		get
@@ -39,6 +42,12 @@ internal sealed class BookAcquisitionGroup
 	internal BookAcquisitionGroup(IEnumerable<BookAcquisitionEntry> reports)
 	{
 		BookAcquisitionEntry[] entries = reports.ToArray();
+		// This world's difficulty and seed only, as BookEnemyLoot; a source only another world has keeps its rules.
+		OtherWorld = entries.All((BookAcquisitionEntry x) => x.OtherMode);
+		if (!OtherWorld)
+		{
+			entries = entries.Where((BookAcquisitionEntry x) => !x.OtherMode).ToArray();
+		}
 		Source = entries.OrderBy((BookAcquisitionEntry x) => (x.NpcNetId <= 0) ? 1 : 0).First();
 		VariantCount = entries.Select((BookAcquisitionEntry x) => (ItemType: x.ItemType, NpcNetId: x.NpcNetId)).Distinct().Count();
 		Rules = (from x in entries

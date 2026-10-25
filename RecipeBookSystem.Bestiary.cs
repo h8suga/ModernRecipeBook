@@ -523,9 +523,43 @@ public sealed partial class RecipeBookSystem
 		{
 			EnemyReadErrors++;
 		}
-		EnemyLoot = ReadLoot(own).OrderByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		EnemyLoot = ReadLoot(own).OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		EnemyGlobalLoot = ReadLoot(global).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		RebuildMobLootLines();
+	}
+
+	// Dev audit for the test stand: every mob's own loot that reads "Varies by condition" counting every difficulty's
+	// rules, what never drops in this world, and what still varies in it (mob, item, the rules).
+	internal static IEnumerable<string> VariesAudit()
+	{
+		int keep = LootNpc;
+		int before = 0;
+		int otherWorld = 0;
+		List<string> lines = new List<string>();
+		foreach (int id in ContentSamples.NpcsByNetId.Keys.OrderBy((int x) => x))
+		{
+			LootNpc = id;
+			List<IItemDropRule> rules;
+			try
+			{
+				rules = Main.ItemDropsDB.GetRulesForNPCID(id, includeGlobalDrops: false);
+			}
+			catch (Exception)
+			{
+				continue;
+			}
+			foreach (BookEnemyLoot loot in ReadLoot(rules))
+			{
+				before += (loot.Reports.Select((BookEnemyDrop x) => BookAcquisitionGrouping.DropRuleKey(x.Chance, x.Min, x.Max, x.ConditionKey)).Distinct().Count() > 1) ? 1 : 0;
+				otherWorld += loot.OtherWorld ? 1 : 0;
+				if (loot.Rules.Length > 1 && !loot.OtherWorld)
+				{
+					lines.Add(string.Join('\t', id, Lang.GetNPCNameValue(id), ContentSamples.ItemsByType[loot.ItemType].Name, string.Join(" | ", loot.Rules.Select((BookEnemyDrop r) => BookAcquisitionRules.Chance(r.Chance) + " " + r.Conditions + " [" + string.Join(",", r.ConditionKey.Split('|').Select((string k) => k.Split(',')[0].Split('.', '+').Last())) + "]"))));
+				}
+			}
+		}
+		LootNpc = keep;
+		return lines.Prepend($"varies: {before} counting every difficulty, {lines.Count} in this world, {otherWorld} not in this world (expert={Main.expertMode}, master={Main.masterMode})");
 	}
 
 	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules)
@@ -551,13 +585,22 @@ public sealed partial class RecipeBookSystem
 				}
 				List<string> conditions = new List<string>();
 				List<string> keys = new List<string>();
+				bool otherMode = false;
 				foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 				{
 					keys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
 					try
 					{
-						string description = condition.GetConditionDescription();
-						conditions.Add(string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, LootNpc) : DropConditionLabel(condition, description));
+						// A difficulty or seed gate this world meets says nothing here; one it fails marks the rule as another world's.
+						bool? gate = BookProgressionSources.WorldGate(condition);
+						otherMode |= gate == false;
+						if (gate == true)
+						{
+							continue;
+						}
+						// Vanilla's difficulty conditions have no text of their own: their word comes first.
+						string label = DropConditionLabel(condition, condition.GetConditionDescription());
+						conditions.Add(string.IsNullOrWhiteSpace(label) ? HiddenConditionLabel(condition, LootNpc) : label);
 					}
 					catch (Exception)
 					{
@@ -565,7 +608,7 @@ public sealed partial class RecipeBookSystem
 						EnemyReadErrors++;
 					}
 				}
-				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal))));
+				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode));
 			}
 		}
 		return BookEnemyRules.Group(drops);
@@ -742,7 +785,7 @@ public sealed partial class RecipeBookSystem
 			Item item = ContentSamples.ItemsByType[loot.ItemType];
 			Box(sb, rect, hover ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
 			Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
-			bool varies = loot.Rules.Length > 1;
+			bool varies = loot.Rules.Length > 1 || loot.OtherWorld;
 			string chance = varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance);
 			float chanceWidth = (chance.Length > 0) ? (TextWidth(chance, 0.85f) + 4f) : 0f;
 			FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, dim ? Muted : TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
@@ -750,11 +793,13 @@ public sealed partial class RecipeBookSystem
 			{
 				CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
 			}
-			string detail = varies ? T("Зависит от условий", "Varies by condition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
+			string detail = loot.OtherWorld ? (T("Не в этом мире", "Not in this world") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? T("Зависит от условий", "Varies by condition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
 			FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
 			if (hover)
 			{
-				MouseTip(item.Name + "\n" + (varies ? (EnemyLootTooltip(loot) + "\n") : "") + T("Клик: карточка предмета", "Click: the item's card"));
+				// The item's own tooltip; under it what the row cuts short: every rule with its full conditions.
+				string rules = (varies || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot) + "\n") : "";
+				HoverItemRow(item, (loot.OtherWorld ? (T("Не в этом мире", "Not in this world") + "\n") : "") + rules + T("Клик: карточка предмета", "Click: the item's card"));
 			}
 		}
 		if (pages > 1)
