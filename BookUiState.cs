@@ -7,7 +7,8 @@ namespace ModernRecipeBook;
 internal sealed class BookUiState
 {
 	// 5: the global class filter. 6: per-tab excluded stations. 7: Storage's own stage filter. 8: per-tab Craftable.
-	internal const int CurrentVersion = 8;
+	// 9: the global traits filter.
+	internal const int CurrentVersion = 9;
 
 	// Search, mod, category, favorites and sort belong to one tab and stay until the player changes them;
 	// the stage filter is shared by every tab but Storage, which has its own.
@@ -76,6 +77,9 @@ internal sealed class BookUiState
 	// Global, for every tab: one BookClass value, 0 = all classes.
 	internal int ClassFilter;
 
+	// Global like the class: BookTrait flags (all must match), 0 = no trait asked.
+	internal int TraitFilter;
+
 	internal bool FavoritesOnly;
 
 	internal bool UsedInMode;
@@ -128,6 +132,7 @@ internal sealed class BookUiState
 		bookUiState.StageFilter = Math.Clamp(StageFilter, 0, 3);
 		bookUiState.StorageStageFilter = Math.Clamp(StorageStageFilter, 0, 3);
 		bookUiState.ClassFilter = ((Array.IndexOf(BookItemClasses.Buttons, (BookClass)ClassFilter) >= 0) ? ClassFilter : 0);
+		bookUiState.TraitFilter = TraitFilter & BookItemTraits.KnownMask;
 		bookUiState.FavoritesOnly = FavoritesOnly;
 		bookUiState.UsedInMode = UsedInMode;
 		bookUiState.UsedInCraftableOnly = UsedInCraftableOnly;

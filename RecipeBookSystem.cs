@@ -526,8 +526,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		get
 		{
-			// The station menu takes the arrows, Enter and Space while it is open.
-			if (Typing || HelpOpen || AcquisitionOpen || StationMenu)
+			// The station and trait menus take the arrows, Enter and Space while open.
+			if (Typing || HelpOpen || AcquisitionOpen || StationMenu || TraitMenu)
 			{
 				return true;
 			}
@@ -1479,7 +1479,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, BookClass Class, BookTrait Traits, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1493,7 +1493,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, ClassFilter, TraitFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1521,6 +1521,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		});
 		StageFilter = state.Stage;
 		ClassFilter = state.Class;
+		TraitFilter = state.Traits;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		SetTyping(value: false);
 		ModMenu = (SortMenu = (StageMenu = (StationMenu = (HelpOpen = false))));
@@ -3172,6 +3173,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			["StageFilter"] = state.StageFilter,
 			["StorageStageFilter"] = state.StorageStageFilter,
 			["ClassFilter"] = state.ClassFilter,
+			["TraitFilter"] = state.TraitFilter,
 			["CategoryKey"] = state.CategoryKey,
 
 			["FavoritesOnly"] = state.FavoritesOnly,
@@ -3220,6 +3222,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (tag.ContainsKey("ClassFilter"))
 			{
 				state.ClassFilter = tag.GetInt("ClassFilter");
+			}
+			// Saves before version 9 have no traits filter: none asked.
+			if (tag.ContainsKey("TraitFilter"))
+			{
+				state.TraitFilter = tag.GetInt("TraitFilter");
 			}
 			if (tag.ContainsKey("ModFilter"))
 			{
@@ -3345,6 +3352,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			StageFilter = (int)ListStageFilter,
 			StorageStageFilter = (int)StorageStageFilter,
 			ClassFilter = (int)ClassFilter,
+			TraitFilter = (int)TraitFilter,
 			CategoryKey = categoryKey,
 			FavoritesOnly = FavoritesOnly,
 			UsedInMode = UsedInMode,
@@ -3396,6 +3404,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ListStageFilter = (BookStageFilter)state.StageFilter;
 		StorageStageFilter = (BookStageFilter)state.StorageStageFilter;
 		ClassFilter = (BookClass)state.ClassFilter;
+		TraitFilter = (BookTrait)state.TraitFilter;
 		UsedInMode = state.UsedInMode;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		WindowScalePercent = state.WindowScalePercent;
@@ -3736,6 +3745,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Query = (ModFilter = "");
 		ListStageFilter = (StorageStageFilter = BookStageFilter.All);
 		ClassFilter = BookClass.None;
+		TraitFilter = BookTrait.None;
 		TabFilterSlots.Clear();
 		Page = (DetailsPage = (Category = (CategoryRow = 0)));
 		ArmorFocus = 0;
@@ -3975,6 +3985,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		TextMatches.Clear();
 		TextMatchCount = 0;
 		ClassHidden = 0;
+		ClearTraitPass();
 		CraftableHidden = 0;
 		StationCandidates.Clear();
 		StationCandidatesVersion++;
@@ -4055,6 +4066,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (ClassFilter != BookClass.None && (BookItemClasses.Get(item.type) & ClassFilter) == 0)
 			{
 				ClassHidden++;
+				continue;
+			}
+			if (!TraitAllowed(item.type))
+			{
 				continue;
 			}
 			if (craftable && !CraftableNow(index))
@@ -4293,6 +4308,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		// The filter bar makes room for more toggles: the Bestiary's Encountered, the station filter and Craftable on Items
 		// and Recipes.
 		BookGeometry.FilterInset = BestiaryView ? 44f : (StationFilterTab ? 88f : 0f);
+		BookGeometry.TraitRow = TraitFilterTab;
 	}
 
 	private static bool Hit(float x, float y, float w, float h)
@@ -4375,6 +4391,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ApplyFilters(clearMessage: false, keepSelection: true);
 		}
 		WarmDescriptions();
+		UpdateTraits();
 		if (MobRecentCategory && AppliedSeenMobsVersion != SeenMobs.Version)
 		{
 			ApplyFilters(clearMessage: false);
@@ -4456,6 +4473,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				StationMenu = false;
 			}
+			else if (TraitMenu)
+			{
+				TraitMenu = false;
+			}
 			else
 			{
 				Open = false;
@@ -4470,7 +4491,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			LastKeys = keys;
 			return;
 		}
-		bool flag = (StationMenu && HandleStationMenuKeys(keys)) || HandleKeys(keys);
+		bool flag = (StationMenu && HandleStationMenuKeys(keys)) || (TraitMenu && HandleTraitMenuKeys(keys)) || HandleKeys(keys);
 		LastKeys = keys;
 		if (flag | escape)
 		{
@@ -4522,6 +4543,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			else if (StationMenu)
 			{
 				StationOffset = Math.Clamp(StationOffset + step, 0, Math.Max(0, StationRowCount - StationVisibleRows));
+			}
+			else if (TraitMenu)
+			{
+				// Every row fits: the wheel does not scroll what is under the menu.
 			}
 			else if (!SortMenu && !StageMenu && BookGeometry.CategoryPanel.Contains(Mouse.X, Mouse.Y))
 			{
@@ -4610,6 +4635,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (TrackingView)
 		{
 			HandleTrackingTabInput();
+			return;
+		}
+		if (HandleTraitClick())
+		{
 			return;
 		}
 		// A row ticks or unticks its station and the menu stays open for more; a click elsewhere only closes it.
@@ -5472,7 +5501,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static readonly Color Caution = new Color(223, 185, 139);
 
-	private static bool MenuOpen => ModMenu || SortMenu || StageMenu || StationMenu;
+	private static bool MenuOpen => ModMenu || SortMenu || StageMenu || StationMenu || TraitMenu;
 
 	private static float TextWidth(string value, float size)
 	{
@@ -6211,6 +6240,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			DrawStationMenu(sb);
 		}
+		if (TraitMenu)
+		{
+			DrawTraitMenu(sb);
+		}
 		if (ActiveStationPanel)
 		{
 			DrawActiveStationPanel(sb);
@@ -6272,6 +6305,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (ClassRowShown)
 		{
 			DrawClassRow(sb);
+		}
+		if (TraitFilterTab)
+		{
+			DrawTraitButton(sb);
 		}
 		SectionLabel(sb, T("Категории", "Categories"), 20f, ClassRowShown ? BookGeometry.CategoryLabelTop : BookGeometry.ClassLabelTop, 164f);
 		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
@@ -6475,7 +6512,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return;
 		}
 		BookRect area = new BookRect(212f, top, 568f, 596f - top);
-		if (ClassHidden > 0)
+		// The traits filter runs after the class one: what it hid had passed the class.
+		if (TraitHidden > 0)
+		{
+			EmptyState(sb, area, T("Скрыто фильтром свойств", "Hidden by the traits filter"), T("Снимите часть отметок в «Свойствах» слева", "Untick some traits under Traits on the left"));
+		}
+		else if (ClassHidden > 0)
 		{
 			EmptyState(sb, area, T("Скрыто фильтром класса", "Hidden by the class filter"), T("Нажмите «Все классы» над категориями", "Pick All classes above the categories"));
 		}
@@ -6662,7 +6704,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Icon(sb, chosen, tile.X + 8f, tile.Y + 8f, 40f);
 		bool armor = HasArmorDefense(chosen);
 		bool wrap = TextWidth(mod + " · " + stage, 0.8f) > BookGeometry.DetailHeaderSub.Width;
-		int lines = 1 + ((armor || wrap) ? 1 : 0) + ((armor && wrap) ? 1 : 0);
+		string traits = TraitLine(chosen);
+		int lines = 1 + ((armor || wrap) ? 1 : 0) + ((armor && wrap) ? 1 : 0) + ((traits.Length > 0) ? 1 : 0);
 		float y = tile.Y + (tile.Height - (26f + lines * 20f)) / 2f;
 		FixedLabel(sb, name, 880f, y, TextColor, 1.05f, 216f, 26f);
 		y += 26f;
@@ -6685,6 +6728,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (armor)
 		{
 			DrawArmorDefenseAt(sb, chosen, new BookRect(880f, y, 216f, 20f));
+			y += 20f;
+		}
+		if (traits.Length > 0)
+		{
+			DrawTraitLine(sb, chosen, traits, new BookRect(880f, y, 216f, 20f));
 		}
 	}
 

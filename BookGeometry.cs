@@ -190,7 +190,8 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal const int SectionGap = 24;
 
-	internal const int VisibleCategoryRows = 14;
+	// The traits button (Items and Recipes) takes one category row.
+	internal static int VisibleCategoryRows => TraitRow ? 13 : 14;
 
 	internal const int VisibleCategoryRowsWithoutClass = 18;
 
@@ -368,12 +369,17 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	// Sidebar: CLASS label, the class buttons, CATEGORIES label, then the rows; same 22-pixel label-to-content step.
 	internal const float ClassLabelTop = 86f;
 
-	internal const float CategoryLabelTop = 192f;
+	internal static float CategoryLabelTop => TraitRow ? 232f : 192f;
+
+	// Items and Recipes: the traits button sits under the class buttons; set by the book's layout.
+	internal static bool TraitRow;
+
+	internal static BookRect TraitButton => new BookRect(12f, 188f, 172f, 32f);
 
 	// Without the class row (the Bestiary tab) the list starts where the class row would.
 	internal static BookRect CategoryCell(int visibleIndex, bool classRow)
 	{
-		return new BookRect(12f, (classRow ? 214 : 108) + visibleIndex * 28, 172f, 28f);
+		return new BookRect(12f, (classRow ? (TraitRow ? 254 : 214) : 108) + visibleIndex * 28, 172f, 28f);
 	}
 
 	// Two rows of three 52×32 buttons with 8-pixel gaps, as wide as a category row (five buttons: 3 + 2).
