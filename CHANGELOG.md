@@ -3,7 +3,7 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
-## Unreleased
+## 1.15.0 — 2026-10-25
 
 ### Added
 - Storage sort "Changed: newest first / oldest first": what you just put in, took out or crafted with comes first,
