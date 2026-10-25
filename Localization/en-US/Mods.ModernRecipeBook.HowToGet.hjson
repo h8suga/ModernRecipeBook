@@ -1,8 +1,8 @@
-Where: "Where: {0}"
+Where: Where: {0}
 Every0Kills: every {0} kills
 WearABlankBoxWhileIts: Wear a blank box while its track plays
 WhileItsTrackPlays: while its track plays
-For: "for {0}"
+For: for {0}
 WorldChestsAndStructures: World chests and structures
 PlacedThereWhenTheWorldIs: Placed there when the world is made
 FromWorldCreation: from world creation
@@ -18,9 +18,9 @@ Treetop: treetop
 ShakeIt: shake it
 Halloween: Halloween
 OnGrass: on grass
-Pickaxe: "pickaxe {0}%"
+Pickaxe: pickaxe {0}%
 GrowsOnGrass: Grows on grass
-GrowsOn: "Grows on: {0}"
+GrowsOn: Grows on: {0}
 InTheWorld: In the world
 AnyWater: Any water
 Lava: Lava
@@ -38,7 +38,7 @@ VeryRare: very rare
 Legendary: legendary
 Crate: crate
 JunkInSmallPonds: junk in small ponds
-With: "with {0}"
+With: with {0}
 Hardmode: Hardmode
 AfterMoonLord: after Moon Lord
 BloodMoon: Blood Moon
@@ -48,4 +48,4 @@ InLava: in lava
 Grass: grass
 CountSources: "{0} {^0:source;sources}"
 PlacesAndMore: "{0} +{1}"
-WithRod: "with {0}"
+WithRod: with {0}

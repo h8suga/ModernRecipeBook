@@ -17,4 +17,4 @@ CraftingFailed: Crafting failed
 InventoryFullResultOnCursor: Inventory full: result on cursor
 Crafted: Crafted: {0}
 CraftedSome: Crafted {0}/{1} · {2}
-CraftStoppedMaterialsInInventory: "Materials are in the inventory; craft stopped: {0}"
+CraftStoppedMaterialsInInventory: Materials are in the inventory; craft stopped: {0}

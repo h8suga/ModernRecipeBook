@@ -17,4 +17,4 @@ CraftingFailed: Крафт не удался
 InventoryFullResultOnCursor: Инвентарь полон: результат на курсоре
 Crafted: Создано: {0}
 CraftedSome: Создано {0}/{1} · {2}
-CraftStoppedMaterialsInInventory: "Материалы в инвентаре; крафт остановлен: {0}"
+CraftStoppedMaterialsInInventory: Материалы в инвентаре; крафт остановлен: {0}

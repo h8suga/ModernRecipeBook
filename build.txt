@@ -1,6 +1,6 @@
 displayName = Modern Recipe Book
 author = h8suga
-version = 1.16.0
+version = 1.16.1
 side = Both
 weakReferences = MagicStorage
 sortAfter = MagicStorage

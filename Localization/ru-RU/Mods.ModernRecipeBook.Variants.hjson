@@ -1,7 +1,7 @@
-Others: "Остальные {0}: {1}"
+Others: Остальные {0}: {1}
 ListOr: "{0} или {1}"
 OrMore: "{0} или ещё {1}"
 OrEllipsis: "{0} или..."
-OrList: "или {0}"
-OrAndMore: "или {0} и ещё {1}"
-OrNMore: "или ещё {0}"
+OrList: или {0}
+OrAndMore: или {0} и ещё {1}
+OrNMore: или ещё {0}

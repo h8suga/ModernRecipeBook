@@ -4,8 +4,8 @@ CtrlBackspaceResetsFilters: Ctrl+Backspace resets filters
 ShowAll: Show all
 TickEveryStationAgain: Tick every station again
 EveryStationIsTicked: Every station is ticked
-ListedItemsMadeHere: "Listed items made here: {0}"
-ListedRecipesMadeHere: "Listed recipes made here: {0}"
+ListedItemsMadeHere: Listed items made here: {0}
+ListedRecipesMadeHere: Listed recipes made here: {0}
 ClickShowAgain: Click: show again
 ClickHideWhatOnlyItMakes: Click: hide what only it makes
 ArrowsAndEnterTickEscClose: Arrows and Enter: tick · Esc: close

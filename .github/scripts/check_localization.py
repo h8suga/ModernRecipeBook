@@ -40,7 +40,7 @@ def placeholders(text):
 en = load('en-US')
 areas = {k.split('.')[0] for k in en}
 used = set()
-for f in (mod / 'src').glob('*.cs'):
+for f in (mod / 'src').rglob('*.cs'):
     body = f.read_text(encoding='utf-8')
     used |= {k for k in re.findall(r'"([A-Z][A-Za-z]*\.[A-Za-z0-9]+)"', body) if k.split('.')[0] in areas}
     used |= {k[len(prefix):] for k in re.findall(r'"(Mods\.ModernRecipeBook\.[A-Za-z0-9.]+)"', body)}

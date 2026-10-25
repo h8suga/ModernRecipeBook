@@ -1,7 +1,7 @@
-Others: "Others {0}: {1}"
+Others: Others {0}: {1}
 ListOr: "{0} or {1}"
 OrMore: "{0} or {1} more"
 OrEllipsis: "{0} or..."
-OrList: "or {0}"
-OrAndMore: "or {0} and {1} more"
-OrNMore: "or {0} more"
+OrList: or {0}
+OrAndMore: or {0} and {1} more
+OrNMore: or {0} more

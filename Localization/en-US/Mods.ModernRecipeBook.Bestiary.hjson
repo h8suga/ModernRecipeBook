@@ -7,7 +7,7 @@ MetOldest: Met: oldest
 MetNewest: Met: newest
 Met: Met ↑
 Met2: Met ↓
-Seen: "Seen {0}"
+Seen: Seen {0}
 NotInTheBestiaryYet: Not in the Bestiary yet
 NoMobsSeenYet: No mobs seen yet
 MobsYouComeAcrossWillShow: Mobs you come across will show up here
@@ -36,8 +36,8 @@ NotListed2: Not listed
 Met3: Met
 Earlier: earlier
 NotYet: not yet
-FirstMet: "First met: {0}"
-LastMet: "Last met: {0}"
+FirstMet: First met: {0}
+LastMet: Last met: {0}
 MetBeforeTheBookStartedRecording: Met before the book started recording encounters
 EncountersAreRecordedWhenTheMob: Encounters are recorded when the mob is near you
 FromTheBestiaryMayBeIncomplete: From the Bestiary; may be incomplete
@@ -55,4 +55,4 @@ VariesByCondition: Varies by condition
 ClickTheItemSCard: Click: the item's card
 PreviousWheel: Previous · wheel
 NextWheel: Next · wheel
-BackTo: "Back: {0}"
+BackTo: Back: {0}

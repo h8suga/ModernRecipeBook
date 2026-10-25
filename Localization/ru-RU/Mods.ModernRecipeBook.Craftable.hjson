@@ -1,5 +1,5 @@
 Craftable: Можно создать
 OnlyWhatYouCanCraftRight: Только то, что можно создать сейчас
 ClickAgainToShowEverything: Клик ещё раз — показать всё
-CraftableNowOf: "Сейчас можно создать: {0} из {1}"
-CraftableNowHidden: "Сейчас можно создать: {0} · скрыто: {1}"
+CraftableNowOf: Сейчас можно создать: {0} из {1}
+CraftableNowHidden: Сейчас можно создать: {0} · скрыто: {1}

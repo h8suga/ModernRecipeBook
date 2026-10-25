@@ -1,13 +1,13 @@
 Traits: Traits
 WeaponTraits: Weapon traits
 TickTraitsOnlyWeaponsThatHave: Tick traits: only weapons that have all of them stay
-Hidden: "Hidden: {0}"
-ReadingItemDescriptions: "Reading item descriptions… {0}%"
+Hidden: Hidden: {0}
+ReadingItemDescriptions: Reading item descriptions… {0}%
 ShowAll: Show all
 UntickEveryTrait: Untick every trait
 NothingIsTicked: Nothing is ticked
-ListedItemsWithIt: "Listed items with it: {0}"
-ListedRecipesWithIt: "Listed recipes with it: {0}"
+ListedItemsWithIt: Listed items with it: {0}
+ListedRecipesWithIt: Listed recipes with it: {0}
 ClickUntick: Click: untick
 ClickTickEveryTickedTraitMust: Click: tick; every ticked trait must match
 AllTickedMustMatchEscClose: All ticked must match · Esc: close
@@ -34,4 +34,4 @@ SourceEnglishDescription: from the English description
 SourceVerified: checked in the game's code
 SourceFields: from its stats
 Quoted: '''"{0}"'''
-UpToHits: "up to {0} hits (penetrate)"
+UpToHits: up to {0} hits (penetrate)

@@ -25,11 +25,11 @@ World: Мир
 NoData: Нет данных
 NotInThisWorld: не в этом мире
 VariesByCondition: зависит от условий
-Recipe: "Рецепт: {0}"
+Recipe: Рецепт: {0}
 OpenRecipe: Открыть рецепт
 OpenInBestiary: Открыть в бестиарии
 ShowConditions: Показать условия
-Conditions: "Условия · {0}"
+Conditions: Условия · {0}
 HowToGet: Где взять
 OtherAcceptedItems: Другие подходящие предметы
 NotInRecipesDropsShopsOr: Нет в рецептах, добыче, магазинах и мире
@@ -42,11 +42,11 @@ Close: Закрыть
 CloseEsc: Закрыть · Esc
 PreviousPgUp: Назад · PgUp
 NextPgDn: Дальше · PgDn
-SetDefense: "Защита сета: {0}"
-Defense: "Защита: {0}"
-Set: "Сет: {0}"
+SetDefense: Защита сета: {0}
+Defense: Защита: {0}
+Set: Сет: {0}
 WithoutAccessoriesAndBuffs: Без аксессуаров и баффов
-Pieces: "Части: {0}"
+Pieces: Части: {0}
 ModdedSetBonusNotCounted: Бонус модового сета не учтён
 SetBonus: "{0}, бонус сета +{1}"
 SetBonus2: Бонус сета
@@ -64,12 +64,12 @@ UntrackSet: Снять сет
 TrackSet: Весь сет
 UntrackAllThreePieces: Не отслеживать весь сет
 TrackAllThreePiecesAsOne: Отслеживать три части одной целью
-TRACKING: "ОТСЛЕЖИВАНИЕ · {0}"
+TRACKING: ОТСЛЕЖИВАНИЕ · {0}
 DragToMove: Перетащите, чтобы переместить
 ClickMaterialsRightClickUntrack: ЛКМ — материалы · ПКМ — не отслеживать
-MoreCtrl: "+{0} ещё · Ctrl+{1}"
+MoreCtrl: +{0} ещё · Ctrl+{1}
 ArmorSet: Комплект брони
-StartsOnItsOwnOrWith: "Начинается сам или от предмета: {0}"
+StartsOnItsOwnOrWith: Начинается сам или от предмета: {0}
 StartsOnItsOwn: Начинается сам
 FromCalamitySEventTables: Из таблиц события Calamity
 TheModLetsItSpawnAfter: Мод пускает его и после других боссов, проба не нашла каких
@@ -79,13 +79,13 @@ AcidRainInTheSulphurousSea: Кислотный дождь в Сернистом 
 InWater: в воде
 OnLand: на суше
 FallsFromTheSky: падает с неба
-Until: "до: {0}"
+Until: до: {0}
 InRain: в дождь
 AfterAnyMechanicalBoss: после любого механического босса
 AfterAnyTwoMechanicalBosses: после любых двух механических боссов
 AfterAllMechanicalBosses: после всех механических боссов
 AnotherBoss: другой босс
-After: "после: {0}"
+After: после: {0}
 Forest: Лес
 Underground: Подземелье
 Caverns: Пещеры
@@ -112,17 +112,17 @@ PostMoonLord: После Лунного лорда
 AllStages: Все этапы
 Syncing: Синхронизация…
 ReadyToCraft: Можно создать
-Ingredients: "Ингредиенты: {0}/{1}"
+Ingredients: Ингредиенты: {0}/{1}
 NothingTrackedYet: Ничего не отслеживается
 SelectAnItemAndPressTrack: Выберите предмет и нажмите «Отслеживать»
-TRACKED: "ОТСЛЕЖИВАЕТСЯ · {0}"
+TRACKED: ОТСЛЕЖИВАЕТСЯ · {0}
 ClearAll: Очистить всё?
 Clear: Очистить
 ClickAgainToUntrackEverything: Нажмите ещё раз, чтобы убрать все цели
 UntrackEverything: Не отслеживать ничего
 Crafts: крафтов
-Crafts2: "Крафтов: {0}"
-HowToGet2: "Где взять: {0}"
+Crafts2: Крафтов: {0}
+HowToGet2: Где взять: {0}
 INGREDIENTS: ИНГРЕДИЕНТЫ
 STATION: СТАНЦИЯ
 CONDITIONS: УСЛОВИЯ
@@ -202,21 +202,21 @@ NoCraftsYet: Пока нет крафтов
 ItemsYouCraftWillAppearHere: Здесь появится то, что вы создадите
 RecipesFromHistoryArenTLoaded: Рецепты из истории не загружены
 EnableTheModsThatAddThem: Включите моды, которые их добавляют
-Stacks: "Стопок: {0}"
-Items: "Предметов: {0}"
-Mobs: "Мобов: {0}"
-Recent: "Недавние: {0}/{1}"
-Recipes: "Рецептов: {0}"
-TextMatches: "по тексту: {0}"
-ReadingItemText: "читаю тексты предметов: {0}%"
-UnknownStage: "этап неизвестен: {0}"
+Stacks: Стопок: {0}
+Items: Предметов: {0}
+Mobs: Мобов: {0}
+Recent: Недавние: {0}/{1}
+Recipes: Рецептов: {0}
+TextMatches: по тексту: {0}
+ReadingItemText: читаю тексты предметов: {0}%
+UnknownStage: этап неизвестен: {0}
 PreviousPagePgUp: Предыдущая страница · PgUp
 NextPagePgDn: Следующая страница · PgDn
 NothingSelected: Ничего не выбрано
 PickAnItemOnTheLeft: Выберите предмет слева
 NoCraftingRecipe: Нет рецепта крафта
 GetItFromLootShopsFishing: Добыча, магазины, рыбалка и другое
-AllSources2: "Все источники: {0}"
+AllSources2: Все источники: {0}
 RemoveFromFavoritesAltF: Убрать из избранного · Alt+F
 AddToFavoritesAltF: В избранное · Alt+F
 Recipe2: Рецепт
@@ -265,11 +265,11 @@ TrackingItem: Отслеживается: {0}
 ClickOpenAlternative: Клик: открыть «{0}»
 ConditionMet: "{0} · выполнено"
 ConditionNotMetYet: "{0} · пока не выполнено"
-MoreLines: "+{0} ещё"
+MoreLines: +{0} ещё
 OrSeparator: " или "
-HaveNeed: "Есть {0}, нужно {1}"
-CraftTimes: "Создать ×{0}"
-CraftShortcuts: "Ctrl+Enter · максимум: Ctrl+Shift+Enter"
-RecipeVariant: "Рецепт {0}/{1}"
+HaveNeed: Есть {0}, нужно {1}
+CraftTimes: Создать ×{0}
+CraftShortcuts: Ctrl+Enter · максимум: Ctrl+Shift+Enter
+RecipeVariant: Рецепт {0}/{1}
 RecipeFromMod: "{0}: {1}"
-BackTo: "Назад: {0}"
+BackTo: Назад: {0}

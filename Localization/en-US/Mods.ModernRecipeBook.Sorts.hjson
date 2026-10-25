@@ -24,39 +24,39 @@ Accessories: Accessories
 PotionsAndFood: Potions and food
 Tools: Tools
 FishingRods: Fishing rods
-StationUp: "Station: weakest first"
-StationDown: "Station: strongest first"
-ChangedUp: "Changed: oldest first"
-ChangedDown: "Changed: newest first"
-RarityUp: "Rarity: lowest first"
-RarityDown: "Rarity: highest first"
-ValueUp: "Sell price: lowest first"
-ValueDown: "Sell price: highest first"
-DamageUp: "Damage: lowest first"
-DamageDown: "Damage: highest first"
-SpeedUp: "Speed: slowest first"
-SpeedDown: "Speed: fastest first"
-CritUp: "Crit chance: lowest first"
-CritDown: "Crit chance: highest first"
-KnockbackUp: "Knockback: weakest first"
-KnockbackDown: "Knockback: strongest first"
-DefenseUp: "Defense: lowest first"
-DefenseDown: "Defense: highest first"
-FlightTimeUp: "Flight time: shortest first"
-FlightTimeDown: "Flight time: longest first"
-HealLifeUp: "Heals life: least first"
-HealLifeDown: "Heals life: most first"
-HealManaUp: "Heals mana: least first"
-HealManaDown: "Heals mana: most first"
-BuffTimeUp: "Duration: shortest first"
-BuffTimeDown: "Duration: longest first"
-PickPowerUp: "Pickaxe power: lowest first"
-PickPowerDown: "Pickaxe power: highest first"
-AxePowerUp: "Axe power: lowest first"
-AxePowerDown: "Axe power: highest first"
-HammerPowerUp: "Hammer power: lowest first"
-HammerPowerDown: "Hammer power: highest first"
-FishingPowerUp: "Fishing power: lowest first"
-FishingPowerDown: "Fishing power: highest first"
-BaitPowerUp: "Bait power: lowest first"
-BaitPowerDown: "Bait power: highest first"
+StationUp: Station: weakest first
+StationDown: Station: strongest first
+ChangedUp: Changed: oldest first
+ChangedDown: Changed: newest first
+RarityUp: Rarity: lowest first
+RarityDown: Rarity: highest first
+ValueUp: Sell price: lowest first
+ValueDown: Sell price: highest first
+DamageUp: Damage: lowest first
+DamageDown: Damage: highest first
+SpeedUp: Speed: slowest first
+SpeedDown: Speed: fastest first
+CritUp: Crit chance: lowest first
+CritDown: Crit chance: highest first
+KnockbackUp: Knockback: weakest first
+KnockbackDown: Knockback: strongest first
+DefenseUp: Defense: lowest first
+DefenseDown: Defense: highest first
+FlightTimeUp: Flight time: shortest first
+FlightTimeDown: Flight time: longest first
+HealLifeUp: Heals life: least first
+HealLifeDown: Heals life: most first
+HealManaUp: Heals mana: least first
+HealManaDown: Heals mana: most first
+BuffTimeUp: Duration: shortest first
+BuffTimeDown: Duration: longest first
+PickPowerUp: Pickaxe power: lowest first
+PickPowerDown: Pickaxe power: highest first
+AxePowerUp: Axe power: lowest first
+AxePowerDown: Axe power: highest first
+HammerPowerUp: Hammer power: lowest first
+HammerPowerDown: Hammer power: highest first
+FishingPowerUp: Fishing power: lowest first
+FishingPowerDown: Fishing power: highest first
+BaitPowerUp: Bait power: lowest first
+BaitPowerDown: Bait power: highest first

@@ -1,7 +1,7 @@
 CraftingInterface: Модуль создания предметов
 Nearby: Рядом
 Surroundings: Окружение
-CountsVia: "Считается через: {0}"
+CountsVia: Считается через: {0}
 InTheCraftingInterface: Стоит в модуле создания предметов
 PlacedNearby: Стоит рядом
 FromTheCraftingInterface: Даёт модуль создания предметов

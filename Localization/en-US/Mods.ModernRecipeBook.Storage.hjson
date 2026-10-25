@@ -1,11 +1,11 @@
-Inventory: "Inventory: {0}"
-OpenChest: "Open chest: {0}"
+Inventory: Inventory: {0}
+OpenChest: Open chest: {0}
 NothingNearby: Nothing nearby
-Network: "Network {0}"
+Network: Network {0}
 OpenChest2: Open chest
-NotCounted: "Not counted: {0}"
+NotCounted: Not counted: {0}
 UnlimitedNotInTheTotal: "{0}: unlimited, not in the total"
-Cells: "Cells: {0}"
+Cells: Cells: {0}
 SetByTheHost: "{0} · set by the host"
 ViaPortableAccess: via Portable Access
 ViaTheMagicStorageWindow: via the Magic Storage window
@@ -19,7 +19,7 @@ LockedChestsAndChestsAnotherPlayer: Locked chests and chests another player has 
 AStorageWithAPasswordCounts: A storage with a password counts once you join it in Magic Storage.
 APortableAccessInYourInventory: A Portable Access in your inventory counts by Magic Storage's own rules: within its range of the storage, or at a pylon while the storage has a pylon near it.
 Inventory2: inventory
-From: "From: {0}"
+From: From: {0}
 NoLongerNearby: No longer nearby
 InventoryFull: Inventory full
 TakenToInventory: Taken to inventory
@@ -49,9 +49,9 @@ StackedSomeRemote: Stacked {0} items · {1} into remote storage
 StackedLocal: Stacked {0} items into storage
 UsedOfTotal: "{0} / {1}"
 RemoteNetwork: "{0} (remote)"
-RemoteHow: "Remote {0}"
+RemoteHow: Remote {0}
 CountPassword: "{0} password"
-TookOfRestGone: "Took {0} of {1}: the rest is gone"
-NearbyStorageFullLeft: "Nearby storage is full: {0} left"
-ChestsCount: "Chests: {0}"
-ChestsTimes: "Chests ×{0}: {1}"
+TookOfRestGone: Took {0} of {1}: the rest is gone
+NearbyStorageFullLeft: Nearby storage is full: {0} left
+ChestsCount: Chests: {0}
+ChestsTimes: Chests ×{0}: {1}

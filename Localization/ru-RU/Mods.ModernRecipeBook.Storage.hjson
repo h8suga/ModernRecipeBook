@@ -1,11 +1,11 @@
-Inventory: "Инвентарь: {0}"
-OpenChest: "Открытый сундук: {0}"
+Inventory: Инвентарь: {0}
+OpenChest: Открытый сундук: {0}
 NothingNearby: Рядом ничего нет
-Network: "Сеть {0}"
+Network: Сеть {0}
 OpenChest2: Открытый сундук
-NotCounted: "Не учтены: {0}"
+NotCounted: Не учтены: {0}
 UnlimitedNotInTheTotal: "{0}: без предела, в сумму не входит"
-Cells: "Ячейки: {0}"
+Cells: Ячейки: {0}
 SetByTheHost: "{0} · задаёт хост"
 ViaPortableAccess: через Portable Access
 ViaTheMagicStorageWindow: через окно Magic Storage
@@ -19,7 +19,7 @@ LockedChestsAndChestsAnotherPlayer: Запертые сундуки и сунд�
 AStorageWithAPasswordCounts: Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.
 APortableAccessInYourInventory: Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон.
 Inventory2: инвентарь
-From: "Откуда: {0}"
+From: Откуда: {0}
 NoLongerNearby: Этого уже нет рядом
 InventoryFull: Инвентарь полон
 TakenToInventory: Забрано в инвентарь
@@ -49,9 +49,9 @@ StackedSomeRemote: Сложено в хранилище: {0} · в удалён�
 StackedLocal: Сложено в хранилище: {0}
 UsedOfTotal: "{0} из {1}"
 RemoteNetwork: "{0} (удалённо)"
-RemoteHow: "Удалённо {0}"
+RemoteHow: Удалённо {0}
 CountPassword: "{0} с паролем"
-TookOfRestGone: "Взято {0} из {1}: остального уже нет"
-NearbyStorageFullLeft: "Рядом нет места: осталось {0}"
-ChestsCount: "Сундуки: {0}"
-ChestsTimes: "Сундуки ×{0}: {1}"
+TookOfRestGone: Взято {0} из {1}: остального уже нет
+NearbyStorageFullLeft: Рядом нет места: осталось {0}
+ChestsCount: Сундуки: {0}
+ChestsTimes: Сундуки ×{0}: {1}

@@ -1,0 +1,21 @@
+// Every namespace of the mod, once for all files; the book's texts read as L("Area.Key").
+global using ModernRecipeBook.Catalogue.Armor;
+global using ModernRecipeBook.Catalogue.Categories;
+global using ModernRecipeBook.Catalogue.Classes;
+global using ModernRecipeBook.Catalogue.Recipes;
+global using ModernRecipeBook.Catalogue.Search;
+global using ModernRecipeBook.Catalogue.Traits;
+global using ModernRecipeBook.Common.Configs;
+global using ModernRecipeBook.Common.Input;
+global using ModernRecipeBook.Common.Localization;
+global using ModernRecipeBook.Common.Players;
+global using ModernRecipeBook.Mobs;
+global using ModernRecipeBook.Progression;
+global using ModernRecipeBook.Recent;
+global using ModernRecipeBook.Sources;
+global using ModernRecipeBook.Storage;
+global using ModernRecipeBook.Tracking;
+global using ModernRecipeBook.UI.Book;
+global using ModernRecipeBook.UI.Drawing;
+global using ModernRecipeBook.WorldMap;
+global using static ModernRecipeBook.Common.Localization.BookText;

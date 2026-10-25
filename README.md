@@ -507,7 +507,15 @@ The mod is Both-sided and built for servers, Host & Play included; players joini
 |---|---|
 | `ModernRecipeBook.csproj` | The project; tModLoader builds the mod from this folder |
 | `build.txt`, `description.txt`, `icon.png` | The mod's metadata, as tModLoader reads them |
-| `src/` | The C# sources |
+| `src/ModernRecipeBook.cs` | The mod class and its network messages |
+| `src/UI/` | The book itself (`Book`: the window, its tabs, cards and help) and its drawing (`Drawing`) |
+| `src/Catalogue/` | What the book knows about items: categories, classes, weapon traits, armor sets, recipes, search |
+| `src/Sources/` | How to Get: drops, bags, shops, the world |
+| `src/Progression/` | Stages and bosses, spawn rules |
+| `src/Mobs/` | The Bestiary |
+| `src/Storage/` | Nearby storage, Magic Storage, crafting from storage, the server side |
+| `src/Tracking/`, `src/Recent/`, `src/WorldMap/` | Tracking, recent crafts, map teleport and markers |
+| `src/Common/` | Configs, the player, input, and `BookText` (localization) |
 | `Localization/` | English and Russian texts |
 | `Assets/` | Textures |
 | `docs/` | Design notes of the larger features and the README screenshots (kept out of the `.tmod`) |

@@ -24,39 +24,39 @@ Accessories: Аксессуары
 PotionsAndFood: Зелья и еда
 Tools: Инструменты
 FishingRods: Удочки
-StationUp: "Станция: от слабой"
-StationDown: "Станция: от сильной"
-ChangedUp: "Изменено: сначала старые"
-ChangedDown: "Изменено: сначала новые"
-RarityUp: "Редкость: от низкой"
-RarityDown: "Редкость: от высокой"
-ValueUp: "Цена продажи: от низкой"
-ValueDown: "Цена продажи: от высокой"
-DamageUp: "Урон: от меньшего"
-DamageDown: "Урон: от большего"
-SpeedUp: "Скорость: от медленных"
-SpeedDown: "Скорость: от быстрых"
-CritUp: "Шанс крита: от меньшего"
-CritDown: "Шанс крита: от большего"
-KnockbackUp: "Отбрасывание: от слабого"
-KnockbackDown: "Отбрасывание: от сильного"
-DefenseUp: "Защита: от меньшей"
-DefenseDown: "Защита: от большей"
-FlightTimeUp: "Время полёта: от короткого"
-FlightTimeDown: "Время полёта: от долгого"
-HealLifeUp: "Лечение: от меньшего"
-HealLifeDown: "Лечение: от большего"
-HealManaUp: "Мана: от меньшего"
-HealManaDown: "Мана: от большего"
-BuffTimeUp: "Длительность: от короткой"
-BuffTimeDown: "Длительность: от долгой"
-PickPowerUp: "Сила кирки: от меньшей"
-PickPowerDown: "Сила кирки: от большей"
-AxePowerUp: "Сила топора: от меньшей"
-AxePowerDown: "Сила топора: от большей"
-HammerPowerUp: "Сила молота: от меньшей"
-HammerPowerDown: "Сила молота: от большей"
-FishingPowerUp: "Сила удочки: от меньшей"
-FishingPowerDown: "Сила удочки: от большей"
-BaitPowerUp: "Сила наживки: от меньшей"
-BaitPowerDown: "Сила наживки: от большей"
+StationUp: Станция: от слабой
+StationDown: Станция: от сильной
+ChangedUp: Изменено: сначала старые
+ChangedDown: Изменено: сначала новые
+RarityUp: Редкость: от низкой
+RarityDown: Редкость: от высокой
+ValueUp: Цена продажи: от низкой
+ValueDown: Цена продажи: от высокой
+DamageUp: Урон: от меньшего
+DamageDown: Урон: от большего
+SpeedUp: Скорость: от медленных
+SpeedDown: Скорость: от быстрых
+CritUp: Шанс крита: от меньшего
+CritDown: Шанс крита: от большего
+KnockbackUp: Отбрасывание: от слабого
+KnockbackDown: Отбрасывание: от сильного
+DefenseUp: Защита: от меньшей
+DefenseDown: Защита: от большей
+FlightTimeUp: Время полёта: от короткого
+FlightTimeDown: Время полёта: от долгого
+HealLifeUp: Лечение: от меньшего
+HealLifeDown: Лечение: от большего
+HealManaUp: Мана: от меньшего
+HealManaDown: Мана: от большего
+BuffTimeUp: Длительность: от короткой
+BuffTimeDown: Длительность: от долгой
+PickPowerUp: Сила кирки: от меньшей
+PickPowerDown: Сила кирки: от большей
+AxePowerUp: Сила топора: от меньшей
+AxePowerDown: Сила топора: от большей
+HammerPowerUp: Сила молота: от меньшей
+HammerPowerDown: Сила молота: от большей
+FishingPowerUp: Сила удочки: от меньшей
+FishingPowerDown: Сила удочки: от большей
+BaitPowerUp: Сила наживки: от меньшей
+BaitPowerDown: Сила наживки: от большей

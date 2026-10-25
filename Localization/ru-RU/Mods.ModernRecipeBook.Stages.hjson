@@ -1,5 +1,5 @@
-After: "После: {0}"
-Before: "До: {0}"
+After: После: {0}
+Before: До: {0}
 EveryBossIsDown: Все боссы побеждены
 UnknownStage: Этап неизвестен
 StageForEveryTabAlt1: Этап для всех вкладок · Alt+1…5
@@ -18,19 +18,19 @@ ItsSourceIsOnlyThereAt: источник есть только при друго
 RecipeStageFromItsMaterialsStation: Этап рецепта: по материалам, станции и условиям
 TheEarliestStageYouCanGet: Самый ранний этап, когда предмет можно получить
 TheWorldSDifficultyCountsBosses: Учитывается сложность мира; боссы — в порядке Boss Checklist
-Drop: "выпадает: {0}"
-Banner: "знамя: {0}"
-BugNet: "сачок: {0}"
-SoldBy: "продаёт: {0}"
+Drop: выпадает: {0}
+Banner: знамя: {0}
+BugNet: сачок: {0}
+SoldBy: продаёт: {0}
 FoundInTheWorld: есть в мире
 Fishing: рыбалка
 GrowsInTheWorld: растёт в мире
-NeedsPickaxePower: "нужна кирка с силой {0}"
+NeedsPickaxePower: нужна кирка с силой {0}
 ByRarityAGuess: по редкости (оценка)
 FromTheStart: с самого начала
 NoSourceFound: источник не найден
-Pickaxe: "кирка: {0}"
-Shimmer: "мерцание: {0}"
-Trade: "обмен: {0}"
-Rod: "удочка: {0}"
-AfterInline: "после: {0}"
+Pickaxe: кирка: {0}
+Shimmer: мерцание: {0}
+Trade: обмен: {0}
+Rod: удочка: {0}
+AfterInline: после: {0}
