@@ -8,6 +8,9 @@ PlacedThereWhenTheWorldIs: Placed there when the world is made
 FromWorldCreation: from world creation
 MachineMakesOneEvery: Placed, it makes one every {0} s of game time and keeps up to {1} until you take them out
 OneEverySeconds: one every {0} s
+HardmodeBossBags: Treasure bags of hardmode bosses
+DevSetFromBags: Opening one can add a whole developer or patron set to its loot; this item comes with the rest of its set
+WithItsWholeSet: with its whole set
 ChestAstralChest: Astral Chest in the Dungeon
 ChestAstralChestBody: One per world, placed when the world is made; its lock opens after {0} is defeated
 ChestHellLab: Draedon's lab in the Underworld

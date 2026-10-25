@@ -108,6 +108,9 @@ public sealed partial class RecipeBookSystem
 			int keeps = ContentSamples.ItemsByType[s.Item].maxStack;
 			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.MachineMakesOneEvery", seconds, keeps), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.OneEverySeconds", seconds));
 		}
+		case BookAcquisitionKind.DevSet:
+			// Bags exist in Expert and Master only.
+			return new BookAcquisitionEntry(L("HowToGet.HardmodeBossBags"), L("HowToGet.DevSetFromBags"), s.Kind, BookAcquisitionRules.Chance(s.Chance), "×1", s.From, 0, true, -1, s.Owner, L("HowToGet.WithItsWholeSet"), OtherMode: !Main.expertMode);
 		case BookAcquisitionKind.Record:
 			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.WhileItsTrackPlays"));
 		case BookAcquisitionKind.Trade:

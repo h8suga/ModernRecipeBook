@@ -801,6 +801,15 @@ internal static class BookProgression
 				sourced.Add(to);
 				routes.Add(new BookProgressionRules.Route(sourceKey--, to, 0, new int[1][] { new int[1] { from } }, Source: "use:" + ItemName(ContentSamples.ItemsByType[from])));
 			}
+			// Developer and patron sets come out of any hardmode boss bag.
+			if (BookItemSources.HardmodeBags.Length > 0)
+			{
+				foreach (int item in BookItemSources.DevSetChances.Keys)
+				{
+					sourced.Add(item);
+					routes.Add(new BookProgressionRules.Route(sourceKey--, item, 0, new int[1][] { BookItemSources.HardmodeBags }, Source: "devset"));
+				}
+			}
 			// A machine's product comes with the machine.
 			foreach (var (machine, product, _) in BookItemSources.Machines)
 			{

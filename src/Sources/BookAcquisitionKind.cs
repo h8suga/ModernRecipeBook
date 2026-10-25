@@ -20,5 +20,6 @@ internal enum BookAcquisitionKind
 	Chest,
 	World,
 	Machine,
+	DevSet,
 	Unknown
 }

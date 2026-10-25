@@ -918,6 +918,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionKind.Chest => L("Common.Chest"),
 			BookAcquisitionKind.World => L("Common.World"),
 			BookAcquisitionKind.Machine => L("Common.Machine"),
+			BookAcquisitionKind.DevSet => L("Common.DeveloperSet"),
 			_ => L("Common.NoData"),
 		};
 	}

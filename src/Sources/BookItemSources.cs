@@ -112,6 +112,19 @@ internal static class BookItemSources
 	// world time and keeps them, up to the cell's max stack, until they are taken out. Machine, product, ticks each.
 	internal static readonly (string Machine, string Product, int Ticks)[] CalamityMachines = { ("PowerCellFactoryItem", "DraedonPowerCell", 900) };
 
+	// What a hardmode boss's treasure bag adds when opened, in code rather than drop rules (Player.OpenBossBag →
+	// TryGettingDevArmor): one of tModLoader's patron sets 1 in 14, else one of its developer sets 1 in 50
+	// (ModLoaderMod.TryGettingPatreonOrDevArmor), and on top one of vanilla's 18 developer sets 1 in 16 (1 in 8 in a
+	// tenth-anniversary world, left out). The whole picked set drops.
+	internal static readonly int[][] VanillaDevSets =
+	{
+		new[] { 666, 667, 668, 665, 3287 }, new[] { 1554, 1555, 1556, 1586 }, new[] { 1554, 1587, 1588, 1586 }, new[] { 1557, 1558, 1559, 1585 },
+		new[] { 1560, 1561, 1562, 1584 }, new[] { 1563, 1564, 1565, 3582 }, new[] { 1566, 1567, 1568 }, new[] { 1580, 1581, 1582, 1583 },
+		new[] { 3226, 3227, 3228, 3288 }, new[] { 3583, 3581, 3578, 3579, 3580 }, new[] { 3585, 3586, 3587, 3588, 3024 },
+		new[] { 3589, 3590, 3591, 3592, 3599 }, new[] { 3368, 3921, 3922, 3923, 3924 }, new[] { 3925, 3926, 3927, 3928, 3929 },
+		new[] { 4732, 4733, 4734, 4730 }, new[] { 4747, 4748, 4749, 4746 }, new[] { 4751, 4752, 4753, 4750 }, new[] { 4755, 4756, 4757, 4754 }
+	};
+
 	// The catalogue --------------------------------------------------------------------------------------
 
 	private static bool built;
@@ -126,6 +139,11 @@ internal static class BookItemSources
 	internal static List<(int From, int To)> Conversions { get; private set; } = new List<(int, int)>();
 
 	internal static List<(int Machine, int Product, int Ticks)> Machines { get; private set; } = new List<(int, int, int)>();
+
+	// Treasure bags that roll the developer and patron sets (boss bags that are not pre-hardmode-like), and what they give.
+	internal static int[] HardmodeBags { get; private set; } = Array.Empty<int>();
+
+	internal static Dictionary<int, float> DevSetChances { get; private set; } = new Dictionary<int, float>();
 
 	// Recorded music boxes: made by wearing a blank Music Box while the track plays.
 	internal static List<int> RecordedBoxes { get; private set; } = new List<int>();
@@ -145,6 +163,8 @@ internal static class BookItemSources
 		Items = new List<ItemRoutes>();
 		Conversions = new List<(int, int)>();
 		Machines = new List<(int, int, int)>();
+		HardmodeBags = Array.Empty<int>();
+		DevSetChances = new Dictionary<int, float>();
 		RecordedBoxes = new List<int>();
 		Shops = new List<ShopSource>();
 		byItem = new Dictionary<int, List<BookItemSource>>();
@@ -261,6 +281,10 @@ internal static class BookItemSources
 				Machines.Add((machineItem.Type, productItem.Type, ticks));
 			}
 		}
+		HardmodeBags = (from i in ContentSamples.ItemsByType.Values
+			where i != null && ItemID.Sets.BossBag[i.type] && !ItemID.Sets.PreHardmodeLikeBossBag[i.type]
+			select i.type).ToArray();
+		DevSetChances = DevSets();
 		// Vanilla boxes place the MusicBoxes tile; modded ones are registered with MusicLoader.
 		var modBoxes = typeof(MusicLoader).GetField("itemToMusic", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) as Dictionary<int, int>;
 		RecordedBoxes = (from i in ContentSamples.ItemsByType.Values
@@ -348,6 +372,14 @@ internal static class BookItemSources
 		{
 			Add(new BookItemSource(BookAcquisitionKind.Machine, product) { From = machine, Owner = "CalamityMod", NoteValue = ticks });
 		}
+		if (HardmodeBags.Length > 0)
+		{
+			int icon = HardmodeBags.Contains(ItemID.WallOfFleshBossBag) ? ItemID.WallOfFleshBossBag : HardmodeBags[0];
+			foreach (var (item, chance) in DevSetChances)
+			{
+				Add(new BookItemSource(BookAcquisitionKind.DevSet, item) { From = icon, Chance = chance, Owner = ContentSamples.ItemsByType[item].ModItem?.Mod.Name ?? "Terraria" });
+			}
+		}
 		foreach (int box in RecordedBoxes)
 		{
 			Add(new BookItemSource(BookAcquisitionKind.Record, box) { From = ItemID.MusicBox, Owner = ContentSamples.ItemsByType[box].ModItem?.Mod.Name ?? "Terraria" });
@@ -371,6 +403,36 @@ internal static class BookItemSources
 		{
 			Add(source);
 		}
+	}
+
+	// Chance per opened bag of every developer and patron set item (VanillaDevSets and tModLoader's own sets, whose items
+	// are named <Set>_<Piece> in the Terraria.ModLoader.Default.Patreon and .Developer namespaces).
+	private static Dictionary<int, float> DevSets()
+	{
+		var chances = new Dictionary<int, float>();
+		void Give(IEnumerable<int> items, float chance)
+		{
+			foreach (int item in items.Distinct().Where(ContentSamples.ItemsByType.ContainsKey))
+			{
+				chances[item] = chances.GetValueOrDefault(item) + chance;
+			}
+		}
+		foreach (int[] set in VanillaDevSets)
+		{
+			Give(set, 1f / 16f / VanillaDevSets.Length);
+		}
+		var tml = (from i in ContentSamples.ItemsByType.Values
+			let m = i?.ModItem
+			where m != null && m.Mod.Name == "ModLoader" && (m.GetType().Namespace ?? "").StartsWith("Terraria.ModLoader.Default.", StringComparison.Ordinal)
+			let patron = m.GetType().Namespace == "Terraria.ModLoader.Default.Patreon"
+			where patron || m.GetType().Namespace.StartsWith("Terraria.ModLoader.Default.Developer", StringComparison.Ordinal)
+			group i.type by (patron, Set: m.Name.Contains('_') ? m.Name.Substring(0, m.Name.LastIndexOf('_')) : m.Name)).ToList();
+		int patrons = tml.Count((IGrouping<(bool patron, string Set), int> g) => g.Key.patron), developers = tml.Count - patrons;
+		foreach (IGrouping<(bool patron, string Set), int> set in tml)
+		{
+			Give(set, set.Key.patron ? 1f / 14f / patrons : 13f / 14f / 50f / developers);
+		}
+		return chances;
 	}
 
 	private static void Add(BookItemSource source)

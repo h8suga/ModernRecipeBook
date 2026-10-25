@@ -16,6 +16,9 @@ patch for fixes, minor for features.
 - How to Get knows machines that make an item by themselves: Calamity's Power Cell Factory is now a source of the
   Draedon Power Cell ("Machine · one every 15 s"; it keeps up to 9999 until you take them out), next to the Repair
   Unit's drop.
+- Developer and patron sets have a source: How to Get names the treasure bags of hardmode bosses with the chance
+  per bag (tModLoader's patron sets 1 in 14, one of them; its developer sets 1 in 50; vanilla's 1 in 16, one of 18),
+  so items such as A Call Beyond no longer read "No regular source". Their stage is the first hardmode bag.
 
 ## 1.16.1 — 2026-10-25
 
