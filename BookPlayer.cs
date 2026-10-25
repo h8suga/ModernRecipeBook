@@ -22,6 +22,27 @@ public sealed class BookPlayer : ModPlayer
 
 	internal readonly BookMobEncounters SeenMobs = new BookMobEncounters();
 
+	// The Storage tab's Changed times (BookSources.ChangedAt) per world unique id, as BookSources.SnapshotChanged
+	// writes them; the current world's are kept here whenever the player saves or leaves the world.
+	private readonly Dictionary<string, List<string>> StorageChanged = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+
+	private const int MaxChangedWorlds = 10;
+
+	internal void KeepChanged()
+	{
+		if (BookSources.ChangedWorld != null)
+		{
+			StorageChanged[BookSources.ChangedWorld] = BookSources.SnapshotChanged();
+		}
+	}
+
+	// SnapshotChanged writes the newest first: its first line's ticks.
+	private static long NewestTicks(List<string> lines)
+	{
+		string first = lines[0];
+		return long.TryParse(first.AsSpan(first.LastIndexOf('|') + 1), out long ticks) ? ticks : 0;
+	}
+
 	private int DashTapTimer;
 
 	public override void ProcessTriggers(TriggersSet triggersSet)
@@ -254,6 +275,16 @@ public sealed class BookPlayer : ModPlayer
 		tag["FavoriteItems"] = Favorites.OrderBy((string x) => x).ToList();
 		tag["RecentCraftedRecipes"] = RecentRecipes.Snapshot();
 		tag["MobEncounters"] = SeenMobs.Snapshot();
+		if (Player.whoAmI == Main.myPlayer && !Main.dedServ)
+		{
+			KeepChanged();
+		}
+		// The worlds with the newest times first, at most MaxChangedWorlds.
+		tag["StorageChanged"] = StorageChanged.Where((KeyValuePair<string, List<string>> pair) => pair.Value.Count > 0).OrderByDescending((KeyValuePair<string, List<string>> pair) => NewestTicks(pair.Value)).Take(MaxChangedWorlds).Select((KeyValuePair<string, List<string>> pair) => new TagCompound
+		{
+			["World"] = pair.Key,
+			["Kinds"] = pair.Value
+		}).ToList();
 		if (Player.whoAmI == Main.myPlayer && RecipeBookSystem.UiStateInitialized)
 		{
 			SavedUiState = RecipeBookSystem.CapturePlayerUiState();
@@ -270,6 +301,15 @@ public sealed class BookPlayer : ModPlayer
 		}
 		RecentRecipes.Load(tag.GetList<string>("RecentCraftedRecipes"));
 		SeenMobs.Load(tag.GetList<string>("MobEncounters"));
+		StorageChanged.Clear();
+		foreach (TagCompound world in tag.GetList<TagCompound>("StorageChanged"))
+		{
+			string key = world.GetString("World");
+			if (key.Length > 0)
+			{
+				StorageChanged[key] = world.GetList<string>("Kinds").ToList();
+			}
+		}
 		SavedUiState = RecipeBookSystem.ReadPlayerUiState(tag);
 	}
 
@@ -294,6 +334,7 @@ public sealed class BookPlayer : ModPlayer
 			RecipeBookSystem.QueuePlayerUiRestore(SavedUiState);
 			BookMapMarkers.RequestList();
 			BookSpawnGates.OnEnterWorld();
+			BookSources.LoadChanged(StorageChanged.GetValueOrDefault(BookSources.WorldKey));
 		}
 	}
 }
