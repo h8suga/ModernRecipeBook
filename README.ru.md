@@ -346,7 +346,11 @@ Calamity тоже интегрирован полностью: боссы, би�
 - Вкладка «Отслеживание» перечисляет материалы каждой цели; наведи на материал — увидишь его подсказку, «?» открывает
   «Где взять».
 
-<p align="center"><img src="docs/screenshots/tracker.png" width="35%" alt="Трекер под мини-картой"></p>
+<p align="center">
+<img src="docs/screenshots/tracker-cards.png" width="36%" alt="Карточки отслеживания с полосками прогресса">
+<img src="docs/screenshots/tracker-compact-ru.png" width="30%" alt="Компактные строки под мини-картой">
+</p>
+<p align="center"><img src="docs/screenshots/tracking-tab-ru.png" width="80%" alt="Вкладка «Отслеживание»"></p>
 
 ### Телепорт по карте и общие метки
 

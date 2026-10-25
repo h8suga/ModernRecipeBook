@@ -334,7 +334,11 @@ Calamity is fully integrated too: bosses, biomes, events and drop rules come fro
   accessory. Counts include your nearby storage.
 - The Tracking tab lists each goal's materials; hover one for its own tooltip, "?" opens How to Get.
 
-<p align="center"><img src="docs/screenshots/tracker.png" width="35%" alt="Tracker under the minimap"></p>
+<p align="center">
+<img src="docs/screenshots/tracker-cards.png" width="36%" alt="Tracking cards with progress bars">
+<img src="docs/screenshots/tracker-compact.png" width="30%" alt="Compact tracking lines under the minimap">
+</p>
+<p align="center"><img src="docs/screenshots/tracking-tab.png" width="80%" alt="Tracking tab"></p>
 
 ### Map teleport and shared markers
 
