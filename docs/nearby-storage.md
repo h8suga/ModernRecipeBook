@@ -183,7 +183,7 @@ Nothing does: there is one set.
 | Piggy Bank, Safe, Defender's Forge, Void Vault tiles | yes, when any tile of it is in radius | player-owned arrays; no server involvement |
 | Money Trough, Chester, Void Lens projectiles | only while opened | vanilla rule (V11) |
 | Void Bag | while carried | vanilla rule (V1) |
-| MS network | yes, when its Storage Heart, Storage Access, Crafting Interface or Remote Access tile is in radius, or it is the network the player has open in MS | the player must have access (M6); password networks are "Not counted: 1 password" |
+| MS network | yes, when its Storage Heart, Storage Access, Crafting Interface or Remote Access tile is in radius, it is the network the player has open in MS, or a bound Portable Access the player carries reaches it by MS's own rules (§5.7) | the player must have access (M6); password networks are "Not counted: 1 password" |
 
 **Radius.**
 - `BookServerConfig.NearbyRadius` tiles (10..50, default 30): a circle, `|playerCenter − containerCenter| ≤ R × 16` px.
@@ -382,11 +382,11 @@ For each access tile in radius:
 - keep it if `heart.CanLocalClientAccess()` (M6), else count it as "password";
 - a Crafting Interface also contributes its `stations` (§5.4).
 
-Add `StoragePlayer.LocalPlayer.GetStorageHeart()` (and its `GetCraftingAccess()` stations) when the player has MS open. This covers Portable Access, Portable Crafting Access and far Remote Access sessions. MS keeps them only while its reach rule holds (M9).
+Add `StoragePlayer.LocalPlayer.GetStorageHeart()` (and its `GetCraftingAccess()` stations) when the player has MS open. This covers Portable Access, Portable Crafting Access and far Remote Access sessions. MS keeps them only while its reach rule holds (M9). A bound Portable Access that is only carried, with no MS window ever opened, counts too (§5.7).
 
 **No picker and no connect state.** A network is in the set or not.
 
-**Server:** the same tile pass around the server's player position with `R + 8`, done per `Pull`, plus `clientUsingHeart[sender]`.
+**Server:** the same tile pass around the server's player position with `R + 8`, done per `Pull`, plus `clientUsingHeart[sender]`, plus the networks of the Portable Accesses in the server's copy of that player's inventory, checked again on the server (§5.7).
 
 ### 5.2 Reading contents
 
@@ -403,7 +403,7 @@ Server or SP only: `TEStorageHeart.Withdraw` (§4.4 step 6). This is the same fu
 
 ### 5.4 Crafting with MS stations
 
-**Stations = the player's own `adjTile` and flags ∪ the stations of every counted Crafting Interface.** A Crafting Interface counts when it is in radius on an accessible network, or belongs to the open session.
+**Stations = the player's own `adjTile` and flags ∪ the stations of every counted Crafting Interface.** A Crafting Interface counts when it is in radius on an accessible network, belongs to the open session, or is the one a carried Portable Crafting Access is bound to (§5.7).
 
 `BookMagicStorage.CraftingEnvironment()` folds the station items the way MS does (M7, `MS:MagicStorage/CraftingGUI.cs:2251-2355`):
 - `createTile` → `adjTile`, with vanilla's substitutions (V19) and `TileLoader.AdjTiles`;
@@ -464,6 +464,28 @@ This is `MOD:BookStorage.cs:482-526, 588-598` and `MOD:RecipeBookSystem.cs:4848-
 - `Open`, `ConnectNearby`, `AutoConnect` and `PostUpdateEverything` close are deleted;
 - the `BookOpened` / `HandOff` bookkeeping is deleted.
 
+### 5.7 A carried Portable Access (owner, 1.13: «не открываю окно MS, всё делаю в книге»)
+
+The owner carries a Portable Access bound to the heart and a Portable Crafting Access bound to the Crafting Interface, plays far from the base and never opens MS's window. `BookMagicStorage.AddCarried` makes each bound one in inventory slots 0..57 a source when MS itself would open it there. Any tier counts: Pre-Hardmode, Hardmode and the post-Moon Lord `MagicStorage.Items.PortableAccess`, its subclasses, and the crafting ones. The checks run in `PortableAccess.DoOpenStorage` / `OpenStorage` order, calling MS's own members by reflection (group "portable"):
+
+1. `Locator.Location` for this world is set (an unbound one is skipped silently).
+2. The location still holds the item's tile at frame 0,0: `OpenContext` gives a Storage Heart, or a Crafting Interface for the crafting ones. `Utility.GetHeartFromAccess` must find the heart. Otherwise "storage missing".
+3. `GetEffectiveRange`: false or a negative player range means unlimited (post-Moon Lord). Otherwise, when `Utility.PlayerIsNearAccess` fails, a valid pylon must be near the player (`Utility.NearbyPylons`), else "out of range". When the pylon range is set, a pylon must also be near the storage (`Utility.StorageSystemHasNearbyPylon`), else "no pylon near the storage". Pre-Hardmode is 8,000 px / 50 tiles, Hardmode 24,000 px / 100 tiles.
+4. `SecuritySystem.CanPlayerAccessImmediately`. A locked network counts as "password", like an access tile.
+
+What it gives:
+- **The network.** Its items are in the Storage tab, the cells line, recipe counts and tracking. It ranks by the squared distance from the player to the location, so networks in reach of the player keep their priority for pulls and deposits. Deposit All goes to it only when it is the nearest counted network.
+- **The stations.** A crafting one adds its interface's stations to `BookSources.CraftStations`, which `BeginStations` merges and the active-stations panel lists under the interface group.
+- **The reason.** One that does not count shows its reason in the Nearby block's "Not counted" line: "Portable Access — out of range" / «Портативный доступ — вне досягаемости». Also "no pylon near the storage", "storage missing" and, on a client, "loading". A cut line shows in full on hover, above the explanation.
+
+**Multiplayer.**
+- **Tiles.** A client usually lacks the far location's tiles and tile entities. `LocationLoaded` asks the server for the 3x3 sections around the location (`BookMessage.MapSections`, `RemoteClient.CheckSection`). It asks once per location and again only every 300 ticks while the tiles are still missing; the reason meanwhile is "loading". Sections carry their tile entities, and MS's centre then asks for any component sections it lacks (M2).
+- **The server's own check.** For a `Pull` or a `Deposit` the server runs the same check on its own copy of the player's inventory (Locator data travels in `NetSend` with the slot sync), at the server's player position. It never trusts a client claim.
+- **Binding mid-session.** MS binds a locator on the client alone (`StorageHeart.RightClick`), and the game does not resend a slot for mod data. So the client sends the slot (`MessageID.SyncEquipment`) once whenever a carried access shows a location it has not sent yet, exactly what the game does for any changed slot.
+
+**Cost.** The check runs inside the existing scan (every 30 ticks while the book is open or a goal is tracked), never per frame. See §12.3.
+
+Locators without Portable Access and Remote Storage Access tiles are unchanged.
 ---
 
 ## 6. Vanilla crafting column (Q5): not built
@@ -926,6 +948,9 @@ Deposit Held, the deposit hotkeys, the tracker's two pools, `TrackingSource`.
 | `BookCrafting.Refresh(true)`, every 20 ticks with the book open | 153.9 µs | 438 B |
 | vanilla `Recipe.FindRecipes`, for comparison | 154.7 µs | 617 B |
 | server mirror cycle, one subscriber, every 30 ticks | 5.4 µs | 9 B |
+| `Scan` with a Portable Access and a Portable Crafting Access in range, their network read too (§5.7; stand 16 / MP client 15) | 15.2 / 15.6 µs | 3,200 / 3,272 B |
+| the same `Scan` with the portable check off (no network then) | 12.3 / 11.7 µs | 0 B |
+| `Scan` with both out of range (checked, not counted) | 13.0 µs | 1,176 B |
 
 Amortised: about 8 µs per tick with the book open (7.7 of them the craftable pass, as before); about 0.2 µs per
 tick per subscriber on the server; nothing with the book closed and no tracked goals.
