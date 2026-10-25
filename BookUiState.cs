@@ -7,7 +7,8 @@ namespace ModernRecipeBook;
 internal sealed class BookUiState
 {
 	// 5: the global class filter. 6: per-tab excluded stations. 7: Storage's own stage filter. 8: per-tab Craftable.
-	internal const int CurrentVersion = 8;
+	// 9: "Before: <boss>" (stage filter 4, the boss's key; 5 is the unknown stage).
+	internal const int CurrentVersion = 9;
 
 	// Search, mod, category, favorites and sort belong to one tab and stay until the player changes them;
 	// the stage filter is shared by every tab but Storage, which has its own.
@@ -73,6 +74,11 @@ internal sealed class BookUiState
 
 	internal int StorageStageFilter;
 
+	// The boss "Before" names: a BookSteps key ("Terraria Golem") or "next", which follows the world.
+	internal string StageBoss = "next";
+
+	internal string StorageStageBoss = "next";
+
 	// Global, for every tab: one BookClass value, 0 = all classes.
 	internal int ClassFilter;
 
@@ -125,8 +131,10 @@ internal sealed class BookUiState
 		string key = Clean(CategoryKey, 128);
 		bookUiState.CategoryKey = ((key != null && key.Length > 0) ? key : "all");
 
-		bookUiState.StageFilter = Math.Clamp(StageFilter, 0, 3);
-		bookUiState.StorageStageFilter = Math.Clamp(StorageStageFilter, 0, 3);
+		bookUiState.StageFilter = Math.Clamp(StageFilter, 0, 5);
+		bookUiState.StorageStageFilter = Math.Clamp(StorageStageFilter, 0, 5);
+		bookUiState.StageBoss = Clean(StageBoss, 128) is { Length: > 0 } boss ? boss : "next";
+		bookUiState.StorageStageBoss = Clean(StorageStageBoss, 128) is { Length: > 0 } storageBoss ? storageBoss : "next";
 		bookUiState.ClassFilter = ((Array.IndexOf(BookItemClasses.Buttons, (BookClass)ClassFilter) >= 0) ? ClassFilter : 0);
 		bookUiState.FavoritesOnly = FavoritesOnly;
 		bookUiState.UsedInMode = UsedInMode;

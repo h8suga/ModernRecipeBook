@@ -63,7 +63,7 @@ internal static class BookHelp
 		{
 			new Entry("Ctrl+F", "Ctrl+F", "Поиск", "Search"),
 			new Entry("Ctrl+Backspace", "Ctrl+Backspace", "Сбросить фильтры", "Reset filters"),
-			new Entry("Alt+1…4", "Alt+1…4", "Этап", "Stage"),
+			new Entry("Alt+1…5", "Alt+1…5", "Этап · 5: до следующего босса", "Stage · 5: before the next boss"),
 			new Entry("Кнопки класса", "Class buttons", "Фильтр по классу", "Filter by class"),
 			new Entry("F5", "F5", "Обновить", "Refresh")
 		}),

@@ -294,7 +294,11 @@ public sealed partial class RecipeBookSystem
 	{
 		if (gate.StartsWith("boss:", StringComparison.Ordinal))
 		{
-			return T("после: ", "after ") + NpcTypeName(gate.Substring(5));
+			return GateTermText(gate.Substring(5));
+		}
+		if (gate.StartsWith("mechs:", StringComparison.Ordinal))
+		{
+			return GateTermText(gate);
 		}
 		if (gate.StartsWith("needs:", StringComparison.Ordinal))
 		{

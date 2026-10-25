@@ -346,7 +346,7 @@ internal static class BookWorldSources
 
 	// What the world generates or grows: ores and metal-detector finds, biome and conversion blocks, the
 	// curated layer tables, and plants that need a particular ground.
-	private static bool Natural(int t)
+	internal static bool Natural(int t)
 	{
 		if (TileID.Sets.Ore[t] || Main.tileOreFinderPriority[t] > 0 || BiomeKey(t) != null || VanillaLayers.ContainsKey(t) || CalamityBiome(t) != null)
 		{
@@ -364,9 +364,55 @@ internal static class BookWorldSources
 		return TileLoader.GetTile(t)?.Mod.Name ?? "Terraria";
 	}
 
+	// The pickaxe power a tile needs: ModTile.MinPick, or Player.GetPickaxeDamage's vanilla checks (Demonite and
+	// Crimtane only below the surface, which is where most of it is; Dungeon bricks only off the entrance).
 	internal static int PickPower(int t)
 	{
-		return TileLoader.GetTile(t) is ModTile tile ? tile.MinPick : 0;
+		if (TileLoader.GetTile(t) is ModTile tile)
+		{
+			return tile.MinPick;
+		}
+		return t switch
+		{
+			TileID.Chlorophyte => 200,
+			TileID.LihzahrdBrick or TileID.LihzahrdAltar => 210,
+			TileID.Adamantite or TileID.Titanium => 150,
+			TileID.Mythril or TileID.Orichalcum => 110,
+			TileID.Cobalt or TileID.Palladium => 100,
+			TileID.Ebonstone or TileID.Crimstone or TileID.Pearlstone or TileID.Hellstone => 65,
+			TileID.Demonite or TileID.Crimtane or TileID.Obsidian => 55,
+			TileID.Meteorite => 50,
+			_ => 0
+		};
+	}
+
+	// What a natural tile waits for, as a BookSteps term: "" none, "Hardmode", a boss, or the mechanical bosses'
+	// words. With Calamity's Early Hardmode Progression Rework (on by default) the second and third ore tiers come
+	// with the first and second mechanical boss and Hallowed Ore with the third (CalamityGlobalNPC.
+	// SpawnMechBossHardmodeOres), and Astral Ore lands with the hardmode meteor but cannot be mined before Astrum
+	// Deus (AstralOre.CanKillTile).
+	internal static string TileGate(int t)
+	{
+		if (HardmodeTiles.Contains(t))
+		{
+			if (BookProgressionSources.CalamityRework())
+			{
+				if (t is TileID.Mythril or TileID.Orichalcum)
+				{
+					return "mechs:any";
+				}
+				if (t is TileID.Adamantite or TileID.Titanium)
+				{
+					return "mechs:two";
+				}
+			}
+			return "Hardmode";
+		}
+		if (TileLoader.GetTile(t) is not ModTile tile || tile.Mod.Name != "CalamityMod")
+		{
+			return "";
+		}
+		return CalamityOreBosses.GetValueOrDefault(tile.Name, "");
 	}
 
 	// The ground a plant needs: WorldGen.PlantCheck's table, else the style's TileObjectData anchors (herbs).
@@ -402,20 +448,8 @@ internal static class BookWorldSources
 		{
 			return "treetop";
 		}
-		if (HardmodeTiles.Contains(t))
-		{
-			return "Hardmode";
-		}
-		if (TileLoader.GetTile(t) is not ModTile tile || tile.Mod.Name != "CalamityMod")
-		{
-			return "";
-		}
-		// The Astral Infection lands with the hardmode meteor (WorldgenManagementSystem.ModifyHardmodeTasks).
-		if (tile.Name == "AstralOre")
-		{
-			return "Hardmode";
-		}
-		return CalamityOreBosses.TryGetValue(tile.Name, out string boss) ? "boss:" + boss : "";
+		string gate = TileGate(t);
+		return (gate.Length == 0 || gate == "Hardmode" || gate.StartsWith("mechs:", StringComparison.Ordinal)) ? gate : "boss:" + gate;
 	}
 
 	// Where -----------------------------------------------------------------------------------------
@@ -616,15 +650,18 @@ internal static class BookWorldSources
 		(Biome + "UndergroundHallow", "HallowedOre"),
 		(Biome + "UndergroundJungle", "UelibloomOre"));
 
-	// The boss whose first kill spawns a Calamity ore (or, for Lumenyl, lets the crystals grow).
+	// The boss whose first kill spawns a Calamity ore (or, for Lumenyl, lets the crystals grow; Aerialite is
+	// enchanted by the Hive Mind or the Perforators, whichever falls first; Hallowed Ore comes with the third
+	// mechanical boss whichever it is; Astral Ore is there from hardmode but only breaks after Astrum Deus).
 	private static readonly Dictionary<string, string> CalamityOreBosses = new Dictionary<string, string>(StringComparer.Ordinal)
 	{
 		["LumenylCrystals"] = "CalamityMod/Leviathan",
-		["AerialiteOre"] = "CalamityMod/HiveMind",
+		["AerialiteOre"] = "CalamityMod/HiveMind;CalamityMod/PerforatorHive",
+		["AstralOre"] = "CalamityMod/AstrumDeusHead",
 		["AuricOre"] = "CalamityMod/Yharon",
 		["CryonicOre"] = "CalamityMod/Cryogen",
 		["ExodiumOre"] = "MoonLordCore",
-		["HallowedOre"] = "TheDestroyer",
+		["HallowedOre"] = "mechs:all",
 		["PerennialOre"] = "Plantera",
 		["UelibloomOre"] = "CalamityMod/Providence"
 	};

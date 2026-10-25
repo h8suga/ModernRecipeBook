@@ -1479,7 +1479,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, string StageBoss, BookClass Class, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1493,7 +1493,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, StageBoss, ClassFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1520,6 +1520,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ExcludedStations = ((state.Stations.Length == 0) ? Array.Empty<string>() : state.Stations.Split('|'))
 		});
 		StageFilter = state.Stage;
+		StageBoss = state.StageBoss;
 		ClassFilter = state.Class;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		SetTyping(value: false);
@@ -2483,12 +2484,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : T("без условий", "no conditions"))));
 	}
 
-	// An Unknown stage is either a source the current difficulty rules out or no regular source at all.
+	// The progression step ("After Plantera"); an unknown one is either a source the current difficulty rules out or
+	// no regular source at all.
 	private static string StageName(Item item, Recipe recipe)
 	{
-		BookStage stage = (recipe != null) ? BookProgression.RecipeStage(recipe.RecipeIndex) : BookProgression.ItemStage(item.type);
+		int step = (recipe != null) ? BookProgression.RecipeStep(recipe.RecipeIndex) : BookProgression.ItemStep(item.type);
 		bool modeExcluded = (recipe != null) ? BookProgression.RecipeModeExcluded(recipe.RecipeIndex) : BookProgression.ItemModeExcluded(item.type);
-		return (stage == BookStage.Unknown && modeExcluded) ? T("Не в этом режиме", "Not in this mode") : StageName(stage);
+		return (step < 0 && modeExcluded) ? T("Не в этом режиме", "Not in this mode") : StepName(step);
 	}
 
 	private static string StageName(BookStage stage)
@@ -2538,39 +2540,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// The stage filter spans tabs (one for Storage, one for the rest), so it sits in the header next to the title, not in a tab's filter bar.
-	// Its width fits the longest option, so picking another stage never moves the tabs.
+	// Its width fits the longest stage option and leaves "Before: <boss>" some room (205 keeps both languages' tabs
+	// as they were), so picking another stage never moves the tabs; a long boss name is shrunk to fit.
 	private static BookRect StageDropdownRect()
 	{
-		float width = StageLabels().Max((string label) => TextWidth(label, 0.85f)) + 52f;
+		float width = Math.Max(Math.Max(StageLabels().Max((string label) => TextWidth(label, 0.85f)), TextWidth(UnknownStageLabel, 0.85f)) + 52f, 205f);
 		return new BookRect(TitleRight() + 16f, BookGeometry.TabTop + 2f, width, BookGeometry.TabHeight - 4f);
-	}
-
-	private static BookRect StageOption(int option)
-	{
-		BookRect anchor = StageDropdownRect();
-		return new BookRect(anchor.X + 4f, anchor.Y + anchor.Height + 8f + option * 32, Math.Max(anchor.Width, 200f) - 8f, 32f);
-	}
-
-	private static void DrawStageMenu(SpriteBatch sb)
-	{
-		BookRect anchor = StageDropdownRect();
-		Box(sb, anchor.X, anchor.Y + anchor.Height + 4f, Math.Max(anchor.Width, 200f), 136f, new Color(17, 25, 20), border: true, 10f, Accent);
-		string[] labels = StageLabels();
-		for (int option = 0; option < 4; option++)
-		{
-			BookRect rect = StageOption(option);
-			bool active = option == (int)StageFilter;
-			bool hover = rect.Contains(Mouse.X, Mouse.Y);
-			if (active)
-			{
-				Box(sb, rect, SelectedFill, border: false, 6f);
-			}
-			else if (hover)
-			{
-				Box(sb, rect, HoverFill, border: false, 6f);
-			}
-			CenterLabel(sb, labels[option], rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
-		}
 	}
 
 	private static string[] StageLabels()
@@ -2584,11 +2559,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 	}
 
-
-	private static string StageExplanation(Item item, Recipe recipe)
-	{
-		return ((recipe != null) ? T("Этап рецепта: по материалам, станции и условиям", "Recipe stage: from its materials, station and conditions") : T("Самый ранний этап, когда предмет можно получить", "The earliest stage you can get this item")) + "\n" + T("Учитывается сложность мира", "The world's difficulty counts");
-	}
 
 	private static void ResetResourceTracker()
 	{
@@ -3171,6 +3141,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			["ModFilter"] = state.ModFilter,
 			["StageFilter"] = state.StageFilter,
 			["StorageStageFilter"] = state.StorageStageFilter,
+			["StageBoss"] = state.StageBoss,
+			["StorageStageBoss"] = state.StorageStageBoss,
 			["ClassFilter"] = state.ClassFilter,
 			["CategoryKey"] = state.CategoryKey,
 
@@ -3215,6 +3187,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (tag.ContainsKey("StorageStageFilter"))
 			{
 				state.StorageStageFilter = tag.GetInt("StorageStageFilter");
+			}
+			// Saves before version 9 have no boss: "Before" starts at the next boss.
+			if (tag.ContainsKey("StageBoss"))
+			{
+				state.StageBoss = tag.GetString("StageBoss");
+			}
+			if (tag.ContainsKey("StorageStageBoss"))
+			{
+				state.StorageStageBoss = tag.GetString("StorageStageBoss");
 			}
 			// Saves before version 5 have no class filter: all classes.
 			if (tag.ContainsKey("ClassFilter"))
@@ -3344,6 +3325,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ModFilter = ModFilter,
 			StageFilter = (int)ListStageFilter,
 			StorageStageFilter = (int)StorageStageFilter,
+			StageBoss = ListStageBoss,
+			StorageStageBoss = StorageStageBoss,
 			ClassFilter = (int)ClassFilter,
 			CategoryKey = categoryKey,
 			FavoritesOnly = FavoritesOnly,
@@ -3395,6 +3378,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		ListStageFilter = (BookStageFilter)state.StageFilter;
 		StorageStageFilter = (BookStageFilter)state.StorageStageFilter;
+		ListStageBoss = state.StageBoss;
+		StorageStageBoss = state.StorageStageBoss;
 		ClassFilter = (BookClass)state.ClassFilter;
 		UsedInMode = state.UsedInMode;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
@@ -3735,6 +3720,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		InvalidateBatchEstimate();
 		Query = (ModFilter = "");
 		ListStageFilter = (StorageStageFilter = BookStageFilter.All);
+		ListStageBoss = (StorageStageBoss = NextBossKey);
 		ClassFilter = BookClass.None;
 		TabFilterSlots.Clear();
 		Page = (DetailsPage = (Category = (CategoryRow = 0)));
@@ -3976,6 +3962,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		TextMatchCount = 0;
 		ClassHidden = 0;
 		CraftableHidden = 0;
+		ReadStageBefore();
 		StationCandidates.Clear();
 		StationCandidatesVersion++;
 		StationHidden = 0;
@@ -4047,9 +4034,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 					byText = true;
 				}
 			}
-			BookStage stage = ((r != null) ? BookProgression.RecipeStage(index) : BookProgression.ItemStage(item.type));
-			if (!BookProgressionRules.Matches(StageFilter, stage))
+			int step = ((r != null) ? BookProgression.RecipeStep(index) : BookProgression.ItemStep(item.type));
+			if (!BookProgressionRules.Matches(StageFilter, step, StageBefore))
 			{
+				if (step < 0)
+				{
+					StageUnknownHidden++;
+				}
 				continue;
 			}
 			if (ClassFilter != BookClass.None && (BookItemClasses.Get(item.type) & ClassFilter) == 0)
@@ -4369,6 +4360,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Rebuild();
 			ApplyFilters();
 		}
+		RefreshBossFilter();
 		// Craftable follows the inventory: one pass when what can be made changed, not one per frame.
 		if (CraftableFilterActive && AppliedAvailabilityVersion != BookCrafting.AvailabilityVersion)
 		{
@@ -4553,17 +4545,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (StageMenu)
 		{
-			for (int option = 0; option < 4; option++)
-			{
-				if (StageOption(option).Contains(Mouse.X, Mouse.Y))
-				{
-					StageFilter = (BookStageFilter)option;
-					Page = (DetailsPage = (Variant = 0));
-					ApplyFilters();
-					break;
-				}
-			}
-			StageMenu = false;
+			ClickStageMenu();
 			return;
 		}
 		if (StageDropdownRect().Contains(Mouse.X, Mouse.Y))
@@ -5103,7 +5085,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.Stage2:
 		case BookHotkeys.Action.Stage3:
 		case BookHotkeys.Action.Stage4:
+		case BookHotkeys.Action.Stage5:
 			StageFilter = (BookStageFilter)(action - BookHotkeys.Action.Stage1);
+			if (StageFilter == BookStageFilter.BeforeBoss)
+			{
+				StageBoss = NextBossKey;
+			}
 			Page = (DetailsPage = (Variant = 0));
 			ApplyFilters();
 			break;
@@ -6249,10 +6236,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			MouseTip(T("Перетащите, чтобы переместить окно", "Drag to move the window"));
 		}
 		BookRect stage = StageDropdownRect();
-		Dropdown(sb, stage, StageLabels()[(int)StageFilter], StageMenu, enabled: true, highlight: StageFilter != BookStageFilter.All);
+		DrawStageDropdown(sb, stage);
 		if (!MenuOpen && stage.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Этап для всех вкладок · Alt+1…4", "Stage for every tab · Alt+1…4") + "\n" + T("Самый ранний этап получения; учитывается сложность мира", "Earliest stage you can get an item; world difficulty counts"));
+			MouseTip(StageDropdownTip());
 		}
 		List<int> tabs = VisibleTabs();
 		BookRect firstTab = TabRect(tabs[0]);
@@ -6591,6 +6578,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			count += "  ·  " + T("читаю тексты предметов: ", "reading item text: ") + DescriptionNext * 100 / Math.Max(1, ItemDescriptions.Length) + "%";
 		}
+		// The stage filter never hides what the book could not place without saying so.
+		if (StageUnknownHidden > 0)
+		{
+			count += "  ·  " + T("этап неизвестен: ", "unknown stage: ") + Count(StageUnknownHidden);
+		}
 		BookRect label = BookGeometry.PageLabel;
 		CenterLabel(sb, count + "  ·  " + (Page + 1) + " / " + Pages, label.X, label.Y, label.Width, label.Height, Muted, 0.85f);
 		if (!MenuOpen && previous.Contains(Mouse.X, Mouse.Y))
@@ -6827,7 +6819,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			list = All.Where((int index) => BookRules.RecipeMatchesSample(type, Main.recipe[index].createItem.type, uses: true, from item in Main.recipe[index].requiredItem
 					where !item.IsAir
 					select item.type, Main.recipe[index].AcceptedByItemGroups))
-				.OrderBy((int index) => (BookProgression.RecipeStage(index) == BookStage.Unknown) ? 3 : (int)BookProgression.RecipeStage(index))
+				.OrderBy((int index) => (BookProgression.RecipeStep(index) < 0) ? int.MaxValue : BookProgression.RecipeStep(index))
 				.ThenBy((int index) => Main.recipe[index].createItem.Name, StringComparer.CurrentCultureIgnoreCase)
 				.DistinctBy(BookRecipeVariants.Representative)
 				.ToList();
@@ -6844,7 +6836,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int notCraftable = 0;
 		foreach (int index in all)
 		{
-			if (!BookProgressionRules.MatchesChain(StageFilter, BookProgression.RecipeStage(index), BookProgression.RecipeMinimumStage(index)))
+			if (!BookProgressionRules.MatchesChain(StageFilter, BookProgression.RecipeStep(index), BookProgression.RecipeMinimumStep(index), StageBefore))
 			{
 				stageHidden++;
 			}
