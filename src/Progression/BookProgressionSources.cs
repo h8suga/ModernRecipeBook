@@ -110,13 +110,14 @@ internal static class BookProgressionSources
 	// statues, seasons) adds nothing.
 	private static readonly Dictionary<string, (string Term, BookStage Stage)> HardmodeDropConditions = Terms((BookStage.Hardmode, "IsHardmode=Hardmode DownedAllMechBosses=mechs:all DownedPlantera=Plantera FirstTimeKillingPlantera=Plantera MechanicalBossesDummyCondition=Hardmode BeatAnyMechBoss=mechs:any MechdusaKill=Hardmode PirateMap=Hardmode SoulOfLight=Hardmode SoulOfNight=Hardmode LivingFlames=Hardmode HallowKeyCondition=Hardmode JungleKeyCondition=Hardmode CorruptKeyCondition=Hardmode CrimsonKeyCondition=Hardmode FrozenKeyCondition=Hardmode DesertKeyCondition=Hardmode YoyosAmarok=Hardmode YoyosYelets=Hardmode YoyosKraken=Hardmode YoyosHelFire=Hardmode IsPumpkinMoon=Plantera FrostMoonDropGatingChance=Plantera PumpkinMoonDropGatingChance=Plantera FrostMoonDropGateForTrophies=Plantera PumpkinMoonDropGateForTrophies=Plantera FromCertainWaveAndAbove=Plantera RemixSeedHardmode=Hardmode EmpressOfLightIsGenuinelyEnraged=HallowBoss"));
 
-	// Vanilla NPCs that come after a particular boss: the post-Plantera Dungeon and the Temple (its key drops from
-	// Plantera); the Solar Eclipse after any mechanical boss, its Reaper after all three and the rest of it after
-	// Plantera (NPC.SpawnNPC); the Pumpkin and Frost Moons (their medallions need Ectoplasm); Martian Madness (the
-	// probe waits for Golem); town NPCs by Main.UpdateTime_SpawnTownNPCs. The Lunar Events and the Old One's Army
-	// tiers go by name (NpcTerm).
+	// Vanilla NPCs that come after a particular boss: the Dungeon's after Skeletron (until then NPC.SpawnNPC sends only
+	// the Dungeon Guardian at a player inside), the post-Plantera Dungeon and the Temple (its key drops from Plantera); the
+	// Solar Eclipse after any mechanical boss, its Reaper after all three and the rest of it after Plantera
+	// (NPC.SpawnNPC); the Pumpkin and Frost Moons (their medallions need Ectoplasm); Martian Madness (the probe waits for
+	// Golem); town NPCs by Main.UpdateTime_SpawnTownNPCs. The Lunar Events and the Old One's Army tiers go by name
+	// (NpcTerm).
 	private static readonly Dictionary<string, (string Term, BookStage Stage)> VanillaNpcTerms = Terms(
-		(BookStage.PreHardmode, "Dryad=EyeofCthulhu;EaterofWorldsHead;SkeletronHead DD2Bartender=EaterofWorldsHead WitchDoctor=QueenBee Clothier=SkeletronHead Mechanic=SkeletronHead"),
+		(BookStage.PreHardmode, "Dryad=EyeofCthulhu;EaterofWorldsHead;SkeletronHead DD2Bartender=EaterofWorldsHead WitchDoctor=QueenBee Clothier=SkeletronHead Mechanic=SkeletronHead AngryBones=SkeletronHead AngryBonesBig=SkeletronHead AngryBonesBigMuscle=SkeletronHead AngryBonesBigHelmet=SkeletronHead DarkCaster=SkeletronHead CursedSkull=SkeletronHead DungeonSlime=SkeletronHead"),
 		(BookStage.Hardmode, "DungeonSpirit=Plantera RustyArmoredBonesAxe=Plantera RustyArmoredBonesFlail=Plantera RustyArmoredBonesSword=Plantera RustyArmoredBonesSwordNoArmor=Plantera BlueArmoredBones=Plantera BlueArmoredBonesMace=Plantera BlueArmoredBonesNoPants=Plantera BlueArmoredBonesSword=Plantera HellArmoredBones=Plantera HellArmoredBonesSpikeShield=Plantera HellArmoredBonesMace=Plantera HellArmoredBonesSword=Plantera RaggedCaster=Plantera RaggedCasterOpenCoat=Plantera Necromancer=Plantera NecromancerArmored=Plantera DiabolistRed=Plantera DiabolistWhite=Plantera SkeletonCommando=Plantera SkeletonSniper=Plantera TacticalSkeleton=Plantera Paladin=Plantera GiantCursedSkull=Plantera BoneLee=Plantera "
 			+ "Lihzahrd=Plantera LihzahrdCrawler=Plantera FlyingSnake=Plantera "
 			+ "Eyezor=mechs:any Frankenstein=mechs:any SwampThing=mechs:any Vampire=mechs:any VampireBat=mechs:any CreatureFromTheDeep=mechs:any Fritz=mechs:any ThePossessed=mechs:any Reaper=mechs:all Mothron=Plantera MothronEgg=Plantera MothronSpawn=Plantera Butcher=Plantera DeadlySphere=Plantera DrManFly=Plantera Nailhead=Plantera Psycho=Plantera "
