@@ -2,8 +2,6 @@ NearACampfireMagicStorage: Near a campfire (Magic Storage)
 ByHand: By hand
 NoRegularSource: No regular source
 SpecialCondition: Special condition
-Met: " · met"
-NotMetYet: " · not met yet"
 ExpertMaster: Expert / Master
 Classic: Classic
 Master: Master
@@ -27,11 +25,11 @@ World: World
 NoData: No data
 NotInThisWorld: not in this world
 VariesByCondition: varies by condition
-Recipe: "Recipe: "
+Recipe: Recipe: {0}
 OpenRecipe: Open recipe
 OpenInBestiary: Open in Bestiary
 ShowConditions: Show conditions
-Conditions: "Conditions · "
+Conditions: Conditions · {0}
 HowToGet: How to Get
 OtherAcceptedItems: Other accepted items
 NotInRecipesDropsShopsOr: Not in recipes, drops, shops or the world
@@ -44,13 +42,13 @@ Close: Close
 CloseEsc: Close · Esc
 PreviousPgUp: Previous · PgUp
 NextPgDn: Next · PgDn
-SetDefense: "Set defense: "
-Defense: "Defense: "
-Set: "Set: "
+SetDefense: Set defense: {0}
+Defense: Defense: {0}
+Set: Set: {0}
 WithoutAccessoriesAndBuffs: Without accessories and buffs
-Pieces: "Pieces: "
+Pieces: Pieces: {0}
 ModdedSetBonusNotCounted: Modded set bonus not counted
-SetBonus: ", set bonus +"
+SetBonus: "{0}, set bonus +{1}"
 SetBonus2: Set bonus
 ClickNextVariant: Click: next variant
 ClickShowThisPiece: Click: show this piece
@@ -66,12 +64,12 @@ UntrackSet: Untrack Set
 TrackSet: Track Set
 UntrackAllThreePieces: Untrack all three pieces
 TrackAllThreePiecesAsOne: Track all three pieces as one goal
-TRACKING: "TRACKING · "
+TRACKING: TRACKING · {0}
 DragToMove: Drag to move
 ClickMaterialsRightClickUntrack: Click: materials · Right-click: untrack
-MoreCtrl: " more · Ctrl+"
+MoreCtrl: +{0} more · Ctrl+{1}
 ArmorSet: Armor set
-StartsOnItsOwnOrWith: "Starts on its own or with a "
+StartsOnItsOwnOrWith: Starts on its own or with a {0}
 StartsOnItsOwn: Starts on its own
 FromCalamitySEventTables: From Calamity's event tables
 TheModLetsItSpawnAfter: The mod lets it spawn after other bosses too; the probe could not tell which
@@ -81,14 +79,13 @@ AcidRainInTheSulphurousSea: Acid Rain in the Sulphurous Sea
 InWater: in water
 OnLand: on land
 FallsFromTheSky: falls from the sky
-Until: "until "
+Until: until {0}
 InRain: in rain
 AfterAnyMechanicalBoss: after any mechanical boss
 AfterAnyTwoMechanicalBosses: after any two mechanical bosses
 AfterAllMechanicalBosses: after all mechanical bosses
-Or: " or "
 AnotherBoss: another boss
-After: "after "
+After: after {0}
 Forest: Forest
 Underground: Underground
 Caverns: Caverns
@@ -113,20 +110,19 @@ PreHardmode: Pre-Hardmode
 Hardmode: Hardmode
 PostMoonLord: Post-Moon Lord
 AllStages: All stages
-More: " more"
 Syncing: Syncing…
 ReadyToCraft: Ready to craft
-Ingredients: "Ingredients: "
+Ingredients: Ingredients: {0}/{1}
 NothingTrackedYet: Nothing tracked yet
 SelectAnItemAndPressTrack: Select an item and press Track
-TRACKED: "TRACKED · "
+TRACKED: TRACKED · {0}
 ClearAll: Clear All?
 Clear: Clear
 ClickAgainToUntrackEverything: Click again to untrack everything
 UntrackEverything: Untrack everything
 Crafts: crafts
-Crafts2: "Crafts: "
-HowToGet2: "How to Get: "
+Crafts2: Crafts: {0}
+HowToGet2: How to Get: {0}
 INGREDIENTS: INGREDIENTS
 STATION: STATION
 CONDITIONS: CONDITIONS
@@ -139,9 +135,7 @@ Ingredients2: Ingredients
 Stations: Stations
 Station: Station
 Conditions2: Conditions
-Have: "Have "
-Need: ", need "
-AlsoCountedInAnotherRow: " · also counted in another row"
+AlsoCountedInAnotherRow: "{0} · also counted in another row"
 NoStationNeeded: No station needed
 Condition: Condition
 NoMaterials: No materials
@@ -208,25 +202,23 @@ NoCraftsYet: No crafts yet
 ItemsYouCraftWillAppearHere: Items you craft will appear here
 RecipesFromHistoryArenTLoaded: Recipes from history aren't loaded
 EnableTheModsThatAddThem: Enable the mods that add them
-Stacks: "Stacks: "
-Items: "Items: "
-Mobs: "Mobs: "
-Recent: "Recent: "
-Recipes: "Recipes: "
-TextMatches: "text matches: "
-ReadingItemText: "reading item text: "
-UnknownStage: "unknown stage: "
+Stacks: Stacks: {0}
+Items: Items: {0}
+Mobs: Mobs: {0}
+Recent: Recent: {0}/{1}
+Recipes: Recipes: {0}
+TextMatches: text matches: {0}
+ReadingItemText: reading item text: {0}%
+UnknownStage: unknown stage: {0}
 PreviousPagePgUp: Previous page · PgUp
 NextPagePgDn: Next page · PgDn
 NothingSelected: Nothing selected
 PickAnItemOnTheLeft: Pick an item on the left
 NoCraftingRecipe: No crafting recipe
 GetItFromLootShopsFishing: Get it from loot, shops, fishing and more
-AllSources2: "All sources: "
+AllSources2: All sources: {0}
 RemoveFromFavoritesAltF: Remove from favorites · Alt+F
 AddToFavoritesAltF: Add to favorites · Alt+F
-Craft: Craft
-Max2: max
 Recipe2: Recipe
 OtherRecipesForThisItem: Other recipes for this item
 MoreOfThisRecipeMouseWheel: More of this recipe · Mouse wheel
@@ -271,3 +263,13 @@ CardsHoldFiveGoals: Cards hold 5 goals. Untrack one or switch to compact.
 TrackingTheSet: Tracking the set
 TrackingItem: Tracking: {0}
 ClickOpenAlternative: Click: open {0}
+ConditionMet: "{0} · met"
+ConditionNotMetYet: "{0} · not met yet"
+MoreLines: +{0} more
+OrSeparator: " or "
+HaveNeed: Have {0}, need {1}
+CraftTimes: Craft ×{0}
+CraftShortcuts: Ctrl+Enter · max: Ctrl+Shift+Enter
+RecipeVariant: Recipe {0}/{1}
+RecipeFromMod: "{0}: {1}"
+BackTo: Back: {0}

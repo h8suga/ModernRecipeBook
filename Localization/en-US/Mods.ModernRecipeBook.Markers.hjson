@@ -1,4 +1,4 @@
-PlacedBy: "Placed by "
+PlacedBy: Placed by {0} · {1}
 MarkersAreOffOnThisServer: Markers are off on this server
 NotHere: Not here
 TooFastTryAgain: Too fast, try again
@@ -11,7 +11,7 @@ Cancel: Cancel
 Save: Save
 CancelEsc: Cancel · Esc
 SaveEnter: Save · Enter
-Edited: "Edited "
+Edited: Edited {0}
 Edit: Edit
 Delete: Delete
 AuthorOrHostOnly: Author or host only

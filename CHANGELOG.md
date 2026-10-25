@@ -3,6 +3,21 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.16.1 — 2026-10-25
+
+### Changed
+- Every text a translator sees is a whole phrase with placeholders ("Recipe: {0}", "{0} or {1} more", "Took {0} of
+  {1}: the rest is gone") instead of pieces the code glued together, so a translation can put the words in its own
+  order. The sort menu's rows are whole phrases too ("Damage: lowest first"). Nothing reads differently in English
+  or Russian.
+- [TRANSLATING.md](TRANSLATING.md) walks through tModLoader's own workflow: create one empty file of your language,
+  build the mod, and every line appears in it commented out in English; `Localization/TranslationsNeeded.txt`
+  shows how far each language is.
+
+### Developer
+- The sources are laid out by area under `src/` (UI, Catalogue, Sources, Progression, Mobs, Storage, Tracking,
+  Recent, WorldMap, Common), each folder its own namespace; `GlobalUsings.cs` brings them in once.
+
 ## 1.16.0 — 2026-10-25
 
 ### Added

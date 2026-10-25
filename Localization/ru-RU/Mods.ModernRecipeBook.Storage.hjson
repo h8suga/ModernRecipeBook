@@ -1,19 +1,14 @@
-Inventory: "Инвентарь: "
-OpenChest: "Открытый сундук: "
-Chests: Сундуки
+Inventory: Инвентарь: {0}
+OpenChest: Открытый сундук: {0}
 NothingNearby: Рядом ничего нет
-Network: "Сеть "
-Text: " из "
-Remote: " (удалённо)"
+Network: Сеть {0}
 OpenChest2: Открытый сундук
-NotCounted: "Не учтены: "
-UnlimitedNotInTheTotal: ": без предела, в сумму не входит"
-Cells: "Ячейки: "
-Remote2: "Удалённо "
-SetByTheHost: " · задаёт хост"
+NotCounted: Не учтены: {0}
+UnlimitedNotInTheTotal: "{0}: без предела, в сумму не входит"
+Cells: Ячейки: {0}
+SetByTheHost: "{0} · задаёт хост"
 ViaPortableAccess: через Portable Access
 ViaTheMagicStorageWindow: через окно Magic Storage
-Password: " с паролем"
 PortableCraftingAccess: Портативный доступ к созданию
 PortableAccess: Портативный доступ
 OutOfRange: вне досягаемости
@@ -24,7 +19,7 @@ LockedChestsAndChestsAnotherPlayer: Запертые сундуки и сунд�
 AStorageWithAPasswordCounts: Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.
 APortableAccessInYourInventory: Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон.
 Inventory2: инвентарь
-From: "Откуда: "
+From: Откуда: {0}
 NoLongerNearby: Этого уже нет рядом
 InventoryFull: Инвентарь полон
 TakenToInventory: Забрано в инвентарь
@@ -39,12 +34,7 @@ ShiftClickAnInventoryItemOr: Shift+клик по предмету в инвен�
 NothingNearbyToDepositInto: Рядом некуда складывать
 NothingToDeposit: Нечего складывать
 InventoryFullRestOnCursor: Инвентарь полон: остаток на курсоре
-Took: "Взято "
-Of: " из "
-TheRestIsGone: ": остального уже нет"
 StoredNearby: Сложено рядом
-NearbyStorageIsFull: "Рядом нет места: осталось "
-Left: ""
 NoReplyFromTheServerTry: Сервер не отвечает: повторите
 CountChests: "{0} {^0:сундук;сундука;сундуков}"
 CountStorages: "{0} {^0:хранилище;хранилища;хранилищ}"
@@ -57,3 +47,11 @@ CountInUse: "{0} {^0:занят;заняты;заняты}"
 StackedRemote: Сложено в удалённое хранилище: {0}
 StackedSomeRemote: Сложено в хранилище: {0} · в удалённое: {1}
 StackedLocal: Сложено в хранилище: {0}
+UsedOfTotal: "{0} из {1}"
+RemoteNetwork: "{0} (удалённо)"
+RemoteHow: Удалённо {0}
+CountPassword: "{0} с паролем"
+TookOfRestGone: Взято {0} из {1}: остального уже нет
+NearbyStorageFullLeft: Рядом нет места: осталось {0}
+ChestsCount: Сундуки: {0}
+ChestsTimes: Сундуки ×{0}: {1}

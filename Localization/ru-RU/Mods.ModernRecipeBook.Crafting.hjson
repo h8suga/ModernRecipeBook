@@ -15,6 +15,6 @@ CraftingStoppedSomethingChanged: Крафт остановлен: что-то и
 StoppedOutOfMaterials: Остановлено: кончились материалы
 CraftingFailed: Крафт не удался
 InventoryFullResultOnCursor: Инвентарь полон: результат на курсоре
-MaterialsInInventoryCraftStopped: "Материалы в инвентаре; крафт остановлен: "
 Crafted: Создано: {0}
 CraftedSome: Создано {0}/{1} · {2}
+CraftStoppedMaterialsInInventory: Материалы в инвентаре; крафт остановлен: {0}
