@@ -500,6 +500,7 @@ Calamity и Magic Storage и приложи `tModLoader-Logs/client.log`. Pull r
 ## Авторы
 
 - Автор: [h8suga](https://github.com/h8suga).
+- [DustY1337](https://github.com/DustY1337) заложил основу мода.
 - Сделано на [tModLoader](https://github.com/tModLoader/tModLoader).
 - Интеграция с [Calamity Mod](https://calamitymod.wiki.gg/) и
   [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); оба мода принадлежат своим авторам.
