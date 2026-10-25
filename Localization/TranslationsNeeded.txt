@@ -1,0 +1,3 @@
+en-US, 905/905, 100%, missing 0
+de-DE, 0/905, 0%, missing 905
+ru-RU, 903/905, 100%, missing 2

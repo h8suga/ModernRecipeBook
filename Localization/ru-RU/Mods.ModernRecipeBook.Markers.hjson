@@ -1,4 +1,4 @@
-PlacedBy: "Поставил "
+PlacedBy: "Поставил {0} · {1}"
 MarkersAreOffOnThisServer: Метки выключены на сервере
 NotHere: Здесь нельзя
 TooFastTryAgain: Слишком часто, ещё раз
@@ -11,7 +11,7 @@ Cancel: Отмена
 Save: Сохранить
 CancelEsc: Отмена · Esc
 SaveEnter: Сохранить · Enter
-Edited: "Изменено "
+Edited: "Изменено {0}"
 Edit: Изменить
 Delete: Удалить
 AuthorOrHostOnly: Только автор или хозяин

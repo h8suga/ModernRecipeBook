@@ -4,8 +4,8 @@ CtrlBackspaceResetsFilters: Ctrl+Backspace сбрасывает фильтры
 ShowAll: Показать все
 TickEveryStationAgain: Вернуть все станции
 EveryStationIsTicked: Все станции и так отмечены
-ListedItemsMadeHere: "Предметов из списка: "
-ListedRecipesMadeHere: "Рецептов из списка: "
+ListedItemsMadeHere: "Предметов из списка: {0}"
+ListedRecipesMadeHere: "Рецептов из списка: {0}"
 ClickShowAgain: Клик — вернуть
 ClickHideWhatOnlyItMakes: Клик — скрыть то, что делается только на ней
 ArrowsAndEnterTickEscClose: Стрелки и Enter — отметить · Esc — закрыть

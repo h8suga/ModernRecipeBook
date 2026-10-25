@@ -58,10 +58,10 @@ public sealed partial class RecipeBookSystem
 		{
 			return entry;
 		}
-		string all = L("HowToGet.Where") + entry.Name;
+		string all = L("HowToGet.Where", entry.Name);
 		return entry with
 		{
-			Name = string.Join(", ", places.Take(3)) + string.Format(L("HowToGet.Text0"), places.Length - 3),
+			Name = L("HowToGet.PlacesAndMore", string.Join(", ", places.Take(3)), places.Length - 3),
 			Body = (entry.Body.Length > 0) ? (all + "\n" + entry.Body) : all
 		};
 	}
@@ -108,7 +108,7 @@ public sealed partial class RecipeBookSystem
 		case BookAcquisitionKind.Trade:
 		{
 			string gate = GateText(s.Note);
-			string label = L("HowToGet.For") + ItemName(s.FromAny.FirstOrDefault()) + (gate.Length > 0 ? " · " + gate : "");
+			string label = L("HowToGet.For", ItemName(s.FromAny.FirstOrDefault())) + (gate.Length > 0 ? " · " + gate : "");
 			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label);
 		}
 		case BookAcquisitionKind.Chest:
@@ -232,12 +232,12 @@ public sealed partial class RecipeBookSystem
 		}
 		if (s.NoteValue > 0)
 		{
-			parts.Add(L("HowToGet.Pickaxe") + s.NoteValue + "%");
+			parts.Add(L("HowToGet.Pickaxe", s.NoteValue));
 		}
 		// The ground goes in the tooltip, unless the detail already says "on grass".
 		if (s.Grounds.Length > 0 && s.Kind == BookAcquisitionKind.Plant && (herb || !grass))
 		{
-			body = grass ? L("HowToGet.GrowsOnGrass") : (L("HowToGet.GrowsOn") + string.Join(", ", s.Grounds.Select(GroundName).Distinct()));
+			body = grass ? L("HowToGet.GrowsOnGrass") : L("HowToGet.GrowsOn", string.Join(", ", s.Grounds.Select(GroundName).Distinct()));
 		}
 		if (where.Length == 0)
 		{
@@ -316,12 +316,12 @@ public sealed partial class RecipeBookSystem
 		}
 		if (gate.StartsWith("needs:", StringComparison.Ordinal))
 		{
-			return L("HowToGet.With") + ItemName(int.Parse(gate.Substring(6)));
+			return L("HowToGet.With", ItemName(int.Parse(gate.Substring(6))));
 		}
 		if (gate.StartsWith("rod:", StringComparison.Ordinal))
 		{
 			string rod = gate.Substring(4);
-			return L("HowToGet.With2") + (ModContent.TryFind(rod, out ModItem item) ? item.DisplayName.Value : rod);
+			return L("HowToGet.WithRod", ModContent.TryFind(rod, out ModItem item) ? item.DisplayName.Value : rod);
 		}
 		return gate switch
 		{

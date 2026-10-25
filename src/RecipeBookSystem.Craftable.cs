@@ -79,9 +79,9 @@ public sealed partial class RecipeBookSystem
 		string title = L("Craftable.Craftable") + "\n" + L("Craftable.OnlyWhatYouCanCraftRight") + "\n";
 		if (!CraftableOnly)
 		{
-			return title + L("Craftable.CraftableNow") + Count(CraftableInList()) + L("Craftable.Of") + Count(Filtered.Count);
+			return title + L("Craftable.CraftableNowOf", Count(CraftableInList()), Count(Filtered.Count));
 		}
-		return title + L("Craftable.CraftableNow") + Count(Filtered.Count) + L("Craftable.Hidden") + Count(CraftableHidden) + "\n" + L("Craftable.ClickAgainToShowEverything");
+		return title + L("Craftable.CraftableNowHidden", Count(Filtered.Count), Count(CraftableHidden)) + "\n" + L("Craftable.ClickAgainToShowEverything");
 	}
 
 	// A hammer, as on vanilla's crafting window toggle, beside the station filter's anvil.

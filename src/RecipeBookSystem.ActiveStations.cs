@@ -320,7 +320,7 @@ public sealed partial class RecipeBookSystem
 		string detail;
 		if (station.Via >= 0)
 		{
-			detail = L("ActiveStations.CountsVia") + StationName(station.Via);
+			detail = L("ActiveStations.CountsVia", StationName(station.Via));
 		}
 		else if (station.Tile >= 0)
 		{

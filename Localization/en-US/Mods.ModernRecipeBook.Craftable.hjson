@@ -1,6 +1,5 @@
 Craftable: Craftable
 OnlyWhatYouCanCraftRight: Only what you can craft right now
-CraftableNow: "Craftable now: "
-Of: " of "
-Hidden: " · hidden: "
 ClickAgainToShowEverything: Click again to show everything
+CraftableNowOf: "Craftable now: {0} of {1}"
+CraftableNowHidden: "Craftable now: {0} · hidden: {1}"

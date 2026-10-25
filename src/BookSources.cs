@@ -904,11 +904,11 @@ public sealed class BookSources : ModSystem
 		{
 			if (tally.Inventory > 0)
 			{
-				parts.Add(L("Storage.Inventory") + Count(tally.Inventory));
+				parts.Add(L("Storage.Inventory", Count(tally.Inventory)));
 			}
 			if (tally.Open > 0)
 			{
-				parts.Add(L("Storage.OpenChest") + Count(tally.Open));
+				parts.Add(L("Storage.OpenChest", Count(tally.Open)));
 			}
 			for (int bank = 0; bank < 4; bank++)
 			{
@@ -919,7 +919,7 @@ public sealed class BookSources : ModSystem
 			}
 			if (tally.Chests > 0)
 			{
-				parts.Add(L("Storage.Chests") + ((tally.ChestCount > 1) ? (" ×" + tally.ChestCount) : "") + ": " + Count(tally.Chests));
+				parts.Add((tally.ChestCount > 1) ? L("Storage.ChestsTimes", tally.ChestCount, Count(tally.Chests)) : L("Storage.ChestsCount", Count(tally.Chests)));
 			}
 			if (tally.Storage > 0 && !Infinite)
 			{
@@ -1066,7 +1066,7 @@ public sealed class BookSources : ModSystem
 				place++;
 			}
 		}
-		return L("Storage.Network") + place;
+		return L("Storage.Network", place);
 	}
 
 	// "Cells: 1,234 / 3,200": the slots of every counted container besides the inventory (Magic Storage units, chests,
@@ -1099,7 +1099,7 @@ public sealed class BookSources : ModSystem
 
 	private static string Of(long used, long total)
 	{
-		return Count(used) + L("Storage.Text") + Count(total);
+		return L("Storage.UsedOfTotal", Count(used), Count(total));
 	}
 
 	private static void BuildCells()
@@ -1114,13 +1114,13 @@ public sealed class BookSources : ModSystem
 			total += cells.Total;
 			used += cells.Used;
 			inactive += cells.Inactive;
-			rows.Add("Magic Storage · " + NetworkLabel(Networks[n]) + (Networks[n].Remote ? L("Storage.Remote") : "") + ": " + Of(cells.Used, cells.Total));
+			rows.Add("Magic Storage · " + (Networks[n].Remote ? L("Storage.RemoteNetwork", NetworkLabel(Networks[n])) : NetworkLabel(Networks[n])) + ": " + Of(cells.Used, cells.Total));
 		}
 		if (MirrorChests > 0)
 		{
 			total += MirrorSlots;
 			used += MirrorUsed;
-			rows.Add(L("Storage.Chests") + ((MirrorChests > 1) ? (" ×" + MirrorChests) : "") + ": " + Of(MirrorUsed, MirrorSlots));
+			rows.Add((MirrorChests > 1) ? L("Storage.ChestsTimes", MirrorChests, Of(MirrorUsed, MirrorSlots)) : L("Storage.ChestsCount", Of(MirrorUsed, MirrorSlots)));
 		}
 		for (int i = 0; i < ContainerSlots.Length; i++)
 		{
@@ -1133,14 +1133,14 @@ public sealed class BookSources : ModSystem
 		}
 		if (inactive > 0)
 		{
-			rows.Add(L("Storage.NotCounted") + L("Storage.CountInactiveUnits", inactive));
+			rows.Add(L("Storage.NotCounted", L("Storage.CountInactiveUnits", inactive)));
 		}
 		if (Infinite)
 		{
-			rows.Add(BookMagicStorage.CreativeUnitName + L("Storage.UnlimitedNotInTheTotal"));
+			rows.Add(L("Storage.UnlimitedNotInTheTotal", BookMagicStorage.CreativeUnitName));
 		}
 		CellsAlmostFull = total > 0 && used * 10 >= total * 9;
-		CellsText = (total == 0 && !Infinite) ? "" : (L("Storage.Cells") + Of(used, total));
+		CellsText = (total == 0 && !Infinite) ? "" : L("Storage.Cells", Of(used, total));
 		CellsTipText = string.Join("\n", rows);
 	}
 
@@ -1160,10 +1160,10 @@ public sealed class BookSources : ModSystem
 		BookMagicStorage.Network far = Networks.FirstOrDefault((BookMagicStorage.Network n) => n.Remote);
 		if (far != null)
 		{
-			return L("Storage.Remote2") + RemoteHow(far);
+			return L("Storage.RemoteHow", RemoteHow(far));
 		}
 		string within = L("Storage.WithinTiles", BookNearbyConfig.Radius);
-		return (Main.netMode == NetmodeID.MultiplayerClient) ? (within + L("Storage.SetByTheHost")) : within;
+		return (Main.netMode == NetmodeID.MultiplayerClient) ? L("Storage.SetByTheHost", within) : within;
 	}
 
 	// "via Portable Access" / "via the Magic Storage window", for the tooltips.
@@ -1195,7 +1195,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (SkippedPassword > 0)
 		{
-			parts.Add(SkippedPassword + L("Storage.Password"));
+			parts.Add(L("Storage.CountPassword", SkippedPassword));
 		}
 		foreach ((bool Crafting, BookMagicStorage.CarriedSkip Why) skip in Carried)
 		{
@@ -1207,7 +1207,7 @@ public sealed class BookSources : ModSystem
 				_ => L("Storage.Loading"),
 			});
 		}
-		return (parts.Count == 0) ? "" : (L("Storage.NotCounted") + string.Join(" · ", parts));
+		return (parts.Count == 0) ? "" : L("Storage.NotCounted", string.Join(" · ", parts));
 	}
 
 	// A carried Portable Access the last scan did not count, with why (BookMagicStorage.AddCarried).
@@ -1279,7 +1279,7 @@ public sealed class BookSources : ModSystem
 				parts.Add("Magic Storage");
 			}
 		}
-		return L("Storage.From") + string.Join(", ", parts);
+		return L("Storage.From", string.Join(", ", parts));
 	}
 
 	// Chests in the set that hold any of the types a craft pulls (the server takes from the nearest of them).
@@ -2023,7 +2023,7 @@ public sealed class BookSources : ModSystem
 			{
 				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
 				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
-				_ => spilled ? L("Storage.InventoryFullRestOnCursor") : ((total == 0) ? L("Storage.NoLongerNearby") : ((status == BookNearbyServer.Status.Partial) ? (L("Storage.Took") + total + L("Storage.Of") + asked + L("Storage.TheRestIsGone")) : L("Storage.TakenToInventory"))),
+				_ => spilled ? L("Storage.InventoryFullRestOnCursor") : ((total == 0) ? L("Storage.NoLongerNearby") : ((status == BookNearbyServer.Status.Partial) ? L("Storage.TookOfRestGone", total, asked) : L("Storage.TakenToInventory"))),
 			});
 			break;
 		}
@@ -2036,7 +2036,7 @@ public sealed class BookSources : ModSystem
 			{
 				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
 				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
-				_ => (got == 0) ? L("Storage.StoredNearby") : (L("Storage.NearbyStorageIsFull") + Count(got) + L("Storage.Left")),
+				_ => (got == 0) ? L("Storage.StoredNearby") : L("Storage.NearbyStorageFullLeft", Count(got)),
 			});
 			break;
 		case Purpose.Craft:

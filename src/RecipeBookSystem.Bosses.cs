@@ -111,7 +111,7 @@ public sealed partial class RecipeBookSystem
 		{
 			return StageName(BookSteps.StageOf(step));
 		}
-		return L("Stages.After") + BookSteps.Name(step);
+		return L("Stages.After", BookSteps.Name(step));
 	}
 
 	private static string StageFilterLabel()
@@ -121,7 +121,7 @@ public sealed partial class RecipeBookSystem
 			case BookStageFilter.BeforeBoss:
 			{
 				int step = StageBeforeStep();
-				return step < BookSteps.All.Count ? L("Stages.Before") + BookSteps.Name(step) : L("Stages.EveryBossIsDown");
+				return step < BookSteps.All.Count ? L("Stages.Before", BookSteps.Name(step)) : L("Stages.EveryBossIsDown");
 			}
 			case BookStageFilter.Unknown:
 				return UnknownStageLabel;
@@ -283,7 +283,7 @@ public sealed partial class RecipeBookSystem
 					bool active = StageFilter == BookStageFilter.BeforeBoss && StageBoss == NextBossKey;
 					RowFill(sb, rect, active, hover);
 					DrawBossHead(sb, row.Value, new BookRect(rect.X + 8f, rect.Y + 5f, 20f, 20f), 1f);
-					CenterLabel(sb, L("Stages.Before") + BookSteps.Name(row.Value), rect.X + 34f, rect.Y + 4f, rect.Width - 42f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
+					CenterLabel(sb, L("Stages.Before", BookSteps.Name(row.Value)), rect.X + 34f, rect.Y + 4f, rect.Width - 42f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
 					if (hover)
 					{
 						MouseTip(L("Stages.TheFirstBossNotYetDown"));
@@ -320,7 +320,7 @@ public sealed partial class RecipeBookSystem
 					if (hover)
 					{
 						string state = row.Value == next ? L("Stages.NextBossInThisWorld") : (down ? L("Stages.AlreadyDown") : (!available ? L("Stages.NotInThisWorldTheOther") : L("Stages.NotDownYet")));
-						MouseTip(L("Stages.Before") + BookSteps.Name(row.Value) + " · " + state + "\n" + L("Stages.EverythingYouCanGetWithEvery"));
+						MouseTip(L("Stages.Before", BookSteps.Name(row.Value)) + " · " + state + "\n" + L("Stages.EverythingYouCanGetWithEvery"));
 					}
 					break;
 				}
@@ -398,14 +398,14 @@ public sealed partial class RecipeBookSystem
 			}
 			string phrase = link.Kind switch
 			{
-				"drop" or "enemy" or "spawn" => L("Stages.Drop") + NpcName(link.Id) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
-				"banner" => L("Stages.Banner") + NpcName(link.Id),
-				"catch" => L("Stages.BugNet") + NpcName(link.Id),
-				"shop" => L("Stages.SoldBy") + NpcName(link.Id) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
+				"drop" or "enemy" or "spawn" => L("Stages.Drop", NpcName(link.Id)) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
+				"banner" => L("Stages.Banner", NpcName(link.Id)),
+				"catch" => L("Stages.BugNet", NpcName(link.Id)),
+				"shop" => L("Stages.SoldBy", NpcName(link.Id)) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
 				"list" or "worldgen" => L("Stages.FoundInTheWorld"),
 				"fishing" => L("Stages.Fishing"),
 				"grows" => L("Stages.GrowsInTheWorld"),
-				"pickaxe" => L("Stages.NeedsPickaxePower") + link.Id + " · " + StepPhrase(link.Step),
+				"pickaxe" => L("Stages.NeedsPickaxePower", link.Id) + " · " + StepPhrase(link.Step),
 				"rarity" => L("Stages.ByRarityAGuess"),
 				"gate" => link.Id <= 0 ? L("Stages.FromTheStart") : StepPhrase(link.Id),
 				"recipe" or "bag" or "use" or "record" or "carried" or "mine" or "shimmer" or "trade" or "rod" => null,
@@ -418,15 +418,16 @@ public sealed partial class RecipeBookSystem
 			}
 			if (i + 1 < links.Count && links[i + 1].Kind != "gate")
 			{
-				string prefix = link.Kind switch
+				string how = link.Kind switch
 				{
-					"mine" => L("Stages.Pickaxe"),
-					"shimmer" => L("Stages.Shimmer"),
-					"trade" => L("Stages.Trade"),
-					"rod" => L("Stages.Rod"),
-					_ => ""
+					"mine" => "Stages.Pickaxe",
+					"shimmer" => "Stages.Shimmer",
+					"trade" => "Stages.Trade",
+					"rod" => "Stages.Rod",
+					_ => null
 				};
-				parts.Add(prefix + ItemName(links[i + 1].Item));
+				string next = ItemName(links[i + 1].Item);
+				parts.Add((how != null) ? L(how, next) : next);
 			}
 		}
 		return string.Join(" ← ", parts);
@@ -446,6 +447,6 @@ public sealed partial class RecipeBookSystem
 		{
 			return StageName(BookStage.Hardmode);
 		}
-		return L("Stages.After2") + BookSteps.Name(step);
+		return L("Stages.AfterInline", BookSteps.Name(step));
 	}
 }

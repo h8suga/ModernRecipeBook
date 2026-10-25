@@ -1,19 +1,17 @@
 Traits: Свойства
 WeaponTraits: Свойства оружия
 TickTraitsOnlyWeaponsThatHave: Отметьте свойства: останется оружие, у которого есть все отмеченные
-Hidden: "Скрыто: "
-ReadingItemDescriptions: "Читаю описания предметов… "
+Hidden: "Скрыто: {0}"
+ReadingItemDescriptions: "Читаю описания предметов… {0}%"
 ShowAll: Показать все
 UntickEveryTrait: Снять все отметки
 NothingIsTicked: Ничего не отмечено
-ListedItemsWithIt: "Предметов в списке с этим свойством: "
-ListedRecipesWithIt: "Рецептов в списке с этим свойством: "
+ListedItemsWithIt: "Предметов в списке с этим свойством: {0}"
+ListedRecipesWithIt: "Рецептов в списке с этим свойством: {0}"
 ClickUntick: Клик — снять
 ClickTickEveryTickedTraitMust: Клик — отметить; нужны все отмеченные
 AllTickedMustMatchEscClose: Нужны все отмеченные · Esc — закрыть
 NoHitLimitPenetrate1: попаданий без предела (penetrate -1)
-UpTo: "до "
-HitsPenetrate: " попаданий (penetrate)"
 TheShotIgnoresBlocksTileCollide: снаряд не сталкивается с блоками (tileCollide)
 TheItemSAutoReuse: autoReuse у предмета
 TheProjectileSFlag: флаг снаряда
@@ -36,3 +34,4 @@ SourceEnglishDescription: из английского описания
 SourceVerified: проверено в коде игры
 SourceFields: из параметров
 Quoted: «{0}»
+UpToHits: "до {0} попаданий (penetrate)"

@@ -1,19 +1,17 @@
 Traits: Traits
 WeaponTraits: Weapon traits
 TickTraitsOnlyWeaponsThatHave: Tick traits: only weapons that have all of them stay
-Hidden: "Hidden: "
-ReadingItemDescriptions: "Reading item descriptions… "
+Hidden: "Hidden: {0}"
+ReadingItemDescriptions: "Reading item descriptions… {0}%"
 ShowAll: Show all
 UntickEveryTrait: Untick every trait
 NothingIsTicked: Nothing is ticked
-ListedItemsWithIt: "Listed items with it: "
-ListedRecipesWithIt: "Listed recipes with it: "
+ListedItemsWithIt: "Listed items with it: {0}"
+ListedRecipesWithIt: "Listed recipes with it: {0}"
 ClickUntick: Click: untick
 ClickTickEveryTickedTraitMust: Click: tick; every ticked trait must match
 AllTickedMustMatchEscClose: All ticked must match · Esc: close
 NoHitLimitPenetrate1: no hit limit (penetrate -1)
-UpTo: "up to "
-HitsPenetrate: " hits (penetrate)"
 TheShotIgnoresBlocksTileCollide: the shot ignores blocks (tileCollide)
 TheItemSAutoReuse: the item's autoReuse
 TheProjectileSFlag: the projectile's flag
@@ -36,3 +34,4 @@ SourceEnglishDescription: from the English description
 SourceVerified: checked in the game's code
 SourceFields: from its stats
 Quoted: '''"{0}"'''
+UpToHits: "up to {0} hits (penetrate)"

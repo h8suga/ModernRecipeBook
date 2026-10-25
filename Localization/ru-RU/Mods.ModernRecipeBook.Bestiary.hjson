@@ -7,7 +7,7 @@ MetOldest: Встречи: давние
 MetNewest: Встречи: новые
 Met: Встреча ↑
 Met2: Встреча ↓
-Seen: "Видели "
+Seen: "Видели {0}"
 NotInTheBestiaryYet: Ещё не открыт в бестиарии
 NoMobsSeenYet: Пока никого не видели
 MobsYouComeAcrossWillShow: Здесь появятся мобы, которых вы встретите
@@ -36,8 +36,8 @@ NotListed2: Не указано
 Met3: Встреча
 Earlier: раньше
 NotYet: ещё нет
-FirstMet: "Впервые: "
-LastMet: "Последний раз: "
+FirstMet: "Впервые: {0}"
+LastMet: "Последний раз: {0}"
 MetBeforeTheBookStartedRecording: Встречен до того, как книга начала записывать встречи
 EncountersAreRecordedWhenTheMob: Встречи записываются, когда моб рядом с вами
 FromTheBestiaryMayBeIncomplete: По данным бестиария; может быть неполно
@@ -55,3 +55,4 @@ VariesByCondition: Зависит от условий
 ClickTheItemSCard: Клик: карточка предмета
 PreviousWheel: Назад · колесо
 NextWheel: Дальше · колесо
+BackTo: "Назад: {0}"

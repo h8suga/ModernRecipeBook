@@ -362,7 +362,7 @@ public sealed partial class RecipeBookSystem
 		Text(sb, BookMapMarkers.Placed(marker), 18f, 74f, TextColor, 0.85f, MarkerWidth - 36f, 22f);
 		if (marker.Edited != marker.Created)
 		{
-			Text(sb, L("Markers.Edited") + BookMapMarkers.Ago(marker.Edited), 18f, 98f, Muted, 0.8f, MarkerWidth - 36f, 20f);
+			Text(sb, L("Markers.Edited", BookMapMarkers.Ago(marker.Edited)), 18f, 98f, Muted, 0.8f, MarkerWidth - 36f, 20f);
 		}
 		BookRect close = new BookRect(256f, 140f, 110f, 38f);
 		if (BookMapMarkers.CanChange(marker))

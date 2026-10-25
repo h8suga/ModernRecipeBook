@@ -6,7 +6,6 @@ KeyMouse4Alt: Mouse4 · Alt+←
 Back: Назад
 KeyMouse5Alt: Mouse5 · Alt+→
 Forward: Вперёд
-KeyText: ← ↑ → ↓
 MoveTheSelection: Выбор в сетке
 KeyPgUpPgDn: PgUp · PgDn
 TurnPages: Листать страницы
@@ -71,3 +70,4 @@ SectionFULLMAPMOUSE3REBINDABLE: КАРТА · КОЛЁСИКО МЕНЯЕТСЯ
 SectionTHEITEMCARD: ПРЕДМЕТ В КАРТОЧКЕ
 SectionFINDINGTHINGS: ПОИСК И ФИЛЬТРЫ
 SectionSTORAGE: ХРАНИЛИЩЕ
+KeyArrows: "← ↑ → ↓"

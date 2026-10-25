@@ -132,7 +132,7 @@ public sealed partial class RecipeBookSystem
 					tip.Append("\n· ").Append(BookItemTraits.Label(trait));
 				}
 			}
-			tip.Append('\n').Append(L("Traits.Hidden")).Append(Count(TraitHidden));
+			tip.Append('\n').Append(L("Traits.Hidden", Count(TraitHidden)));
 		}
 		if (!BookItemTraits.Ready)
 		{
@@ -143,7 +143,7 @@ public sealed partial class RecipeBookSystem
 
 	private static string ReadingLine()
 	{
-		return L("Traits.ReadingItemDescriptions") + (int)(BookItemTraits.Progress * 100f) + "%";
+		return L("Traits.ReadingItemDescriptions", (int)(BookItemTraits.Progress * 100f));
 	}
 
 	private static void DrawTraitButton(SpriteBatch sb)
@@ -347,8 +347,8 @@ public sealed partial class RecipeBookSystem
 			CenterLabel(sb, Count(count), rect.X + rect.Width - 52f, rect.Y + 4f, 40f, rect.Height - 8f, Muted, 0.8f, rightAligned: true);
 			if (row == hovered)
 			{
-				string listed = Catalogue ? L("Traits.ListedItemsWithIt") : L("Traits.ListedRecipesWithIt");
-				MouseTip(name + "\n" + BookItemTraits.Tip(trait) + "\n" + listed + Count(count) + "\n" + (on ? L("Traits.ClickUntick") : L("Traits.ClickTickEveryTickedTraitMust")));
+				string listed = L(Catalogue ? "Traits.ListedItemsWithIt" : "Traits.ListedRecipesWithIt", Count(count));
+				MouseTip(name + "\n" + BookItemTraits.Tip(trait) + "\n" + listed + "\n" + (on ? L("Traits.ClickUntick") : L("Traits.ClickTickEveryTickedTraitMust")));
 			}
 		}
 		string footer = BookItemTraits.Ready ? L("Traits.AllTickedMustMatchEscClose") : ReadingLine();
@@ -416,7 +416,7 @@ public sealed partial class RecipeBookSystem
 				tip.Append(BookItemTraits.SourceLabel(why.Source)).Append(": ").Append((why.Source == BookItemTraits.Source.Verified) ? why.Detail : L("Traits.Quoted", why.Detail));
 				break;
 			case BookTrait.Pierces:
-				tip.Append((why.Detail == "-1") ? L("Traits.NoHitLimitPenetrate1") : (L("Traits.UpTo") + why.Detail + L("Traits.HitsPenetrate")));
+				tip.Append((why.Detail == "-1") ? L("Traits.NoHitLimitPenetrate1") : L("Traits.UpToHits", why.Detail));
 				break;
 			case BookTrait.ThroughWalls:
 				tip.Append(L("Traits.TheShotIgnoresBlocksTileCollide"));

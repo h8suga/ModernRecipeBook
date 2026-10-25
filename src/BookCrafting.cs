@@ -489,7 +489,7 @@ internal static class BookCrafting
 		if (crafted == 0)
 		{
 			string reason = failure ?? stop ?? ReasonKey(recipe);
-			Say(() => (pulled ? L("Crafting.MaterialsInInventoryCraftStopped") : "") + L(reason));
+			Say(() => pulled ? L("Crafting.CraftStoppedMaterialsInInventory", L(reason)) : L(reason));
 			return;
 		}
 		if (stop == null && crafted < requested)

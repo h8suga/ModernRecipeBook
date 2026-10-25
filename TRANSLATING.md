@@ -24,21 +24,25 @@ already.
 
 ## How to translate
 
-1. Copy `Localization/en-US` to a folder named after your language as tModLoader knows it: `de-DE`, `fr-FR`,
-   `es-ES`, `it-IT`, `pl-PL`, `pt-BR` or `zh-Hans`.
-2. Translate the values; keep every key as it is. You can leave lines out: whatever a file lacks is shown in English,
+1. Put the mod's source folder into `Documents/My Games/Terraria/tModLoader/ModSources/ModernRecipeBook`.
+2. Create one empty file for your language, named as tModLoader knows it, for example
+   `Localization/de-DE/Mods.ModernRecipeBook.Common.hjson` (`de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pl-PL`, `pt-BR`,
+   `zh-Hans`).
+3. Build the mod in Workshop → Develop Mods. tModLoader writes every file for your language itself, with each line
+   still to translate commented out in English (`// Recipe: "Recipe: {0}"`). `Localization/TranslationsNeeded.txt`
+   shows how far each language is.
+4. Uncomment a line and translate its value; keep the key as it is. Whatever stays commented out is shown in English,
    so a partial translation already works.
-3. Keep the placeholders. `{0}`, `{1}` are filled in by the book: `Crafted: {0}` becomes `Crafted: Wooden Sword`.
-4. Plurals use tModLoader's `{^0:...}`: the forms are separated by `;` and picked by the number in `{0}` with your
+5. Every text is a whole phrase. Keep the placeholders: `{0}`, `{1}` are filled in by the book (`Recipe: {0}` becomes
+   `Recipe: Wooden Sword`) and can move wherever your language needs them (`{0} or {1} more`).
+6. Plurals use tModLoader's `{^0:...}`: the forms are separated by `;` and picked by the number in `{0}` with your
    language's own rule. English and most languages have two forms (`{^0:chest;chests}`); Russian and Polish have
    three (`{^0:сундук;сундука;сундуков}`), French treats 0 and 1 alike, Chinese uses the first form only.
-5. `Time.DateShort` and `Time.DateLong` are .NET date patterns (`MMM d`, `d MMMM yyyy`); the month names come from
-   the game's language.
-6. A value that starts or ends with a space keeps its quotes (`Seen: "Seen "`): the space joins it to what follows.
+7. `Time.DateShort` and `Time.DateLong` are .NET date patterns (`MMM d`, `d MMMM yyyy`); the month names come from
+   the game's language. `Common.OrSeparator` (" or ") joins names in a list.
 
-To try it, put the mod's source folder into `Documents/My Games/Terraria/tModLoader/ModSources/ModernRecipeBook`,
-build it in Workshop → Develop Mods and switch the game's language. tModLoader rewrites the files into its own
-formatting when it loads them; that is expected.
+Build again and switch the game's language to see it. tModLoader rewrites the files into its own formatting when it
+loads them; that is expected.
 
 ## Sending it
 

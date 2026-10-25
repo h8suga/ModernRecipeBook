@@ -1,5 +1,5 @@
-After: "After "
-Before: "Before: "
+After: "After {0}"
+Before: "Before: {0}"
 EveryBossIsDown: Every boss is down
 UnknownStage: Unknown stage
 StageForEveryTabAlt1: Stage for every tab · Alt+1…5
@@ -18,19 +18,19 @@ ItsSourceIsOnlyThereAt: its source is only there at another world difficulty
 RecipeStageFromItsMaterialsStation: Recipe stage: from its materials, station and conditions
 TheEarliestStageYouCanGet: The earliest stage you can get this item
 TheWorldSDifficultyCountsBosses: The world's difficulty counts; bosses go in Boss Checklist's order
-Drop: "drop: "
-Banner: "banner: "
-BugNet: "bug net: "
-SoldBy: "sold by: "
+Drop: "drop: {0}"
+Banner: "banner: {0}"
+BugNet: "bug net: {0}"
+SoldBy: "sold by: {0}"
 FoundInTheWorld: found in the world
 Fishing: fishing
 GrowsInTheWorld: grows in the world
-NeedsPickaxePower: "needs pickaxe power "
+NeedsPickaxePower: "needs pickaxe power {0}"
 ByRarityAGuess: by rarity (a guess)
 FromTheStart: from the start
 NoSourceFound: no source found
-Pickaxe: "pickaxe: "
-Shimmer: "shimmer: "
-Trade: "trade: "
-Rod: "rod: "
-After2: "after "
+Pickaxe: "pickaxe: {0}"
+Shimmer: "shimmer: {0}"
+Trade: "trade: {0}"
+Rod: "rod: {0}"
+AfterInline: "after {0}"

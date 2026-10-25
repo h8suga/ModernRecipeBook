@@ -145,7 +145,7 @@ internal sealed class BookMapMarkers : ModSystem
 	// "Placed by X · 2 h ago".
 	internal static string Placed(BookMapMarker marker)
 	{
-		return L("Markers.PlacedBy") + marker.Author + " · " + Ago(marker.Created);
+		return L("Markers.PlacedBy", marker.Author, Ago(marker.Created));
 	}
 
 	internal static string Ago(long stamp)

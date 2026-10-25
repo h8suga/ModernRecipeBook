@@ -46,7 +46,7 @@ public sealed partial class RecipeBookSystem
 		{
 			return names.FirstOrDefault() ?? "";
 		}
-		return string.Join(", ", names.Take(names.Length - 1)) + L("Variants.Or") + names[^1];
+		return L("Variants.ListOr", string.Join(", ", names.Take(names.Length - 1)), names[^1]);
 	}
 
 	// The row label: every name when it fits, then names that end in the same word with that word once ("Demonite or
@@ -63,27 +63,27 @@ public sealed partial class RecipeBookSystem
 		if (names.All((string name) => name.Contains(' ') && name.Split(' ')[^1] == last))
 		{
 			string[] stems = names.Select((string name) => name[..name.LastIndexOf(' ')]).ToArray();
-			string shared = string.Join(", ", stems.Take(stems.Length - 1)) + L("Variants.Or") + stems[^1] + " " + last;
+			string shared = L("Variants.ListOr", string.Join(", ", stems.Take(stems.Length - 1)), stems[^1]) + " " + last;
 			if (TextWidth(shared, 0.85f) <= width)
 			{
 				return shared;
 			}
 		}
-		string more = names[0] + L("Variants.Or2") + (names.Length - 1) + L("Variants.More");
-		return (TextWidth(more, 0.85f) <= width) ? more : (names[0] + L("Variants.Or3"));
+		string more = L("Variants.OrMore", names[0], names.Length - 1);
+		return (TextWidth(more, 0.85f) <= width) ? more : L("Variants.OrEllipsis", names[0]);
 	}
 
 	// The second line of a two-line "A or B" row: "or Shadow Scale", "or B, C", "or B and 3 more".
 	private static string OthersLabel(int[] types, int shown, float width)
 	{
 		string[] others = Ordered(types, shown).Skip(1).Select((int type) => ContentSamples.ItemsByType[type].Name).ToArray();
-		string all = L("Variants.Or4") + string.Join(", ", others);
+		string all = L("Variants.OrList", string.Join(", ", others));
 		if (others.Length < 2 || TextWidth(all, 0.8f) <= width)
 		{
 			return all;
 		}
-		string first = L("Variants.Or4") + others[0] + L("Variants.And") + (others.Length - 1) + L("Variants.More");
-		return (TextWidth(first, 0.8f) <= width) ? first : (L("Variants.Or5") + others.Length + L("Variants.More"));
+		string first = L("Variants.OrAndMore", others[0], others.Length - 1);
+		return (TextWidth(first, 0.8f) <= width) ? first : L("Variants.OrNMore", others.Length);
 	}
 
 	private static int[] Ordered(int[] types, int shown)
@@ -109,7 +109,7 @@ public sealed partial class RecipeBookSystem
 		IEnumerable<string> lines = from row in rows
 			where row.Owned
 			select row.Line;
-		return string.Join("\n", (rest.Count == 0) ? lines : lines.Append(L("Variants.Others") + rest.Count + ": " + rest[0].Ratio));
+		return string.Join("\n", (rest.Count == 0) ? lines : lines.Append(L("Variants.Others", rest.Count, rest[0].Ratio)));
 	}
 
 	// Tracking follows the whole merged recipe; every update its alternative row counts the one kind you have most

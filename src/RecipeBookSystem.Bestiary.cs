@@ -337,7 +337,7 @@ public sealed partial class RecipeBookSystem
 					var ranks = RecentMobRanks();
 					if (ranks.TryGetValue(mob.Index, out var entry))
 					{
-						seen = "\n" + L("Bestiary.Seen") + BookMobEncounters.Ago(entry.SeenUtc);
+						seen = "\n" + L("Bestiary.Seen", BookMobEncounters.Ago(entry.SeenUtc));
 					}
 				}
 				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : L("Bestiary.NotInTheBestiaryYet")) + seen);
@@ -665,7 +665,7 @@ public sealed partial class RecipeBookSystem
 		Chevron(sb, back.X + back.Width / 2f - 1f, back.Y + back.Height / 2f, 4f, 2, canBack ? TextColor : Border);
 		if (!MenuOpen && back.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(L("Bestiary.Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
+			MouseTip((canBack ? L("Bestiary.BackTo", HistoryLabel(History.Previous)) : L("Bestiary.Back")) + "\nMouse4 · Alt+←");
 		}
 		BookRect[] modes = MobModeRects();
 		Segmented(sb, modes, MobModeLabels(), MobStatsMode ? 1 : 0, 0.8f);
@@ -705,7 +705,7 @@ public sealed partial class RecipeBookSystem
 		BookRect metLine = new BookRect(tags.X, tags.Y + 3f + 3 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		if (!MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(tracked ? (L("Bestiary.FirstMet") + BookMobEncounters.Date(met.First, full: true) + "\n" + L("Bestiary.LastMet") + BookMobEncounters.Date(met.Last, full: true) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.MetBeforeTheBookStartedRecording") : L("Bestiary.EncountersAreRecordedWhenTheMob")));
+			MouseTip(tracked ? (L("Bestiary.FirstMet", BookMobEncounters.Date(met.First, full: true)) + "\n" + L("Bestiary.LastMet", BookMobEncounters.Date(met.Last, full: true)) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.MetBeforeTheBookStartedRecording") : L("Bestiary.EncountersAreRecordedWhenTheMob")));
 		}
 		else if (!MenuOpen && EnemySpawnTip.Length > 0 && spawnLine.Contains(Mouse.X, Mouse.Y))
 		{

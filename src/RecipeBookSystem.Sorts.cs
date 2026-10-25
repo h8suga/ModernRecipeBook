@@ -274,32 +274,32 @@ public sealed partial class RecipeBookSystem
 		return (group.Length == 0) ? (BookSortMode.Name, false) : (group[k / 2], k % 2 == 1);
 	}
 
-	// The field, its short form for the closed dropdown (room for about ten letters, a little more shrinks to fit), and
-	// the two directions.
-	private static (string Field, string Short, string Up, string Down) SortWords(BookSortMode mode)
+	// Its short form for the closed dropdown (room for about ten letters, a little more shrinks to fit), and the open
+	// list's two whole rows, one per direction ("Damage: lowest first").
+	private static (string Short, string Up, string Down) SortWords(BookSortMode mode)
 	{
 		return mode switch
 		{
-			BookSortMode.Station => (L("Sorts.Station"), L("Sorts.Station"), L("Sorts.WeakestFirst"), L("Sorts.StrongestFirst")),
-			BookSortMode.Changed => (L("Sorts.Changed"), L("Sorts.Changed"), L("Sorts.OldestFirst"), L("Sorts.NewestFirst")),
-			BookSortMode.Rarity => (L("Sorts.Rarity"), L("Sorts.Rarity"), L("Sorts.LowestFirst"), L("Sorts.HighestFirst")),
+			BookSortMode.Station => (L("Sorts.Station"), L("Sorts.StationUp"), L("Sorts.StationDown")),
+			BookSortMode.Changed => (L("Sorts.Changed"), L("Sorts.ChangedUp"), L("Sorts.ChangedDown")),
+			BookSortMode.Rarity => (L("Sorts.Rarity"), L("Sorts.RarityUp"), L("Sorts.RarityDown")),
 			// Item.value, in the words of the game's own tooltip line (sell price is a fifth of it, so the order is the same).
-			BookSortMode.Value => (L("Sorts.SellPrice"), L("Sorts.Price"), L("Sorts.LowestFirst"), L("Sorts.HighestFirst")),
-			BookSortMode.Damage => (L("Sorts.Damage"), L("Sorts.Damage"), L("Sorts.LowestFirst2"), L("Sorts.HighestFirst2")),
-			BookSortMode.Speed => (L("Sorts.Speed"), L("Sorts.Speed"), L("Sorts.SlowestFirst"), L("Sorts.FastestFirst")),
-			BookSortMode.Crit => (L("Sorts.CritChance"), L("Sorts.Crit"), L("Sorts.LowestFirst2"), L("Sorts.HighestFirst2")),
-			BookSortMode.Knockback => (L("Sorts.Knockback"), L("Sorts.Knockback2"), L("Sorts.WeakestFirst2"), L("Sorts.StrongestFirst2")),
-			BookSortMode.Defense => (L("Sorts.Defense"), L("Sorts.Defense"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
-			BookSortMode.FlightTime => (L("Sorts.FlightTime"), L("Sorts.Flight"), L("Sorts.ShortestFirst"), L("Sorts.LongestFirst")),
-			BookSortMode.HealLife => (L("Sorts.HealsLife"), L("Sorts.Healing"), L("Sorts.LeastFirst"), L("Sorts.MostFirst")),
-			BookSortMode.HealMana => (L("Sorts.HealsMana"), L("Sorts.Mana"), L("Sorts.LeastFirst"), L("Sorts.MostFirst")),
-			BookSortMode.BuffTime => (L("Sorts.Duration"), L("Sorts.Duration2"), L("Sorts.ShortestFirst2"), L("Sorts.LongestFirst2")),
-			BookSortMode.PickPower => (L("Sorts.PickaxePower"), L("Sorts.Pickaxe"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
-			BookSortMode.AxePower => (L("Sorts.AxePower"), L("Sorts.Axe"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
-			BookSortMode.HammerPower => (L("Sorts.HammerPower"), L("Sorts.Hammer"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
-			BookSortMode.FishingPower => (L("Sorts.FishingPower"), L("Sorts.Fishing"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
-			BookSortMode.BaitPower => (L("Sorts.BaitPower"), L("Sorts.Bait"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
-			_ => ("", "", "", ""),
+			BookSortMode.Value => (L("Sorts.Price"), L("Sorts.ValueUp"), L("Sorts.ValueDown")),
+			BookSortMode.Damage => (L("Sorts.Damage"), L("Sorts.DamageUp"), L("Sorts.DamageDown")),
+			BookSortMode.Speed => (L("Sorts.Speed"), L("Sorts.SpeedUp"), L("Sorts.SpeedDown")),
+			BookSortMode.Crit => (L("Sorts.Crit"), L("Sorts.CritUp"), L("Sorts.CritDown")),
+			BookSortMode.Knockback => (L("Sorts.Knockback2"), L("Sorts.KnockbackUp"), L("Sorts.KnockbackDown")),
+			BookSortMode.Defense => (L("Sorts.Defense"), L("Sorts.DefenseUp"), L("Sorts.DefenseDown")),
+			BookSortMode.FlightTime => (L("Sorts.Flight"), L("Sorts.FlightTimeUp"), L("Sorts.FlightTimeDown")),
+			BookSortMode.HealLife => (L("Sorts.Healing"), L("Sorts.HealLifeUp"), L("Sorts.HealLifeDown")),
+			BookSortMode.HealMana => (L("Sorts.Mana"), L("Sorts.HealManaUp"), L("Sorts.HealManaDown")),
+			BookSortMode.BuffTime => (L("Sorts.Duration2"), L("Sorts.BuffTimeUp"), L("Sorts.BuffTimeDown")),
+			BookSortMode.PickPower => (L("Sorts.Pickaxe"), L("Sorts.PickPowerUp"), L("Sorts.PickPowerDown")),
+			BookSortMode.AxePower => (L("Sorts.Axe"), L("Sorts.AxePowerUp"), L("Sorts.AxePowerDown")),
+			BookSortMode.HammerPower => (L("Sorts.Hammer"), L("Sorts.HammerPowerUp"), L("Sorts.HammerPowerDown")),
+			BookSortMode.FishingPower => (L("Sorts.Fishing"), L("Sorts.FishingPowerUp"), L("Sorts.FishingPowerDown")),
+			BookSortMode.BaitPower => (L("Sorts.Bait"), L("Sorts.BaitPowerUp"), L("Sorts.BaitPowerDown")),
+			_ => ("", "", ""),
 		};
 	}
 

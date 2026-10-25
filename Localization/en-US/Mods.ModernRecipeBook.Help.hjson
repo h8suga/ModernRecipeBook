@@ -6,7 +6,6 @@ KeyMouse4Alt: Mouse4 · Alt+←
 Back: Back
 KeyMouse5Alt: Mouse5 · Alt+→
 Forward: Forward
-KeyText: ← ↑ → ↓
 MoveTheSelection: Move the selection
 KeyPgUpPgDn: PgUp · PgDn
 TurnPages: Turn pages
@@ -71,3 +70,4 @@ SectionFULLMAPMOUSE3REBINDABLE: FULL MAP · MOUSE3 REBINDABLE
 SectionTHEITEMCARD: THE ITEM CARD
 SectionFINDINGTHINGS: FINDING THINGS
 SectionSTORAGE: STORAGE
+KeyArrows: "← ↑ → ↓"

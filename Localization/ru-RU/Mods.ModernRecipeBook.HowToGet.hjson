@@ -1,9 +1,8 @@
-Where: "Где: "
-Text0: " и ещё {0}"
+Where: "Где: {0}"
 Every0Kills: каждые {0} убийств
 WearABlankBoxWhileIts: Наденьте пустую шкатулку, пока играет мелодия
 WhileItsTrackPlays: пока играет мелодия
-For: "за "
+For: "за {0}"
 WorldChestsAndStructures: Сундуки и постройки мира
 PlacedThereWhenTheWorldIs: Лежит там с создания мира
 FromWorldCreation: с создания мира
@@ -19,9 +18,9 @@ Treetop: верхушка
 ShakeIt: потрясите
 Halloween: Хэллоуин
 OnGrass: на траве
-Pickaxe: "кирка "
+Pickaxe: "кирка {0}%"
 GrowsOnGrass: Растёт на траве
-GrowsOn: "Растёт на: "
+GrowsOn: "Растёт на: {0}"
 InTheWorld: В мире
 AnyWater: Любая вода
 Lava: Лава
@@ -39,8 +38,7 @@ VeryRare: очень редкий улов
 Legendary: легендарный улов
 Crate: ящик
 JunkInSmallPonds: мусор в мелкой воде
-With: "нужно: "
-With2: "удочкой: "
+With: "нужно: {0}"
 Hardmode: Хардмод
 AfterMoonLord: после Лунного лорда
 BloodMoon: Кровавая луна
@@ -49,3 +47,5 @@ AtNight: ночью
 InLava: в лаве
 Grass: трава
 CountSources: "{0} {^0:источник;источника;источников}"
+PlacesAndMore: "{0} и ещё {1}"
+WithRod: "удочкой: {0}"

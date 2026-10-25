@@ -773,7 +773,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
 			DropAttemptInfo info = new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand };
-			return name + (condition.CanDrop(info) ? L("Common.Met") : L("Common.NotMetYet"));
+			return L(condition.CanDrop(info) ? "Common.ConditionMet" : "Common.ConditionNotMetYet", name);
 		}
 		catch (Exception)
 		{
@@ -988,7 +988,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		if (group.Source.RecipeIndex >= 0)
 		{
-			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe") + ModName(group.Source.Owner) + "\n") : "") + L("Common.OpenRecipe");
+			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe", ModName(group.Source.Owner)) + "\n") : "") + L("Common.OpenRecipe");
 		}
 		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : L("Common.ShowConditions"));
 	}
@@ -1009,7 +1009,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Icon(sb, item, icon.X, icon.Y, icon.Width, tooltip: false);
 		}
 		bool unknown = !expanded && AcquisitionSources.All((BookAcquisitionGroup x) => x.Source.Kind == BookAcquisitionKind.Unknown);
-		string subtitle = (expanded ? (L("Common.Conditions") + item.Name) : (L("Common.HowToGet") + (unknown ? "" : (" · " + L("HowToGet.CountSources", AcquisitionSources.Count)))));
+		string subtitle = (expanded ? (L("Common.Conditions", item.Name)) : (L("Common.HowToGet") + (unknown ? "" : (" · " + L("HowToGet.CountSources", AcquisitionSources.Count)))));
 		DrawCardHeader(sb, expanded, expanded ? current.Source.Name : item.Name, subtitle, (!expanded) ? AcquisitionVariant : 0, (!expanded) ? AcquisitionVariants.Length : 1, L("Common.OtherAcceptedItems"));
 		int count = (expanded ? current.Rules.Length : AcquisitionSources.Count);
 		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
@@ -1218,9 +1218,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		long sum = ArmorPartsDefense(parts);
 		if (!NativeArmorParts(parts))
 		{
-			return L("Common.SetDefense") + sum + "+";
+			return L("Common.SetDefense", sum + "+");
 		}
-		return L("Common.SetDefense") + (sum + ArmorNativeSetBonus(parts));
+		return L("Common.SetDefense", sum + ArmorNativeSetBonus(parts));
 	}
 
 	private static string ArmorDefenseText(Item item)
@@ -1229,7 +1229,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return "";
 		}
-		string text = L("Common.Defense") + item.defense;
+		string text = L("Common.Defense", item.defense);
 		BookArmorSets.Set set = BookArmorSets.Get(item.type);
 		if (set == null)
 		{
@@ -1237,7 +1237,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		Item[] parts = (from type in ArmorChoices(set, item)
 			select ContentSamples.ItemsByType[type]).ToArray();
-		return text + " · " + L("Common.Set") + (ArmorPartsDefense(parts) + ArmorNativeSetBonus(parts)) + (NativeArmorParts(parts) ? "" : "+");
+		return text + " · " + L("Common.Set", (ArmorPartsDefense(parts) + ArmorNativeSetBonus(parts)) + (NativeArmorParts(parts) ? "" : "+"));
 	}
 
 	// Two short lines: how the set number adds up, and what it leaves out.
@@ -1254,12 +1254,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		Item[] parts = displayedParts ?? (from type in ArmorChoices(set, item)
 			select ContentSamples.ItemsByType[type]).ToArray();
-		string sum = L("Common.Pieces") + string.Join(" + ", parts.Select((Item p) => p.defense));
+		string sum = L("Common.Pieces", string.Join(" + ", parts.Select((Item p) => p.defense)));
 		if (!NativeArmorParts(parts))
 		{
 			return sum + "\n" + L("Common.ModdedSetBonusNotCounted");
 		}
-		return sum + L("Common.SetBonus") + ArmorNativeSetBonus(parts) + "\n" + L("Common.WithoutAccessoriesAndBuffs");
+		return L("Common.SetBonus", sum, ArmorNativeSetBonus(parts)) + "\n" + L("Common.WithoutAccessoriesAndBuffs");
 	}
 
 	private static void DrawArmorDefense(SpriteBatch sb, Item item)
@@ -2130,7 +2130,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			GraphicsOpacity = opacity * ((TrackedGoals.Count == 1) ? (1f - TrackedGoals[0].Dismiss.Progress) : 1f);
 			Box(sb, 0f, 0f, width, TrackerPanelHeight, Panel, border: true, 10f, Border);
 			bool header = TrackerDragging || Hit(0f, 0f, width, BookTrackerRules.HeaderHeight);
-			FixedLabel(sb, L("Common.TRACKING") + TrackedGoals.Count, 12f, 5f, header ? TextColor : Muted, 0.8f, width - 56f, 22f);
+			FixedLabel(sb, L("Common.TRACKING", TrackedGoals.Count), 12f, 5f, header ? TextColor : Muted, 0.8f, width - 56f, 22f);
 			for (int line = 0; line < 3; line++)
 			{
 				Box(sb, width - 26f, 11 + line * 4, 14f, 2f, header ? TextColor : Muted, border: false, 1f);
@@ -2200,7 +2200,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (more)
 		{
-			FixedLabel(sb, "+" + (order.Length - shown) + L("Common.MoreCtrl") + TrackingTabNumber, 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
+			FixedLabel(sb, L("Common.MoreCtrl", order.Length - shown, TrackingTabNumber), 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
 		}
 	}
 
@@ -2388,7 +2388,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		EnemySpawnTip = "";
 		if (rain.HasValue)
 		{
-			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (L("Common.StartsOnItsOwnOrWith") + ItemName(tear.Type)) : L("Common.StartsOnItsOwn");
+			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? L("Common.StartsOnItsOwnOrWith", ItemName(tear.Type)) : L("Common.StartsOnItsOwn");
 			EnemySpawnTip = string.Join(" · ", spawn.Prepend(AcidRainText(rain.Value, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + start + "\n" + L("Common.FromCalamitySEventTables");
 		}
 		else if (gate != null)
@@ -2423,7 +2423,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 		if (rain.LastTier < bosses.Length - 1)
 		{
-			parts.Add(L("Common.Until") + NpcTypeName(bosses[rain.LastTier + 1]));
+			parts.Add(L("Common.Until", NpcTypeName(bosses[rain.LastTier + 1])));
 		}
 		return string.Join(" · ", parts.Where((string p) => p.Length > 0));
 	}
@@ -2468,10 +2468,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		// Hardmode and PostHardmode ("after Moon Lord") have words of their own; the bosses share one "after".
 		string[] ways = term.Split(';');
 		string[] words = ways.Where((string way) => way is "Hardmode" or "PostHardmode").Select(GateText).ToArray();
-		string after = string.Join(L("Common.Or"), from way in ways
+		string after = string.Join(L("Common.OrSeparator"), from way in ways
 			where !(way is "Hardmode" or "PostHardmode")
 			select (way == "?") ? L("Common.AnotherBoss") : string.Join(" + ", way.Split('+').Select(GateBossName)));
-		return string.Join(L("Common.Or"), (after.Length > 0) ? words.Append(L("Common.After") + after) : words);
+		return string.Join(L("Common.OrSeparator"), (after.Length > 0) ? words.Append(L("Common.After", after)) : words);
 	}
 
 	// A step's boss: "A|B" is the corruption's and the crimson's, the world's evil picks; "Enemies.*" is a game text.
@@ -2716,7 +2716,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (shown < order.Length)
 		{
-			DrawInfoLine(sb, null, "+" + (order.Length - shown) + L("Common.More"), "", x, top + (line + shown) * step, maxWidth, new Color(150, 150, 150), fade);
+			DrawInfoLine(sb, null, L("Common.MoreLines", order.Length - shown), "", x, top + (line + shown) * step, maxWidth, new Color(150, 150, 150), fade);
 		}
 	}
 
@@ -2907,7 +2907,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return L("Common.ReadyToCraft");
 		}
 		int met = goal.Progress.Count((BookResourceProgress r) => r.Met);
-		return L("Common.Ingredients") + met + "/" + goal.Progress.Length;
+		return L("Common.Ingredients", met, goal.Progress.Length);
 	}
 
 	// "<item's own mod> · Stage", like the item details on the other tabs.
@@ -2928,7 +2928,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return "";
 		}
-		return L("Common.Recipe") + owner;
+		return L("Common.Recipe", owner);
 	}
 
 	private static void DrawTrackingTab(SpriteBatch sb)
@@ -2944,7 +2944,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return;
 		}
 		Box(sb, panel, Surface, border: false, 12f);
-		FixedLabel(sb, L("Common.TRACKED") + TrackedGoals.Count + (ResourceTrackerStyle ? "" : ("/" + BookTrackerRules.MaxGoals)), panel.X + 16f, panel.Y + 17f, Muted, 0.8f, 400f, 22f);
+		FixedLabel(sb, L("Common.TRACKED", TrackedGoals.Count + (ResourceTrackerStyle ? "" : ("/" + BookTrackerRules.MaxGoals))), panel.X + 16f, panel.Y + 17f, Muted, 0.8f, 400f, 22f);
 		DestructiveButton(sb, BookGeometry.TrackingClear, TrackingClearArmed ? L("Common.ClearAll") : L("Common.Clear"));
 		if (BookGeometry.TrackingClear.Contains(Mouse.X, Mouse.Y))
 		{
@@ -2992,7 +2992,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		float titleSize = Math.Clamp((d.Width - 92f) / Math.Max(1f, Ink(title).Width * TextScale), 0.85f, 1.05f);
 		FixedLabel(sb, title, d.X + 76f, d.Y + 17f, TextColor, titleSize, d.Width - 92f, 26f);
 		FixedLabel(sb, TrackingOrigin(goal), d.X + 76f, d.Y + 45f, Muted, 0.8f, d.Width - 92f, 20f);
-		FixedLabel(sb, L("Common.Crafts2") + CraftsRatio(goal), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
+		FixedLabel(sb, L("Common.Crafts2", CraftsRatio(goal)), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
 		DrawProgressBar(sb, d.X + 16f, d.Y + 102f, d.Width - 32f, 6f, goal);
 		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
 		goal.ResourcePage = Math.Clamp(goal.ResourcePage, 0, pages.Count - 1);
@@ -3028,7 +3028,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				Button(sb, obtain, "?");
 				if (obtain.Contains(Mouse.X, Mouse.Y))
 				{
-					MouseTip(L("Common.HowToGet2") + line.Name);
+					MouseTip(L("Common.HowToGet2", line.Name));
 					continue;
 				}
 			}
@@ -3656,8 +3656,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return descending ? L("Common.ModZA") : L("Common.ModAZ");
 		default:
 		{
-			var (field, _, up, down) = SortWords(mode);
-			return field + ": " + (descending ? down : up);
+			var (_, up, down) = SortWords(mode);
+			return descending ? down : up;
 		}
 		}
 	}
@@ -5833,7 +5833,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		string have = (assessment.Unknown ? "?" : (assessment.Infinite ? "∞" : Count(assessment.Available)));
 		string where = (requirement.ItemTypes.Count == 1) ? BookSources.Breakdown(requirement.Ingredient.type) : "";
-		return L("Common.Have") + have + L("Common.Need") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? L("Common.AlsoCountedInAnotherRow") : "") + ((where.Length > 0) ? ("\n" + where) : "");
+		string need = L("Common.HaveNeed", have, Count(assessment.Required)) + ((batches > 1) ? (" (×" + batches + ")") : "");
+		return (assessment.Overlapping ? L("Common.AlsoCountedInAnotherRow", need) : need) + ((where.Length > 0) ? ("\n" + where) : "");
 	}
 
 	private static List<Detail> Details(Recipe r)
@@ -6619,37 +6620,37 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string count;
 		if (StorageView)
 		{
-			count = L("Common.Stacks") + Count(Filtered.Count);
+			count = L("Common.Stacks", Count(Filtered.Count));
 		}
 		else if (Catalogue)
 		{
-			count = L("Common.Items") + Count(Filtered.Count);
+			count = L("Common.Items", Count(Filtered.Count));
 		}
 		else if (BestiaryView)
 		{
-			count = L("Common.Mobs") + Count(Filtered.Count);
+			count = L("Common.Mobs", Count(Filtered.Count));
 		}
 		else if (RecentView)
 		{
-			count = L("Common.Recent") + Filtered.Count + "/" + 40;
+			count = L("Common.Recent", Filtered.Count, 40);
 		}
 		else
 		{
-			count = L("Common.Recipes") + Count(Filtered.Count);
+			count = L("Common.Recipes", Count(Filtered.Count));
 		}
 		// How many only the item text found (they come after the name matches), or that it is still being read.
 		if (TextMatchCount > 0)
 		{
-			count += "  ·  " + L("Common.TextMatches") + Count(TextMatchCount);
+			count += "  ·  " + L("Common.TextMatches", Count(TextMatchCount));
 		}
 		else if (Query.Length > 0 && !BestiaryView && !DescriptionsReady)
 		{
-			count += "  ·  " + L("Common.ReadingItemText") + DescriptionNext * 100 / Math.Max(1, ItemDescriptions.Length) + "%";
+			count += "  ·  " + L("Common.ReadingItemText", DescriptionNext * 100 / Math.Max(1, ItemDescriptions.Length));
 		}
 		// The stage filter never hides what the book could not place without saying so.
 		if (StageUnknownHidden > 0)
 		{
-			count += "  ·  " + L("Common.UnknownStage") + Count(StageUnknownHidden);
+			count += "  ·  " + L("Common.UnknownStage", Count(StageUnknownHidden));
 		}
 		BookRect label = BookGeometry.PageLabel;
 		CenterLabel(sb, count + "  ·  " + (Page + 1) + " / " + Pages, label.X, label.Y, label.Width, label.Height, Muted, 0.85f);
@@ -6693,7 +6694,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ActionButton(sb, obtain, L("Common.HowToGet"), primary: false);
 			if (!MenuOpen && obtain.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(L("Common.AllSources2") + chosen.Name + " · Alt+G");
+				MouseTip(L("Common.AllSources2", chosen.Name) + " · Alt+G");
 			}
 		}
 		bool favorite = Favorites.Contains(ItemKey(chosen));
@@ -6706,11 +6707,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (r != null)
 		{
-			ActionButton(sb, CraftRect, L("Common.Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
+			ActionButton(sb, CraftRect, L("Common.CraftTimes", PreviewBatches(r)), primary: true, BookCrafting.CanCraft(r));
 			if (!MenuOpen && CraftRect.Contains(Mouse.X, Mouse.Y))
 			{
 				string from = BookCrafting.Sources(r, PreviewBatches(r));
-				MouseTip(BookCrafting.Reason(r) + ((from.Length > 0) ? (" · " + from) : "") + "\nCtrl+Enter · " + L("Common.Max2") + ": Ctrl+Shift+Enter");
+				MouseTip(BookCrafting.Reason(r) + ((from.Length > 0) ? (" · " + from) : "") + "\n" + L("Common.CraftShortcuts"));
 			}
 		}
 		DrawTrackButton(sb, r);
@@ -6779,7 +6780,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool variants = CardItemType > 0 && VariantCount > 1;
 		string itemMod = chosen.ModItem?.Mod.Name ?? "Terraria";
 		string owner = Owner(r);
-		string line = L("Common.Recipe2") + (variants ? (" " + (Variant + 1) + "/" + VariantCount) : "") + ((owner != itemMod) ? (": " + ModName(owner)) : "");
+		string recipe = variants ? L("Common.RecipeVariant", Variant + 1, VariantCount) : L("Common.Recipe2");
+		string line = (owner != itemMod) ? L("Common.RecipeFromMod", recipe, ModName(owner)) : recipe;
 		BookRect lineRect = BookGeometry.RecipeLine(top);
 		CenterLabel(sb, line, lineRect.X, lineRect.Y, variants ? lineRect.Width : 284f, lineRect.Height, Muted, 0.85f, rightAligned: false, leftAligned: true);
 		if (variants)
@@ -6850,7 +6852,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Chevron(sb, back.X + back.Width / 2f - 1f, back.Y + back.Height / 2f, 4f, 2, canBack ? TextColor : Border);
 		if (!MenuOpen && back.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(L("Common.Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
+			MouseTip((canBack ? L("Common.BackTo", HistoryLabel(History.Previous)) : L("Common.Back")) + "\nMouse4 · Alt+←");
 		}
 		BookRect[] modes = CardModeRects();
 		Segmented(sb, modes, CardModeLabels(), UsedInMode ? 1 : 0, 0.8f);
@@ -6954,7 +6956,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		UsedInView view = VisibleUsedIn(chosen.type);
 		BookRect toggle = UsedInCraftableToggle(top);
-		SectionLabel(sb, L("Common.Recipes") + view.Rows.Count, 812f, top + 3f, toggle.X - 820f);
+		SectionLabel(sb, L("Common.Recipes", view.Rows.Count), 812f, top + 3f, toggle.X - 820f);
 		bool toggleHover = !MenuOpen && toggle.Contains(Mouse.X, Mouse.Y);
 		Box(sb, toggle, UsedInCraftableOnly ? SelectedFill : (toggleHover ? HoverFill : Raised), border: true, 6f, UsedInCraftableOnly ? new Color?(Accent) : null);
 		CenterLabel(sb, L("Common.Craftable"), toggle.X + 6f, toggle.Y + 2f, toggle.Width - 12f, toggle.Height - 4f, UsedInCraftableOnly ? Accent : TextColor, 0.8f);
@@ -7105,7 +7107,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CenterLabel(sb, "?", obtain.X + 2f, obtain.Y + 2f, obtain.Width - 4f, obtain.Height - 4f, hover ? TextColor : Muted, 0.85f);
 			if (hover)
 			{
-				MouseTip(L("Common.HowToGet2") + d.Name);
+				MouseTip(L("Common.HowToGet2", d.Name));
 				return;
 			}
 		}

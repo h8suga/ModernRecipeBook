@@ -4,4 +4,4 @@ version = 1.16.0
 side = Both
 weakReferences = MagicStorage
 sortAfter = MagicStorage
-buildIgnore = *.md, docs/*, .github/*
+buildIgnore = *.md, docs/*, .github/*, Localization/TranslationsNeeded.txt

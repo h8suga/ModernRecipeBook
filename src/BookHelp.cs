@@ -34,7 +34,7 @@ internal static class BookHelp
 			new Entry("Help.KeyCtrlTab", "Help.NextTab"),
 			new Entry("Help.KeyMouse4Alt", "Help.Back"),
 			new Entry("Help.KeyMouse5Alt", "Help.Forward"),
-			new Entry("Help.KeyText", "Help.MoveTheSelection"),
+			new Entry("Help.KeyArrows", "Help.MoveTheSelection"),
 			new Entry("Help.KeyPgUpPgDn", "Help.TurnPages"),
 			new Entry("Help.KeyHomeEnd", "Help.FirstLastPage"),
 			new Entry("Help.KeyEsc", "Help.CloseTheTopWindow"),

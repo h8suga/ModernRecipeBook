@@ -574,8 +574,8 @@ public sealed partial class RecipeBookSystem
 			CenterLabel(sb, Count(count), rect.X + rect.Width - 44f, rect.Y + 4f, 36f, rect.Height - 8f, Muted, 0.8f, rightAligned: true);
 			if (row == hovered)
 			{
-				string listed = Catalogue ? L("Stations.ListedItemsMadeHere") : L("Stations.ListedRecipesMadeHere");
-				MouseTip(name + "\n" + listed + Count(count) + "\n" + (excluded ? L("Stations.ClickShowAgain") : L("Stations.ClickHideWhatOnlyItMakes")));
+				string listed = L(Catalogue ? "Stations.ListedItemsMadeHere" : "Stations.ListedRecipesMadeHere", Count(count));
+				MouseTip(name + "\n" + listed + "\n" + (excluded ? L("Stations.ClickShowAgain") : L("Stations.ClickHideWhatOnlyItMakes")));
 			}
 		}
 		if (total > StationVisibleRows)
