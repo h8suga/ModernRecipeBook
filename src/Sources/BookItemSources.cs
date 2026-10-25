@@ -236,9 +236,10 @@ internal static class BookItemSources
 			NPC npc = pair.Value;
 			string name = npc.ModNPC?.Name ?? (NPCID.Search.TryGetName(npc.type, out var vanillaName) ? vanillaName : npc.type.ToString());
 			List<IItemDropRule> rules = Main.ItemDropsDB.GetRulesForNPCID(pair.Key, includeGlobalDrops: false);
-			// A banner follows its own NPC, not helpers sharing it (Vile Spit for the Corruptor's banner).
+			// A banner follows its own NPC, not helpers sharing it (Vile Spit for the Corruptor's banner). The slimes that
+			// are net ids of one type (Green, Pinky, Black...) count kills by that net id (NPC.BannerID), and so do their banners.
 			int banner = Item.NPCtoBanner(npc.BannerID());
-			int bannerItem = banner > 0 && Item.BannerToNPC(banner) == npc.type ? Item.BannerToItem(banner) : 0;
+			int bannerItem = banner > 0 && Item.BannerToNPC(banner) == npc.BannerID() ? Item.BannerToItem(banner) : 0;
 			int critter = npc.catchItem > 0 && ContentSamples.ItemsByType.ContainsKey(npc.catchItem) ? npc.catchItem : 0;
 			Npcs.Add(new NpcSource(pair.Key, npc, name, Reports(rules), bannerItem, critter));
 			if (pair.Key == 0)

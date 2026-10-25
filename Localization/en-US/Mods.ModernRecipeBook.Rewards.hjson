@@ -1,0 +1,46 @@
+Quest: Quest
+Event: Event
+AtQuests: at {0} quests
+AtQuestsBody: The Angler gives it for the quest that brings your count to {0}
+IfYouHaveNone: if you have none
+IfYouHaveNoneBody: Only to a player with none in the inventory, equipment or banks; anyone else gets the usual reward
+AfterQuests: after {0} quests
+ChanceBody: "{0} on the first quest that can give it, about {1} after 150 quests; a happy Angler gives better odds"
+OneOfTackle: one of {0} fishing accessories
+TackleBody: When no rarer reward comes, one of the fishing accessories you have none of (any of them once you have all). With none of them yet, each: {0} on the first quest, about {1} after 150 quests
+IfNothingElse: if nothing else comes
+PotionBody: When no other reward comes, one of the fishing potions: {0} on the first quest, about {1} after 150 quests
+HoneyBody: On a quest for it without a fixed reward: {0} before hardmode, {1} in hardmode
+OneOfDecorations: one of {0} decorations
+DecorationBody: On top of the main reward: {0} on the first quest, rising to {1} at 100 quests
+BaitOnTop: bait on top
+BaitBody: Often given on top of the main reward: {0} on the first quest, about {1} after 150 quests
+WhileEquipped: grows while equipped
+BeardBody: Equipped in an accessory slot, it grows into the next beard after a little more than 12 minutes
+InAnExtractinator: in an Extractinator
+ExtractinatorBody: Fed to an Extractinator or a Chlorophyte Extractinator
+WithAnotherGlowingMoss: with another glowing moss
+GlowingMossBody: Fed one of these, it gives a glowing moss one time in ten: {0}
+TorchGod: Torch God
+TorchGodLabel: over 100 torches underground
+TorchGodBody: With more than 100 torches near you below the surface, the Torch God turns them against you; survive 95 of his attacks and he leaves his favor. He does not come while you carry it or once you have used one
+DroppedByItsEnemies: dropped by its enemies
+OldOnesArmyBody: Its enemies drop this during the event, up to a set amount in each wave
+DuringAParty: during a party
+PartyBody: Once per party (five or more town NPCs must be home), the first player to talk to her gets a slice
+NewCharacter: New character
+CollectorsEdition: Collector's Edition
+CollectorsEditionBody: A character created on a PC where the Collector's Edition of Terraria is installed starts with it
+MoreThan50StartingItems: more than 50 starting items
+StartingBagBody: tModLoader puts the starting items that do not fit in a new character's inventory into this bag
+TurnsToStoneByDay: turns to stone by day
+GnomeBody: By day, where the wind reaches, a Gnome turns into a Garden Gnome statue; break it to take it
+EyeAndWall: "{0} and {1}"
+OnTheSameDay: on the same day
+SameDayBody: Defeat both on the same day: the second of them drops it
+NextToTombstones: Next to tombstones
+TombstoneBody: Grows now and then on grass beside a tombstone
+GrownPumpkin: Grown pumpkins
+PumpkinBody: A fully grown pumpkin broken during Halloween
+StorageCoreBody: Used on a storage unit of this tier, it takes all the unit's items out as this core and leaves the unit empty
+EmptyUnitBody: A storage unit emptied that way breaks into an empty one
