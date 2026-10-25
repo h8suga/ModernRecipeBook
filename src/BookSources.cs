@@ -10,6 +10,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.UI;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -909,11 +910,11 @@ public sealed class BookSources : ModSystem
 		{
 			if (tally.Inventory > 0)
 			{
-				parts.Add(T("Инвентарь: ", "Inventory: ") + Count(tally.Inventory));
+				parts.Add(L("Storage.Inventory") + Count(tally.Inventory));
 			}
 			if (tally.Open > 0)
 			{
-				parts.Add(T("Открытый сундук: ", "Open chest: ") + Count(tally.Open));
+				parts.Add(L("Storage.OpenChest") + Count(tally.Open));
 			}
 			for (int bank = 0; bank < 4; bank++)
 			{
@@ -924,7 +925,7 @@ public sealed class BookSources : ModSystem
 			}
 			if (tally.Chests > 0)
 			{
-				parts.Add(T("Сундуки", "Chests") + ((tally.ChestCount > 1) ? (" ×" + tally.ChestCount) : "") + ": " + Count(tally.Chests));
+				parts.Add(L("Storage.Chests") + ((tally.ChestCount > 1) ? (" ×" + tally.ChestCount) : "") + ": " + Count(tally.Chests));
 			}
 			if (tally.Storage > 0 && !Infinite)
 			{
@@ -1034,7 +1035,7 @@ public sealed class BookSources : ModSystem
 		{
 			parts.Add(BookSourceRules.Count(BanksShown, ru, "bank", "banks", "банк", "банка", "банков"));
 		}
-		return (parts.Count == 0) ? T("Рядом ничего нет", "Nothing nearby") : string.Join(" · ", parts);
+		return (parts.Count == 0) ? L("Storage.NothingNearby") : string.Join(" · ", parts);
 	}
 
 	internal static string SummaryTip
@@ -1072,7 +1073,7 @@ public sealed class BookSources : ModSystem
 				place++;
 			}
 		}
-		return T("Сеть ", "Network ") + place;
+		return L("Storage.Network") + place;
 	}
 
 	// "Cells: 1,234 / 3,200": the slots of every counted container besides the inventory (Magic Storage units, chests,
@@ -1105,7 +1106,7 @@ public sealed class BookSources : ModSystem
 
 	private static string Of(long used, long total)
 	{
-		return Count(used) + T(" из ", " / ") + Count(total);
+		return Count(used) + L("Storage.Text") + Count(total);
 	}
 
 	private static void BuildCells()
@@ -1120,13 +1121,13 @@ public sealed class BookSources : ModSystem
 			total += cells.Total;
 			used += cells.Used;
 			inactive += cells.Inactive;
-			rows.Add("Magic Storage · " + NetworkLabel(Networks[n]) + (Networks[n].Remote ? T(" (удалённо)", " (remote)") : "") + ": " + Of(cells.Used, cells.Total));
+			rows.Add("Magic Storage · " + NetworkLabel(Networks[n]) + (Networks[n].Remote ? L("Storage.Remote") : "") + ": " + Of(cells.Used, cells.Total));
 		}
 		if (MirrorChests > 0)
 		{
 			total += MirrorSlots;
 			used += MirrorUsed;
-			rows.Add(T("Сундуки", "Chests") + ((MirrorChests > 1) ? (" ×" + MirrorChests) : "") + ": " + Of(MirrorUsed, MirrorSlots));
+			rows.Add(L("Storage.Chests") + ((MirrorChests > 1) ? (" ×" + MirrorChests) : "") + ": " + Of(MirrorUsed, MirrorSlots));
 		}
 		for (int i = 0; i < ContainerSlots.Length; i++)
 		{
@@ -1134,19 +1135,19 @@ public sealed class BookSources : ModSystem
 			{
 				total += ContainerSlots[i];
 				used += ContainerUsed[i];
-				rows.Add(((i == 0) ? T("Открытый сундук", "Open chest") : BankName(i - 1)) + ": " + Of(ContainerUsed[i], ContainerSlots[i]));
+				rows.Add(((i == 0) ? L("Storage.OpenChest2") : BankName(i - 1)) + ": " + Of(ContainerUsed[i], ContainerSlots[i]));
 			}
 		}
 		if (inactive > 0)
 		{
-			rows.Add(T("Не учтены: ", "Not counted: ") + BookSourceRules.Count(inactive, Ru, "inactive storage unit", "inactive storage units", "неактивный блок хранения", "неактивных блока хранения", "неактивных блоков хранения"));
+			rows.Add(L("Storage.NotCounted") + BookSourceRules.Count(inactive, Ru, "inactive storage unit", "inactive storage units", "неактивный блок хранения", "неактивных блока хранения", "неактивных блоков хранения"));
 		}
 		if (Infinite)
 		{
-			rows.Add(BookMagicStorage.CreativeUnitName + T(": без предела, в сумму не входит", ": unlimited, not in the total"));
+			rows.Add(BookMagicStorage.CreativeUnitName + L("Storage.UnlimitedNotInTheTotal"));
 		}
 		CellsAlmostFull = total > 0 && used * 10 >= total * 9;
-		CellsText = (total == 0 && !Infinite) ? "" : (T("Ячейки: ", "Cells: ") + Of(used, total));
+		CellsText = (total == 0 && !Infinite) ? "" : (L("Storage.Cells") + Of(used, total));
 		CellsTipText = string.Join("\n", rows);
 	}
 
@@ -1166,16 +1167,16 @@ public sealed class BookSources : ModSystem
 		BookMagicStorage.Network far = Networks.FirstOrDefault((BookMagicStorage.Network n) => n.Remote);
 		if (far != null)
 		{
-			return T("Удалённо ", "Remote ") + RemoteHow(far);
+			return L("Storage.Remote2") + RemoteHow(far);
 		}
-		string within = T("В радиусе ", "Within ") + BookSourceRules.Count(BookNearbyConfig.Radius, Ru, "tile", "tiles", "блока", "блоков", "блоков");
-		return (Main.netMode == NetmodeID.MultiplayerClient) ? (within + T(" · задаёт хост", " · set by the host")) : within;
+		string within = L("Storage.Within") + BookSourceRules.Count(BookNearbyConfig.Radius, Ru, "tile", "tiles", "блока", "блоков", "блоков");
+		return (Main.netMode == NetmodeID.MultiplayerClient) ? (within + L("Storage.SetByTheHost")) : within;
 	}
 
 	// "via Portable Access" / "via the Magic Storage window", for the tooltips.
 	private static string RemoteHow(BookMagicStorage.Network network)
 	{
-		return network.ViaCarried ? T("через Portable Access", "via Portable Access") : T("через окно Magic Storage", "via the Magic Storage window");
+		return network.ViaCarried ? L("Storage.ViaPortableAccess") : L("Storage.ViaTheMagicStorageWindow");
 	}
 
 	// "Not counted: 2 locked · 1 in use · 1 password", or "" when nothing was skipped.
@@ -1201,19 +1202,19 @@ public sealed class BookSources : ModSystem
 		}
 		if (SkippedPassword > 0)
 		{
-			parts.Add(SkippedPassword + T(" с паролем", " password"));
+			parts.Add(SkippedPassword + L("Storage.Password"));
 		}
 		foreach ((bool Crafting, BookMagicStorage.CarriedSkip Why) skip in Carried)
 		{
-			parts.Add((skip.Crafting ? T("Портативный доступ к созданию", "Portable Crafting Access") : T("Портативный доступ", "Portable Access")) + " — " + skip.Why switch
+			parts.Add((skip.Crafting ? L("Storage.PortableCraftingAccess") : L("Storage.PortableAccess")) + " — " + skip.Why switch
 			{
-				BookMagicStorage.CarriedSkip.OutOfRange => T("вне досягаемости", "out of range"),
-				BookMagicStorage.CarriedSkip.NoPylon => T("у хранилища нет пилона", "no pylon near the storage"),
-				BookMagicStorage.CarriedSkip.Missing => T("хранилища нет на месте", "storage missing"),
-				_ => T("загружается", "loading"),
+				BookMagicStorage.CarriedSkip.OutOfRange => L("Storage.OutOfRange"),
+				BookMagicStorage.CarriedSkip.NoPylon => L("Storage.NoPylonNearTheStorage"),
+				BookMagicStorage.CarriedSkip.Missing => L("Storage.StorageMissing"),
+				_ => L("Storage.Loading"),
 			});
 		}
-		return (parts.Count == 0) ? "" : (T("Не учтены: ", "Not counted: ") + string.Join(" · ", parts));
+		return (parts.Count == 0) ? "" : (L("Storage.NotCounted") + string.Join(" · ", parts));
 	}
 
 	// A carried Portable Access the last scan did not count, with why (BookMagicStorage.AddCarried).
@@ -1236,15 +1237,15 @@ public sealed class BookSources : ModSystem
 		List<string> lines = new List<string>();
 		if (SkippedLocked > 0 || SkippedInUse > 0)
 		{
-			lines.Add(T("Запертые сундуки и сундуки, открытые другим игроком, пропускаются.", "Locked chests and chests another player has open are skipped."));
+			lines.Add(L("Storage.LockedChestsAndChestsAnotherPlayer"));
 		}
 		if (SkippedPassword > 0)
 		{
-			lines.Add(T("Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.", "A storage with a password counts once you join it in Magic Storage."));
+			lines.Add(L("Storage.AStorageWithAPasswordCounts"));
 		}
 		if (Carried.Count > 0)
 		{
-			lines.Add(T("Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон.", "A Portable Access in your inventory counts by Magic Storage's own rules: within its range of the storage, or at a pylon while the storage has a pylon near it."));
+			lines.Add(L("Storage.APortableAccessInYourInventory"));
 		}
 		return string.Join("\n", lines);
 	}
@@ -1258,7 +1259,7 @@ public sealed class BookSources : ModSystem
 		{
 			return "";
 		}
-		List<string> parts = new List<string> { T("инвентарь", "inventory") };
+		List<string> parts = new List<string> { L("Storage.Inventory2") };
 		if (usesBanks)
 		{
 			parts.Add(BookSourceRules.Count(BanksShown, Ru, "bank", "banks", "банк", "банка", "банков"));
@@ -1285,7 +1286,7 @@ public sealed class BookSources : ModSystem
 				parts.Add("Magic Storage");
 			}
 		}
-		return T("Откуда: ", "From: ") + string.Join(", ", parts);
+		return L("Storage.From") + string.Join(", ", parts);
 	}
 
 	// Chests in the set that hold any of the types a craft pulls (the server takes from the nearest of them).
@@ -1364,7 +1365,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (!Listed.TryGetValue((shown.type, shown.prefix), out var have))
 		{
-			Say(() => T("Этого уже нет рядом", "No longer nearby"));
+			Say(() => L("Storage.NoLongerNearby"));
 			return;
 		}
 		want = (int)Math.Min(want, have.Local + have.Remote);
@@ -1377,11 +1378,11 @@ public sealed class BookSources : ModSystem
 		}
 		else if (sink == Sink.Inventory)
 		{
-			Say(() => full ? T("Инвентарь полон", "Inventory full") : ((moved > 0) ? T("Забрано в инвентарь", "Taken to inventory") : T("Этого уже нет рядом", "No longer nearby")));
+			Say(() => full ? L("Storage.InventoryFull") : ((moved > 0) ? L("Storage.TakenToInventory") : L("Storage.NoLongerNearby")));
 		}
 		else if (moved == 0)
 		{
-			Say(() => T("Этого уже нет рядом", "No longer nearby"));
+			Say(() => L("Storage.NoLongerNearby"));
 		}
 		Refresh(force: true);
 	}
@@ -1555,7 +1556,7 @@ public sealed class BookSources : ModSystem
 		}
 	}
 
-	internal static string TakeHint => T("Клик — взять · ПКМ — одну · Shift+клик — в инвентарь", "Click: take · Right-click: take one · Shift+Click: to inventory");
+	internal static string TakeHint => L("Storage.ClickTakeRightClickTakeOne");
 
 	// Tops up every partial inventory stack (coins excepted) from what is nearby, like Magic Storage's Restock.
 	internal static void Restock()
@@ -1597,7 +1598,7 @@ public sealed class BookSources : ModSystem
 		}
 		else
 		{
-			Say(() => (moved > 0) ? T("Стопки пополнены", "Stacks topped up") : T("Нечего пополнять", "Nothing to top up"));
+			Say(() => (moved > 0) ? L("Storage.StacksToppedUp") : L("Storage.NothingToTopUp"));
 		}
 		Refresh(force: true);
 	}
@@ -1612,7 +1613,7 @@ public sealed class BookSources : ModSystem
 			return;
 		}
 		player.QuickStackAllChests();
-		Say(() => T("Сложено в сундуки рядом", "Stacked into nearby chests"));
+		Say(() => L("Storage.StackedIntoNearbyChests"));
 		ScanDue = LocalDue = true;
 		QuickStackQueued = HasStorage;
 		FlushQuickStack();
@@ -1711,9 +1712,9 @@ public sealed class BookSources : ModSystem
 		{
 			Say(() => status switch
 			{
-				BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
-				BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
-				_ => T("Сложено в сундуки рядом · в хранилище нет места", "Stacked into nearby chests · no room in storage"),
+				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
+				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
+				_ => L("Storage.StackedIntoNearbyChestsNoRoom"),
 			});
 		}
 		ScanDue = LocalDue = true;
@@ -1758,7 +1759,7 @@ public sealed class BookSources : ModSystem
 	// Somewhere to put items: a chest or a Magic Storage network in the set.
 	internal static bool CanDeposit => Enabled && (ChestsShown > 0 || HasStorage);
 
-	internal static string DepositHint => T("Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище", "Shift+Click an inventory item or drop it here: put into storage");
+	internal static string DepositHint => L("Storage.ShiftClickAnInventoryItemOr");
 
 	// Vanilla's chest shift-click (ItemSlot.OverrideHover / OverrideLeftClick): inventory, coin and ammo slots, never a
 	// favorite. A player with a chest of their own open uses that chest, as in vanilla.
@@ -1790,7 +1791,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (!CanDeposit)
 		{
-			Say(() => Enabled ? T("Рядом некуда складывать", "Nothing nearby to deposit into") : T("Хранилища рядом выключены", "Nearby storage is off"));
+			Say(() => Enabled ? L("Storage.NothingNearbyToDepositInto") : L("Storage.NearbyStorageIsOff"));
 			return;
 		}
 		Item item = Main.mouseItem.Clone();
@@ -1833,7 +1834,7 @@ public sealed class BookSources : ModSystem
 		}
 		if (items.Count == 0)
 		{
-			Say(() => T("Нечего складывать", "Nothing to deposit"));
+			Say(() => L("Storage.NothingToDeposit"));
 			return;
 		}
 		SendDeposit(items, Sink.Inventory);
@@ -2015,9 +2016,9 @@ public sealed class BookSources : ModSystem
 			{
 				Say(() => status switch
 				{
-					BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
-					BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
-					_ => T("Этого уже нет рядом", "No longer nearby"),
+					BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
+					BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
+					_ => L("Storage.NoLongerNearby"),
 				});
 			}
 			break;
@@ -2027,22 +2028,22 @@ public sealed class BookSources : ModSystem
 			long asked = pending.Asked + LocallyMoved;
 			Say(() => status switch
 			{
-				BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
-				BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
-				_ => spilled ? T("Инвентарь полон: остаток на курсоре", "Inventory full: rest on cursor") : ((total == 0) ? T("Этого уже нет рядом", "No longer nearby") : ((status == BookNearbyServer.Status.Partial) ? (T("Взято ", "Took ") + total + T(" из ", " of ") + asked + T(": остального уже нет", ": the rest is gone")) : T("Забрано в инвентарь", "Taken to inventory"))),
+				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
+				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
+				_ => spilled ? L("Storage.InventoryFullRestOnCursor") : ((total == 0) ? L("Storage.NoLongerNearby") : ((status == BookNearbyServer.Status.Partial) ? (L("Storage.Took") + total + L("Storage.Of") + asked + L("Storage.TheRestIsGone")) : L("Storage.TakenToInventory"))),
 			});
 			break;
 		}
 		case Purpose.Restock:
 			long topped = got + LocallyMoved;
-			Say(() => (status == BookNearbyServer.Status.Busy) ? T("Слишком часто: подождите", "Too fast: wait a moment") : ((topped > 0) ? T("Стопки пополнены", "Stacks topped up") : T("Нечего пополнять", "Nothing to top up")));
+			Say(() => (status == BookNearbyServer.Status.Busy) ? L("Storage.TooFastWaitAMoment") : ((topped > 0) ? L("Storage.StacksToppedUp") : L("Storage.NothingToTopUp")));
 			break;
 		case Purpose.Deposit:
 			Say(() => status switch
 			{
-				BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
-				BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
-				_ => (got == 0) ? T("Сложено рядом", "Stored nearby") : (T("Рядом нет места: осталось ", "Nearby storage is full: ") + Count(got) + T("", " left")),
+				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
+				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
+				_ => (got == 0) ? L("Storage.StoredNearby") : (L("Storage.NearbyStorageIsFull") + Count(got) + L("Storage.Left")),
 			});
 			break;
 		case Purpose.Craft:
@@ -2069,7 +2070,7 @@ public sealed class BookSources : ModSystem
 		{
 			Waiting.Remove(id);
 		}
-		Say(() => T("Сервер не отвечает: повторите", "No reply from the server: try again"));
+		Say(() => L("Storage.NoReplyFromTheServerTry"));
 		BookCrafting.Say("Сервер не отвечает: повторите", "No reply from the server: try again");
 	}
 

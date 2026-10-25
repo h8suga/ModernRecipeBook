@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -294,15 +295,15 @@ public sealed partial class RecipeBookSystem
 	}
 
 	// The interfaces' group is named after Magic Storage's own item.
-	private static string InterfaceName => (StationItems.TryGetValue(BookMagicStorage.CraftingAccessTile, out Item item) && !string.IsNullOrWhiteSpace(item.Name)) ? item.Name : T("Модуль создания предметов", "Crafting Interface");
+	private static string InterfaceName => (StationItems.TryGetValue(BookMagicStorage.CraftingAccessTile, out Item item) && !string.IsNullOrWhiteSpace(item.Name)) ? item.Name : L("ActiveStations.CraftingInterface");
 
 	private static string ActiveStationGroup(int group)
 	{
 		return group switch
 		{
-			0 => T("Рядом", "Nearby"),
+			0 => L("ActiveStations.Nearby"),
 			1 => InterfaceName,
-			_ => T("Окружение", "Surroundings"),
+			_ => L("ActiveStations.Surroundings"),
 		};
 	}
 
@@ -319,19 +320,19 @@ public sealed partial class RecipeBookSystem
 		string detail;
 		if (station.Via >= 0)
 		{
-			detail = T("Считается через: ", "Counts via ") + StationName(station.Via);
+			detail = L("ActiveStations.CountsVia") + StationName(station.Via);
 		}
 		else if (station.Tile >= 0)
 		{
-			detail = station.Interface ? T("Стоит в модуле создания предметов", "In the Crafting Interface") : T("Стоит рядом", "Placed nearby");
+			detail = station.Interface ? L("ActiveStations.InTheCraftingInterface") : L("ActiveStations.PlacedNearby");
 		}
 		else if (station.Interface)
 		{
-			detail = T("Даёт модуль создания предметов", "From the Crafting Interface");
+			detail = L("ActiveStations.FromTheCraftingInterface");
 		}
 		else
 		{
-			detail = (station.Environment >= 4) ? T("Вы в этом биоме", "You are in this biome") : T("Рядом с вами", "Next to you");
+			detail = (station.Environment >= 4) ? L("ActiveStations.YouAreInThisBiome") : L("ActiveStations.NextToYou");
 		}
 		StationTipText = ActiveStationName(station) + "\n" + detail;
 		return StationTipText;
@@ -362,7 +363,7 @@ public sealed partial class RecipeBookSystem
 			return PanelWidth;
 		}
 		PanelWidthKey = key;
-		float width = Math.Max(24f + StationColumns * StationCell - 4f, TextWidth(T("Активные станции", "Active Stations"), 0.9f) + 88f);
+		float width = Math.Max(24f + StationColumns * StationCell - 4f, TextWidth(L("ActiveStations.ActiveStations"), 0.9f) + 88f);
 		for (int group = 0; group < 3; group++)
 		{
 			if (ActiveStationStarts[group + 1] > ActiveStationStarts[group])
@@ -434,13 +435,13 @@ public sealed partial class RecipeBookSystem
 		Box(sb, panel, Panel, border: true, 12f);
 		float x = panel.X + 12f;
 		float y = panel.Y + 12f;
-		CenterLabel(sb, T("Активные станции", "Active Stations"), x + 4f, y, panel.Width - 88f, 24f, TextColor, 0.9f, rightAligned: false, leftAligned: true);
+		CenterLabel(sb, L("ActiveStations.ActiveStations"), x + 4f, y, panel.Width - 88f, 24f, TextColor, 0.9f, rightAligned: false, leftAligned: true);
 		CenterLabel(sb, ActiveStationCount, panel.X + panel.Width - 72f, y, 56f, 24f, Muted, 0.85f, rightAligned: true);
 		y += 28f;
 		if (ActiveStations.Count == 0)
 		{
-			CenterLabel(sb, T("Станций рядом нет", "No stations in reach"), x + 4f, y + 2f, panel.Width - 32f, 20f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
-			string hint = BookMagicStorage.Installed ? T("Подойдите к станции или модулю создания предметов", "Stand by a station or a Crafting Interface") : T("Подойдите к станции крафта", "Stand by a crafting station");
+			CenterLabel(sb, L("ActiveStations.NoStationsInReach"), x + 4f, y + 2f, panel.Width - 32f, 20f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			string hint = BookMagicStorage.Installed ? L("ActiveStations.StandByAStationOrA") : L("ActiveStations.StandByACraftingStation");
 			CenterLabel(sb, hint, x + 4f, y + 24f, panel.Width - 32f, 20f, Muted, 0.8f, rightAligned: false, leftAligned: true, fitWidth: true);
 			return;
 		}

@@ -1,0 +1,4 @@
+ToggleBook.DisplayName: "Открыть книгу рецептов"
+ChainBack.DisplayName: "Назад"
+ChainForward.DisplayName: "Вперёд"
+MapTeleport.DisplayName: "Телепорт по карте"

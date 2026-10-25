@@ -7,6 +7,7 @@ using Terraria;
 using Terraria.GameContent.Bestiary;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -40,7 +41,7 @@ public sealed partial class RecipeBookSystem
 	// "For this world · Expert · 2 players": the player count only where it changes the numbers.
 	private static string StatsScope()
 	{
-		string scope = (EnemyStatsLive ? T("Этот моб в мире", "This mob in the world") : T("Для этого мира", "For this world")) + " · " + WorldModeName();
+		string scope = (EnemyStatsLive ? L("MobCard.ThisMobInTheWorld") : L("MobCard.ForThisWorld")) + " · " + WorldModeName();
 		if (Main.netMode == NetmodeID.MultiplayerClient && Main.expertMode && EnemyStatsPlayers > 1)
 		{
 			scope += " · " + BookSourceRules.Count(EnemyStatsPlayers, Ru, "player", "players", "игрок", "игрока", "игроков");
@@ -103,16 +104,16 @@ public sealed partial class RecipeBookSystem
 	{
 		string mode = Main.GameMode switch
 		{
-			GameModeID.Expert => T("эксперт", "Expert"),
-			GameModeID.Master => T("мастер", "Master"),
-			GameModeID.Creative => T("путешествие", "Journey"),
-			_ => T("обычный", "Classic"),
+			GameModeID.Expert => L("MobCard.Expert"),
+			GameModeID.Master => L("MobCard.Master"),
+			GameModeID.Creative => L("MobCard.Journey"),
+			_ => L("MobCard.Classic"),
 		};
 		if (CalamityMode("death"))
 		{
-			return mode + " · " + T("смерть", "Death");
+			return mode + " · " + L("MobCard.Death");
 		}
-		return CalamityMode("revenge") ? (mode + " · " + T("месть", "Revengeance")) : mode;
+		return CalamityMode("revenge") ? (mode + " · " + L("MobCard.Revengeance")) : mode;
 	}
 
 	// The Bestiary entry's own unlock rule, so mods' NPCs follow theirs: town NPCs open with a chat, critters once
@@ -151,11 +152,11 @@ public sealed partial class RecipeBookSystem
 		int kills = Main.BestiaryTracker.Kills.GetKillCount(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[netId]);
 		if (!MobStatsUnlocked(netId, sample, kills))
 		{
-			string hint = sample.CountsAsACritter ? T("Увидьте его хотя бы раз", "See it once") : (sample.isLikeATownNPC ? T("Поговорите с ним хотя бы раз", "Talk to them once") : T("Убейте его хотя бы раз", "Kill it once to see them"));
-			DrawCardEmpty(sb, box, T("Скрыты", "Locked"), hint);
+			string hint = sample.CountsAsACritter ? L("MobCard.SeeItOnce") : (sample.isLikeATownNPC ? L("MobCard.TalkToThemOnce") : L("MobCard.KillItOnceToSeeThem"));
+			DrawCardEmpty(sb, box, L("MobCard.Locked"), hint);
 			if (box.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(T("Открываются как в бестиарии", "Unlocked as in the Bestiary"));
+				MouseTip(L("MobCard.UnlockedAsInTheBestiary"));
 			}
 			return;
 		}
@@ -169,17 +170,17 @@ public sealed partial class RecipeBookSystem
 		bool hasBanner = banner < NPC.killCount.Length && bannerItem > 0 && bannerItem < ItemID.Sets.KillsToBanner.Length && !sample.ExcludedFromDeathTally();
 		int need = hasBanner ? Math.Max(1, ItemID.Sets.KillsToBanner[bannerItem]) : 1;
 		int row = 0;
-		Row(T("Здоровье", "Life"), Count(stats.Life));
-		Row(T("Защита", "Defense"), Count(stats.Defense));
-		Row(T("Урон", "Damage"), Count(stats.Damage));
-		Row(T("Стойкость", "Knockback resist"), Percent(1f - stats.KnockbackTaken), T("Насколько слабее его отбрасывает", "How much less it is knocked back"));
-		BookRect coins = Row(T("Монеты", "Coins"), stats.Value > 0 ? "" : "—");
+		Row(L("MobCard.Life"), Count(stats.Life));
+		Row(L("MobCard.Defense"), Count(stats.Defense));
+		Row(L("MobCard.Damage"), Count(stats.Damage));
+		Row(L("MobCard.KnockbackResist"), Percent(1f - stats.KnockbackTaken), L("MobCard.HowMuchLessItIsKnocked"));
+		BookRect coins = Row(L("MobCard.Coins"), stats.Value > 0 ? "" : "—");
 		DrawCoins(sb, coins, stats.Value);
-		Row(T("Убито", "Kills"), Count(kills), T("Убито в этом мире", "Killed in this world"));
-		Row(T("Знамя", "Banner"), hasBanner ? (Count(NPC.killCount[banner] % need) + "/" + Count(need)) : "—", hasBanner ? T("Убийств до следующего знамени", "Kills toward the next banner") : null);
+		Row(L("MobCard.Kills"), Count(kills), L("MobCard.KilledInThisWorld"));
+		Row(L("MobCard.Banner"), hasBanner ? (Count(NPC.killCount[banner] % need) + "/" + Count(need)) : "—", hasBanner ? L("MobCard.KillsTowardTheNextBanner") : null);
 		if (stats.DamageReduction.HasValue)
 		{
-			Row(T("Снижение урона", "Damage reduction"), Percent(stats.DamageReduction.Value), T("Calamity: доля урона, которую он гасит", "Calamity: share of damage it ignores"));
+			Row(L("MobCard.DamageReduction"), Percent(stats.DamageReduction.Value), L("MobCard.CalamityShareOfDamageItIgnores"));
 		}
 		BookRect Row(string name, string value, string tip = null)
 		{

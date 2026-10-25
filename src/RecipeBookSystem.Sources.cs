@@ -11,6 +11,7 @@ using Terraria.Localization;
 using Terraria.Map;
 using Terraria.ModLoader;
 using Terraria.ObjectData;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -57,10 +58,10 @@ public sealed partial class RecipeBookSystem
 		{
 			return entry;
 		}
-		string all = T("Где: ", "Where: ") + entry.Name;
+		string all = L("HowToGet.Where") + entry.Name;
 		return entry with
 		{
-			Name = string.Join(", ", places.Take(3)) + string.Format(T(" и ещё {0}", " +{0}"), places.Length - 3),
+			Name = string.Join(", ", places.Take(3)) + string.Format(L("HowToGet.Text0"), places.Length - 3),
 			Body = (entry.Body.Length > 0) ? (all + "\n" + entry.Body) : all
 		};
 	}
@@ -96,22 +97,22 @@ public sealed partial class RecipeBookSystem
 			return new BookAcquisitionEntry(Lang.GetNPCNameValue(s.Npc), string.Join("; ", conditions), BookAcquisitionKind.Shop, "", "", 0, s.Npc, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), s.Shop.Name);
 		}
 		case BookAcquisitionKind.Banner:
-			return new BookAcquisitionEntry(NpcName(s.Npc), "", s.Kind, "", "×1", 0, s.Npc, false, -1, s.Owner, string.Format(T("каждые {0} убийств", "every {0} kills"), s.NoteValue));
+			return new BookAcquisitionEntry(NpcName(s.Npc), "", s.Kind, "", "×1", 0, s.Npc, false, -1, s.Owner, string.Format(L("HowToGet.Every0Kills"), s.NoteValue));
 		case BookAcquisitionKind.Catch:
 			return new BookAcquisitionEntry(NpcName(s.Npc), "", s.Kind, "", "×1", 0, s.Npc, false, -1, s.Owner);
 		case BookAcquisitionKind.Shimmer:
 		case BookAcquisitionKind.Use:
 			return new BookAcquisitionEntry(ItemName(s.From), "", s.Kind, "", "×1", s.From, 0, false, -1, s.Owner);
 		case BookAcquisitionKind.Record:
-			return new BookAcquisitionEntry(ItemName(s.From), T("Наденьте пустую шкатулку, пока играет мелодия", "Wear a blank box while its track plays"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, T("пока играет мелодия", "while its track plays"));
+			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.WhileItsTrackPlays"));
 		case BookAcquisitionKind.Trade:
 		{
 			string gate = GateText(s.Note);
-			string label = T("за ", "for ") + ItemName(s.FromAny.FirstOrDefault()) + (gate.Length > 0 ? " · " + gate : "");
+			string label = L("HowToGet.For") + ItemName(s.FromAny.FirstOrDefault()) + (gate.Length > 0 ? " · " + gate : "");
 			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label);
 		}
 		case BookAcquisitionKind.Chest:
-			return new BookAcquisitionEntry(T("Сундуки и постройки мира", "World chests and structures"), T("Лежит там с создания мира", "Placed there when the world is made"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, T("с создания мира", "from world creation"));
+			return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
 		case BookAcquisitionKind.Fishing:
 			return FishingEntry(s);
 		default:
@@ -150,13 +151,13 @@ public sealed partial class RecipeBookSystem
 			}
 			catch (Exception)
 			{
-				string unavailable = T("Неизвестное условие", "Unknown condition");
+				string unavailable = L("HowToGet.UnknownCondition");
 				conditions.Add(unavailable);
 				shortConditions.Add(unavailable);
 				AcquisitionReadErrors++;
 			}
 		}
-		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? T("Любые враги", "Any enemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
+		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? L("HowToGet.AnyEnemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
 		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))), OtherMode: otherMode);
 	}
 
@@ -166,7 +167,7 @@ public sealed partial class RecipeBookSystem
 		if (s.Note == "quest")
 		{
 			string where = QuestCatchLine(s.Item);
-			return new BookAcquisitionEntry(where.Length > 0 ? where : T("Задание рыбака", "Angler quest"), T("Ловится, только когда её просит Рыбак", "Caught only while the Angler asks for it"), s.Kind, "", "×1", ItemID.WoodFishingPole, 0, true, -1, s.Owner, T("задание рыбака", "Angler quest"));
+			return new BookAcquisitionEntry(where.Length > 0 ? where : L("HowToGet.AnglerQuest"), L("HowToGet.CaughtOnlyWhileTheAnglerAsks"), s.Kind, "", "×1", ItemID.WoodFishingPole, 0, true, -1, s.Owner, L("HowToGet.AnglerQuest2"));
 		}
 		List<string> parts = new List<string>();
 		string tier = TierText(note[0]);
@@ -191,26 +192,26 @@ public sealed partial class RecipeBookSystem
 		switch (s.Note)
 		{
 		case "world":
-			where = T("Встречается в мире", "Found in the world");
+			where = L("HowToGet.FoundInTheWorld");
 			break;
 		case "starfall":
-			parts.Add(T("падает ночью", "falls at night"));
+			parts.Add(L("HowToGet.FallsAtNight"));
 			break;
 		case "orb":
 			parts.Add(Lang.GetMapObjectName(MapHelper.TileToLookup(TileID.ShadowOrbs, s.FrameX >= 36 ? 1 : 0)));
 			break;
 		case "mech":
-			parts.Add(T("после механического босса", "after a mechanical boss"));
+			parts.Add(L("HowToGet.AfterAMechanicalBoss"));
 			break;
 		case "treetop":
-			parts.Add(T("верхушка", "treetop"));
+			parts.Add(L("HowToGet.Treetop"));
 			break;
 		case "shake":
-			parts.Add(T("потрясите", "shake it"));
+			parts.Add(L("HowToGet.ShakeIt"));
 			break;
 		case "shake:halloween":
-			parts.Add(T("потрясите", "shake it"));
-			parts.Add(T("Хэллоуин", "Halloween"));
+			parts.Add(L("HowToGet.ShakeIt"));
+			parts.Add(L("HowToGet.Halloween"));
 			break;
 		default:
 			if (s.Note.StartsWith("bloom:", StringComparison.Ordinal))
@@ -227,20 +228,20 @@ public sealed partial class RecipeBookSystem
 		bool herb = s.Note.StartsWith("bloom:", StringComparison.Ordinal);
 		if (s.Kind == BookAcquisitionKind.Plant && grass && !herb)
 		{
-			parts.Insert(0, T("на траве", "on grass"));
+			parts.Insert(0, L("HowToGet.OnGrass"));
 		}
 		if (s.NoteValue > 0)
 		{
-			parts.Add(T("кирка ", "pickaxe ") + s.NoteValue + "%");
+			parts.Add(L("HowToGet.Pickaxe") + s.NoteValue + "%");
 		}
 		// The ground goes in the tooltip, unless the detail already says "on grass".
 		if (s.Grounds.Length > 0 && s.Kind == BookAcquisitionKind.Plant && (herb || !grass))
 		{
-			body = grass ? T("Растёт на траве", "Grows on grass") : (T("Растёт на: ", "Grows on: ") + string.Join(", ", s.Grounds.Select(GroundName).Distinct()));
+			body = grass ? L("HowToGet.GrowsOnGrass") : (L("HowToGet.GrowsOn") + string.Join(", ", s.Grounds.Select(GroundName).Distinct()));
 		}
 		if (where.Length == 0)
 		{
-			where = T("В мире", "In the world");
+			where = L("HowToGet.InTheWorld");
 		}
 		string chance = s.Chance > 0f && s.Chance < 1f ? BookAcquisitionRules.Chance(s.Chance) : "";
 		string amount = s.Kind == BookAcquisitionKind.World && s.Note == "world" ? "" : "×" + BookAcquisitionRules.Stack(s.Min, s.Max);
@@ -260,11 +261,11 @@ public sealed partial class RecipeBookSystem
 			switch (w)
 			{
 			case "any":
-				return T("Любая вода", "Any water");
+				return L("HowToGet.AnyWater");
 			case "lava":
-				return T("Лава", "Lava");
+				return L("HowToGet.Lava");
 			case "honey":
-				return T("Мёд", "Honey");
+				return L("HowToGet.Honey");
 			}
 			if (w.Contains('/'))
 			{
@@ -278,12 +279,12 @@ public sealed partial class RecipeBookSystem
 	{
 		return when switch
 		{
-			"day" => T("цветёт днём", "blooms by day"),
-			"night" => T("цветёт ночью", "blooms at night"),
-			"moon" => T("цветёт в кровавую луну и полнолуние", "blooms at a blood or full moon"),
-			"rain" => T("цветёт в дождь", "blooms in rain"),
-			"dusk" => T("цветёт на закате", "blooms at sunset"),
-			_ => T("цветёт, когда вырастет", "blooms when grown")
+			"day" => L("HowToGet.BloomsByDay"),
+			"night" => L("HowToGet.BloomsAtNight"),
+			"moon" => L("HowToGet.BloomsAtABloodOrFull"),
+			"rain" => L("HowToGet.BloomsInRain"),
+			"dusk" => L("HowToGet.BloomsAtSunset"),
+			_ => L("HowToGet.BloomsWhenGrown")
 		};
 	}
 
@@ -291,13 +292,13 @@ public sealed partial class RecipeBookSystem
 	{
 		return tier switch
 		{
-			"common" => T("обычный улов", "common"),
-			"uncommon" => T("необычный улов", "uncommon"),
-			"rare" => T("редкий улов", "rare"),
-			"veryrare" => T("очень редкий улов", "very rare"),
-			"legendary" => T("легендарный улов", "legendary"),
-			"crate" => T("ящик", "crate"),
-			"junk" => T("мусор в мелкой воде", "junk in small ponds"),
+			"common" => L("HowToGet.Common"),
+			"uncommon" => L("HowToGet.Uncommon"),
+			"rare" => L("HowToGet.Rare"),
+			"veryrare" => L("HowToGet.VeryRare"),
+			"legendary" => L("HowToGet.Legendary"),
+			"crate" => L("HowToGet.Crate"),
+			"junk" => L("HowToGet.JunkInSmallPonds"),
 			_ => ""
 		};
 	}
@@ -315,21 +316,21 @@ public sealed partial class RecipeBookSystem
 		}
 		if (gate.StartsWith("needs:", StringComparison.Ordinal))
 		{
-			return T("нужно: ", "with ") + ItemName(int.Parse(gate.Substring(6)));
+			return L("HowToGet.With") + ItemName(int.Parse(gate.Substring(6)));
 		}
 		if (gate.StartsWith("rod:", StringComparison.Ordinal))
 		{
 			string rod = gate.Substring(4);
-			return T("удочкой: ", "with ") + (ModContent.TryFind(rod, out ModItem item) ? item.DisplayName.Value : rod);
+			return L("HowToGet.With2") + (ModContent.TryFind(rod, out ModItem item) ? item.DisplayName.Value : rod);
 		}
 		return gate switch
 		{
-			"Hardmode" => T("Хардмод", "Hardmode"),
-			"PostHardmode" => T("после Лунного лорда", "after Moon Lord"),
-			"BloodMoon" => T("Кровавая луна", "Blood Moon"),
-			"Day" => T("днём", "by day"),
-			"Night" => T("ночью", "at night"),
-			"lava" => T("в лаве", "in lava"),
+			"Hardmode" => L("HowToGet.Hardmode"),
+			"PostHardmode" => L("HowToGet.AfterMoonLord"),
+			"BloodMoon" => L("HowToGet.BloodMoon"),
+			"Day" => L("HowToGet.ByDay"),
+			"Night" => L("HowToGet.AtNight"),
+			"lava" => L("HowToGet.InLava"),
 			_ => ""
 		};
 	}
@@ -366,7 +367,7 @@ public sealed partial class RecipeBookSystem
 
 	private static string GroundName(int tile)
 	{
-		return IsGrass(tile) ? T("трава", "grass") : TileName(tile);
+		return IsGrass(tile) ? L("HowToGet.Grass") : TileName(tile);
 	}
 
 	// A tile's name: the item that places it, else its map legend.

@@ -4,6 +4,7 @@ using System.Linq;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -279,25 +280,25 @@ public sealed partial class RecipeBookSystem
 	{
 		return mode switch
 		{
-			BookSortMode.Station => (T("Станция", "Station"), T("Станция", "Station"), T("от слабой", "weakest first"), T("от сильной", "strongest first")),
-			BookSortMode.Changed => (T("Изменено", "Changed"), T("Изменено", "Changed"), T("сначала старые", "oldest first"), T("сначала новые", "newest first")),
-			BookSortMode.Rarity => (T("Редкость", "Rarity"), T("Редкость", "Rarity"), T("от низкой", "lowest first"), T("от высокой", "highest first")),
+			BookSortMode.Station => (L("Sorts.Station"), L("Sorts.Station"), L("Sorts.WeakestFirst"), L("Sorts.StrongestFirst")),
+			BookSortMode.Changed => (L("Sorts.Changed"), L("Sorts.Changed"), L("Sorts.OldestFirst"), L("Sorts.NewestFirst")),
+			BookSortMode.Rarity => (L("Sorts.Rarity"), L("Sorts.Rarity"), L("Sorts.LowestFirst"), L("Sorts.HighestFirst")),
 			// Item.value, in the words of the game's own tooltip line (sell price is a fifth of it, so the order is the same).
-			BookSortMode.Value => (T("Цена продажи", "Sell price"), T("Цена", "Price"), T("от низкой", "lowest first"), T("от высокой", "highest first")),
-			BookSortMode.Damage => (T("Урон", "Damage"), T("Урон", "Damage"), T("от меньшего", "lowest first"), T("от большего", "highest first")),
-			BookSortMode.Speed => (T("Скорость", "Speed"), T("Скорость", "Speed"), T("от медленных", "slowest first"), T("от быстрых", "fastest first")),
-			BookSortMode.Crit => (T("Шанс крита", "Crit chance"), T("Крит", "Crit"), T("от меньшего", "lowest first"), T("от большего", "highest first")),
-			BookSortMode.Knockback => (T("Отбрасывание", "Knockback"), T("Отбрас.", "Knockback"), T("от слабого", "weakest first"), T("от сильного", "strongest first")),
-			BookSortMode.Defense => (T("Защита", "Defense"), T("Защита", "Defense"), T("от меньшей", "lowest first"), T("от большей", "highest first")),
-			BookSortMode.FlightTime => (T("Время полёта", "Flight time"), T("Полёт", "Flight"), T("от короткого", "shortest first"), T("от долгого", "longest first")),
-			BookSortMode.HealLife => (T("Лечение", "Heals life"), T("Лечение", "Healing"), T("от меньшего", "least first"), T("от большего", "most first")),
-			BookSortMode.HealMana => (T("Мана", "Heals mana"), T("Мана", "Mana"), T("от меньшего", "least first"), T("от большего", "most first")),
-			BookSortMode.BuffTime => (T("Длительность", "Duration"), T("Время", "Duration"), T("от короткой", "shortest first"), T("от долгой", "longest first")),
-			BookSortMode.PickPower => (T("Сила кирки", "Pickaxe power"), T("Кирка", "Pickaxe"), T("от меньшей", "lowest first"), T("от большей", "highest first")),
-			BookSortMode.AxePower => (T("Сила топора", "Axe power"), T("Топор", "Axe"), T("от меньшей", "lowest first"), T("от большей", "highest first")),
-			BookSortMode.HammerPower => (T("Сила молота", "Hammer power"), T("Молот", "Hammer"), T("от меньшей", "lowest first"), T("от большей", "highest first")),
-			BookSortMode.FishingPower => (T("Сила удочки", "Fishing power"), T("Удочка", "Fishing"), T("от меньшей", "lowest first"), T("от большей", "highest first")),
-			BookSortMode.BaitPower => (T("Сила наживки", "Bait power"), T("Наживка", "Bait"), T("от меньшей", "lowest first"), T("от большей", "highest first")),
+			BookSortMode.Value => (L("Sorts.SellPrice"), L("Sorts.Price"), L("Sorts.LowestFirst"), L("Sorts.HighestFirst")),
+			BookSortMode.Damage => (L("Sorts.Damage"), L("Sorts.Damage"), L("Sorts.LowestFirst2"), L("Sorts.HighestFirst2")),
+			BookSortMode.Speed => (L("Sorts.Speed"), L("Sorts.Speed"), L("Sorts.SlowestFirst"), L("Sorts.FastestFirst")),
+			BookSortMode.Crit => (L("Sorts.CritChance"), L("Sorts.Crit"), L("Sorts.LowestFirst2"), L("Sorts.HighestFirst2")),
+			BookSortMode.Knockback => (L("Sorts.Knockback"), L("Sorts.Knockback2"), L("Sorts.WeakestFirst2"), L("Sorts.StrongestFirst2")),
+			BookSortMode.Defense => (L("Sorts.Defense"), L("Sorts.Defense"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
+			BookSortMode.FlightTime => (L("Sorts.FlightTime"), L("Sorts.Flight"), L("Sorts.ShortestFirst"), L("Sorts.LongestFirst")),
+			BookSortMode.HealLife => (L("Sorts.HealsLife"), L("Sorts.Healing"), L("Sorts.LeastFirst"), L("Sorts.MostFirst")),
+			BookSortMode.HealMana => (L("Sorts.HealsMana"), L("Sorts.Mana"), L("Sorts.LeastFirst"), L("Sorts.MostFirst")),
+			BookSortMode.BuffTime => (L("Sorts.Duration"), L("Sorts.Duration2"), L("Sorts.ShortestFirst2"), L("Sorts.LongestFirst2")),
+			BookSortMode.PickPower => (L("Sorts.PickaxePower"), L("Sorts.Pickaxe"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
+			BookSortMode.AxePower => (L("Sorts.AxePower"), L("Sorts.Axe"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
+			BookSortMode.HammerPower => (L("Sorts.HammerPower"), L("Sorts.Hammer"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
+			BookSortMode.FishingPower => (L("Sorts.FishingPower"), L("Sorts.Fishing"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
+			BookSortMode.BaitPower => (L("Sorts.BaitPower"), L("Sorts.Bait"), L("Sorts.LowestFirst3"), L("Sorts.HighestFirst3")),
 			_ => ("", "", "", ""),
 		};
 	}
@@ -306,15 +307,15 @@ public sealed partial class RecipeBookSystem
 	{
 		return group switch
 		{
-			StatGroup.Wings => T("Крылья", "Wings"),
-			StatGroup.Weapon => T("Оружие", "Weapons"),
-			StatGroup.Ammo => T("Боеприпасы", "Ammo"),
-			StatGroup.Armor => T("Броня", "Armor"),
-			StatGroup.Accessory => T("Аксессуары", "Accessories"),
-			StatGroup.Potion => T("Зелья и еда", "Potions and food"),
-			StatGroup.Tool => T("Инструменты", "Tools"),
-			StatGroup.Rod => T("Удочки", "Fishing rods"),
-			_ => T("Наживка", "Bait"),
+			StatGroup.Wings => L("Sorts.Wings"),
+			StatGroup.Weapon => L("Sorts.Weapons"),
+			StatGroup.Ammo => L("Sorts.Ammo"),
+			StatGroup.Armor => L("Sorts.Armor"),
+			StatGroup.Accessory => L("Sorts.Accessories"),
+			StatGroup.Potion => L("Sorts.PotionsAndFood"),
+			StatGroup.Tool => L("Sorts.Tools"),
+			StatGroup.Rod => L("Sorts.FishingRods"),
+			_ => L("Sorts.Bait"),
 		};
 	}
 }

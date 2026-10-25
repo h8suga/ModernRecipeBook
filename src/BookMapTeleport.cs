@@ -7,6 +7,7 @@ using Terraria.Audio;
 using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -130,7 +131,7 @@ internal sealed class BookMapTeleport : ModSystem
 		int y = (int)Math.Floor(tile.Y);
 		if (!WorldGen.InWorld(x, y) || !Main.Map.IsRevealed(x, y))
 		{
-			Say(RecipeBookSystem.T("Не исследовано", "Unexplored"));
+			Say(L("Map.Unexplored"));
 			return;
 		}
 		if (!AreaLoaded(tile))
@@ -160,7 +161,7 @@ internal sealed class BookMapTeleport : ModSystem
 		Player player = Main.LocalPlayer;
 		if (!FindLanding(player, tile * 16f, out Vector2 position))
 		{
-			Say(RecipeBookSystem.T("Некуда приземлиться", "No room to land"));
+			Say(L("Map.NoRoomToLand"));
 			return;
 		}
 		player.Teleport(position, TeleportationStyleID.TeleportationPotion);

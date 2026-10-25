@@ -19,6 +19,7 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.UI;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -416,7 +417,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (text == "Mods.MagicStorage.CookedMarshmallowCondition")
 		{
-			return T("Рядом костёр (Magic Storage)", "Near a campfire (Magic Storage)");
+			return L("Common.NearACampfireMagicStorage");
 		}
 		string last = text[(text.LastIndexOf('.') + 1)..];
 		if (last.EndsWith("Condition", StringComparison.Ordinal) && last.Length > "Condition".Length)
@@ -718,7 +719,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
 				string conditionText = string.Join("; ", recipe.Conditions.Select(ConditionName));
 				int stationItem = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) => StationItems.TryGetValue(t, out var station) ? station.type : 0).FirstOrDefault((int t) => t > 0);
-				Add(new BookAcquisitionEntry((stations.Count == 0) ? T("Вручную", "By hand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText));
+				Add(new BookAcquisitionEntry((stations.Count == 0) ? L("Common.ByHand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText));
 			}
 		}
 		// Everything else comes from the shared source model, the same one the stages are computed from. What the
@@ -729,7 +730,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		AcquisitionReadErrors += BookItemSources.ReadErrors;
 		if (reports.Count == 0)
 		{
-			Add(new BookAcquisitionEntry(T("Нет обычного источника", "No regular source"), "", BookAcquisitionKind.Unknown));
+			Add(new BookAcquisitionEntry(L("Common.NoRegularSource"), "", BookAcquisitionKind.Unknown));
 		}
 		AcquisitionSources = BookAcquisitionGrouping.Build(reports);
 		if (AcquisitionReadErrors > 0)
@@ -768,12 +769,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// dead) cannot be named, but it can be asked whether it holds in this world now.
 	private static string HiddenConditionLabel(IItemDropRuleCondition condition, int npcNetId)
 	{
-		string name = T("Особое условие", "Special condition");
+		string name = L("Common.SpecialCondition");
 		try
 		{
 			NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
 			DropAttemptInfo info = new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand };
-			return name + (condition.CanDrop(info) ? T(" · выполнено", " · met") : T(" · пока не выполнено", " · not met yet"));
+			return name + (condition.CanDrop(info) ? L("Common.Met") : L("Common.NotMetYet"));
 		}
 		catch (Exception)
 		{
@@ -785,19 +786,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		if (condition is Conditions.IsExpert)
 		{
-			return T("Эксперт / Мастер", "Expert / Master");
+			return L("Common.ExpertMaster");
 		}
 		if (condition is Conditions.NotExpert)
 		{
-			return T("Обычный", "Classic");
+			return L("Common.Classic");
 		}
 		if (condition is Conditions.IsMasterMode)
 		{
-			return T("Мастер", "Master");
+			return L("Common.Master");
 		}
 		if (condition is Conditions.NotMasterMode)
 		{
-			return T("Не Мастер", "Not Master");
+			return L("Common.NotMaster");
 		}
 		return full;
 	}
@@ -902,23 +903,23 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return kind switch
 		{
-			BookAcquisitionKind.Craft => T("Крафт", "Crafting"),
-			BookAcquisitionKind.Drop => T("Добыча", "Drop"),
-			BookAcquisitionKind.Container => T("Контейнер", "Container"),
-			BookAcquisitionKind.Shop => T("Магазин", "Shop"),
-			BookAcquisitionKind.Trade => T("Обмен", "Trade"),
-			BookAcquisitionKind.Banner => T("Знамя", "Banner"),
-			BookAcquisitionKind.Catch => T("Сачок", "Bug Net"),
-			BookAcquisitionKind.Shimmer => T("Мерцание", "Shimmer"),
-			BookAcquisitionKind.Use => T("Использование", "Use"),
-			BookAcquisitionKind.Record => T("Запись", "Recording"),
-			BookAcquisitionKind.Plant => T("Растение", "Plant"),
-			BookAcquisitionKind.Tree => T("Дерево", "Tree"),
-			BookAcquisitionKind.Mining => T("Копание", "Mining"),
-			BookAcquisitionKind.Fishing => T("Рыбалка", "Fishing"),
-			BookAcquisitionKind.Chest => T("Сундук", "Chest"),
-			BookAcquisitionKind.World => T("Мир", "World"),
-			_ => T("Нет данных", "No data"),
+			BookAcquisitionKind.Craft => L("Common.Crafting"),
+			BookAcquisitionKind.Drop => L("Common.Drop"),
+			BookAcquisitionKind.Container => L("Common.Container"),
+			BookAcquisitionKind.Shop => L("Common.Shop"),
+			BookAcquisitionKind.Trade => L("Common.Trade"),
+			BookAcquisitionKind.Banner => L("Common.Banner"),
+			BookAcquisitionKind.Catch => L("Common.BugNet"),
+			BookAcquisitionKind.Shimmer => L("Common.Shimmer"),
+			BookAcquisitionKind.Use => L("Common.Use"),
+			BookAcquisitionKind.Record => L("Common.Recording"),
+			BookAcquisitionKind.Plant => L("Common.Plant"),
+			BookAcquisitionKind.Tree => L("Common.Tree"),
+			BookAcquisitionKind.Mining => L("Common.Mining"),
+			BookAcquisitionKind.Fishing => L("Common.Fishing"),
+			BookAcquisitionKind.Chest => L("Common.Chest"),
+			BookAcquisitionKind.World => L("Common.World"),
+			_ => L("Common.NoData"),
 		};
 	}
 
@@ -971,11 +972,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string kind = AcquisitionKindName(source.Kind);
 		if (group.OtherWorld)
 		{
-			return kind + " · " + T("не в этом мире", "not in this world") + ((group.Rules.Length == 1 && source.ConditionLabel.Length > 0) ? (" · " + source.ConditionLabel) : "");
+			return kind + " · " + L("Common.NotInThisWorld") + ((group.Rules.Length == 1 && source.ConditionLabel.Length > 0) ? (" · " + source.ConditionLabel) : "");
 		}
 		if (group.Rules.Length > 1)
 		{
-			return kind + " · " + T("зависит от условий", "varies by condition");
+			return kind + " · " + L("Common.VariesByCondition");
 		}
 		if (source.ConditionLabel.Length > 0)
 		{
@@ -988,9 +989,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		if (group.Source.RecipeIndex >= 0)
 		{
-			return ((group.Source.Owner != "Terraria") ? (T("Рецепт: ", "Recipe: ") + ModName(group.Source.Owner) + "\n") : "") + T("Открыть рецепт", "Open recipe");
+			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe") + ModName(group.Source.Owner) + "\n") : "") + L("Common.OpenRecipe");
 		}
-		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? T("Открыть в бестиарии", "Open in Bestiary") : T("Показать условия", "Show conditions"));
+		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : L("Common.ShowConditions"));
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
@@ -1009,13 +1010,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Icon(sb, item, icon.X, icon.Y, icon.Width, tooltip: false);
 		}
 		bool unknown = !expanded && AcquisitionSources.All((BookAcquisitionGroup x) => x.Source.Kind == BookAcquisitionKind.Unknown);
-		string subtitle = (expanded ? (T("Условия · ", "Conditions · ") + item.Name) : (T("Где взять", "How to Get") + (unknown ? "" : (" · " + CountLabel(AcquisitionSources.Count, "источник", "источника", "источников", "source", "sources")))));
-		DrawCardHeader(sb, expanded, expanded ? current.Source.Name : item.Name, subtitle, (!expanded) ? AcquisitionVariant : 0, (!expanded) ? AcquisitionVariants.Length : 1, T("Другие подходящие предметы", "Other accepted items"));
+		string subtitle = (expanded ? (L("Common.Conditions") + item.Name) : (L("Common.HowToGet") + (unknown ? "" : (" · " + CountLabel(AcquisitionSources.Count, "источник", "источника", "источников", "source", "sources")))));
+		DrawCardHeader(sb, expanded, expanded ? current.Source.Name : item.Name, subtitle, (!expanded) ? AcquisitionVariant : 0, (!expanded) ? AcquisitionVariants.Length : 1, L("Common.OtherAcceptedItems"));
 		int count = (expanded ? current.Rules.Length : AcquisitionSources.Count);
 		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
 		if (unknown)
 		{
-			DrawCardEmpty(sb, BookGeometry.AcquisitionList, T("Нет обычного источника", "No regular source"), T("Нет в рецептах, добыче, магазинах и мире", "Not in recipes, drops, shops or the world"));
+			DrawCardEmpty(sb, BookGeometry.AcquisitionList, L("Common.NoRegularSource"), L("Common.NotInRecipesDropsShopsOr"));
 		}
 		for (int row = 0; row < 6 && !unknown; row++)
 		{
@@ -1033,7 +1034,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			bool hover = bounds.Contains(Mouse.X, Mouse.Y);
 			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
 			DrawAcquisitionIcon(sb, source, BookGeometry.AcquisitionSourceIcon(row));
-			string title = (expanded ? ((source.ConditionLabel.Length > 0) ? source.ConditionLabel : T("Без условий", "No conditions")) : source.Name);
+			string title = (expanded ? ((source.ConditionLabel.Length > 0) ? source.ConditionLabel : L("Common.NoConditions")) : source.Name);
 			BookRect name = BookGeometry.AcquisitionName(row);
 			BookRect detail = BookGeometry.AcquisitionDetail(row);
 			Text(sb, title, name.X, name.Y, TextColor, 1f, name.Width, name.Height);
@@ -1080,7 +1081,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				MouseTip(source.Body);
 			}
 		}
-		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? T("Часть источников не прочитана", "Some sources could not be read") : "");
+		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? L("Common.SomeSourcesCouldNotBeRead") : "");
 	}
 
 	// Button for this zone's panels: disabled is muted with no hover, primary is filled with Accent.
@@ -1114,7 +1115,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CardButton(sb, BookGeometry.AcquisitionBack, "<");
 			if (BookGeometry.AcquisitionBack.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(T("Назад · Esc", "Back · Esc"));
+				MouseTip(L("Common.BackEsc"));
 			}
 		}
 		BookRect name = BookGeometry.AcquisitionTitle(back, pager);
@@ -1132,17 +1133,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			if (BookGeometry.AcquisitionVariantPrevious.Contains(Mouse.X, Mouse.Y) && variant > 0)
 			{
-				MouseTip(T("Предыдущий вариант", "Previous variant"));
+				MouseTip(L("Common.PreviousVariant"));
 			}
 			if (BookGeometry.AcquisitionVariantNext.Contains(Mouse.X, Mouse.Y) && variant < variants - 1)
 			{
-				MouseTip(T("Следующий вариант", "Next variant"));
+				MouseTip(L("Common.NextVariant"));
 			}
 		}
 		CardButton(sb, BookGeometry.AcquisitionClose, "X");
 		if (BookGeometry.AcquisitionClose.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(back ? T("Закрыть", "Close") : T("Закрыть · Esc", "Close · Esc"));
+			MouseTip(back ? L("Common.Close") : L("Common.CloseEsc"));
 		}
 		Box(sb, BookGeometry.AcquisitionDivider, Border);
 	}
@@ -1161,11 +1162,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CardButton(sb, BookGeometry.AcquisitionNext, ">", page < pages - 1);
 			if (BookGeometry.AcquisitionPrevious.Contains(Mouse.X, Mouse.Y) && page > 0)
 			{
-				MouseTip(T("Назад · PgUp", "Previous · PgUp"));
+				MouseTip(L("Common.PreviousPgUp"));
 			}
 			if (BookGeometry.AcquisitionNext.Contains(Mouse.X, Mouse.Y) && page < pages - 1)
 			{
-				MouseTip(T("Дальше · PgDn", "Next · PgDn"));
+				MouseTip(L("Common.NextPgDn"));
 			}
 		}
 	}
@@ -1230,9 +1231,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		long sum = ArmorPartsDefense(parts);
 		if (!NativeArmorParts(parts))
 		{
-			return T("Защита сета: ", "Set defense: ") + sum + "+";
+			return L("Common.SetDefense") + sum + "+";
 		}
-		return T("Защита сета: ", "Set defense: ") + (sum + ArmorNativeSetBonus(parts));
+		return L("Common.SetDefense") + (sum + ArmorNativeSetBonus(parts));
 	}
 
 	private static string ArmorDefenseText(Item item)
@@ -1241,7 +1242,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return "";
 		}
-		string text = T("Защита: ", "Defense: ") + item.defense;
+		string text = L("Common.Defense") + item.defense;
 		BookArmorSets.Set set = BookArmorSets.Get(item.type);
 		if (set == null)
 		{
@@ -1249,7 +1250,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		Item[] parts = (from type in ArmorChoices(set, item)
 			select ContentSamples.ItemsByType[type]).ToArray();
-		return text + " · " + T("Сет: ", "Set: ") + (ArmorPartsDefense(parts) + ArmorNativeSetBonus(parts)) + (NativeArmorParts(parts) ? "" : "+");
+		return text + " · " + L("Common.Set") + (ArmorPartsDefense(parts) + ArmorNativeSetBonus(parts)) + (NativeArmorParts(parts) ? "" : "+");
 	}
 
 	// Two short lines: how the set number adds up, and what it leaves out.
@@ -1262,16 +1263,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		BookArmorSets.Set set = BookArmorSets.Get(item.type);
 		if (set == null)
 		{
-			return item.Name + ": " + item.defense + "\n" + T("Без аксессуаров и баффов", "Without accessories and buffs");
+			return item.Name + ": " + item.defense + "\n" + L("Common.WithoutAccessoriesAndBuffs");
 		}
 		Item[] parts = displayedParts ?? (from type in ArmorChoices(set, item)
 			select ContentSamples.ItemsByType[type]).ToArray();
-		string sum = T("Части: ", "Pieces: ") + string.Join(" + ", parts.Select((Item p) => p.defense));
+		string sum = L("Common.Pieces") + string.Join(" + ", parts.Select((Item p) => p.defense));
 		if (!NativeArmorParts(parts))
 		{
-			return sum + "\n" + T("Бонус модового сета не учтён", "Modded set bonus not counted");
+			return sum + "\n" + L("Common.ModdedSetBonusNotCounted");
 		}
-		return sum + T(", бонус сета +", ", set bonus +") + ArmorNativeSetBonus(parts) + "\n" + T("Без аксессуаров и баффов", "Without accessories and buffs");
+		return sum + L("Common.SetBonus") + ArmorNativeSetBonus(parts) + "\n" + L("Common.WithoutAccessoriesAndBuffs");
 	}
 
 	private static void DrawArmorDefense(SpriteBatch sb, Item item)
@@ -1303,7 +1304,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		FixedLabel(sb, bonus, rect.X, rect.Y, Accent, 0.8f, rect.Width, rect.Height);
 		if (!MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Бонус сета", "Set bonus") + "\n" + bonus);
+			MouseTip(L("Common.SetBonus2") + "\n" + bonus);
 		}
 	}
 
@@ -1331,7 +1332,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			DefenseBadge(sb, rect.X + rect.Width / 2f, rect.Y + 32f, part.defense, active ? Accent : Muted);
 			if (hover)
 			{
-				string action = active ? ((set.Parts[slot].Length > 1) ? T("Клик: следующий вариант", "Click: next variant") : "") : T("Клик: показать эту часть", "Click: show this piece");
+				string action = active ? ((set.Parts[slot].Length > 1) ? L("Common.ClickNextVariant") : "") : L("Common.ClickShowThisPiece");
 				// The piece's own tooltip (its defense among its lines), then what a click does.
 				HoverItemRow(part, action);
 			}
@@ -1449,7 +1450,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			"×1",
 			"×5",
 			"×10",
-			T("Макс", "Max")
+			L("Common.Max")
 		};
 	}
 
@@ -1465,7 +1466,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int hovered = MenuOpen ? (-1) : SegmentAt(rects);
 		if (hovered >= 0)
 		{
-			MouseTip((hovered == 3) ? T("Сколько хватит материалов, до 100 · Ctrl+Shift+Enter", "As many as materials allow, up to 100 · Ctrl+Shift+Enter") : T("Создать столько раз за нажатие", "Craft this many times per click"));
+			MouseTip((hovered == 3) ? L("Common.AsManyAsMaterialsAllowUp") : L("Common.CraftThisManyTimesPerClick"));
 		}
 	}
 
@@ -1895,19 +1896,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string fullTip = T("В карточках до 5 целей · Ctrl+" + TrackingTabNumber + " — список", "Up to 5 goals in cards style · Ctrl+" + TrackingTabNumber + " opens the list");
 		if (tracked)
 		{
-			Button(sb, single, T("Не отслеживать", "Untrack"), active: true);
+			Button(sb, single, L("Common.Untrack"), active: true);
 		}
 		else if (recipe == null || full)
 		{
-			DisabledButton(sb, single, T("Отслеживать", "Track"));
+			DisabledButton(sb, single, L("Common.Track"));
 		}
 		else
 		{
-			Button(sb, single, T("Отслеживать", "Track"));
+			Button(sb, single, L("Common.Track"));
 		}
 		if (single.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip((recipe == null) ? T("У предмета нет рецепта", "This item has no recipe") : (tracked ? T("Больше не показывать на экране · Alt+T", "Stop showing it on screen · Alt+T") : (full ? fullTip : T("Показывать материалы на экране · Alt+T", "Show its materials on screen · Alt+T"))));
+			MouseTip((recipe == null) ? L("Common.ThisItemHasNoRecipe") : (tracked ? L("Common.StopShowingItOnScreenAlt") : (full ? fullTip : L("Common.ShowItsMaterialsOnScreenAlt"))));
 		}
 		if (!hasSet)
 		{
@@ -1916,19 +1917,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool setTracked = TrackedGoals.Any((TrackedGoal g) => g.Key == SetGoalKey(parts));
 		if (setTracked)
 		{
-			Button(sb, BookGeometry.TrackSetAction, T("Снять сет", "Untrack Set"), active: true);
+			Button(sb, BookGeometry.TrackSetAction, L("Common.UntrackSet"), active: true);
 		}
 		else if (full)
 		{
-			DisabledButton(sb, BookGeometry.TrackSetAction, T("Весь сет", "Track Set"));
+			DisabledButton(sb, BookGeometry.TrackSetAction, L("Common.TrackSet"));
 		}
 		else
 		{
-			Button(sb, BookGeometry.TrackSetAction, T("Весь сет", "Track Set"));
+			Button(sb, BookGeometry.TrackSetAction, L("Common.TrackSet"));
 		}
 		if (BookGeometry.TrackSetAction.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(setTracked ? T("Не отслеживать весь сет", "Untrack all three pieces") : (full ? fullTip : T("Отслеживать три части одной целью", "Track all three pieces as one goal")));
+			MouseTip(setTracked ? L("Common.UntrackAllThreePieces") : (full ? fullTip : L("Common.TrackAllThreePiecesAsOne")));
 		}
 	}
 
@@ -2142,14 +2143,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 			GraphicsOpacity = opacity * ((TrackedGoals.Count == 1) ? (1f - TrackedGoals[0].Dismiss.Progress) : 1f);
 			Box(sb, 0f, 0f, width, TrackerPanelHeight, Panel, border: true, 10f, Border);
 			bool header = TrackerDragging || Hit(0f, 0f, width, BookTrackerRules.HeaderHeight);
-			FixedLabel(sb, T("ОТСЛЕЖИВАНИЕ · ", "TRACKING · ") + TrackedGoals.Count, 12f, 5f, header ? TextColor : Muted, 0.8f, width - 56f, 22f);
+			FixedLabel(sb, L("Common.TRACKING") + TrackedGoals.Count, 12f, 5f, header ? TextColor : Muted, 0.8f, width - 56f, 22f);
 			for (int line = 0; line < 3; line++)
 			{
 				Box(sb, width - 26f, 11 + line * 4, 14f, 2f, header ? TextColor : Muted, border: false, 1f);
 			}
 			if (header && !TrackerDragging)
 			{
-				MouseTip(T("Перетащите, чтобы переместить", "Drag to move"));
+				MouseTip(L("Common.DragToMove"));
 			}
 			for (int i = 0; i < TrackedGoals.Count; i++)
 			{
@@ -2176,7 +2177,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				}
 				if (hover)
 				{
-					MouseTip(GoalTitle(goal) + "\n" + T("ЛКМ — материалы · ПКМ — не отслеживать", "Click: materials · Right-click: untrack"));
+					MouseTip(GoalTitle(goal) + "\n" + L("Common.ClickMaterialsRightClickUntrack"));
 				}
 			}
 		}
@@ -2212,7 +2213,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (more)
 		{
-			FixedLabel(sb, "+" + (order.Length - shown) + T(" ещё · Ctrl+", " more · Ctrl+") + TrackingTabNumber, 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
+			FixedLabel(sb, "+" + (order.Length - shown) + L("Common.MoreCtrl") + TrackingTabNumber, 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
 		}
 	}
 
@@ -2308,7 +2309,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (common == 0)
 		{
-			return T("Комплект брони", "Armor set");
+			return L("Common.ArmorSet");
 		}
 		string prefix = string.Join(" ", words[0].Take(common));
 		return Ru ? ("Комплект: " + prefix) : (prefix + " Armor");
@@ -2400,12 +2401,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		EnemySpawnTip = "";
 		if (rain.HasValue)
 		{
-			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (T("Начинается сам или от предмета: ", "Starts on its own or with a ") + ItemName(tear.Type)) : T("Начинается сам", "Starts on its own");
-			EnemySpawnTip = string.Join(" · ", spawn.Prepend(AcidRainText(rain.Value, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + start + "\n" + T("Из таблиц события Calamity", "From Calamity's event tables");
+			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? (L("Common.StartsOnItsOwnOrWith") + ItemName(tear.Type)) : L("Common.StartsOnItsOwn");
+			EnemySpawnTip = string.Join(" · ", spawn.Prepend(AcidRainText(rain.Value, full: true)).Distinct(StringComparer.Ordinal)) + "\n" + start + "\n" + L("Common.FromCalamitySEventTables");
 		}
 		else if (gate != null)
 		{
-			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + T("Мод пускает его и после других боссов, проба не нашла каких", "The mod lets it spawn after other bosses too; the probe could not tell which")) : "") + "\n" + T("По коду появления мода", "From the mod's own spawn code");
+			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + L("Common.TheModLetsItSpawnAfter")) : "") + "\n" + L("Common.FromTheModSOwnSpawn");
 		}
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
@@ -2423,19 +2424,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string[] bosses = { "EyeofCthulhu", "CalamityMod/AquaticScourgeHead", "CalamityMod/Polterghast" };
 		List<string> parts = new List<string>
 		{
-			!full ? "" : (rain.MiniBoss ? T("Мини-босс Кислотного дождя в Сернистом море", "Acid Rain mini-boss in the Sulphurous Sea") : T("Кислотный дождь в Сернистом море", "Acid Rain in the Sulphurous Sea")),
+			!full ? "" : (rain.MiniBoss ? L("Common.AcidRainMiniBossInThe") : L("Common.AcidRainInTheSulphurousSea")),
 			rain.Requirement switch
 			{
-				"Water" => T("в воде", "in water"),
-				"Land" => T("на суше", "on land"),
-				"Sky" => T("падает с неба", "falls from the sky"),
+				"Water" => L("Common.InWater"),
+				"Land" => L("Common.OnLand"),
+				"Sky" => L("Common.FallsFromTheSky"),
 				_ => ""
 			},
 			GateText("boss:" + bosses[rain.Tier])
 		};
 		if (rain.LastTier < bosses.Length - 1)
 		{
-			parts.Add(T("до: ", "until ") + NpcTypeName(bosses[rain.LastTier + 1]));
+			parts.Add(L("Common.Until") + NpcTypeName(bosses[rain.LastTier + 1]));
 		}
 		return string.Join(" · ", parts.Where((string p) => p.Length > 0));
 	}
@@ -2458,9 +2459,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 		return string.Join(" · ", gate.Terms.Select(GateTermText).Prepend((full || places.Count <= 1) ? string.Join(" · ", places) : (places[0] + " +" + (places.Count - 1))).Concat(new string[3]
 		{
-			gate.Water ? T("в воде", "in water") : "",
+			gate.Water ? L("Common.InWater") : "",
 			(time != null && !tags.Contains(Language.GetTextValue("Bestiary_Times." + time + "Time"))) ? GateText(time) : "",
-			(gate.Rain && !tags.Contains(Language.GetTextValue("Bestiary_Events.Rain"))) ? T("в дождь", "in rain") : ""
+			(gate.Rain && !tags.Contains(Language.GetTextValue("Bestiary_Events.Rain"))) ? L("Common.InRain") : ""
 		}).Where((string p) => p.Length > 0));
 	}
 
@@ -2471,19 +2472,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		switch (term)
 		{
 			case "mechs:any":
-				return T("после любого механического босса", "after any mechanical boss");
+				return L("Common.AfterAnyMechanicalBoss");
 			case "mechs:two":
-				return T("после любых двух механических боссов", "after any two mechanical bosses");
+				return L("Common.AfterAnyTwoMechanicalBosses");
 			case "mechs:all":
-				return T("после всех механических боссов", "after all mechanical bosses");
+				return L("Common.AfterAllMechanicalBosses");
 		}
 		// Hardmode and PostHardmode ("after Moon Lord") have words of their own; the bosses share one "after".
 		string[] ways = term.Split(';');
 		string[] words = ways.Where((string way) => way is "Hardmode" or "PostHardmode").Select(GateText).ToArray();
-		string after = string.Join(T(" или ", " or "), from way in ways
+		string after = string.Join(L("Common.Or"), from way in ways
 			where !(way is "Hardmode" or "PostHardmode")
-			select (way == "?") ? T("другой босс", "another boss") : string.Join(" + ", way.Split('+').Select(GateBossName)));
-		return string.Join(T(" или ", " or "), (after.Length > 0) ? words.Append(T("после: ", "after ") + after) : words);
+			select (way == "?") ? L("Common.AnotherBoss") : string.Join(" + ", way.Split('+').Select(GateBossName)));
+		return string.Join(L("Common.Or"), (after.Length > 0) ? words.Append(L("Common.After") + after) : words);
 	}
 
 	// A step's boss: "A|B" is the corruption's and the crimson's, the world's evil picks; "Enemies.*" is a game text.
@@ -2499,31 +2500,31 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return key switch
 		{
-			"Forest" => T("Лес", "Forest"),
-			"Underground" => T("Подземелье", "Underground"),
-			"Caverns" => T("Пещеры", "Caverns"),
-			"Jungle" => T("Джунгли", "Jungle"),
-			"UndergroundJungle" => T("Подземные джунгли", "Underground Jungle"),
-			"Temple" => T("Храм джунглей", "Jungle Temple"),
-			"Snow" => T("Снег", "Snow"),
-			"UndergroundSnow" => T("Подземный снег", "Underground Snow"),
-			"Desert" => T("Пустыня", "Desert"),
-			"UndergroundDesert" => T("Подземная пустыня", "Underground Desert"),
-			"Ocean" => T("Океан", "Ocean"),
-			"Dungeon" => T("Темница", "Dungeon"),
-			"Underworld" => T("Преисподняя", "Underworld"),
-			"Corruption" => T("Порча", "Corruption"),
-			"Crimson" => T("Багрянец", "Crimson"),
-			"Hallow" => T("Освящение", "Hallow"),
-			"Sky" => T("Небо", "Sky"),
-			"Abyss" => T("Бездна", "Abyss"),
+			"Forest" => L("Common.Forest"),
+			"Underground" => L("Common.Underground"),
+			"Caverns" => L("Common.Caverns"),
+			"Jungle" => L("Common.Jungle"),
+			"UndergroundJungle" => L("Common.UndergroundJungle"),
+			"Temple" => L("Common.JungleTemple"),
+			"Snow" => L("Common.Snow"),
+			"UndergroundSnow" => L("Common.UndergroundSnow"),
+			"Desert" => L("Common.Desert"),
+			"UndergroundDesert" => L("Common.UndergroundDesert"),
+			"Ocean" => L("Common.Ocean"),
+			"Dungeon" => L("Common.Dungeon"),
+			"Underworld" => L("Common.Underworld"),
+			"Corruption" => L("Common.Corruption"),
+			"Crimson" => L("Common.Crimson"),
+			"Hallow" => L("Common.Hallow"),
+			"Sky" => L("Common.Sky"),
+			"Abyss" => L("Common.Abyss"),
 			_ => ModContent.TryFind(key, out ModBiome biome) ? biome.DisplayName.Value : key
 		};
 	}
 
 	private static string EnemyLootTooltip(BookEnemyLoot loot)
 	{
-		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : T("без условий", "no conditions"))));
+		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : L("Common.NoConditions2"))));
 	}
 
 	// The progression step ("After Plantera"); an unknown one is either a source the current difficulty rules out or
@@ -2532,17 +2533,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		int step = (recipe != null) ? BookProgression.RecipeStep(recipe.RecipeIndex) : BookProgression.ItemStep(item.type);
 		bool modeExcluded = (recipe != null) ? BookProgression.RecipeModeExcluded(recipe.RecipeIndex) : BookProgression.ItemModeExcluded(item.type);
-		return (step < 0 && modeExcluded) ? T("Не в этом режиме", "Not in this mode") : StepName(step);
+		return (step < 0 && modeExcluded) ? L("Common.NotInThisMode") : StepName(step);
 	}
 
 	private static string StageName(BookStage stage)
 	{
 		return stage switch
 		{
-			BookStage.PreHardmode => T("Прехардмод", "Pre-Hardmode"),
-			BookStage.Hardmode => T("Хардмод", "Hardmode"),
-			BookStage.PostHardmode => T("После Лунного лорда", "Post-Moon Lord"),
-			_ => T("Нет обычного источника", "No regular source"),
+			BookStage.PreHardmode => L("Common.PreHardmode"),
+			BookStage.Hardmode => L("Common.Hardmode"),
+			BookStage.PostHardmode => L("Common.PostMoonLord"),
+			_ => L("Common.NoRegularSource"),
 		};
 	}
 
@@ -2594,7 +2595,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return new string[4]
 		{
-			T("Все этапы", "All stages"),
+			L("Common.AllStages"),
 			StageName(BookStage.PreHardmode),
 			StageName(BookStage.Hardmode),
 			StageName(BookStage.PostHardmode)
@@ -2728,7 +2729,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (shown < order.Length)
 		{
-			DrawInfoLine(sb, null, "+" + (order.Length - shown) + T(" ещё", " more"), "", x, top + (line + shown) * step, maxWidth, new Color(150, 150, 150), fade);
+			DrawInfoLine(sb, null, "+" + (order.Length - shown) + L("Common.More"), "", x, top + (line + shown) * step, maxWidth, new Color(150, 150, 150), fade);
 		}
 	}
 
@@ -2912,14 +2913,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		if (goal.Unknown)
 		{
-			return T("Синхронизация…", "Syncing…");
+			return L("Common.Syncing");
 		}
 		if (goal.Ready)
 		{
-			return T("Можно создать", "Ready to craft");
+			return L("Common.ReadyToCraft");
 		}
 		int met = goal.Progress.Count((BookResourceProgress r) => r.Met);
-		return T("Ингредиенты: ", "Ingredients: ") + met + "/" + goal.Progress.Length;
+		return L("Common.Ingredients") + met + "/" + goal.Progress.Length;
 	}
 
 	// "<item's own mod> · Stage", like the item details on the other tabs.
@@ -2940,7 +2941,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return "";
 		}
-		return T("Рецепт: ", "Recipe: ") + owner;
+		return L("Common.Recipe") + owner;
 	}
 
 	private static void DrawTrackingTab(SpriteBatch sb)
@@ -2951,16 +2952,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			BookRect area = new BookRect(panel.X, panel.Y, BookGeometry.DetailsPanel.X + BookGeometry.DetailsPanel.Width - panel.X, panel.Height);
 			Box(sb, area, Surface, border: false, 12f);
-			CenterLabel(sb, T("Ничего не отслеживается", "Nothing tracked yet"), area.X, area.Y + area.Height / 2f - 36f, area.Width, 32f, TextColor, 1.1f);
-			CenterLabel(sb, T("Выберите предмет и нажмите «Отслеживать»", "Select an item and press Track"), area.X, area.Y + area.Height / 2f + 4f, area.Width, 24f, Muted, 0.9f);
+			CenterLabel(sb, L("Common.NothingTrackedYet"), area.X, area.Y + area.Height / 2f - 36f, area.Width, 32f, TextColor, 1.1f);
+			CenterLabel(sb, L("Common.SelectAnItemAndPressTrack"), area.X, area.Y + area.Height / 2f + 4f, area.Width, 24f, Muted, 0.9f);
 			return;
 		}
 		Box(sb, panel, Surface, border: false, 12f);
-		FixedLabel(sb, T("ОТСЛЕЖИВАЕТСЯ · ", "TRACKED · ") + TrackedGoals.Count + (ResourceTrackerStyle ? "" : ("/" + BookTrackerRules.MaxGoals)), panel.X + 16f, panel.Y + 17f, Muted, 0.8f, 400f, 22f);
-		DestructiveButton(sb, BookGeometry.TrackingClear, TrackingClearArmed ? T("Очистить всё?", "Clear All?") : T("Очистить", "Clear"));
+		FixedLabel(sb, L("Common.TRACKED") + TrackedGoals.Count + (ResourceTrackerStyle ? "" : ("/" + BookTrackerRules.MaxGoals)), panel.X + 16f, panel.Y + 17f, Muted, 0.8f, 400f, 22f);
+		DestructiveButton(sb, BookGeometry.TrackingClear, TrackingClearArmed ? L("Common.ClearAll") : L("Common.Clear"));
 		if (BookGeometry.TrackingClear.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(TrackingClearArmed ? T("Нажмите ещё раз, чтобы убрать все цели", "Click again to untrack everything") : T("Не отслеживать ничего", "Untrack everything"));
+			MouseTip(TrackingClearArmed ? L("Common.ClickAgainToUntrackEverything") : L("Common.UntrackEverything"));
 		}
 		for (int row = 0; row < BookGeometry.TrackingPageSize; row++)
 		{
@@ -2982,7 +2983,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			FixedLabel(sb, TrackingStatus(goal), rect.X + 64f, rect.Y + 31f, goal.Ready ? EnoughColor : Muted, 0.8f, nameWidth, 18f);
 			DrawProgressBar(sb, barX, rect.Y + 26f, 140f, 4f, goal);
 			CenterLabel(sb, CraftsRatio(goal), countX, rect.Y + 7f, 80f, 24f, goal.Ready ? EnoughColor : TextColor, 1f, rightAligned: true);
-			CenterLabel(sb, T("крафтов", "crafts"), countX, rect.Y + 31f, 80f, 18f, Muted, 0.8f, rightAligned: true);
+			CenterLabel(sb, L("Common.Crafts"), countX, rect.Y + 31f, 80f, 18f, Muted, 0.8f, rightAligned: true);
 		}
 		if (TrackingGoalPages > 1)
 		{
@@ -3004,7 +3005,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		float titleSize = Math.Clamp((d.Width - 92f) / Math.Max(1f, Ink(title).Width * TextScale), 0.85f, 1.05f);
 		FixedLabel(sb, title, d.X + 76f, d.Y + 17f, TextColor, titleSize, d.Width - 92f, 26f);
 		FixedLabel(sb, TrackingOrigin(goal), d.X + 76f, d.Y + 45f, Muted, 0.8f, d.Width - 92f, 20f);
-		FixedLabel(sb, T("Крафтов: ", "Crafts: ") + CraftsRatio(goal), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
+		FixedLabel(sb, L("Common.Crafts2") + CraftsRatio(goal), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
 		DrawProgressBar(sb, d.X + 16f, d.Y + 102f, d.Width - 32f, 6f, goal);
 		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
 		goal.ResourcePage = Math.Clamp(goal.ResourcePage, 0, pages.Count - 1);
@@ -3040,7 +3041,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				Button(sb, obtain, "?");
 				if (obtain.Contains(Mouse.X, Mouse.Y))
 				{
-					MouseTip(T("Где взять: ", "How to Get: ") + line.Name);
+					MouseTip(L("Common.HowToGet2") + line.Name);
 					continue;
 				}
 			}
@@ -3054,7 +3055,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			ChevronPager(sb, BookGeometry.TrackingDetailPrevious, BookGeometry.TrackingDetailNext, BookGeometry.TrackingDetailPager, goal.ResourcePage, pages.Count);
 		}
-		DestructiveButton(sb, BookGeometry.TrackingRemove, T("Не отслеживать", "Untrack"));
+		DestructiveButton(sb, BookGeometry.TrackingRemove, L("Common.Untrack"));
 	}
 
 	private static BookRect TrackingObtain(BookRect row)
@@ -3098,7 +3099,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		List<TrackingLine> lines = new List<TrackingLine>
 		{
-			new TrackingLine(null, T("ИНГРЕДИЕНТЫ", "INGREDIENTS"), RecipeOwnerNote(goal), Muted, Muted, null, Section: true)
+			new TrackingLine(null, L("Common.INGREDIENTS"), RecipeOwnerNote(goal), Muted, Muted, null, Section: true)
 		};
 		if (goal.Progress.Length == goal.Materials.Count)
 		{
@@ -3109,7 +3110,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				lines.Add(new TrackingLine(material.Ingredient, MaterialName(material), ProgressRatio(row), TextColor, ProgressColor(row), material.ItemTypes.OrderBy((int t) => t).ToArray()));
 			}
 		}
-		lines.Add(new TrackingLine(null, T("СТАНЦИЯ", "STATION"), "", Muted, Muted, null, Section: true));
+		lines.Add(new TrackingLine(null, L("Common.STATION"), "", Muted, Muted, null, Section: true));
 		int[] tiles = (from t in goal.Recipes.SelectMany((Recipe r) => r.requiredTile)
 			where t >= 0
 			select t).Distinct().ToArray();
@@ -3121,13 +3122,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (tiles.Length == 0)
 		{
-			lines.Add(new TrackingLine(null, T("Вручную", "By hand"), "", Muted, Muted));
+			lines.Add(new TrackingLine(null, L("Common.ByHand"), "", Muted, Muted));
 		}
 		string[] conditions = (from c in goal.Recipes.SelectMany((Recipe r) => r.Conditions)
 			select ConditionName(c)).Distinct().ToArray();
 		if (conditions.Length > 0)
 		{
-			lines.Add(new TrackingLine(null, T("УСЛОВИЯ", "CONDITIONS"), "", Muted, Muted, null, Section: true));
+			lines.Add(new TrackingLine(null, L("Common.CONDITIONS"), "", Muted, Muted, null, Section: true));
 			foreach (string condition in conditions)
 			{
 				lines.Add(new TrackingLine(null, condition, "", ConditionColor, Muted));
@@ -3143,7 +3144,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		CloseAcquisition();
 		BookSources.CancelCraft();
 		ModContent.GetInstance<ModernRecipeBook>().Logger.Error("MRB " + ModContent.GetInstance<ModernRecipeBook>().Version + " UI failure (" + phase + "). Book closed safely.", error);
-		Main.NewText(T("Книга рецептов: ошибка интерфейса. Подробности в client.log.", "Recipe Book: UI error. Details in client.log."), 240, 160, 100);
+		Main.NewText(L("Common.RecipeBookUIErrorDetailsIn"), 240, 160, 100);
 	}
 
 	private static void SafeDrawBook(SpriteBatch sb)
@@ -3661,11 +3662,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		switch (mode)
 		{
 		case BookSortMode.Name:
-			return descending ? T("Имя Я-А", "Name Z-A") : T("Имя А-Я", "Name A-Z");
+			return descending ? L("Common.NameZA") : L("Common.NameAZ");
 		case BookSortMode.ItemId:
 			return descending ? "ID 9-1" : "ID 1-9";
 		case BookSortMode.Mod:
-			return descending ? T("Мод Я-А", "Mod Z-A") : T("Мод А-Я", "Mod A-Z");
+			return descending ? L("Common.ModZA") : L("Common.ModAZ");
 		default:
 		{
 			var (field, _, up, down) = SortWords(mode);
@@ -5276,9 +5277,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return kind switch
 			{
-				0 => T("Ингредиенты", "Ingredients"),
-				1 => (realStations > 1) ? T("Станции", "Stations") : T("Станция", "Station"),
-				_ => T("Условия", "Conditions"),
+				0 => L("Common.Ingredients2"),
+				1 => (realStations > 1) ? L("Common.Stations") : L("Common.Station"),
+				_ => L("Common.Conditions2"),
 			};
 		}
 		List<List<DetailSlot>> Place(float bottom)
@@ -5854,7 +5855,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		string have = (assessment.Unknown ? "?" : (assessment.Infinite ? "∞" : Count(assessment.Available)));
 		string where = (requirement.ItemTypes.Count == 1) ? BookSources.Breakdown(requirement.Ingredient.type) : "";
-		return T("Есть ", "Have ") + have + T(", нужно ", ", need ") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? T(" · учтено и в другой строке", " · also counted in another row") : "") + ((where.Length > 0) ? ("\n" + where) : "");
+		return L("Common.Have") + have + L("Common.Need") + Count(assessment.Required) + ((batches > 1) ? (" (×" + batches + ")") : "") + (assessment.Overlapping ? L("Common.AlsoCountedInAnotherRow") : "") + ((where.Length > 0) ? ("\n" + where) : "");
 	}
 
 	private static List<Detail> Details(Recipe r)
@@ -5889,15 +5890,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			StationItems.TryGetValue(tile, out var station);
 			string name = StationName(tile);
-			list.Add(new Detail(station, name, T("Станция", "Station"), Muted, Muted, ""));
+			list.Add(new Detail(station, name, L("Common.Station"), Muted, Muted, ""));
 		}
 		if (!r.requiredTile.Any((int t) => t >= 0))
 		{
-			list.Add(new Detail(null, T("Вручную", "By hand"), T("Станция не нужна", "No station needed"), Muted, Muted, ""));
+			list.Add(new Detail(null, L("Common.ByHand"), L("Common.NoStationNeeded"), Muted, Muted, ""));
 		}
 		foreach (Condition c in r.Conditions)
 		{
-			list.Add(new Detail(null, ConditionName(c), T("Условие", "Condition"), Caution, Muted, ""));
+			list.Add(new Detail(null, ConditionName(c), L("Common.Condition"), Caution, Muted, ""));
 		}
 		return list;
 	}
@@ -5912,7 +5913,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			focus = assessed.FirstOrDefault();
 		}
-		string summary = ((focus.Item1 == null) ? T("Без материалов", "No materials") : (MaterialSub(focus.Item2) + " " + focus.Item1.Name));
+		string summary = ((focus.Item1 == null) ? L("Common.NoMaterials") : (MaterialSub(focus.Item2) + " " + focus.Item1.Name));
 		Color color;
 		if (assessed.Any(((MaterialRequirement Requirement, BookMaterialRules.Assessment Assessment) x) => x.Assessment.HasDeficit))
 		{
@@ -5923,7 +5924,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			color = (assessed.Any(((MaterialRequirement Requirement, BookMaterialRules.Assessment Assessment) x) => x.Assessment.Unknown || x.Assessment.Overlapping) ? Muted : Good);
 		}
 		string materials = string.Join(", ", assessed.Take(3).Select(((MaterialRequirement, BookMaterialRules.Assessment) x) => x.Item1.Name + " " + MaterialSub(x.Item2))) + ((assessed.Count > 3) ? ", ..." : "");
-		return new MaterialPreview(summary, color, (assessed.Count == 0) ? T("Без материалов", "No materials") : materials);
+		return new MaterialPreview(summary, color, (assessed.Count == 0) ? L("Common.NoMaterials") : materials);
 	}
 
 	// The Storage tab's toolbar: vanilla's chest buttons in vanilla's order, minus Loot All. The tab is one big chest:
@@ -5981,9 +5982,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return button switch
 		{
-			StorageButton.DepositAll => T("Сложить всё", "Deposit All"),
-			StorageButton.QuickStack => T("Быстрый стак", "Quick Stack"),
-			_ => T("Пополнить", "Restock"),
+			StorageButton.DepositAll => L("Common.DepositAll"),
+			StorageButton.QuickStack => L("Common.QuickStack"),
+			_ => L("Common.Restock"),
 		};
 	}
 
@@ -5992,9 +5993,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		switch (button)
 		{
 		case StorageButton.QuickStack:
-			return BookMagicStorage.Installed ? (T("Сложить в сундуки и хранилища рядом · Ctrl+Q", "Quick stack to nearby chests and storages · Ctrl+Q") + "\n" + T("И в каждое учтённое хранилище, удалённое тоже, если в нём уже есть такой предмет", "Also into every counted storage, remote ones too, that already holds the item")) : T("Сложить в сундуки рядом · Ctrl+Q", "Quick stack to nearby chests · Ctrl+Q");
+			return BookMagicStorage.Installed ? (L("Common.QuickStackToNearbyChestsAnd") + "\n" + L("Common.AlsoIntoEveryCountedStorageRemote")) : L("Common.QuickStackToNearbyChestsCtrl");
 		case StorageButton.Restock:
-			return BookSources.Enabled ? T("Дополнить стопки в инвентаре из того, что рядом · Ctrl+R", "Top up inventory stacks from nearby · Ctrl+R") : StorageOffTitle;
+			return BookSources.Enabled ? L("Common.TopUpInventoryStacksFromNearby") : StorageOffTitle;
 		}
 		if (!BookSources.Enabled)
 		{
@@ -6002,9 +6003,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (!BookSources.CanDeposit)
 		{
-			return T("Сложить в хранилища рядом", "Deposit to nearby storage") + "\n" + T("Рядом некуда складывать", "Nothing nearby to deposit into");
+			return L("Common.DepositToNearbyStorage") + "\n" + L("Common.NothingNearbyToDepositInto");
 		}
-		return T("Сложить в хранилища рядом, кроме панели и избранного", "Deposit to nearby storage, except hotbar and favorites") + "\n" + (BookMagicStorage.Installed ? T("Сначала к таким же, потом Magic Storage, потом сундук", "Onto matching stacks first, then Magic Storage, then a free chest") : T("Сначала к таким же, потом в свободный сундук", "Onto matching stacks first, then a free chest"));
+		return L("Common.DepositToNearbyStorageExceptHotbar") + "\n" + (BookMagicStorage.Installed ? L("Common.OntoMatchingStacksFirstThenMagic") : L("Common.OntoMatchingStacksFirstThenA"));
 	}
 
 	private static void DrawStorageToolbar(SpriteBatch sb)
@@ -6027,9 +6028,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static string StorageOffTitle => BookSources.PullsOff ? T("Недоступно на этом сервере", "Not available on this server") : T("Хранилища рядом выключены", "Nearby storage is off");
+	private static string StorageOffTitle => BookSources.PullsOff ? L("Common.NotAvailableOnThisServer") : L("Common.NearbyStorageIsOff");
 
-	private static string StorageOffHint => BookSources.PullsOff ? T("Сервер сам хранит инвентари", "The server keeps inventories itself") : ((Main.netMode == NetmodeID.MultiplayerClient) ? T("Хост выключил эту функцию", "The host turned it off") : T("Включите в настройках мода", "Turn it on in the mod settings"));
+	private static string StorageOffHint => BookSources.PullsOff ? L("Common.TheServerKeepsInventoriesItself") : ((Main.netMode == NetmodeID.MultiplayerClient) ? L("Common.TheHostTurnedItOff") : L("Common.TurnItOnInTheMod"));
 
 	// " · 5 min ago" after the selected stack's count while the Changed sort is in effect, the one time it explains the
 	// order; nothing for a kind with no time (there before tracking began). Rebuilt when the kind, its time, the minute or
@@ -6062,17 +6063,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Color stateColor;
 		if (!on)
 		{
-			state = T("Выключено", "Off");
+			state = L("Common.Off");
 			stateColor = Muted;
 		}
 		else if (BookSources.Syncing)
 		{
-			state = T("Синхронизация", "Syncing");
+			state = L("Common.Syncing2");
 			stateColor = Caution;
 		}
 		else
 		{
-			state = T("Готово", "Ready");
+			state = L("Common.Ready");
 			stateColor = Accent;
 		}
 		BookRect status = BookGeometry.StorageStatus;
@@ -6081,7 +6082,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Box(sb, pill, FieldFill, border: true, 12f);
 		Box(sb, pill.X + 10f, pill.Y + 8f, 8f, 8f, stateColor, border: false, 4f);
 		CenterLabel(sb, state, pill.X + 24f, pill.Y + 2f, pill.Width - 30f, pill.Height - 4f, stateColor, 0.8f, rightAligned: false, leftAligned: true);
-		SectionLabel(sb, T("Рядом", "Nearby"), content.X, content.Y + 1f, pill.X - content.X - 8f);
+		SectionLabel(sb, L("Common.Nearby"), content.X, content.Y + 1f, pill.X - content.X - 8f);
 		BookRect source = BookGeometry.StorageSource;
 		FixedLabel(sb, on ? BookSources.Summary : StorageOffTitle, source.X, source.Y, on ? TextColor : Muted, 0.9f, source.Width, source.Height);
 		BookRect hint = BookGeometry.StorageHint;
@@ -6090,7 +6091,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string cellsText = on ? BookSources.Cells : "";
 		bool cellsCut = cellsText.Length > 0 && FixedLabel(sb, cellsText, cells.X, cells.Y, BookSources.CellsAlmostFull ? Caution : TextColor, 0.85f, cells.Width, cells.Height);
 		BookRect skipped = BookGeometry.StorageSkipped;
-		string skippedText = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? T("Связь с Magic Storage отключена (client.log)", "Magic Storage support is off (see client.log)") : (on ? BookSources.NotCounted : "");
+		string skippedText = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? L("Common.MagicStorageSupportIsOffSee") : (on ? BookSources.NotCounted : "");
 		bool skippedCut = skippedText.Length > 0 && FixedLabel(sb, skippedText, skipped.X, skipped.Y, Caution, 0.8f, skipped.Width, skipped.Height);
 		Box(sb, content.X, skipped.Y + skipped.Height + 8f, content.Width, 1f, Border);
 		BookRect icon = BookGeometry.StorageItemIcon;
@@ -6113,10 +6114,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (on)
 		{
-			FixedLabel(sb, T("Предмет не выбран", "No item selected"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
-			FixedLabel(sb, T("Нажмите на предмет в сетке", "Click an item in the grid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+			FixedLabel(sb, L("Common.NoItemSelected"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
+			FixedLabel(sb, L("Common.ClickAnItemInTheGrid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
 		}
-		string message = BookSources.TakingShown ? T("Забираю…", "Taking…") : BookSources.Message;
+		string message = BookSources.TakingShown ? L("Common.Taking") : BookSources.Message;
 		if (message.Length > 0)
 		{
 			BookRect line = BookGeometry.StorageMessage;
@@ -6128,7 +6129,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (pill.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(on ? T("Перечитать · F5", "Refresh · F5") : StorageOffHint);
+			MouseTip(on ? L("Common.RefreshF5") : StorageOffHint);
 		}
 		else if (on && source.Contains(Mouse.X, Mouse.Y))
 		{
@@ -6152,7 +6153,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		else if (selected != null && stack.Contains(Mouse.X, Mouse.Y))
 		{
 			string cut = (TextWidth(selected.Name, 0.8f) > content.Width - 60f) ? (selected.Name + "\n") : "";
-			MouseTip(cut + BookSources.TakeHint + "\n" + T("Ctrl+клик — в корзину · Alt+клик — в избранное", "Ctrl+Click: trash · Alt+Click: favorite"));
+			MouseTip(cut + BookSources.TakeHint + "\n" + L("Common.CtrlClickTrashAltClickFavorite"));
 		}
 	}
 
@@ -6188,7 +6189,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Box(sb, row.X, row.Y + 8f, 3f, row.Height - 16f, Accent, border: false, 1f);
 			}
-			CenterLabel(sb, (j == 0) ? T("Все источники", "All sources") : ModName(mod), row.X + 12f, row.Y + 4f, row.Width - 20f, row.Height - 8f, selected ? Accent : TextColor, 0.95f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, (j == 0) ? L("Common.AllSources") : ModName(mod), row.X + 12f, row.Y + 4f, row.Width - 20f, row.Height - 8f, selected ? Accent : TextColor, 0.95f, rightAligned: false, leftAligned: true);
 		}
 		int rows = Mods.Count + 1;
 		if (rows > 9)
@@ -6276,7 +6277,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		CenterLabel(sb, "MRB " + ModContent.GetInstance<ModernRecipeBook>().Version, 990f, 660f, BookGeometry.HeaderClose.X + BookGeometry.HeaderClose.Width - 990f, 24f, Muted, 0.8f, rightAligned: true);
 		if (BookGeometry.Help.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("F1 · Все сочетания клавиш", "F1 · All keyboard shortcuts"));
+			MouseTip(L("Common.F1AllKeyboardShortcuts"));
 		}
 		if (ModMenu)
 		{
@@ -6313,7 +6314,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		CenterLabel(sb, TitleText, 34f, 16f, 260f, 32f, TextColor, 1.1f, rightAligned: false, leftAligned: true);
 		if (!MenuOpen && !DraggingWindow && HeaderGrab())
 		{
-			MouseTip(T("Перетащите, чтобы переместить окно", "Drag to move the window"));
+			MouseTip(L("Common.DragToMoveTheWindow"));
 		}
 		BookRect stage = StageDropdownRect();
 		DrawStageDropdown(sb, stage);
@@ -6348,7 +6349,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Cross(sb, close.X + close.Width / 2f, close.Y + close.Height / 2f, 6f, TextColor);
 		if (!MenuOpen && close.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Закрыть · Esc", "Close · Esc"));
+			MouseTip(L("Common.CloseEsc"));
 		}
 		Box(sb, 8f, 64f, 1104f, 1f, Border, border: false, 0f);
 	}
@@ -6364,7 +6365,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			DrawTraitButton(sb);
 		}
-		SectionLabel(sb, T("Категории", "Categories"), 20f, ClassRowShown ? BookGeometry.CategoryLabelTop : BookGeometry.ClassLabelTop, 164f);
+		SectionLabel(sb, L("Common.Categories"), 20f, ClassRowShown ? BookGeometry.CategoryLabelTop : BookGeometry.ClassLabelTop, 164f);
 		CategoryRow = Math.Clamp(CategoryRow, 0, MaxCategoryRow);
 		int rows = CategoryRows;
 		for (int visible = 0; visible < rows; visible++)
@@ -6402,7 +6403,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// One click narrows every tab to a class; it combines with the category (Armor + Magic = magic armor).
 	private static void DrawClassRow(SpriteBatch sb)
 	{
-		SectionLabel(sb, T("Класс", "Class"), 20f, BookGeometry.ClassLabelTop, 164f);
+		SectionLabel(sb, L("Common.Class"), 20f, BookGeometry.ClassLabelTop, 164f);
 		BookClass[] buttons = BookItemClasses.Buttons;
 		for (int i = 0; i < buttons.Length; i++)
 		{
@@ -6423,7 +6424,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			if (hover)
 			{
-				MouseTip(BookItemClasses.Label(buttons[i], Ru) + ((active && buttons[i] != BookClass.None) ? ("\n" + T("Клик ещё раз — все классы", "Click again for all classes")) : ""));
+				MouseTip(BookItemClasses.Label(buttons[i], Ru) + ((active && buttons[i] != BookClass.None) ? ("\n" + L("Common.ClickAgainForAllClasses")) : ""));
 			}
 		}
 	}
@@ -6459,7 +6460,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			// The Bestiary searches names only; a larger text size shrinks the hint rather than cutting it.
 			BookRect placeholder = BookGeometry.SearchPlaceholder;
-			CenterLabel(sb, BestiaryView ? T("Имя, ID или мод", "Name, ID or mod") : T("Имя, текст, ID, мод", "Name, text, ID, mod"), placeholder.X, placeholder.Y, placeholder.Width, placeholder.Height, Muted, 0.85f, rightAligned: false, leftAligned: true, fitWidth: true);
+			CenterLabel(sb, BestiaryView ? L("Common.NameIDOrMod") : L("Common.NameTextIDMod"), placeholder.X, placeholder.Y, placeholder.Width, placeholder.Height, Muted, 0.85f, rightAligned: false, leftAligned: true, fitWidth: true);
 		}
 		BookRect clear = BookGeometry.SearchClear;
 		bool overClear = Query.Length > 0 && !MenuOpen && clear.Contains(Mouse.X, Mouse.Y);
@@ -6468,7 +6469,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			if (overClear)
 			{
 				Box(sb, clear, HoverFill, border: false, 6f);
-				MouseTip(T("Очистить поиск", "Clear search"));
+				MouseTip(L("Common.ClearSearch"));
 			}
 			Cross(sb, clear.X + clear.Width / 2f, clear.Y + clear.Height / 2f, 4f, overClear ? TextColor : Muted);
 		}
@@ -6476,25 +6477,25 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			// A query cut short in the box reads in full here.
 			string full = (TextWidth(Query, 0.85f) > BookGeometry.SearchText.Width) ? (Query + "\n") : "";
-			MouseTip(full + T("Поиск · Ctrl+F", "Search · Ctrl+F") + (BestiaryView ? "" : ("\n" + T("Сначала совпадения в имени, потом в тексте предмета", "Name matches first, then the item's text"))));
+			MouseTip(full + L("Common.SearchCtrlF") + (BestiaryView ? "" : ("\n" + L("Common.NameMatchesFirstThenTheItem"))));
 		}
-		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? T("Все моды", "All mods") : ModName(ModFilter), ModMenu, enabled: true, highlight: ModFilter.Length > 0);
+		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? L("Common.AllMods") : ModName(ModFilter), ModMenu, enabled: true, highlight: ModFilter.Length > 0);
 		if (!MenuOpen && BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + T("Фильтр по моду", "Filter by mod"));
+			MouseTip(((ModFilter.Length == 0) ? "" : (ModName(ModFilter) + "\n")) + L("Common.FilterByMod"));
 		}
 		bool newest = RecentView || MobRecentCategory;
-		Dropdown(sb, BookGeometry.Sort, newest ? T("Новые", "Newest") : SortLabel(), SortMenu, !newest, highlight: false, fitWidth: true);
+		Dropdown(sb, BookGeometry.Sort, newest ? L("Common.Newest") : SortLabel(), SortMenu, !newest, highlight: false, fitWidth: true);
 		if (!MenuOpen && BookGeometry.Sort.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(RecentView ? T("Недавние всегда от новых к старым", "Recent crafts are always newest first") : (MobRecentCategory ? T("Недавние мобы всегда от новых к старым", "Recently seen mobs are always newest first") : T("Порядок сортировки", "Sort order")));
+			MouseTip(RecentView ? L("Common.RecentCraftsAreAlwaysNewestFirst") : (MobRecentCategory ? L("Common.RecentlySeenMobsAreAlwaysNewest") : L("Common.SortOrder")));
 		}
 		BookRect favorites = BookGeometry.FavoritesFilter;
 		IconButtonFrame(sb, favorites, FavoritesOnly);
 		Star(sb, favorites.X + 8f, favorites.Y + 8f, 20f, FavoritesOnly);
 		if (!MenuOpen && favorites.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Только избранное", "Favorites only") + "\n" + (BestiaryView ? T("Alt+клик по мобу добавляет", "Alt+Click a mob to add it") : T("Alt+клик по предмету добавляет", "Alt+Click an item to add it")));
+			MouseTip(L("Common.FavoritesOnly") + "\n" + (BestiaryView ? L("Common.AltClickAMobToAdd") : L("Common.AltClickAnItemToAdd")));
 		}
 		if (BestiaryView)
 		{
@@ -6569,19 +6570,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		// The traits filter runs after the class one: what it hid had passed the class.
 		if (TraitHidden > 0)
 		{
-			EmptyState(sb, area, T("Скрыто фильтром свойств", "Hidden by the traits filter"), T("Снимите часть отметок в «Свойствах» слева", "Untick some traits under Traits on the left"));
+			EmptyState(sb, area, L("Common.HiddenByTheTraitsFilter"), L("Common.UntickSomeTraitsUnderTraitsOn"));
 		}
 		else if (ClassHidden > 0)
 		{
-			EmptyState(sb, area, T("Скрыто фильтром класса", "Hidden by the class filter"), T("Нажмите «Все классы» над категориями", "Pick All classes above the categories"));
+			EmptyState(sb, area, L("Common.HiddenByTheClassFilter"), L("Common.PickAllClassesAboveTheCategories"));
 		}
 		else if (CraftableHidden > 0)
 		{
-			EmptyState(sb, area, T("Сейчас ничего не создать", "Nothing to craft right now"), T("Выключите «Можно создать», чтобы показать всё", "Turn off Craftable to show everything"));
+			EmptyState(sb, area, L("Common.NothingToCraftRightNow"), L("Common.TurnOffCraftableToShowEverything"));
 		}
 		else if (StationHidden > 0)
 		{
-			EmptyState(sb, area, T("Скрыто фильтром станций", "Hidden by the station filter"), T("Откройте фильтр станций и выберите «Показать все»", "Open the station filter and pick Show all"));
+			EmptyState(sb, area, L("Common.HiddenByTheStationFilter"), L("Common.OpenTheStationFilterAndPick"));
 		}
 		else if (StorageView)
 		{
@@ -6592,40 +6593,40 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			else if (BookSources.Syncing)
 			{
-				EmptyState(sb, area, T("Синхронизация…", "Syncing…"), "");
+				EmptyState(sb, area, L("Common.Syncing"), "");
 			}
 			else if (BookSources.Items.Count > 0)
 			{
-				EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+				EmptyState(sb, area, L("Common.NothingFound"), L("Common.CtrlBackspaceResetsFilters"));
 			}
 			else if (BookSources.AnySource)
 			{
-				EmptyState(sb, area, T("Рядом всё пусто", "Nearby containers are empty"), "");
+				EmptyState(sb, area, L("Common.NearbyContainersAreEmpty"), "");
 			}
 			else
 			{
 				int radius = BookNearbyConfig.Radius;
-				EmptyState(sb, area, T("Рядом ничего нет", "Nothing nearby"), Ru ? ("Здесь появятся сундуки и хранилища в радиусе " + radius + " " + BookSourceRules.Plural(radius, "блока", "блоков", "блоков")) : ("Chests and storages within " + radius + " tiles show up here"));
+				EmptyState(sb, area, L("Common.NothingNearby"), Ru ? ("Здесь появятся сундуки и хранилища в радиусе " + radius + " " + BookSourceRules.Plural(radius, "блока", "блоков", "блоков")) : ("Chests and storages within " + radius + " tiles show up here"));
 			}
 		}
 		else if (RecentView)
 		{
 			if (Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Count == 0)
 			{
-				EmptyState(sb, area, T("Пока нет крафтов", "No crafts yet"), T("Здесь появится то, что вы создадите", "Items you craft will appear here"));
+				EmptyState(sb, area, L("Common.NoCraftsYet"), L("Common.ItemsYouCraftWillAppearHere"));
 			}
 			else if (BookRecent.ResolveRecipeIndexes().Count == 0)
 			{
-				EmptyState(sb, area, T("Рецепты из истории не загружены", "Recipes from history aren't loaded"), T("Включите моды, которые их добавляют", "Enable the mods that add them"));
+				EmptyState(sb, area, L("Common.RecipesFromHistoryArenTLoaded"), L("Common.EnableTheModsThatAddThem"));
 			}
 			else
 			{
-				EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+				EmptyState(sb, area, L("Common.NothingFound"), L("Common.CtrlBackspaceResetsFilters"));
 			}
 		}
 		else
 		{
-			EmptyState(sb, area, T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+			EmptyState(sb, area, L("Common.NothingFound"), L("Common.CtrlBackspaceResetsFilters"));
 		}
 	}
 
@@ -6640,47 +6641,47 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string count;
 		if (StorageView)
 		{
-			count = T("Стопок: ", "Stacks: ") + Count(Filtered.Count);
+			count = L("Common.Stacks") + Count(Filtered.Count);
 		}
 		else if (Catalogue)
 		{
-			count = T("Предметов: ", "Items: ") + Count(Filtered.Count);
+			count = L("Common.Items") + Count(Filtered.Count);
 		}
 		else if (BestiaryView)
 		{
-			count = T("Мобов: ", "Mobs: ") + Count(Filtered.Count);
+			count = L("Common.Mobs") + Count(Filtered.Count);
 		}
 		else if (RecentView)
 		{
-			count = T("Недавние: ", "Recent: ") + Filtered.Count + "/" + 40;
+			count = L("Common.Recent") + Filtered.Count + "/" + 40;
 		}
 		else
 		{
-			count = T("Рецептов: ", "Recipes: ") + Count(Filtered.Count);
+			count = L("Common.Recipes") + Count(Filtered.Count);
 		}
 		// How many only the item text found (they come after the name matches), or that it is still being read.
 		if (TextMatchCount > 0)
 		{
-			count += "  ·  " + T("по тексту: ", "text matches: ") + Count(TextMatchCount);
+			count += "  ·  " + L("Common.TextMatches") + Count(TextMatchCount);
 		}
 		else if (Query.Length > 0 && !BestiaryView && !DescriptionsReady)
 		{
-			count += "  ·  " + T("читаю тексты предметов: ", "reading item text: ") + DescriptionNext * 100 / Math.Max(1, ItemDescriptions.Length) + "%";
+			count += "  ·  " + L("Common.ReadingItemText") + DescriptionNext * 100 / Math.Max(1, ItemDescriptions.Length) + "%";
 		}
 		// The stage filter never hides what the book could not place without saying so.
 		if (StageUnknownHidden > 0)
 		{
-			count += "  ·  " + T("этап неизвестен: ", "unknown stage: ") + Count(StageUnknownHidden);
+			count += "  ·  " + L("Common.UnknownStage") + Count(StageUnknownHidden);
 		}
 		BookRect label = BookGeometry.PageLabel;
 		CenterLabel(sb, count + "  ·  " + (Page + 1) + " / " + Pages, label.X, label.Y, label.Width, label.Height, Muted, 0.85f);
 		if (!MenuOpen && previous.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Предыдущая страница · PgUp", "Previous page · PgUp"));
+			MouseTip(L("Common.PreviousPagePgUp"));
 		}
 		else if (!MenuOpen && next.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Следующая страница · PgDn", "Next page · PgDn"));
+			MouseTip(L("Common.NextPagePgDn"));
 		}
 	}
 
@@ -6690,7 +6691,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Item chosen = SelectedItem;
 		if (chosen == null)
 		{
-			EmptyState(sb, BookGeometry.DetailsPanel, T("Ничего не выбрано", "Nothing selected"), T("Выберите предмет слева", "Pick an item on the left"));
+			EmptyState(sb, BookGeometry.DetailsPanel, L("Common.NothingSelected"), L("Common.PickAnItemOnTheLeft"));
 			return;
 		}
 		Recipe r = SelectedRecipe;
@@ -6708,13 +6709,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else
 		{
-			FixedLabel(sb, T("Нет рецепта крафта", "No crafting recipe"), 812f, top + 4f, TextColor, 1f, 284f, 28f);
-			FixedLabel(sb, T("Добыча, магазины, рыбалка и другое", "Get it from loot, shops, fishing and more"), 812f, top + 36f, Muted, 0.8f, 284f, 20f);
+			FixedLabel(sb, L("Common.NoCraftingRecipe"), 812f, top + 4f, TextColor, 1f, 284f, 28f);
+			FixedLabel(sb, L("Common.GetItFromLootShopsFishing"), 812f, top + 36f, Muted, 0.8f, 284f, 20f);
 			BookRect obtain = BookGeometry.SelectedItemObtain(top);
-			ActionButton(sb, obtain, T("Где взять", "How to Get"), primary: false);
+			ActionButton(sb, obtain, L("Common.HowToGet"), primary: false);
 			if (!MenuOpen && obtain.Contains(Mouse.X, Mouse.Y))
 			{
-				MouseTip(T("Все источники: ", "All sources: ") + chosen.Name + " · Alt+G");
+				MouseTip(L("Common.AllSources2") + chosen.Name + " · Alt+G");
 			}
 		}
 		bool favorite = Favorites.Contains(ItemKey(chosen));
@@ -6723,15 +6724,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Star(sb, favoriteRect.X + 6f, favoriteRect.Y + 6f, 20f, favorite);
 		if (!MenuOpen && favoriteRect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(favorite ? T("Убрать из избранного · Alt+F", "Remove from favorites · Alt+F") : T("В избранное · Alt+F", "Add to favorites · Alt+F"));
+			MouseTip(favorite ? L("Common.RemoveFromFavoritesAltF") : L("Common.AddToFavoritesAltF"));
 		}
 		if (r != null)
 		{
-			ActionButton(sb, CraftRect, T("Создать", "Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
+			ActionButton(sb, CraftRect, L("Common.Craft") + " ×" + PreviewBatches(r), primary: true, BookCrafting.CanCraft(r));
 			if (!MenuOpen && CraftRect.Contains(Mouse.X, Mouse.Y))
 			{
 				string from = BookCrafting.Sources(r, PreviewBatches(r));
-				MouseTip(BookCrafting.Reason(r, Ru) + ((from.Length > 0) ? (" · " + from) : "") + "\nCtrl+Enter · " + T("максимум", "max") + ": Ctrl+Shift+Enter");
+				MouseTip(BookCrafting.Reason(r, Ru) + ((from.Length > 0) ? (" · " + from) : "") + "\nCtrl+Enter · " + L("Common.Max2") + ": Ctrl+Shift+Enter");
 			}
 		}
 		DrawTrackButton(sb, r);
@@ -6800,7 +6801,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool variants = CardItemType > 0 && VariantCount > 1;
 		string itemMod = chosen.ModItem?.Mod.Name ?? "Terraria";
 		string owner = Owner(r);
-		string line = T("Рецепт", "Recipe") + (variants ? (" " + (Variant + 1) + "/" + VariantCount) : "") + ((owner != itemMod) ? (": " + ModName(owner)) : "");
+		string line = L("Common.Recipe2") + (variants ? (" " + (Variant + 1) + "/" + VariantCount) : "") + ((owner != itemMod) ? (": " + ModName(owner)) : "");
 		BookRect lineRect = BookGeometry.RecipeLine(top);
 		CenterLabel(sb, line, lineRect.X, lineRect.Y, variants ? lineRect.Width : 284f, lineRect.Height, Muted, 0.85f, rightAligned: false, leftAligned: true);
 		if (variants)
@@ -6813,7 +6814,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Chevron(sb, next.X + next.Width / 2f + 1f, next.Y + next.Height / 2f, 4f, 3, (Variant < VariantCount - 1) ? TextColor : Border);
 			if (!MenuOpen && (previous.Contains(Mouse.X, Mouse.Y) || next.Contains(Mouse.X, Mouse.Y)))
 			{
-				MouseTip(T("Другие рецепты этого предмета", "Other recipes for this item"));
+				MouseTip(L("Common.OtherRecipesForThisItem"));
 			}
 		}
 		DrawBatchChoices(sb, r);
@@ -6843,7 +6844,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Label(sb, BookGeometry.DetailListPager, DetailsPage + 1 + " / " + pages.Count, Muted, 0.85f);
 			if (!MenuOpen && (previous2.Contains(Mouse.X, Mouse.Y) || next2.Contains(Mouse.X, Mouse.Y)))
 			{
-				MouseTip(T("Остальные строки рецепта · колесо мыши", "More of this recipe · Mouse wheel"));
+				MouseTip(L("Common.MoreOfThisRecipeMouseWheel"));
 			}
 		}
 	}
@@ -6852,8 +6853,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return new string[2]
 		{
-			T("Рецепт", "Recipe"),
-			T("Применение", "Used in")
+			L("Common.Recipe2"),
+			L("Common.UsedIn")
 		};
 	}
 
@@ -6871,14 +6872,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Chevron(sb, back.X + back.Width / 2f - 1f, back.Y + back.Height / 2f, 4f, 2, canBack ? TextColor : Border);
 		if (!MenuOpen && back.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Назад", "Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
+			MouseTip(L("Common.Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
 		}
 		BookRect[] modes = CardModeRects();
 		Segmented(sb, modes, CardModeLabels(), UsedInMode ? 1 : 0, 0.8f);
 		int hover = MenuOpen ? (-1) : SegmentAt(modes);
 		if (hover >= 0)
 		{
-			MouseTip((hover == 0) ? T("Из чего сделан предмет · Alt+U", "What the item is made of · Alt+U") : T("Что можно сделать из предмета · Alt+U", "What you can make from it · Alt+U"));
+			MouseTip((hover == 0) ? L("Common.WhatTheItemIsMadeOf") : L("Common.WhatYouCanMakeFromIt"));
 		}
 	}
 
@@ -6951,7 +6952,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static BookRect UsedInCraftableToggle(float top)
 	{
-		float width = TextWidth(T("Можно создать", "Craftable"), 0.8f) + 24f;
+		float width = TextWidth(L("Common.Craftable"), 0.8f) + 24f;
 		return new BookRect(1096f - width, top, width, 24f);
 	}
 
@@ -6975,13 +6976,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		UsedInView view = VisibleUsedIn(chosen.type);
 		BookRect toggle = UsedInCraftableToggle(top);
-		SectionLabel(sb, T("Рецептов: ", "Recipes: ") + view.Rows.Count, 812f, top + 3f, toggle.X - 820f);
+		SectionLabel(sb, L("Common.Recipes") + view.Rows.Count, 812f, top + 3f, toggle.X - 820f);
 		bool toggleHover = !MenuOpen && toggle.Contains(Mouse.X, Mouse.Y);
 		Box(sb, toggle, UsedInCraftableOnly ? SelectedFill : (toggleHover ? HoverFill : Raised), border: true, 6f, UsedInCraftableOnly ? new Color?(Accent) : null);
-		CenterLabel(sb, T("Можно создать", "Craftable"), toggle.X + 6f, toggle.Y + 2f, toggle.Width - 12f, toggle.Height - 4f, UsedInCraftableOnly ? Accent : TextColor, 0.8f);
+		CenterLabel(sb, L("Common.Craftable"), toggle.X + 6f, toggle.Y + 2f, toggle.Width - 12f, toggle.Height - 4f, UsedInCraftableOnly ? Accent : TextColor, 0.8f);
 		if (toggleHover)
 		{
-			MouseTip(UsedInCraftableOnly ? T("Показать все рецепты", "Show every recipe") : T("Только то, что можно создать сейчас", "Only what you can craft right now"));
+			MouseTip(UsedInCraftableOnly ? L("Common.ShowEveryRecipe") : L("Common.OnlyWhatYouCanCraftRight"));
 		}
 		if (view.Rows.Count == 0)
 		{
@@ -6989,18 +6990,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 			string hint;
 			if (view.Total == 0)
 			{
-				title = T("Нигде не используется", "Not used in any recipe");
+				title = L("Common.NotUsedInAnyRecipe");
 				hint = "";
 			}
 			else if (view.StageHidden == 0)
 			{
-				title = T("Сейчас нечего создать", "Nothing to craft right now");
-				hint = T("Снимите «Можно создать»", "Turn off Craftable");
+				title = L("Common.NothingToCraftRightNow2");
+				hint = L("Common.TurnOffCraftable");
 			}
 			else
 			{
-				title = T("Скрыто фильтром этапа", "Hidden by the stage filter");
-				hint = T("Этап выбирается вверху книги", "Pick the stage at the top of the book");
+				title = L("Common.HiddenByTheStageFilter");
+				hint = L("Common.PickTheStageAtTheTop");
 			}
 			EmptyState(sb, new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f), title, hint);
 			return;
@@ -7028,7 +7029,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Chevron(sb, row.X + row.Width - 14f, row.Y + row.Height / 2f, 4f, 3, hover ? TextColor : Muted);
 			if (hover)
 			{
-				HoverItemRow(output, preview.Materials + "\n" + T("Клик: открыть этот предмет", "Click: open this item"));
+				HoverItemRow(output, preview.Materials + "\n" + L("Common.ClickOpenThisItem"));
 			}
 		}
 		if (pages > 1)
@@ -7036,7 +7037,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ChevronPager(sb, BookGeometry.DetailListPrevious, BookGeometry.DetailListNext, BookGeometry.DetailListPager, DetailsPage, pages);
 			if (!MenuOpen && (BookGeometry.DetailListPrevious.Contains(Mouse.X, Mouse.Y) || BookGeometry.DetailListNext.Contains(Mouse.X, Mouse.Y)))
 			{
-				MouseTip(T("Ещё рецепты · колесо мыши", "More recipes · Mouse wheel"));
+				MouseTip(L("Common.MoreRecipesMouseWheel"));
 			}
 		}
 	}
@@ -7126,14 +7127,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CenterLabel(sb, "?", obtain.X + 2f, obtain.Y + 2f, obtain.Width - 4f, obtain.Height - 4f, hover ? TextColor : Muted, 0.85f);
 			if (hover)
 			{
-				MouseTip(T("Где взять: ", "How to Get: ") + d.Name);
+				MouseTip(L("Common.HowToGet2") + d.Name);
 				return;
 			}
 		}
 		if (!MenuOpen && row.Contains(Mouse.X, Mouse.Y))
 		{
 			// An "A or B" row opens the alternative it shows.
-			string action = hasItem ? (d.Alternatives ? T("Клик: открыть «" + d.Icon.Name + "»", "Click: open " + d.Icon.Name) : T("Клик: открыть этот предмет", "Click: open this item")) : "";
+			string action = hasItem ? (d.Alternatives ? T("Клик: открыть «" + d.Icon.Name + "»", "Click: open " + d.Icon.Name) : L("Common.ClickOpenThisItem")) : "";
 			string detail = (kind == 0) ? d.Tooltip : "";
 			// Where the item is ("Chests ×2: 120") stays the last line, under the click hint.
 			string where = "";
@@ -7168,7 +7169,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Plus(sb, increase.X + 12f, increase.Y + 12f, 5f, (WindowScalePercent < 130) ? TextColor : Border);
 		if (!MenuOpen && (decrease.Contains(Mouse.X, Mouse.Y) || increase.Contains(Mouse.X, Mouse.Y)))
 		{
-			MouseTip(T("Размер окна", "Window size"));
+			MouseTip(L("Common.WindowSize"));
 		}
 		float hintRight = 924f;
 		if (ActiveStationsTab)
@@ -7188,12 +7189,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return CurrentTab switch
 		{
-			0 => T("Shift+клик: где используется · F1: справка", "Shift+Click: where it's used · F1 Help"),
-			1 => T("Ctrl+Enter: создать · F1: справка", "Ctrl+Enter crafts · F1 Help"),
-			2 => T("Mouse3 по мобу в мире: его карточка · F1: справка", "Mouse3 on a mob in the world: its card · F1 Help"),
-			3 => T("Клик: взять стопку · ПКМ: одну · F1: справка", "Click takes a stack · Right-click takes one · F1 Help"),
-			4 => T("Новые сверху · F1: справка", "Newest first · F1 Help"),
-			_ => T("PgUp/PgDn: страницы · F1: справка", "PgUp/PgDn pages · F1 Help"),
+			0 => L("Common.ShiftClickWhereItSUsed"),
+			1 => L("Common.CtrlEnterCraftsF1Help"),
+			2 => L("Common.Mouse3OnAMobInThe"),
+			3 => L("Common.ClickTakesAStackRightClick"),
+			4 => L("Common.NewestFirstF1Help"),
+			_ => L("Common.PgUpPgDnPagesF1Help"),
 		};
 	}
 
@@ -7243,7 +7244,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static string TitleText => T("Книга рецептов", "Recipe Book");
+	private static string TitleText => L("Common.RecipeBook");
 
 	private static float TitleRight()
 	{
@@ -7258,12 +7259,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return tab switch
 		{
-			0 => T("Предметы", "Items"),
-			1 => T("Рецепты", "Recipes"),
-			2 => T("Бестиарий", "Bestiary"),
-			3 => T("Хранилище", "Storage"),
-			4 => T("Недавние", "Recent"),
-			_ => T("Отслеживание", "Tracking"),
+			0 => L("Common.Items2"),
+			1 => L("Common.Recipes2"),
+			2 => L("Common.Bestiary"),
+			3 => L("Common.Storage"),
+			4 => L("Common.Recent2"),
+			_ => L("Common.Tracking"),
 		};
 	}
 
@@ -7323,13 +7324,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		PendingTip = null;
 		BookRect modal = BookGeometry.HelpPanel;
 		Box(sb, modal, Surface, border: true, 12f);
-		Text(sb, T("Горячие клавиши", "Shortcuts"), modal.X + 24f, modal.Y + 24f, TextColor, 1.1f, modal.Width - 112f, 32f);
+		Text(sb, L("Common.Shortcuts"), modal.X + 24f, modal.Y + 24f, TextColor, 1.1f, modal.Width - 112f, 32f);
 		CardButton(sb, BookGeometry.HelpClose, "X");
 		if (BookGeometry.HelpClose.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Закрыть · Esc или F1", "Close · Esc or F1"));
+			MouseTip(L("Common.CloseEscOrF1"));
 		}
-		Text(sb, T("Наведите на кнопку — в подсказке есть её клавиша", "Hover any button: its tooltip shows the shortcut"), modal.X + 24f, modal.Y + 60f, Muted, 0.85f, modal.Width - 112f, 24f);
+		Text(sb, L("Common.HoverAnyButtonItsTooltipShows"), modal.X + 24f, modal.Y + 60f, Muted, 0.85f, modal.Width - 112f, 24f);
 		Box(sb, modal.X + 24f, modal.Y + 96f, modal.Width - 48f, 1f, Border);
 		float[] top = new float[BookHelp.Columns];
 		for (int column = 0; column < BookHelp.Columns; column++)

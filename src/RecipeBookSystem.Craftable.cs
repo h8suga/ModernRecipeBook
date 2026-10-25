@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -75,12 +76,12 @@ public sealed partial class RecipeBookSystem
 
 	private static string CraftableButtonTip()
 	{
-		string title = T("Можно создать", "Craftable") + "\n" + T("Только то, что можно создать сейчас", "Only what you can craft right now") + "\n";
+		string title = L("Craftable.Craftable") + "\n" + L("Craftable.OnlyWhatYouCanCraftRight") + "\n";
 		if (!CraftableOnly)
 		{
-			return title + T("Сейчас можно создать: ", "Craftable now: ") + Count(CraftableInList()) + T(" из ", " of ") + Count(Filtered.Count);
+			return title + L("Craftable.CraftableNow") + Count(CraftableInList()) + L("Craftable.Of") + Count(Filtered.Count);
 		}
-		return title + T("Сейчас можно создать: ", "Craftable now: ") + Count(Filtered.Count) + T(" · скрыто: ", " · hidden: ") + Count(CraftableHidden) + "\n" + T("Клик ещё раз — показать всё", "Click again to show everything");
+		return title + L("Craftable.CraftableNow") + Count(Filtered.Count) + L("Craftable.Hidden") + Count(CraftableHidden) + "\n" + L("Craftable.ClickAgainToShowEverything");
 	}
 
 	// A hammer, as on vanilla's crafting window toggle, beside the station filter's anvil.

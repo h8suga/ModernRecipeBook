@@ -6,6 +6,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -144,7 +145,7 @@ internal sealed class BookMapMarkers : ModSystem
 	// "Placed by X · 2 h ago". The RU units are abbreviations, so no plural forms are needed.
 	internal static string Placed(BookMapMarker marker)
 	{
-		return RecipeBookSystem.T("Поставил ", "Placed by ") + marker.Author + " · " + Ago(marker.Created);
+		return L("Markers.PlacedBy") + marker.Author + " · " + Ago(marker.Created);
 	}
 
 	internal static string Ago(long stamp)
@@ -152,7 +153,7 @@ internal sealed class BookMapMarkers : ModSystem
 		TimeSpan age = TimeSpan.FromTicks(Math.Max(0L, Now - stamp));
 		if (age.TotalMinutes < 1.0)
 		{
-			return RecipeBookSystem.T("только что", "just now");
+			return L("Markers.JustNow");
 		}
 		if (age.TotalHours < 1.0)
 		{
@@ -395,12 +396,12 @@ internal sealed class BookMapMarkers : ModSystem
 	{
 		string message = refusal switch
 		{
-			Refusal.Off => RecipeBookSystem.T("Метки выключены на сервере", "Markers are off on this server"),
-			Refusal.Place => RecipeBookSystem.T("Здесь нельзя", "Not here"),
+			Refusal.Off => L("Markers.MarkersAreOffOnThisServer"),
+			Refusal.Place => L("Markers.NotHere"),
 			Refusal.Limit => RecipeBookSystem.T($"Не больше {PerPlayer} меток", $"{PerPlayer} markers at most"),
-			Refusal.TooFast => RecipeBookSystem.T("Слишком часто, ещё раз", "Too fast, try again"),
-			Refusal.NotYours => RecipeBookSystem.T("Это чужая метка", "Not your marker"),
-			Refusal.Missing => RecipeBookSystem.T("Метки уже нет", "That marker is gone"),
+			Refusal.TooFast => L("Markers.TooFastTryAgain"),
+			Refusal.NotYours => L("Markers.NotYourMarker"),
+			Refusal.Missing => L("Markers.ThatMarkerIsGone"),
 			_ => null
 		};
 		if (message != null && !Main.dedServ)
