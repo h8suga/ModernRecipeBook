@@ -11,10 +11,10 @@ Path roots:
 | Root | Path |
 |---|---|
 | `MOD:` | this worktree at `ecc449d` |
-| `TML:` | `<stand>\ref\tml` (decompiled tModLoader 2026.8) |
-| `MS:` | `<stand>\ref\MagicStorage-0.7.0.11` |
+| `TML:` | decompiled tModLoader 2026.8 (local reference copy) |
+| `MS:` | decompiled Magic Storage 0.7.0.11 (local reference copy) |
 | `CAL:` | `ModSources\.ref\CalamityMod-2.2.4` |
-| prior | `<stand>\docs\chests-ms-research.md` (2026-10-22, client-only era) |
+| prior | earlier chests and Magic Storage research notes (2026-10-22, client-only era, not in this repo) |
 
 Evidence marks: **[stand]** = measured or seen on stand instance 13 (single player, Calamity 2.2.4 +
 MS 0.7.0.11 loaded); everything else is **[code]**, read in the files cited.
@@ -1009,7 +1009,7 @@ Idle (subscribed, nothing changing): 0 B over 10 s. Active (a pull, a craft and 
 
 ### 12.5 Screenshots (stand 14, cropped to the book)
 
-`<stand>\shots-14\`, each in EN and RU (`-en-c.png`, `-ru-c.png`):
+the test stand's shots folder (instance 14), each in EN and RU (`-en-c.png`, `-ru-c.png`):
 `nb-01-tab` (summary, not counted, breakdown rows), `nb-02-cell-tip` (where it is + how to put in),
 `nb-03-long-name`, `nb-03b-long-name-tip`, `nb-04-toolbar-0/1/2-tip` (Deposit All, Quick Stack, Restock),
 `nb-05-summary-tip`, `nb-06-notcounted-tip`, `nb-07-craft-tip` ("From:"), `nb-08-card`, `nb-09-material-tip`,
@@ -1018,7 +1018,7 @@ Idle (subscribed, nothing changing): 0 B over 10 s. Active (a pull, a craft and 
 `nb-17-message-after-switch-ru-c.png` (a deposit made in English, its message read in Russian).
 `nb-01` to `nb-06` and `nb-10` were retaken after the merge of `feature/ui-redesign` (the help has the map section).
 
-Multiplayer, `<stand>\shots-15\` (client A): `nb-20-mp-in-use` (EN, RU: B has a chest open,
+Multiplayer, the test stand's shots folder (instance 15) (client A): `nb-20-mp-in-use` (EN, RU: B has a chest open,
 "Not counted: 1 in use"), `nb-21-syncing` (EN, RU: the server held back, the pill reads Syncing), `nb-22-mp-off-en`
 (the host turned it off), `nb-mp-pull-after-merge-en` (a Shift+click take after the merge).
 
