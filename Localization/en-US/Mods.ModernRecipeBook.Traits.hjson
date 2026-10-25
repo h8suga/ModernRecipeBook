@@ -1,0 +1,38 @@
+Traits: Traits
+WeaponTraits: Weapon traits
+TickTraitsOnlyWeaponsThatHave: Tick traits: only weapons that have all of them stay
+Hidden: "Hidden: "
+ReadingItemDescriptions: "Reading item descriptions… "
+ShowAll: Show all
+UntickEveryTrait: Untick every trait
+NothingIsTicked: Nothing is ticked
+ListedItemsWithIt: "Listed items with it: "
+ListedRecipesWithIt: "Listed recipes with it: "
+ClickUntick: Click: untick
+ClickTickEveryTickedTraitMust: Click: tick; every ticked trait must match
+AllTickedMustMatchEscClose: All ticked must match · Esc: close
+NoHitLimitPenetrate1: no hit limit (penetrate -1)
+UpTo: "up to "
+HitsPenetrate: " hits (penetrate)"
+TheShotIgnoresBlocksTileCollide: the shot ignores blocks (tileCollide)
+TheItemSAutoReuse: the item's autoReuse
+TheProjectileSFlag: the projectile's flag
+NameHoming: Homing
+NameStealthHoming: Homing stealth strike
+NamePierces: Pierces
+NameThroughWalls: Through walls
+NameAutoUse: Auto attack
+NameMinion: Minion
+NameSentry: Sentry
+TipHoming: The shots turn toward enemies (from the description or checked in code)
+TipStealthHoming: The stealth strike turns toward enemies (description or code)
+TipPierces: A shot is not used up by its first hit (its penetrate stat)
+TipThroughWalls: Shots do not collide with blocks (their tileCollide stat)
+TipAutoUse: Keeps attacking while the button is held (autoReuse)
+TipMinion: Summons a minion
+TipSentry: Places a sentry
+SourceDescription: from the description
+SourceEnglishDescription: from the English description
+SourceVerified: checked in the game's code
+SourceFields: from its stats
+Quoted: '''"{0}"'''

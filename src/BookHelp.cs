@@ -6,12 +6,13 @@ namespace ModernRecipeBook;
 // and a short action. A row with Shown is listed only while it returns true (a feature the config can turn off).
 internal static class BookHelp
 {
-	internal readonly record struct Entry(string KeyRu, string KeyEn, string Ru, string En, Func<bool> Shown = null)
+	// Keycap and Action are localization keys (Help.*): keycaps translate too ("LMB").
+	internal readonly record struct Entry(string Keycap, string Action, Func<bool> Shown = null)
 	{
 		internal bool Visible => Shown?.Invoke() ?? true;
 	}
 
-	internal readonly record struct Section(int Column, string Ru, string En, Entry[] Rows);
+	internal readonly record struct Section(int Column, string Title, Entry[] Rows);
 
 	internal const int Columns = 3;
 
@@ -27,56 +28,56 @@ internal static class BookHelp
 
 	internal static readonly Section[] Sections = new Section[5]
 	{
-		new Section(0, "НАВИГАЦИЯ", "MOVING AROUND", new Entry[9]
+		new Section(0, "Help.SectionMOVINGAROUND", new Entry[9]
 		{
-			new Entry("Ctrl+1…6", "Ctrl+1…6", "Вкладка по номеру", "Go to a tab"),
-			new Entry("Ctrl+Tab", "Ctrl+Tab", "Следующая вкладка", "Next tab"),
-			new Entry("Mouse4 · Alt+←", "Mouse4 · Alt+←", "Назад", "Back"),
-			new Entry("Mouse5 · Alt+→", "Mouse5 · Alt+→", "Вперёд", "Forward"),
-			new Entry("← ↑ → ↓", "← ↑ → ↓", "Выбор в сетке", "Move the selection"),
-			new Entry("PgUp · PgDn", "PgUp · PgDn", "Листать страницы", "Turn pages"),
-			new Entry("Home · End", "Home · End", "Первая · последняя", "First · last page"),
-			new Entry("Esc", "Esc", "Закрыть верхнее окно", "Close the top window"),
-			new Entry("F1", "F1", "Эта справка", "This help")
+			new Entry("Help.KeyCtrl16", "Help.GoToATab"),
+			new Entry("Help.KeyCtrlTab", "Help.NextTab"),
+			new Entry("Help.KeyMouse4Alt", "Help.Back"),
+			new Entry("Help.KeyMouse5Alt", "Help.Forward"),
+			new Entry("Help.KeyText", "Help.MoveTheSelection"),
+			new Entry("Help.KeyPgUpPgDn", "Help.TurnPages"),
+			new Entry("Help.KeyHomeEnd", "Help.FirstLastPage"),
+			new Entry("Help.KeyEsc", "Help.CloseTheTopWindow"),
+			new Entry("Help.KeyF1", "Help.ThisHelp")
 		}),
-		new Section(0, "КАРТА · КОЛЁСИКО МЕНЯЕТСЯ", "FULL MAP · MOUSE3 REBINDABLE", new Entry[3]
+		new Section(0, "Help.SectionFULLMAPMOUSE3REBINDABLE", new Entry[3]
 		{
-			new Entry("Колёсико (Mouse3)", "Mouse3 / middle", "Телепорт туда", "Teleport there", () => BookMapTeleport.Enabled),
-			new Entry("ПКМ", "RMB", "Поставить метку", "Place a marker", () => BookMapMarkers.Enabled),
-			new Entry("ПКМ по метке", "RMB on a marker", "Изменить, удалить", "Edit or delete it", () => BookMapMarkers.Enabled)
+			new Entry("Help.KeyMouse3Middle", "Help.TeleportThere", () => BookMapTeleport.Enabled),
+			new Entry("Help.KeyRMB", "Help.PlaceAMarker", () => BookMapMarkers.Enabled),
+			new Entry("Help.KeyRMBOnAMarker", "Help.EditOrDeleteIt", () => BookMapMarkers.Enabled)
 		}),
-		new Section(1, "ПРЕДМЕТ В КАРТОЧКЕ", "THE ITEM CARD", new Entry[11]
+		new Section(1, "Help.SectionTHEITEMCARD", new Entry[11]
 		{
-			new Entry("Ctrl+Enter", "Ctrl+Enter", "Создать", "Craft"),
-			new Entry("Ctrl+Shift+Enter", "Ctrl+Shift+Enter", "Создать максимум", "Craft the most"),
-			new Entry("Alt+T", "Alt+T", "Отслеживать", "Track"),
-			new Entry("Alt+F", "Alt+F", "В избранное", "Favorite"),
-			new Entry("Alt+G", "Alt+G", "Где взять", "How to Get"),
-			new Entry("Alt+U", "Alt+U", "Рецепт · применение", "Recipe · Used in"),
-			new Entry("Alt+U", "Alt+U", "Добыча · параметры", "Mob: Loot · Stats"),
-			new Entry("ЛКМ", "LMB", "Открыть материал", "Open an ingredient"),
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Где используется", "Where it's used"),
-			new Entry("Alt+ЛКМ", "Alt+LMB", "Избранное из сетки", "Favorite in the grid"),
-			new Entry("Mouse3", "Mouse3", "Предмет или моб", "Look up item or mob")
+			new Entry("Help.KeyCtrlEnter", "Help.Craft"),
+			new Entry("Help.KeyCtrlShiftEnter", "Help.CraftTheMost"),
+			new Entry("Help.KeyAltT", "Help.Track"),
+			new Entry("Help.KeyAltF", "Help.Favorite"),
+			new Entry("Help.KeyAltG", "Help.HowToGet"),
+			new Entry("Help.KeyAltU", "Help.RecipeUsedIn"),
+			new Entry("Help.KeyAltU", "Help.MobLootStats"),
+			new Entry("Help.KeyLMB", "Help.OpenAnIngredient"),
+			new Entry("Help.KeyShiftLMB", "Help.WhereItSUsed"),
+			new Entry("Help.KeyAltLMB", "Help.FavoriteInTheGrid"),
+			new Entry("Help.KeyMouse3", "Help.LookUpItemOrMob")
 		}),
-		new Section(2, "ПОИСК И ФИЛЬТРЫ", "FINDING THINGS", new Entry[5]
+		new Section(2, "Help.SectionFINDINGTHINGS", new Entry[5]
 		{
-			new Entry("Ctrl+F", "Ctrl+F", "Поиск", "Search"),
-			new Entry("Ctrl+Backspace", "Ctrl+Backspace", "Сбросить фильтры", "Reset filters"),
-			new Entry("Alt+1…5", "Alt+1…5", "Этап · 5: до следующего босса", "Stage · 5: before the next boss"),
-			new Entry("Кнопки класса", "Class buttons", "Фильтр по классу", "Filter by class"),
-			new Entry("F5", "F5", "Обновить", "Refresh")
+			new Entry("Help.KeyCtrlF", "Help.Search"),
+			new Entry("Help.KeyCtrlBackspace", "Help.ResetFilters"),
+			new Entry("Help.KeyAlt15", "Help.Stage5BeforeTheNextBoss"),
+			new Entry("Help.KeyClassButtons", "Help.FilterByClass"),
+			new Entry("Help.KeyF5", "Help.Refresh")
 		}),
-		new Section(2, "ХРАНИЛИЩЕ", "STORAGE", new Entry[8]
+		new Section(2, "Help.SectionSTORAGE", new Entry[8]
 		{
-			new Entry("ЛКМ", "LMB", "Взять стопку", "Take a stack", Nearby),
-			new Entry("ПКМ, держать", "RMB, hold", "По одной", "One at a time", Nearby),
-			new Entry("Shift+ЛКМ", "Shift+LMB", "Стопку в инвентарь", "Stack to inventory", Nearby),
-			new Entry("Ctrl+ЛКМ", "Ctrl+LMB", "В корзину", "To the trash", Nearby),
-			new Entry("Ctrl+Enter", "Ctrl+Enter", "Взять выбранное", "Selected to inventory", Nearby),
-			new Entry("Ctrl+Q · Ctrl+R", "Ctrl+Q · Ctrl+R", "Стак · пополнить", "Quick stack · restock", Nearby),
-			new Entry("Shift+ЛКМ в инв.", "Shift+LMB in inv.", "Сложить стопку", "Put a stack in", Nearby),
-			new Entry("ЛКМ с предметом", "LMB holding item", "Сложить с курсора", "Put the held item in", Nearby)
+			new Entry("Help.KeyLMB", "Help.TakeAStack", Nearby),
+			new Entry("Help.KeyRMBHold", "Help.OneAtATime", Nearby),
+			new Entry("Help.KeyShiftLMB", "Help.StackToInventory", Nearby),
+			new Entry("Help.KeyCtrlLMB", "Help.ToTheTrash", Nearby),
+			new Entry("Help.KeyCtrlEnter", "Help.SelectedToInventory", Nearby),
+			new Entry("Help.KeyCtrlQCtrlR", "Help.QuickStackRestock", Nearby),
+			new Entry("Help.KeyShiftLMBInInv", "Help.PutAStackIn", Nearby),
+			new Entry("Help.KeyLMBHoldingItem", "Help.PutTheHeldItemIn", Nearby)
 		})
 	};
 

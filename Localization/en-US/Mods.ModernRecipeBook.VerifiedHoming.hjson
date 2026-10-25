@@ -1,0 +1,22 @@
+MagicMissile: steered by the cursor while held; let go, it seeks an enemy within 800 px
+Flamelash: steered by the cursor while held; let go, it seeks an enemy within 800 px
+RainbowRod: steered by the cursor while held; let go, it seeks an enemy within 800 px
+BeeGun: the bees chase an enemy within 800 px soon after launch
+WaspGun: the wasps chase an enemy within 800 px soon after launch
+BatScepter: the bats chase an enemy within 800 px soon after launch
+PossessedHatchet: the hatchet flies at an enemy within 800 px
+BouncingShield: the shield flies at an enemy within 800 px
+ChlorophyteBullet: turns toward an enemy within 300 px in sight
+BookofSkulls: the skull turns gently toward an enemy within 300 px
+SpectreStaff: the lost soul flies at an enemy within 400 px
+SnowmanCannon: the rockets turn toward an enemy within 600 px
+Flairon: the bubbles it spews home in within 650 px
+RazorbladeTyphoon: each wheel locks onto an enemy within 500 px in sight
+VortexBeater: only the rocket every seventh shot homes; the bullets fly straight
+NebulaArcanum: the orb seeks an enemy within 800 px once it slows down
+NebulaBlaze: turns toward an enemy within 250 px (the strong shot 500 px)
+SpiritFlame: the flame flies at an enemy within 500 px
+Celeb2: only one of its seven rocket kinds homes
+FairyQueenMagicItem: the shots turn toward an enemy within 800 px for most of their flight
+WeatherPain: the shot flies at an enemy within 400 px in sight
+FrostyFlare: the stealth flare drops phantom flares that home in within 400 px

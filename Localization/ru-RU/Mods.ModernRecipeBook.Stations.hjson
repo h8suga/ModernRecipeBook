@@ -1,0 +1,12 @@
+Stations: Станции
+UntickTheStationsYouLackWhat: Снимите станции, которых у вас нет: пропадёт то, что делается только на них
+CtrlBackspaceResetsFilters: Ctrl+Backspace сбрасывает фильтры
+ShowAll: Показать все
+TickEveryStationAgain: Вернуть все станции
+EveryStationIsTicked: Все станции и так отмечены
+ListedItemsMadeHere: "Предметов из списка: "
+ListedRecipesMadeHere: "Рецептов из списка: "
+ClickShowAgain: Клик — вернуть
+ClickHideWhatOnlyItMakes: Клик — скрыть то, что делается только на ней
+ArrowsAndEnterTickEscClose: Стрелки и Enter — отметить · Esc — закрыть
+WithoutStations: Без {0} {^0:станции;станций;станций}

@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Terraria;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -37,11 +38,11 @@ public sealed partial class RecipeBookSystem
 
 	private static (int Candidates, int Traits) TraitCountsKey = (-1, -1);
 
-	private static (BookTrait Filter, bool Ru) TraitLabelKey = (BookTrait.None, false);
+	private static (BookTrait Filter, int Culture) TraitLabelKey = (BookTrait.None, -1);
 
 	private static string TraitLabelText = "";
 
-	private static (int Type, bool Ru, int Version) TraitLineKey = (-1, false, -1);
+	private static (int Type, int Culture, int Version) TraitLineKey = (-1, -1, -1);
 
 	private static string TraitLineText = "";
 
@@ -91,21 +92,21 @@ public sealed partial class RecipeBookSystem
 
 	private static string TraitButtonLabel()
 	{
-		if (TraitLabelKey == (TraitFilter, Ru) && TraitLabelText.Length > 0)
+		if (TraitLabelKey == (TraitFilter, Culture) && TraitLabelText.Length > 0)
 		{
 			return TraitLabelText;
 		}
-		TraitLabelKey = (TraitFilter, Ru);
+		TraitLabelKey = (TraitFilter, Culture);
 		List<string> names = new List<string>();
 		foreach (BookTrait trait in BookItemTraits.Rows)
 		{
 			if ((TraitFilter & trait) != 0)
 			{
-				names.Add(BookItemTraits.Label(trait, Ru));
+				names.Add(BookItemTraits.Label(trait));
 			}
 		}
 		float room = BookGeometry.TraitButton.Width - 40f;
-		string text = (names.Count == 0) ? T("Свойства", "Traits") : string.Join(" + ", names);
+		string text = (names.Count == 0) ? L("Traits.Traits") : string.Join(" + ", names);
 		// Too long for the button: the first name and how many more, never a cut word.
 		if (names.Count > 1 && TextWidth(text, 0.85f) > room)
 		{
@@ -117,10 +118,10 @@ public sealed partial class RecipeBookSystem
 
 	private static string TraitButtonTip()
 	{
-		StringBuilder tip = new StringBuilder(T("Свойства оружия", "Weapon traits"));
+		StringBuilder tip = new StringBuilder(L("Traits.WeaponTraits"));
 		if (TraitFilter == BookTrait.None)
 		{
-			tip.Append('\n').Append(T("Отметьте свойства: останется оружие, у которого есть все отмеченные", "Tick traits: only weapons that have all of them stay"));
+			tip.Append('\n').Append(L("Traits.TickTraitsOnlyWeaponsThatHave"));
 		}
 		else
 		{
@@ -128,10 +129,10 @@ public sealed partial class RecipeBookSystem
 			{
 				if ((TraitFilter & trait) != 0)
 				{
-					tip.Append("\n· ").Append(BookItemTraits.Label(trait, Ru));
+					tip.Append("\n· ").Append(BookItemTraits.Label(trait));
 				}
 			}
-			tip.Append('\n').Append(T("Скрыто: ", "Hidden: ")).Append(Count(TraitHidden));
+			tip.Append('\n').Append(L("Traits.Hidden")).Append(Count(TraitHidden));
 		}
 		if (!BookItemTraits.Ready)
 		{
@@ -142,7 +143,7 @@ public sealed partial class RecipeBookSystem
 
 	private static string ReadingLine()
 	{
-		return T("Читаю описания предметов… ", "Reading item descriptions… ") + (int)(BookItemTraits.Progress * 100f) + "%";
+		return L("Traits.ReadingItemDescriptions") + (int)(BookItemTraits.Progress * 100f) + "%";
 	}
 
 	private static void DrawTraitButton(SpriteBatch sb)
@@ -301,7 +302,7 @@ public sealed partial class RecipeBookSystem
 		CountTraits();
 		Box(sb, panel.X, panel.Y + 4f, panel.Width, panel.Height, new Color(0, 0, 0, 110), border: false, 12f);
 		Box(sb, panel, Panel, border: true, 12f);
-		SectionLabel(sb, T("Свойства оружия", "Weapon traits"), panel.X + 16f, panel.Y + 12f, panel.Width - 32f);
+		SectionLabel(sb, L("Traits.WeaponTraits"), panel.X + 16f, panel.Y + 12f, panel.Width - 32f);
 		int hovered = TraitRowAt();
 		if (hovered >= 0)
 		{
@@ -318,10 +319,10 @@ public sealed partial class RecipeBookSystem
 			if (row == 0)
 			{
 				bool any = TraitFilter != BookTrait.None;
-				CenterLabel(sb, T("Показать все", "Show all"), rect.X + 40f, rect.Y + 4f, rect.Width - 52f, rect.Height - 8f, any ? Accent : Muted, 0.9f, rightAligned: false, leftAligned: true);
+				CenterLabel(sb, L("Traits.ShowAll"), rect.X + 40f, rect.Y + 4f, rect.Width - 52f, rect.Height - 8f, any ? Accent : Muted, 0.9f, rightAligned: false, leftAligned: true);
 				if (row == hovered)
 				{
-					MouseTip(any ? T("Снять все отметки", "Untick every trait") : T("Ничего не отмечено", "Nothing is ticked"));
+					MouseTip(any ? L("Traits.UntickEveryTrait") : L("Traits.NothingIsTicked"));
 				}
 				continue;
 			}
@@ -341,16 +342,16 @@ public sealed partial class RecipeBookSystem
 			{
 				Box(sb, boxX, boxY, 16f, 16f, FieldFill, border: true, 4f, Border);
 			}
-			string name = BookItemTraits.Label(trait, Ru);
+			string name = BookItemTraits.Label(trait);
 			CenterLabel(sb, name, rect.X + 40f, rect.Y + 4f, rect.Width - 40f - 56f, rect.Height - 8f, on ? Accent : ((count > 0) ? TextColor : Muted), 0.9f, rightAligned: false, leftAligned: true);
 			CenterLabel(sb, Count(count), rect.X + rect.Width - 52f, rect.Y + 4f, 40f, rect.Height - 8f, Muted, 0.8f, rightAligned: true);
 			if (row == hovered)
 			{
-				string listed = Catalogue ? T("Предметов в списке с этим свойством: ", "Listed items with it: ") : T("Рецептов в списке с этим свойством: ", "Listed recipes with it: ");
-				MouseTip(name + "\n" + BookItemTraits.Tip(trait, Ru) + "\n" + listed + Count(count) + "\n" + (on ? T("Клик — снять", "Click: untick") : T("Клик — отметить; нужны все отмеченные", "Click: tick; every ticked trait must match")));
+				string listed = Catalogue ? L("Traits.ListedItemsWithIt") : L("Traits.ListedRecipesWithIt");
+				MouseTip(name + "\n" + BookItemTraits.Tip(trait) + "\n" + listed + Count(count) + "\n" + (on ? L("Traits.ClickUntick") : L("Traits.ClickTickEveryTickedTraitMust")));
 			}
 		}
-		string footer = BookItemTraits.Ready ? T("Нужны все отмеченные · Esc — закрыть", "All ticked must match · Esc: close") : ReadingLine();
+		string footer = BookItemTraits.Ready ? L("Traits.AllTickedMustMatchEscClose") : ReadingLine();
 		CenterLabel(sb, footer, panel.X + 16f, panel.Y + panel.Height - 26f, panel.Width - 32f, 20f, Muted, 0.75f, rightAligned: false, leftAligned: true);
 	}
 
@@ -361,7 +362,7 @@ public sealed partial class RecipeBookSystem
 		{
 			return "";
 		}
-		(int, bool, int) key = (item.type, Ru, BookItemTraits.Version);
+		(int, int, int) key = (item.type, Culture, BookItemTraits.Version);
 		if (TraitLineKey == key)
 		{
 			return TraitLineText;
@@ -373,7 +374,7 @@ public sealed partial class RecipeBookSystem
 		{
 			if ((has & trait) != 0)
 			{
-				names.Add(BookItemTraits.Label(trait, Ru));
+				names.Add(BookItemTraits.Label(trait));
 			}
 		}
 		// As many names as fit, then "+N": the hover lists them all.
@@ -398,7 +399,7 @@ public sealed partial class RecipeBookSystem
 	// Each trait with where it comes from: the description's own words, the projectile's numbers, or the checked list.
 	private static string TraitExplanation(int type)
 	{
-		StringBuilder tip = new StringBuilder(T("Свойства", "Traits"));
+		StringBuilder tip = new StringBuilder(L("Traits.Traits"));
 		BookTrait has = BookItemTraits.Get(type);
 		foreach (BookTrait trait in BookItemTraits.Rows)
 		{
@@ -407,24 +408,24 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			BookItemTraits.Why why = BookItemTraits.Reason(type, trait);
-			tip.Append("\n· ").Append(BookItemTraits.Label(trait, Ru)).Append(" — ");
+			tip.Append("\n· ").Append(BookItemTraits.Label(trait)).Append(" — ");
 			switch (trait)
 			{
 			case BookTrait.Homing:
 			case BookTrait.StealthHoming:
-				tip.Append(BookItemTraits.SourceLabel(why.Source, Ru)).Append(": ").Append((why.Source == BookItemTraits.Source.Verified) ? why.Detail : T("«" + why.Detail + "»", "\"" + why.Detail + "\""));
+				tip.Append(BookItemTraits.SourceLabel(why.Source)).Append(": ").Append((why.Source == BookItemTraits.Source.Verified) ? why.Detail : L("Traits.Quoted", why.Detail));
 				break;
 			case BookTrait.Pierces:
-				tip.Append((why.Detail == "-1") ? T("попаданий без предела (penetrate -1)", "no hit limit (penetrate -1)") : (T("до ", "up to ") + why.Detail + T(" попаданий (penetrate)", " hits (penetrate)")));
+				tip.Append((why.Detail == "-1") ? L("Traits.NoHitLimitPenetrate1") : (L("Traits.UpTo") + why.Detail + L("Traits.HitsPenetrate")));
 				break;
 			case BookTrait.ThroughWalls:
-				tip.Append(T("снаряд не сталкивается с блоками (tileCollide)", "the shot ignores blocks (tileCollide)"));
+				tip.Append(L("Traits.TheShotIgnoresBlocksTileCollide"));
 				break;
 			case BookTrait.AutoUse:
-				tip.Append(T("autoReuse у предмета", "the item's autoReuse"));
+				tip.Append(L("Traits.TheItemSAutoReuse"));
 				break;
 			default:
-				tip.Append(T("флаг снаряда", "the projectile's flag"));
+				tip.Append(L("Traits.TheProjectileSFlag"));
 				break;
 			}
 		}

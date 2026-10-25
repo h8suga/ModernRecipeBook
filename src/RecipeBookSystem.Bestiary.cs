@@ -12,6 +12,7 @@ using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -82,13 +83,13 @@ public sealed partial class RecipeBookSystem
 	{
 		return option switch
 		{
-			0 => T("Имя А-Я", "Name A-Z"),
-			1 => T("Имя Я-А", "Name Z-A"),
-			2 => T("Как в игре", "Game order"),
-			3 => T("Мод А-Я", "Mod A-Z"),
-			4 => T("Этап", "Stage"),
-			5 => T("Встречи: давние", "Met: oldest"),
-			_ => T("Встречи: новые", "Met: newest"),
+			0 => L("Bestiary.NameAZ"),
+			1 => L("Bestiary.NameZA"),
+			2 => L("Bestiary.GameOrder"),
+			3 => L("Bestiary.ModAZ"),
+			4 => L("Bestiary.Stage"),
+			5 => L("Bestiary.MetOldest"),
+			_ => L("Bestiary.MetNewest"),
 		};
 	}
 
@@ -97,8 +98,8 @@ public sealed partial class RecipeBookSystem
 	{
 		return option switch
 		{
-			5 => T("Встреча ↑", "Met ↑"),
-			6 => T("Встреча ↓", "Met ↓"),
+			5 => L("Bestiary.Met"),
+			6 => L("Bestiary.Met2"),
 			_ => MobSortOptionLabel(option),
 		};
 	}
@@ -136,8 +137,8 @@ public sealed partial class RecipeBookSystem
 				MobCategoryCulture = culture;
 				MobCategoryList = BookBestiary.Tags.Select((BookBestiary.Tag tag) =>
 				{
-					string label = BookBestiary.Label(tag, Ru);
-					return new BookCategory(tag.Key, label, label, tag.Icon.ItemType, (Item _) => false);
+					string label = BookBestiary.Label(tag);
+					return new BookCategory(tag.Key, () => label, tag.Icon.ItemType, (Item _) => false);
 				}).ToList();
 			}
 			return MobCategoryList;
@@ -336,21 +337,21 @@ public sealed partial class RecipeBookSystem
 					var ranks = RecentMobRanks();
 					if (ranks.TryGetValue(mob.Index, out var entry))
 					{
-						seen = "\n" + T("Видели ", "Seen ") + BookMobEncounters.Ago(entry.SeenUtc, Ru);
+						seen = "\n" + L("Bestiary.Seen") + BookMobEncounters.Ago(entry.SeenUtc);
 					}
 				}
-				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : T("Ещё не открыт в бестиарии", "Not in the Bestiary yet")) + seen);
+				MouseTip(mob.Sample.FullName + "\n" + (met ? (MobKindName(mob.Kind) + " · " + ModName(mob.Mod)) : L("Bestiary.NotInTheBestiaryYet")) + seen);
 			}
 		}
 		if (Filtered.Count == 0)
 		{
 			if (MobRecentCategory && SeenMobs.Newest.Count == 0)
 			{
-				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Пока никого не видели", "No mobs seen yet"), T("Здесь появятся мобы, которых вы встретите", "Mobs you come across will show up here"));
+				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), L("Bestiary.NoMobsSeenYet"), L("Bestiary.MobsYouComeAcrossWillShow"));
 			}
 			else
 			{
-				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), T("Ничего не найдено", "Nothing found"), T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters"));
+				EmptyState(sb, new BookRect(212f, top, 568f, 596f - top), L("Bestiary.NothingFound"), L("Bestiary.CtrlBackspaceResetsFilters"));
 			}
 		}
 	}
@@ -359,11 +360,11 @@ public sealed partial class RecipeBookSystem
 	{
 		return kind switch
 		{
-			BookMobKind.Boss => T("Босс", "Boss"),
-			BookMobKind.MiniBoss => T("Мини-босс", "Mini-boss"),
-			BookMobKind.Town => T("Житель", "Town NPC"),
-			BookMobKind.Critter => T("Существо", "Critter"),
-			_ => T("Враг", "Enemy"),
+			BookMobKind.Boss => L("Bestiary.Boss"),
+			BookMobKind.MiniBoss => L("Bestiary.MiniBoss"),
+			BookMobKind.Town => L("Bestiary.TownNPC"),
+			BookMobKind.Critter => L("Bestiary.Critter"),
+			_ => L("Bestiary.Enemy"),
 		};
 	}
 
@@ -427,7 +428,7 @@ public sealed partial class RecipeBookSystem
 		Box(sb, cx - 2.5f, cy - 2.5f, 5f, 5f, color, border: false, 2.5f);
 		if (!MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Только встреченные", "Encountered only") + "\n" + T("Те, что уже есть в бестиарии", "The ones the Bestiary knows"));
+			MouseTip(L("Bestiary.EncounteredOnly") + "\n" + L("Bestiary.TheOnesTheBestiaryKnows"));
 		}
 	}
 
@@ -604,7 +605,7 @@ public sealed partial class RecipeBookSystem
 					}
 					catch (Exception)
 					{
-						conditions.Add(T("Неизвестное условие", "Unknown condition"));
+						conditions.Add(L("Bestiary.UnknownCondition"));
 						EnemyReadErrors++;
 					}
 				}
@@ -636,8 +637,8 @@ public sealed partial class RecipeBookSystem
 	{
 		return new string[2]
 		{
-			T("Добыча", "Loot"),
-			T("Параметры", "Stats")
+			L("Bestiary.Loot"),
+			L("Bestiary.Stats")
 		};
 	}
 
@@ -652,7 +653,7 @@ public sealed partial class RecipeBookSystem
 		BookMob mob = CardMob;
 		if (mob == null)
 		{
-			EmptyState(sb, BookGeometry.DetailsPanel, T("Ничего не выбрано", "Nothing selected"), T("Выберите моба слева", "Pick a mob on the left"));
+			EmptyState(sb, BookGeometry.DetailsPanel, L("Bestiary.NothingSelected"), L("Bestiary.PickAMobOnTheLeft"));
 			return;
 		}
 		EnsureMobCard();
@@ -664,14 +665,14 @@ public sealed partial class RecipeBookSystem
 		Chevron(sb, back.X + back.Width / 2f - 1f, back.Y + back.Height / 2f, 4f, 2, canBack ? TextColor : Border);
 		if (!MenuOpen && back.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Назад", "Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
+			MouseTip(L("Bestiary.Back") + (canBack ? (": " + HistoryLabel(History.Previous)) : "") + "\nMouse4 · Alt+←");
 		}
 		BookRect[] modes = MobModeRects();
 		Segmented(sb, modes, MobModeLabels(), MobStatsMode ? 1 : 0, 0.8f);
 		int hoverMode = MenuOpen ? (-1) : SegmentAt(modes);
 		if (hoverMode >= 0)
 		{
-			MouseTip(((hoverMode == 0) ? T("Что с него падает", "What it drops") : T("Здоровье, защита, урон и другое", "Life, defense, damage and more")) + " · Alt+U");
+			MouseTip(((hoverMode == 0) ? L("Bestiary.WhatItDrops") : L("Bestiary.LifeDefenseDamageAndMore")) + " · Alt+U");
 		}
 		DrawEnemyPortrait(sb, BookGeometry.MobPortrait, netId);
 		bool pager = mob.Variants.Length > 1;
@@ -682,7 +683,7 @@ public sealed partial class RecipeBookSystem
 			ChevronPager(sb, BookGeometry.MobVariantPrevious, BookGeometry.MobVariantNext, BookGeometry.MobVariantLabel, Variant, mob.Variants.Length);
 			if (!MenuOpen && (BookGeometry.MobVariantPrevious.Contains(Mouse.X, Mouse.Y) || BookGeometry.MobVariantNext.Contains(Mouse.X, Mouse.Y) || BookGeometry.MobVariantLabel.Contains(Mouse.X, Mouse.Y)))
 			{
-				MouseTip(T("Варианты, которые бестиарий считает этим мобом", "Variants the Bestiary counts as this mob"));
+				MouseTip(L("Bestiary.VariantsTheBestiaryCountsAsThis"));
 			}
 		}
 		BookRect subtitle = BookGeometry.MobSubtitle;
@@ -690,21 +691,21 @@ public sealed partial class RecipeBookSystem
 		BookRect tags = BookGeometry.MobTags;
 		Box(sb, tags, Raised, border: false, 8f);
 		string clipped = null;
-		TagLine(0, T("Этап", "Stage"), StepName(BookProgression.NpcStep(netId)));
-		TagLine(1, T("Биом", "Biome"), (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"));
-		TagLine(2, T("Появление", "Spawns"), (EnemySpawn.Length > 0) ? EnemySpawn : T("Не указано", "Not listed"));
+		TagLine(0, L("Bestiary.Stage"), StepName(BookProgression.NpcStep(netId)));
+		TagLine(1, L("Bestiary.Biome"), (EnemyBiomes.Length > 0) ? EnemyBiomes : L("Bestiary.NotListed"));
+		TagLine(2, L("Bestiary.Spawns"), (EnemySpawn.Length > 0) ? EnemySpawn : L("Bestiary.NotListed2"));
 		bool tracked = ContentSamples.NpcBestiaryCreditIdsByNpcNetIds.TryGetValue(mob.NetId, out string credit) && SeenMobs.TryGet(credit, out _);
 		(long First, long Last) met = default;
 		if (tracked)
 		{
 			SeenMobs.TryGet(credit, out met);
 		}
-		TagLine(3, T("Встреча", "Met"), tracked ? (BookMobEncounters.Date(met.First, Ru, full: false) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? T("раньше", "earlier") : T("ещё нет", "not yet")));
+		TagLine(3, L("Bestiary.Met3"), tracked ? (BookMobEncounters.Date(met.First, full: false) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.Earlier") : L("Bestiary.NotYet")));
 		BookRect spawnLine = new BookRect(tags.X, tags.Y + 3f + 2 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		BookRect metLine = new BookRect(tags.X, tags.Y + 3f + 3 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		if (!MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(tracked ? (T("Впервые: ", "First met: ") + BookMobEncounters.Date(met.First, Ru, full: true) + "\n" + T("Последний раз: ", "Last met: ") + BookMobEncounters.Date(met.Last, Ru, full: true) + " · " + BookMobEncounters.Ago(met.Last, Ru)) : (MobMet(mob.NetId) ? T("Встречен до того, как книга начала записывать встречи", "Met before the book started recording encounters") : T("Встречи записываются, когда моб рядом с вами", "Encounters are recorded when the mob is near you")));
+			MouseTip(tracked ? (L("Bestiary.FirstMet") + BookMobEncounters.Date(met.First, full: true) + "\n" + L("Bestiary.LastMet") + BookMobEncounters.Date(met.Last, full: true) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.MetBeforeTheBookStartedRecording") : L("Bestiary.EncountersAreRecordedWhenTheMob")));
 		}
 		else if (!MenuOpen && EnemySpawnTip.Length > 0 && spawnLine.Contains(Mouse.X, Mouse.Y))
 		{
@@ -713,7 +714,7 @@ public sealed partial class RecipeBookSystem
 		else if (!MenuOpen && tags.Contains(Mouse.X, Mouse.Y))
 		{
 			// The note replaces the hint of a value cut short, so that value leads it.
-			MouseTip((clipped != null ? (clipped + "\n") : "") + T("По данным бестиария; может быть неполно", "From the Bestiary; may be incomplete"));
+			MouseTip((clipped != null ? (clipped + "\n") : "") + L("Bestiary.FromTheBestiaryMayBeIncomplete"));
 		}
 		if (MobStatsMode)
 		{
@@ -729,7 +730,7 @@ public sealed partial class RecipeBookSystem
 		Star(sb, star.X + 6f, star.Y + 6f, 20f, favorite);
 		if (!MenuOpen && star.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(favorite ? T("Убрать из избранного · Alt+F", "Remove from favorites · Alt+F") : T("В избранное · Alt+F", "Add to favorites · Alt+F"));
+			MouseTip(favorite ? L("Bestiary.RemoveFromFavoritesAltF") : L("Bestiary.AddToFavoritesAltF"));
 		}
 		void TagLine(int line, string label, string value)
 		{
@@ -749,7 +750,7 @@ public sealed partial class RecipeBookSystem
 		BookRect body = BookGeometry.MobBody;
 		if (MobLootLines.Count == 0)
 		{
-			DrawCardEmpty(sb, body, T("Добыча не указана", "No loot listed"), T("С него ничего не падает", "It drops nothing"));
+			DrawCardEmpty(sb, body, L("Bestiary.NoLootListed"), L("Bestiary.ItDropsNothing"));
 			return;
 		}
 		int pages = Math.Max(1, (MobLootLines.Count + BookGeometry.MobLootRows - 1) / BookGeometry.MobLootRows);
@@ -766,17 +767,17 @@ public sealed partial class RecipeBookSystem
 			bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 			if (line.Kind == LootLineKind.NoOwn)
 			{
-				CenterLabel(sb, T("Своей добычи нет", "No drops of its own"), rect.X, rect.Y, rect.Width, rect.Height, Muted, 0.85f);
+				CenterLabel(sb, L("Bestiary.NoDropsOfItsOwn"), rect.X, rect.Y, rect.Width, rect.Height, Muted, 0.85f);
 				continue;
 			}
 			if (line.Kind == LootLineKind.GlobalRow)
 			{
 				Box(sb, rect, hover ? HoverFill : Panel, border: true, 8f);
 				Chevron(sb, rect.X + 18f, rect.Y + rect.Height / 2f, 4f, MobGlobalOpen ? 0 : 3, Muted);
-				FixedLabel(sb, T("Любые враги", "Any enemy") + " · " + EnemyGlobalLoot.Count, rect.X + 36f, rect.Y + 11f, TextColor, 0.85f, rect.Width - 44f, 20f);
+				FixedLabel(sb, L("Bestiary.AnyEnemy") + " · " + EnemyGlobalLoot.Count, rect.X + 36f, rect.Y + 11f, TextColor, 0.85f, rect.Width - 44f, 20f);
 				if (hover)
 				{
-					MouseTip(T("Добыча, которая падает с любых врагов", "Drops any enemy can have") + "\n" + (MobGlobalOpen ? T("Клик: свернуть", "Click: fold") : T("Клик: показать", "Click: show")));
+					MouseTip(L("Bestiary.DropsAnyEnemyCanHave") + "\n" + (MobGlobalOpen ? L("Bestiary.ClickFold") : L("Bestiary.ClickShow")));
 				}
 				continue;
 			}
@@ -793,13 +794,13 @@ public sealed partial class RecipeBookSystem
 			{
 				CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
 			}
-			string detail = loot.OtherWorld ? (T("Не в этом мире", "Not in this world") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? T("Зависит от условий", "Varies by condition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
+			string detail = loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? L("Bestiary.VariesByCondition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
 			FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
 			if (hover)
 			{
 				// The item's own tooltip; under it what the row cuts short: every rule with its full conditions.
 				string rules = (varies || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot) + "\n") : "";
-				HoverItemRow(item, (loot.OtherWorld ? (T("Не в этом мире", "Not in this world") + "\n") : "") + rules + T("Клик: карточка предмета", "Click: the item's card"));
+				HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + rules + L("Bestiary.ClickTheItemSCard"));
 			}
 		}
 		if (pages > 1)
@@ -807,11 +808,11 @@ public sealed partial class RecipeBookSystem
 			ChevronPager(sb, BookGeometry.MobPagePrevious, BookGeometry.MobPageNext, BookGeometry.MobPageLabel, DetailsPage, pages);
 			if (!MenuOpen && BookGeometry.MobPagePrevious.Contains(Mouse.X, Mouse.Y) && DetailsPage > 0)
 			{
-				MouseTip(T("Назад · колесо", "Previous · wheel"));
+				MouseTip(L("Bestiary.PreviousWheel"));
 			}
 			if (!MenuOpen && BookGeometry.MobPageNext.Contains(Mouse.X, Mouse.Y) && DetailsPage < pages - 1)
 			{
-				MouseTip(T("Дальше · колесо", "Next · wheel"));
+				MouseTip(L("Bestiary.NextWheel"));
 			}
 		}
 	}

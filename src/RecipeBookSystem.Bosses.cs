@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -110,7 +111,7 @@ public sealed partial class RecipeBookSystem
 		{
 			return StageName(BookSteps.StageOf(step));
 		}
-		return T("После: ", "After ") + BookSteps.Name(step);
+		return L("Stages.After") + BookSteps.Name(step);
 	}
 
 	private static string StageFilterLabel()
@@ -120,7 +121,7 @@ public sealed partial class RecipeBookSystem
 			case BookStageFilter.BeforeBoss:
 			{
 				int step = StageBeforeStep();
-				return step < BookSteps.All.Count ? T("До: ", "Before: ") + BookSteps.Name(step) : T("Все боссы побеждены", "Every boss is down");
+				return step < BookSteps.All.Count ? L("Stages.Before") + BookSteps.Name(step) : L("Stages.EveryBossIsDown");
 			}
 			case BookStageFilter.Unknown:
 				return UnknownStageLabel;
@@ -129,7 +130,7 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
-	private static string UnknownStageLabel => T("Этап неизвестен", "Unknown stage");
+	private static string UnknownStageLabel => L("Stages.UnknownStage");
 
 	// The dropdown in the header: the boss's head next to "Before: X", shrunk to fit so the tabs never move.
 	private static void DrawStageDropdown(SpriteBatch sb, BookRect rect)
@@ -146,10 +147,10 @@ public sealed partial class RecipeBookSystem
 
 	private static string StageDropdownTip()
 	{
-		string tip = T("Этап для всех вкладок · Alt+1…5", "Stage for every tab · Alt+1…5") + "\n" + T("Самый ранний этап получения; учитывается сложность мира", "Earliest stage you can get an item; world difficulty counts");
+		string tip = L("Stages.StageForEveryTabAlt1") + "\n" + L("Stages.EarliestStageYouCanGetAn");
 		if (StageFilter == BookStageFilter.BeforeBoss)
 		{
-			tip += "\n" + T("Показано то, что можно получить, пока этот босс жив, а все боссы до него побеждены", "Shows what you can get with every earlier boss down and this one still alive");
+			tip += "\n" + L("Stages.ShowsWhatYouCanGetWith");
 		}
 		return tip;
 	}
@@ -251,7 +252,7 @@ public sealed partial class RecipeBookSystem
 		Box(sb, panel.X, panel.Y + 4f, panel.Width, panel.Height, new Color(0, 0, 0, 110), border: false, 12f);
 		Box(sb, panel, Panel, border: true, 12f, Accent);
 		float left = Math.Max(StageDropdownRect().Width, 200f);
-		SectionLabel(sb, T("Этап", "Stage"), panel.X + 16f, panel.Y + 10f, left - 24f);
+		SectionLabel(sb, L("Stages.Stage"), panel.X + 16f, panel.Y + 10f, left - 24f);
 		Box(sb, panel.X + left, panel.Y + 12f, 1f, panel.Height - 24f, Border, border: false, 0f);
 		string[] stages = new string[3] { StageName(BookStage.PreHardmode), StageName(BookStage.Hardmode), StageName(BookStage.PostHardmode) };
 		bool[] headed = new bool[3];
@@ -272,20 +273,20 @@ public sealed partial class RecipeBookSystem
 					CenterLabel(sb, label, rect.X + 12f, rect.Y + 4f, rect.Width - 24f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
 					if (hover && row.Value == (int)BookStageFilter.Unknown)
 					{
-						MouseTip(T("То, что книга не смогла отнести к этапу: нет обычного источника или он не читается", "What the book could not place: no regular source, or one it cannot read"));
+						MouseTip(L("Stages.WhatTheBookCouldNotPlace"));
 					}
 					break;
 				}
 				case StageRowNext:
 				{
-					SectionLabel(sb, T("Следующий босс", "Next boss"), rect.X + 8f, rect.Y - 22f, rect.Width - 16f);
+					SectionLabel(sb, L("Stages.NextBoss"), rect.X + 8f, rect.Y - 22f, rect.Width - 16f);
 					bool active = StageFilter == BookStageFilter.BeforeBoss && StageBoss == NextBossKey;
 					RowFill(sb, rect, active, hover);
 					DrawBossHead(sb, row.Value, new BookRect(rect.X + 8f, rect.Y + 5f, 20f, 20f), 1f);
-					CenterLabel(sb, T("До: ", "Before: ") + BookSteps.Name(row.Value), rect.X + 34f, rect.Y + 4f, rect.Width - 42f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
+					CenterLabel(sb, L("Stages.Before") + BookSteps.Name(row.Value), rect.X + 34f, rect.Y + 4f, rect.Width - 42f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
 					if (hover)
 					{
-						MouseTip(T("Первый ещё не побеждённый босс этого мира; фильтр сам перейдёт к следующему · Alt+5", "The first boss not yet down in this world; the filter moves on by itself · Alt+5"));
+						MouseTip(L("Stages.TheFirstBossNotYetDown"));
 					}
 					break;
 				}
@@ -318,8 +319,8 @@ public sealed partial class RecipeBookSystem
 					}
 					if (hover)
 					{
-						string state = row.Value == next ? T("Следующий босс этого мира", "Next boss in this world") : (down ? T("Уже побеждён", "Already down") : (!available ? T("Не в этом мире: босс другого зла", "Not in this world: the other evil's boss") : T("Ещё не побеждён", "Not down yet")));
-						MouseTip(T("До: ", "Before: ") + BookSteps.Name(row.Value) + " · " + state + "\n" + T("Всё, что можно получить, пока он жив, а все боссы до него побеждены", "Everything you can get with every earlier boss down and this one still alive"));
+						string state = row.Value == next ? L("Stages.NextBossInThisWorld") : (down ? L("Stages.AlreadyDown") : (!available ? L("Stages.NotInThisWorldTheOther") : L("Stages.NotDownYet")));
+						MouseTip(L("Stages.Before") + BookSteps.Name(row.Value) + " · " + state + "\n" + L("Stages.EverythingYouCanGetWithEvery"));
 					}
 					break;
 				}
@@ -379,9 +380,9 @@ public sealed partial class RecipeBookSystem
 		{
 			head += " · " + StageName(BookSteps.StageOf(step));
 		}
-		string chain = modeExcluded ? ItemName(item.type) + " ← " + T("источник есть только при другой сложности мира", "its source is only there at another world difficulty") : ChainText(BookProgression.Chain(item.type, recipe?.RecipeIndex ?? -1));
-		string lead = recipe != null ? T("Этап рецепта: по материалам, станции и условиям", "Recipe stage: from its materials, station and conditions") : T("Самый ранний этап, когда предмет можно получить", "The earliest stage you can get this item");
-		return head + (chain.Length > 0 ? "\n" + chain : "") + "\n" + lead + "\n" + T("Учитывается сложность мира; боссы — в порядке Boss Checklist", "The world's difficulty counts; bosses go in Boss Checklist's order");
+		string chain = modeExcluded ? ItemName(item.type) + " ← " + L("Stages.ItsSourceIsOnlyThereAt") : ChainText(BookProgression.Chain(item.type, recipe?.RecipeIndex ?? -1));
+		string lead = recipe != null ? L("Stages.RecipeStageFromItsMaterialsStation") : L("Stages.TheEarliestStageYouCanGet");
+		return head + (chain.Length > 0 ? "\n" + chain : "") + "\n" + lead + "\n" + L("Stages.TheWorldSDifficultyCountsBosses");
 	}
 
 	// "Spectre Bar ← Ectoplasm ← drop: Dungeon Spirit": each item through which the step came, then what fixed it.
@@ -397,18 +398,18 @@ public sealed partial class RecipeBookSystem
 			}
 			string phrase = link.Kind switch
 			{
-				"drop" or "enemy" or "spawn" => T("выпадает: ", "drop: ") + NpcName(link.Id) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
-				"banner" => T("знамя: ", "banner: ") + NpcName(link.Id),
-				"catch" => T("сачок: ", "bug net: ") + NpcName(link.Id),
-				"shop" => T("продаёт: ", "sold by: ") + NpcName(link.Id) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
-				"list" or "worldgen" => T("есть в мире", "found in the world"),
-				"fishing" => T("рыбалка", "fishing"),
-				"grows" => T("растёт в мире", "grows in the world"),
-				"pickaxe" => T("нужна кирка с силой ", "needs pickaxe power ") + link.Id + " · " + StepPhrase(link.Step),
-				"rarity" => T("по редкости (оценка)", "by rarity (a guess)"),
-				"gate" => link.Id <= 0 ? T("с самого начала", "from the start") : StepPhrase(link.Id),
+				"drop" or "enemy" or "spawn" => L("Stages.Drop") + NpcName(link.Id) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
+				"banner" => L("Stages.Banner") + NpcName(link.Id),
+				"catch" => L("Stages.BugNet") + NpcName(link.Id),
+				"shop" => L("Stages.SoldBy") + NpcName(link.Id) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
+				"list" or "worldgen" => L("Stages.FoundInTheWorld"),
+				"fishing" => L("Stages.Fishing"),
+				"grows" => L("Stages.GrowsInTheWorld"),
+				"pickaxe" => L("Stages.NeedsPickaxePower") + link.Id + " · " + StepPhrase(link.Step),
+				"rarity" => L("Stages.ByRarityAGuess"),
+				"gate" => link.Id <= 0 ? L("Stages.FromTheStart") : StepPhrase(link.Id),
 				"recipe" or "bag" or "use" or "record" or "carried" or "mine" or "shimmer" or "trade" or "rod" => null,
-				_ => T("источник не найден", "no source found")
+				_ => L("Stages.NoSourceFound")
 			};
 			if (phrase != null)
 			{
@@ -419,10 +420,10 @@ public sealed partial class RecipeBookSystem
 			{
 				string prefix = link.Kind switch
 				{
-					"mine" => T("кирка: ", "pickaxe: "),
-					"shimmer" => T("мерцание: ", "shimmer: "),
-					"trade" => T("обмен: ", "trade: "),
-					"rod" => T("удочка: ", "rod: "),
+					"mine" => L("Stages.Pickaxe"),
+					"shimmer" => L("Stages.Shimmer"),
+					"trade" => L("Stages.Trade"),
+					"rod" => L("Stages.Rod"),
 					_ => ""
 				};
 				parts.Add(prefix + ItemName(links[i + 1].Item));
@@ -445,6 +446,6 @@ public sealed partial class RecipeBookSystem
 		{
 			return StageName(BookStage.Hardmode);
 		}
-		return T("после: ", "after ") + BookSteps.Name(step);
+		return L("Stages.After2") + BookSteps.Name(step);
 	}
 }

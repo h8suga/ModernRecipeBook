@@ -1,0 +1,38 @@
+Traits: Свойства
+WeaponTraits: Свойства оружия
+TickTraitsOnlyWeaponsThatHave: Отметьте свойства: останется оружие, у которого есть все отмеченные
+Hidden: "Скрыто: "
+ReadingItemDescriptions: "Читаю описания предметов… "
+ShowAll: Показать все
+UntickEveryTrait: Снять все отметки
+NothingIsTicked: Ничего не отмечено
+ListedItemsWithIt: "Предметов в списке с этим свойством: "
+ListedRecipesWithIt: "Рецептов в списке с этим свойством: "
+ClickUntick: Клик — снять
+ClickTickEveryTickedTraitMust: Клик — отметить; нужны все отмеченные
+AllTickedMustMatchEscClose: Нужны все отмеченные · Esc — закрыть
+NoHitLimitPenetrate1: попаданий без предела (penetrate -1)
+UpTo: "до "
+HitsPenetrate: " попаданий (penetrate)"
+TheShotIgnoresBlocksTileCollide: снаряд не сталкивается с блоками (tileCollide)
+TheItemSAutoReuse: autoReuse у предмета
+TheProjectileSFlag: флаг снаряда
+NameHoming: Самонаведение
+NameStealthHoming: Наводится скрытый удар
+NamePierces: Пробивает
+NameThroughWalls: Сквозь стены
+NameAutoUse: Автоатака
+NameMinion: Миньон
+NameSentry: Турель
+TipHoming: Снаряды сами летят к врагу (по описанию или проверено в коде)
+TipStealthHoming: Скрытый удар летит к врагу (по описанию или проверено в коде)
+TipPierces: Снаряд не тратится на первом попадании (параметр penetrate)
+TipThroughWalls: Снаряд не сталкивается с блоками (параметр tileCollide)
+TipAutoUse: Атакует, пока зажата кнопка (параметр autoReuse)
+TipMinion: Призывает миньона
+TipSentry: Ставит турель
+SourceDescription: из описания
+SourceEnglishDescription: из английского описания
+SourceVerified: проверено в коде игры
+SourceFields: из параметров
+Quoted: «{0}»

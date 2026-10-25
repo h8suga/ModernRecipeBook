@@ -13,6 +13,8 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 
+using static ModernRecipeBook.BookText;
+
 namespace ModernRecipeBook;
 
 [Flags]
@@ -176,45 +178,45 @@ internal static class BookItemTraits
 		return false;
 	}
 
-	internal static string Label(BookTrait trait, bool ru)
+	internal static string Label(BookTrait trait)
 	{
 		return trait switch
 		{
-			BookTrait.Homing => ru ? "Самонаведение" : "Homing",
-			BookTrait.StealthHoming => ru ? "Наводится скрытый удар" : "Homing stealth strike",
-			BookTrait.Pierces => ru ? "Пробивает" : "Pierces",
-			BookTrait.ThroughWalls => ru ? "Сквозь стены" : "Through walls",
-			BookTrait.AutoUse => ru ? "Автоатака" : "Auto attack",
-			BookTrait.Minion => ru ? "Миньон" : "Minion",
-			BookTrait.Sentry => ru ? "Турель" : "Sentry",
+			BookTrait.Homing => L("Traits.NameHoming"),
+			BookTrait.StealthHoming => L("Traits.NameStealthHoming"),
+			BookTrait.Pierces => L("Traits.NamePierces"),
+			BookTrait.ThroughWalls => L("Traits.NameThroughWalls"),
+			BookTrait.AutoUse => L("Traits.NameAutoUse"),
+			BookTrait.Minion => L("Traits.NameMinion"),
+			BookTrait.Sentry => L("Traits.NameSentry"),
 			_ => ""
 		};
 	}
 
 	// One line: what the trait means and where it is read from.
-	internal static string Tip(BookTrait trait, bool ru)
+	internal static string Tip(BookTrait trait)
 	{
 		return trait switch
 		{
-			BookTrait.Homing => ru ? "Снаряды сами летят к врагу (по описанию или проверено в коде)" : "The shots turn toward enemies (from the description or checked in code)",
-			BookTrait.StealthHoming => ru ? "Скрытый удар летит к врагу (по описанию или проверено в коде)" : "The stealth strike turns toward enemies (description or code)",
-			BookTrait.Pierces => ru ? "Снаряд не тратится на первом попадании (параметр penetrate)" : "A shot is not used up by its first hit (its penetrate stat)",
-			BookTrait.ThroughWalls => ru ? "Снаряд не сталкивается с блоками (параметр tileCollide)" : "Shots do not collide with blocks (their tileCollide stat)",
-			BookTrait.AutoUse => ru ? "Атакует, пока зажата кнопка (параметр autoReuse)" : "Keeps attacking while the button is held (autoReuse)",
-			BookTrait.Minion => ru ? "Призывает миньона" : "Summons a minion",
-			BookTrait.Sentry => ru ? "Ставит турель" : "Places a sentry",
+			BookTrait.Homing => L("Traits.TipHoming"),
+			BookTrait.StealthHoming => L("Traits.TipStealthHoming"),
+			BookTrait.Pierces => L("Traits.TipPierces"),
+			BookTrait.ThroughWalls => L("Traits.TipThroughWalls"),
+			BookTrait.AutoUse => L("Traits.TipAutoUse"),
+			BookTrait.Minion => L("Traits.TipMinion"),
+			BookTrait.Sentry => L("Traits.TipSentry"),
 			_ => ""
 		};
 	}
 
-	internal static string SourceLabel(Source source, bool ru)
+	internal static string SourceLabel(Source source)
 	{
 		return source switch
 		{
-			Source.Description => ru ? "из описания" : "from the description",
-			Source.EnglishDescription => ru ? "из английского описания" : "from the English description",
-			Source.Verified => ru ? "проверено в коде игры" : "checked in the game's code",
-			Source.Fields => ru ? "из параметров" : "from its stats",
+			Source.Description => L("Traits.SourceDescription"),
+			Source.EnglishDescription => L("Traits.SourceEnglishDescription"),
+			Source.Verified => L("Traits.SourceVerified"),
+			Source.Fields => L("Traits.SourceFields"),
 			_ => ""
 		};
 	}
@@ -798,12 +800,12 @@ internal static class BookItemTraits
 			int all = queue.Count((int type) => (Get(type) & t) != 0);
 			if (t != BookTrait.Homing && t != BookTrait.StealthHoming)
 			{
-				return Label(t, ru: false).ToLowerInvariant() + " " + all;
+				return t.ToString().ToLowerInvariant() + " " + all;
 			}
 			Why[] why = (t == BookTrait.Homing) ? homingWhy : stealthWhy;
 			int verified = queue.Count((int type) => (Get(type) & t) != 0 && why[type].Source == Source.Verified);
 			int englishOnly = queue.Count((int type) => (Get(type) & t) != 0 && why[type].Source == Source.EnglishDescription);
-			return Label(t, ru: false).ToLowerInvariant() + " " + all + " (" + verified + " verified list, " + englishOnly + " English text only)";
+			return t.ToString().ToLowerInvariant() + " " + all + " (" + verified + " verified list, " + englishOnly + " English text only)";
 		}));
 	}
 

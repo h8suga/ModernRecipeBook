@@ -7,22 +7,23 @@ namespace ModernRecipeBook;
 // Picker rows: places and people, then threats and resources.
 internal static class BookMarkerBadges
 {
-	internal readonly record struct Badge(int Item, string Ru, string En);
+	// Name: the localization key of the badge's name.
+	internal readonly record struct Badge(int Item, string Name);
 
 	internal static readonly Badge[] All = new Badge[12]
 	{
-		new Badge(ItemID.Bed, "Дом", "Home"),
-		new Badge(ItemID.GoldCoin, "Торговец", "Shop"),
-		new Badge(ItemID.TeleportationPylonPurity, "Пилон", "Pylon"),
-		new Badge(ItemID.LifeCrystal, "Святыня", "Shrine"),
-		new Badge(ItemID.FallenStar, "Интересное", "Point of Interest"),
-		new Badge(ItemID.Sign, "Заметка", "Note"),
-		new Badge(ItemID.Skull, "Босс", "Boss"),
-		new Badge(ItemID.Bomb, "Опасно", "Danger"),
-		new Badge(ItemID.IronPickaxe, "Руда", "Ore"),
-		new Badge(ItemID.Chest, "Добыча", "Loot"),
-		new Badge(ItemID.Sunflower, "Ферма", "Farm"),
-		new Badge(ItemID.Bass, "Рыбалка", "Fishing")
+		new Badge(ItemID.Bed, "Badges.Home"),
+		new Badge(ItemID.GoldCoin, "Badges.Shop"),
+		new Badge(ItemID.TeleportationPylonPurity, "Badges.Pylon"),
+		new Badge(ItemID.LifeCrystal, "Badges.Shrine"),
+		new Badge(ItemID.FallenStar, "Badges.PointOfInterest"),
+		new Badge(ItemID.Sign, "Badges.Note"),
+		new Badge(ItemID.Skull, "Badges.Boss"),
+		new Badge(ItemID.Bomb, "Badges.Danger"),
+		new Badge(ItemID.IronPickaxe, "Badges.Ore"),
+		new Badge(ItemID.Chest, "Badges.Loot"),
+		new Badge(ItemID.Sunflower, "Badges.Farm"),
+		new Badge(ItemID.Bass, "Badges.Fishing")
 	};
 
 	internal const int Count = 12;

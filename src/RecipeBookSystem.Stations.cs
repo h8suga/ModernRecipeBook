@@ -7,6 +7,7 @@ using Microsoft.Xna.Framework.Input;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -56,7 +57,7 @@ public sealed partial class RecipeBookSystem
 
 	private static readonly List<(int Tile, int Count)> StationRows = new List<(int, int)>();
 
-	private static (int Version, bool Ru, int Excluded) StationRowsKey = (-1, false, -1);
+	private static (int Version, int Culture, int Excluded) StationRowsKey = (-1, -1, -1);
 
 	internal static bool StationMenuOpen => Open && StationMenu;
 
@@ -307,7 +308,7 @@ public sealed partial class RecipeBookSystem
 	// even at 0; by count, then name. Rebuilt only when the list or the language changed.
 	private static List<(int Tile, int Count)> StationList()
 	{
-		(int, bool, int) key = (StationCandidatesVersion, Ru, ExcludedTileCount);
+		(int, int, int) key = (StationCandidatesVersion, Culture, ExcludedTileCount);
 		if (StationRowsKey == key)
 		{
 			return StationRows;
@@ -347,9 +348,9 @@ public sealed partial class RecipeBookSystem
 			int n = ExcludedTileCount;
 			if (n == 0)
 			{
-				return T("Станции", "Stations");
+				return L("Stations.Stations");
 			}
-			return Ru ? ("Без " + n + " " + BookSourceRules.Plural(n, "станции", "станций", "станций")) : ("Without " + n + ((n == 1) ? " station" : " stations"));
+			return L("Stations.WithoutStations", n);
 		}
 	}
 
@@ -357,7 +358,7 @@ public sealed partial class RecipeBookSystem
 	{
 		if (ExcludedTileCount == 0)
 		{
-			return T("Станции", "Stations") + "\n" + T("Снимите станции, которых у вас нет: пропадёт то, что делается только на них", "Untick the stations you lack: what only they make is hidden");
+			return L("Stations.Stations") + "\n" + L("Stations.UntickTheStationsYouLackWhat");
 		}
 		List<string> names = new List<string>();
 		for (int tile = 0; tile < ExcludedTile.Length; tile++)
@@ -370,7 +371,7 @@ public sealed partial class RecipeBookSystem
 		names.Sort(StringComparer.CurrentCultureIgnoreCase);
 		// One station a line: a comma list ran past the tooltip's width and broke mid-name.
 		string shown = string.Join("\n", names.Take(6)) + ((names.Count > 6) ? ("\n+" + (names.Count - 6)) : "");
-		return StationLabel + ":\n" + shown + "\n" + T("Ctrl+Backspace сбрасывает фильтры", "Ctrl+Backspace resets filters");
+		return StationLabel + ":\n" + shown + "\n" + L("Stations.CtrlBackspaceResetsFilters");
 	}
 
 	private static BookRect StationMenuPanel
@@ -535,10 +536,10 @@ public sealed partial class RecipeBookSystem
 			if (row == 0)
 			{
 				bool any = ExcludedTileCount > 0;
-				CenterLabel(sb, T("Показать все", "Show all"), rect.X + 40f, rect.Y + 4f, rect.Width - 52f, rect.Height - 8f, any ? Accent : Muted, 0.9f, rightAligned: false, leftAligned: true);
+				CenterLabel(sb, L("Stations.ShowAll"), rect.X + 40f, rect.Y + 4f, rect.Width - 52f, rect.Height - 8f, any ? Accent : Muted, 0.9f, rightAligned: false, leftAligned: true);
 				if (row == hovered)
 				{
-					MouseTip(any ? T("Вернуть все станции", "Tick every station again") : T("Все станции и так отмечены", "Every station is ticked"));
+					MouseTip(any ? L("Stations.TickEveryStationAgain") : L("Stations.EveryStationIsTicked"));
 				}
 				continue;
 			}
@@ -573,8 +574,8 @@ public sealed partial class RecipeBookSystem
 			CenterLabel(sb, Count(count), rect.X + rect.Width - 44f, rect.Y + 4f, 36f, rect.Height - 8f, Muted, 0.8f, rightAligned: true);
 			if (row == hovered)
 			{
-				string listed = Catalogue ? T("Предметов из списка: ", "Listed items made here: ") : T("Рецептов из списка: ", "Listed recipes made here: ");
-				MouseTip(name + "\n" + listed + Count(count) + "\n" + (excluded ? T("Клик — вернуть", "Click: show again") : T("Клик — скрыть то, что делается только на ней", "Click: hide what only it makes")));
+				string listed = Catalogue ? L("Stations.ListedItemsMadeHere") : L("Stations.ListedRecipesMadeHere");
+				MouseTip(name + "\n" + listed + Count(count) + "\n" + (excluded ? L("Stations.ClickShowAgain") : L("Stations.ClickHideWhatOnlyItMakes")));
 			}
 		}
 		if (total > StationVisibleRows)
@@ -585,7 +586,7 @@ public sealed partial class RecipeBookSystem
 			Box(sb, x, panel.Y + 36f, 3f, track, Raised, border: false, 1f);
 			Box(sb, x, panel.Y + 36f + (track - thumb) * StationOffset / (total - StationVisibleRows), 3f, thumb, Accent, border: false, 1f);
 		}
-		CenterLabel(sb, T("Стрелки и Enter — отметить · Esc — закрыть", "Arrows and Enter: tick · Esc: close"), panel.X + 16f, panel.Y + panel.Height - 26f, panel.Width - 32f, 20f, Muted, 0.75f, rightAligned: false, leftAligned: true);
+		CenterLabel(sb, L("Stations.ArrowsAndEnterTickEscClose"), panel.X + 16f, panel.Y + panel.Height - 26f, panel.Width - 32f, 20f, Muted, 0.75f, rightAligned: false, leftAligned: true);
 	}
 
 	// Stand: items whose every recipe needs the tile, and items that have one recipe there and one elsewhere.

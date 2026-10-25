@@ -1,0 +1,58 @@
+Station: Станция
+WeakestFirst: от слабой
+StrongestFirst: от сильной
+Changed: Изменено
+OldestFirst: сначала старые
+NewestFirst: сначала новые
+Rarity: Редкость
+LowestFirst: от низкой
+HighestFirst: от высокой
+SellPrice: Цена продажи
+Price: Цена
+Damage: Урон
+LowestFirst2: от меньшего
+HighestFirst2: от большего
+Speed: Скорость
+SlowestFirst: от медленных
+FastestFirst: от быстрых
+CritChance: Шанс крита
+Crit: Крит
+Knockback: Отбрасывание
+Knockback2: Отбрас.
+WeakestFirst2: от слабого
+StrongestFirst2: от сильного
+Defense: Защита
+LowestFirst3: от меньшей
+HighestFirst3: от большей
+FlightTime: Время полёта
+Flight: Полёт
+ShortestFirst: от короткого
+LongestFirst: от долгого
+HealsLife: Лечение
+Healing: Лечение
+LeastFirst: от меньшего
+MostFirst: от большего
+HealsMana: Мана
+Mana: Мана
+Duration: Длительность
+Duration2: Время
+ShortestFirst2: от короткой
+LongestFirst2: от долгой
+PickaxePower: Сила кирки
+Pickaxe: Кирка
+AxePower: Сила топора
+Axe: Топор
+HammerPower: Сила молота
+Hammer: Молот
+FishingPower: Сила удочки
+Fishing: Удочка
+BaitPower: Сила наживки
+Bait: Наживка
+Wings: Крылья
+Weapons: Оружие
+Ammo: Боеприпасы
+Armor: Броня
+Accessories: Аксессуары
+PotionsAndFood: Зелья и еда
+Tools: Инструменты
+FishingRods: Удочки

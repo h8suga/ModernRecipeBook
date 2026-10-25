@@ -1,0 +1,20 @@
+PlacedBy: "Placed by "
+MarkersAreOffOnThisServer: Markers are off on this server
+NotHere: Not here
+TooFastTryAgain: Too fast, try again
+NotYourMarker: Not your marker
+ThatMarkerIsGone: That marker is gone
+NewMarker: New Marker
+EditMarker: Edit Marker
+NameOptional: Name (optional)
+Cancel: Cancel
+Save: Save
+CancelEsc: Cancel · Esc
+SaveEnter: Save · Enter
+Edited: "Edited "
+Edit: Edit
+Delete: Delete
+AuthorOrHostOnly: Author or host only
+Close: Close
+CloseEsc: Close · Esc
+MarkersAtMost: "{0} markers at most"

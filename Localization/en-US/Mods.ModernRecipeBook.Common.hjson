@@ -1,0 +1,273 @@
+NearACampfireMagicStorage: Near a campfire (Magic Storage)
+ByHand: By hand
+NoRegularSource: No regular source
+SpecialCondition: Special condition
+Met: " · met"
+NotMetYet: " · not met yet"
+ExpertMaster: Expert / Master
+Classic: Classic
+Master: Master
+NotMaster: Not Master
+Crafting: Crafting
+Drop: Drop
+Container: Container
+Shop: Shop
+Trade: Trade
+Banner: Banner
+BugNet: Bug Net
+Shimmer: Shimmer
+Use: Use
+Recording: Recording
+Plant: Plant
+Tree: Tree
+Mining: Mining
+Fishing: Fishing
+Chest: Chest
+World: World
+NoData: No data
+NotInThisWorld: not in this world
+VariesByCondition: varies by condition
+Recipe: "Recipe: "
+OpenRecipe: Open recipe
+OpenInBestiary: Open in Bestiary
+ShowConditions: Show conditions
+Conditions: "Conditions · "
+HowToGet: How to Get
+OtherAcceptedItems: Other accepted items
+NotInRecipesDropsShopsOr: Not in recipes, drops, shops or the world
+NoConditions: No conditions
+SomeSourcesCouldNotBeRead: Some sources could not be read
+BackEsc: Back · Esc
+PreviousVariant: Previous variant
+NextVariant: Next variant
+Close: Close
+CloseEsc: Close · Esc
+PreviousPgUp: Previous · PgUp
+NextPgDn: Next · PgDn
+SetDefense: "Set defense: "
+Defense: "Defense: "
+Set: "Set: "
+WithoutAccessoriesAndBuffs: Without accessories and buffs
+Pieces: "Pieces: "
+ModdedSetBonusNotCounted: Modded set bonus not counted
+SetBonus: ", set bonus +"
+SetBonus2: Set bonus
+ClickNextVariant: Click: next variant
+ClickShowThisPiece: Click: show this piece
+Max: Max
+AsManyAsMaterialsAllowUp: As many as materials allow, up to 100 · Ctrl+Shift+Enter
+CraftThisManyTimesPerClick: Craft this many times per click
+Untrack: Untrack
+Track: Track
+ThisItemHasNoRecipe: This item has no recipe
+StopShowingItOnScreenAlt: Stop showing it on screen · Alt+T
+ShowItsMaterialsOnScreenAlt: Show its materials on screen · Alt+T
+UntrackSet: Untrack Set
+TrackSet: Track Set
+UntrackAllThreePieces: Untrack all three pieces
+TrackAllThreePiecesAsOne: Track all three pieces as one goal
+TRACKING: "TRACKING · "
+DragToMove: Drag to move
+ClickMaterialsRightClickUntrack: Click: materials · Right-click: untrack
+MoreCtrl: " more · Ctrl+"
+ArmorSet: Armor set
+StartsOnItsOwnOrWith: "Starts on its own or with a "
+StartsOnItsOwn: Starts on its own
+FromCalamitySEventTables: From Calamity's event tables
+TheModLetsItSpawnAfter: The mod lets it spawn after other bosses too; the probe could not tell which
+FromTheModSOwnSpawn: From the mod's own spawn code
+AcidRainMiniBossInThe: Acid Rain mini-boss in the Sulphurous Sea
+AcidRainInTheSulphurousSea: Acid Rain in the Sulphurous Sea
+InWater: in water
+OnLand: on land
+FallsFromTheSky: falls from the sky
+Until: "until "
+InRain: in rain
+AfterAnyMechanicalBoss: after any mechanical boss
+AfterAnyTwoMechanicalBosses: after any two mechanical bosses
+AfterAllMechanicalBosses: after all mechanical bosses
+Or: " or "
+AnotherBoss: another boss
+After: "after "
+Forest: Forest
+Underground: Underground
+Caverns: Caverns
+Jungle: Jungle
+UndergroundJungle: Underground Jungle
+JungleTemple: Jungle Temple
+Snow: Snow
+UndergroundSnow: Underground Snow
+Desert: Desert
+UndergroundDesert: Underground Desert
+Ocean: Ocean
+Dungeon: Dungeon
+Underworld: Underworld
+Corruption: Corruption
+Crimson: Crimson
+Hallow: Hallow
+Sky: Sky
+Abyss: Abyss
+NoConditions2: no conditions
+NotInThisMode: Not in this mode
+PreHardmode: Pre-Hardmode
+Hardmode: Hardmode
+PostMoonLord: Post-Moon Lord
+AllStages: All stages
+More: " more"
+Syncing: Syncing…
+ReadyToCraft: Ready to craft
+Ingredients: "Ingredients: "
+NothingTrackedYet: Nothing tracked yet
+SelectAnItemAndPressTrack: Select an item and press Track
+TRACKED: "TRACKED · "
+ClearAll: Clear All?
+Clear: Clear
+ClickAgainToUntrackEverything: Click again to untrack everything
+UntrackEverything: Untrack everything
+Crafts: crafts
+Crafts2: "Crafts: "
+HowToGet2: "How to Get: "
+INGREDIENTS: INGREDIENTS
+STATION: STATION
+CONDITIONS: CONDITIONS
+RecipeBookUIErrorDetailsIn: Recipe Book: UI error. Details in client.log.
+NameZA: Name Z-A
+NameAZ: Name A-Z
+ModZA: Mod Z-A
+ModAZ: Mod A-Z
+Ingredients2: Ingredients
+Stations: Stations
+Station: Station
+Conditions2: Conditions
+Have: "Have "
+Need: ", need "
+AlsoCountedInAnotherRow: " · also counted in another row"
+NoStationNeeded: No station needed
+Condition: Condition
+NoMaterials: No materials
+DepositAll: Deposit All
+QuickStack: Quick Stack
+Restock: Restock
+QuickStackToNearbyChestsAnd: Quick stack to nearby chests and storages · Ctrl+Q
+AlsoIntoEveryCountedStorageRemote: Also into every counted storage, remote ones too, that already holds the item
+QuickStackToNearbyChestsCtrl: Quick stack to nearby chests · Ctrl+Q
+TopUpInventoryStacksFromNearby: Top up inventory stacks from nearby · Ctrl+R
+DepositToNearbyStorage: Deposit to nearby storage
+NothingNearbyToDepositInto: Nothing nearby to deposit into
+DepositToNearbyStorageExceptHotbar: Deposit to nearby storage, except hotbar and favorites
+OntoMatchingStacksFirstThenMagic: Onto matching stacks first, then Magic Storage, then a free chest
+OntoMatchingStacksFirstThenA: Onto matching stacks first, then a free chest
+NotAvailableOnThisServer: Not available on this server
+NearbyStorageIsOff: Nearby storage is off
+TheServerKeepsInventoriesItself: The server keeps inventories itself
+TheHostTurnedItOff: The host turned it off
+TurnItOnInTheMod: Turn it on in the mod settings
+Off: Off
+Syncing2: Syncing
+Ready: Ready
+Nearby: Nearby
+MagicStorageSupportIsOffSee: Magic Storage support is off (see client.log)
+NoItemSelected: No item selected
+ClickAnItemInTheGrid: Click an item in the grid
+Taking: Taking…
+RefreshF5: Refresh · F5
+CtrlClickTrashAltClickFavorite: Ctrl+Click: trash · Alt+Click: favorite
+AllSources: All sources
+F1AllKeyboardShortcuts: F1 · All keyboard shortcuts
+DragToMoveTheWindow: Drag to move the window
+Categories: Categories
+Class: Class
+ClickAgainForAllClasses: Click again for all classes
+NameIDOrMod: Name, ID or mod
+NameTextIDMod: Name, text, ID, mod
+ClearSearch: Clear search
+SearchCtrlF: Search · Ctrl+F
+NameMatchesFirstThenTheItem: Name matches first, then the item's text
+AllMods: All mods
+FilterByMod: Filter by mod
+Newest: Newest
+RecentCraftsAreAlwaysNewestFirst: Recent crafts are always newest first
+RecentlySeenMobsAreAlwaysNewest: Recently seen mobs are always newest first
+SortOrder: Sort order
+FavoritesOnly: Favorites only
+AltClickAMobToAdd: Alt+Click a mob to add it
+AltClickAnItemToAdd: Alt+Click an item to add it
+HiddenByTheTraitsFilter: Hidden by the traits filter
+UntickSomeTraitsUnderTraitsOn: Untick some traits under Traits on the left
+HiddenByTheClassFilter: Hidden by the class filter
+PickAllClassesAboveTheCategories: Pick All classes above the categories
+NothingToCraftRightNow: Nothing to craft right now
+TurnOffCraftableToShowEverything: Turn off Craftable to show everything
+HiddenByTheStationFilter: Hidden by the station filter
+OpenTheStationFilterAndPick: Open the station filter and pick Show all
+NothingFound: Nothing found
+CtrlBackspaceResetsFilters: Ctrl+Backspace resets filters
+NearbyContainersAreEmpty: Nearby containers are empty
+NothingNearby: Nothing nearby
+NoCraftsYet: No crafts yet
+ItemsYouCraftWillAppearHere: Items you craft will appear here
+RecipesFromHistoryArenTLoaded: Recipes from history aren't loaded
+EnableTheModsThatAddThem: Enable the mods that add them
+Stacks: "Stacks: "
+Items: "Items: "
+Mobs: "Mobs: "
+Recent: "Recent: "
+Recipes: "Recipes: "
+TextMatches: "text matches: "
+ReadingItemText: "reading item text: "
+UnknownStage: "unknown stage: "
+PreviousPagePgUp: Previous page · PgUp
+NextPagePgDn: Next page · PgDn
+NothingSelected: Nothing selected
+PickAnItemOnTheLeft: Pick an item on the left
+NoCraftingRecipe: No crafting recipe
+GetItFromLootShopsFishing: Get it from loot, shops, fishing and more
+AllSources2: "All sources: "
+RemoveFromFavoritesAltF: Remove from favorites · Alt+F
+AddToFavoritesAltF: Add to favorites · Alt+F
+Craft: Craft
+Max2: max
+Recipe2: Recipe
+OtherRecipesForThisItem: Other recipes for this item
+MoreOfThisRecipeMouseWheel: More of this recipe · Mouse wheel
+UsedIn: Used in
+Back: Back
+WhatTheItemIsMadeOf: What the item is made of · Alt+U
+WhatYouCanMakeFromIt: What you can make from it · Alt+U
+Craftable: Craftable
+ShowEveryRecipe: Show every recipe
+OnlyWhatYouCanCraftRight: Only what you can craft right now
+NotUsedInAnyRecipe: Not used in any recipe
+NothingToCraftRightNow2: Nothing to craft right now
+TurnOffCraftable: Turn off Craftable
+HiddenByTheStageFilter: Hidden by the stage filter
+PickTheStageAtTheTop: Pick the stage at the top of the book
+ClickOpenThisItem: Click: open this item
+MoreRecipesMouseWheel: More recipes · Mouse wheel
+WindowSize: Window size
+ShiftClickWhereItSUsed: Shift+Click: where it's used · F1 Help
+CtrlEnterCraftsF1Help: Ctrl+Enter crafts · F1 Help
+Mouse3OnAMobInThe: Mouse3 on a mob in the world: its card · F1 Help
+ClickTakesAStackRightClick: Click takes a stack · Right-click takes one · F1 Help
+NewestFirstF1Help: Newest first · F1 Help
+PgUpPgDnPagesF1Help: PgUp/PgDn pages · F1 Help
+RecipeBook: Recipe Book
+Items2: Items
+Recipes2: Recipes
+Bestiary: Bestiary
+Storage: Storage
+Recent2: Recent
+Tracking: Tracking
+Shortcuts: Shortcuts
+CloseEscOrF1: Close · Esc or F1
+HoverAnyButtonItsTooltipShows: Hover any button: its tooltip shows the shortcut
+ArmorSetName: "{0} Armor"
+NearbyStorageHint: Chests and storages within {0} {^0:tile;tiles} show up here
+NoRecipeFor: No recipe: {0}
+TooManyMaterialsForOneGoal: Too many materials for one goal
+CardsHoldGoalsTip: Up to 5 goals in cards style · Ctrl+{0} opens the list
+NoLongerTracked: No longer tracked
+CardsHoldFiveGoals: Cards hold 5 goals. Untrack one or switch to compact.
+TrackingTheSet: Tracking the set
+TrackingItem: Tracking: {0}
+ClickOpenAlternative: Click: open {0}

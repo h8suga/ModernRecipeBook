@@ -1,11 +1,15 @@
-# Builds the mod on every push to main and keeps the build as a workflow artifact. When build.txt names a version
-# that has no GitHub release yet, it creates one (tag v<version> on this commit, notes from that version's CHANGELOG
-# section) and attaches the .tmod; a release that already exists only gets the .tmod if it has none.
+# Checks the localization and builds the mod on every push to main and every pull request, keeping the build as a
+# workflow artifact. On main, when build.txt names a version that has no GitHub release yet, it creates one (tag
+# v<version> on this commit, notes from that version's CHANGELOG section) and attaches the .tmod; a release that
+# already exists only gets the .tmod if it has none.
 name: Build
 
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  # Pull requests (translations among them) are checked and built, never released.
+  pull_request:
     paths-ignore: ['**.md', 'docs/**']
   workflow_dispatch:
 
@@ -28,6 +32,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: ModSources/ModernRecipeBook
+
+      - name: Check localization
+        run: |
+          pip install --quiet hjson
+          python3 ModSources/ModernRecipeBook/.github/scripts/check_localization.py ModSources/ModernRecipeBook
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -85,6 +94,7 @@ jobs:
           path: ModernRecipeBook-${{ steps.version.outputs.version }}.tmod
 
       - name: Release
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

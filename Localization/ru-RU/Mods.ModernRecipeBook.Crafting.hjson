@@ -1,0 +1,20 @@
+NoCraftingRecipe: Нет рецепта крафта
+GatheringMaterials: Собираю материалы…
+EmptyTheGuideSlotFirst: Сначала освободите слот гида
+ClearTheCursorFirst: Сначала уберите предмет с курсора
+CantCraftRightNow: Сейчас крафт недоступен
+MissingMaterialsStationOrCondition: Не хватает материалов, станции или условия
+ReadyToCraft: Можно создать
+InventoryFullFreeSlots: Инвентарь полон: освободите {0} {^0:слот;слота;слотов}
+MaterialsInInventoryInventoryFull: Материалы в инвентаре; крафт остановлен: инвентарь полон
+MaterialsAreInTheInventory: Материалы в инвентаре
+NearbyStorageIsOff: Хранилища рядом выключены
+TooFastWaitAMoment: Слишком часто: подождите
+CraftCancelledConditionsChanged: Крафт отменён: условия изменились
+CraftingStoppedSomethingChanged: Крафт остановлен: что-то изменилось
+StoppedOutOfMaterials: Остановлено: кончились материалы
+CraftingFailed: Крафт не удался
+InventoryFullResultOnCursor: Инвентарь полон: результат на курсоре
+MaterialsInInventoryCraftStopped: "Материалы в инвентаре; крафт остановлен: "
+Crafted: Создано: {0}
+CraftedSome: Создано {0}/{1} · {2}

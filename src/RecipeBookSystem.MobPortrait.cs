@@ -7,6 +7,7 @@ using ReLogic.Content;
 using Terraria;
 using Terraria.GameContent.Bestiary;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -196,7 +197,7 @@ public sealed partial class RecipeBookSystem
 		}
 		if (rect.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(known ? T("Как в бестиарии", "As in the Bestiary") : T("Ещё не встречен", "Not encountered yet"));
+			MouseTip(known ? L("MobPortrait.AsInTheBestiary") : L("MobPortrait.NotEncounteredYet"));
 		}
 	}
 }

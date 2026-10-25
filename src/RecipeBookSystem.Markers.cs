@@ -6,6 +6,7 @@ using Terraria;
 using Terraria.GameContent;
 using Terraria.GameInput;
 using Terraria.ModLoader;
+using static ModernRecipeBook.BookText;
 
 namespace ModernRecipeBook;
 
@@ -175,7 +176,7 @@ public sealed partial class RecipeBookSystem
 			int y = (int)Math.Floor(tile.Y);
 			if (!WorldGen.InWorld(x, y))
 			{
-				BookMapTeleport.Say(T("Здесь нельзя", "Not here"));
+				BookMapTeleport.Say(L("Markers.NotHere"));
 				return;
 			}
 			(MarkerX, MarkerY) = (x, y);
@@ -292,10 +293,10 @@ public sealed partial class RecipeBookSystem
 
 	private static void DrawMarkerForm(SpriteBatch sb, bool click)
 	{
-		Text(sb, (MarkerMode == MarkerPanel.Create) ? T("Новая метка", "New Marker") : T("Изменить метку", "Edit Marker"), 18f, 14f, TextColor, 1f, MarkerWidth - 36f, 26f);
+		Text(sb, (MarkerMode == MarkerPanel.Create) ? L("Markers.NewMarker") : L("Markers.EditMarker"), 18f, 14f, TextColor, 1f, MarkerWidth - 36f, 26f);
 		BookRect field = new BookRect(18f, 50f, MarkerWidth - 36f, 36f);
 		Box(sb, field, MarkerTyping ? new Color(35, 51, 40) : FieldFill, border: true, 8f, MarkerTyping ? new Color?(Accent) : null, (!MarkerTyping) ? 1 : 2);
-		string shown = (MarkerName.Length > 0) ? (MarkerName + ((MarkerTyping && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : T("Название (необязательно)", "Name (optional)");
+		string shown = (MarkerName.Length > 0) ? (MarkerName + ((MarkerTyping && (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0) ? "|" : "")) : L("Markers.NameOptional");
 		CenterLabel(sb, shown, field.X + 12f, field.Y + 4f, field.Width - 76f, field.Height - 8f, (MarkerName.Length > 0) ? TextColor : Muted, 0.9f, rightAligned: false, leftAligned: true);
 		CenterLabel(sb, MarkerName.Length + "/" + BookMapMarkers.NameLength, field.X + field.Width - 62f, field.Y + 4f, 50f, field.Height - 8f, Muted, 0.75f, rightAligned: true);
 		if (click && field.Contains(Mouse.X, Mouse.Y))
@@ -312,7 +313,7 @@ public sealed partial class RecipeBookSystem
 			if (hover)
 			{
 				BookMarkerBadges.Badge badge = BookMarkerBadges.All[i];
-				MouseTip(T(badge.Ru, badge.En));
+				MouseTip(L(badge.Name));
 				if (click)
 				{
 					MarkerBadge = (byte)i;
@@ -321,11 +322,11 @@ public sealed partial class RecipeBookSystem
 		}
 		BookRect cancel = new BookRect(18f, 228f, 166f, 38f);
 		BookRect save = new BookRect(200f, 228f, 166f, 38f);
-		CardButton(sb, cancel, T("Отмена", "Cancel"));
-		CardButton(sb, save, T("Сохранить", "Save"), primary: true);
+		CardButton(sb, cancel, L("Markers.Cancel"));
+		CardButton(sb, save, L("Markers.Save"), primary: true);
 		if (cancel.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Отмена · Esc", "Cancel · Esc"));
+			MouseTip(L("Markers.CancelEsc"));
 			if (click)
 			{
 				CloseMarkerPanel();
@@ -333,7 +334,7 @@ public sealed partial class RecipeBookSystem
 		}
 		else if (save.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Сохранить · Enter", "Save · Enter"));
+			MouseTip(L("Markers.SaveEnter"));
 			if (click)
 			{
 				SaveMarker();
@@ -356,20 +357,20 @@ public sealed partial class RecipeBookSystem
 		Text(sb, BookMapMarkers.Title(marker), 74f, 14f, TextColor, 1.05f, MarkerWidth - 92f, 26f);
 		if (marker.Name.Length > 0)
 		{
-			Text(sb, T(badge.Ru, badge.En), 74f, 40f, Muted, 0.8f, MarkerWidth - 92f, 18f);
+			Text(sb, L(badge.Name), 74f, 40f, Muted, 0.8f, MarkerWidth - 92f, 18f);
 		}
 		Text(sb, BookMapMarkers.Placed(marker), 18f, 74f, TextColor, 0.85f, MarkerWidth - 36f, 22f);
 		if (marker.Edited != marker.Created)
 		{
-			Text(sb, T("Изменено ", "Edited ") + BookMapMarkers.Ago(marker.Edited), 18f, 98f, Muted, 0.8f, MarkerWidth - 36f, 20f);
+			Text(sb, L("Markers.Edited") + BookMapMarkers.Ago(marker.Edited), 18f, 98f, Muted, 0.8f, MarkerWidth - 36f, 20f);
 		}
 		BookRect close = new BookRect(256f, 140f, 110f, 38f);
 		if (BookMapMarkers.CanChange(marker))
 		{
 			BookRect edit = new BookRect(18f, 140f, 110f, 38f);
 			BookRect delete = new BookRect(137f, 140f, 110f, 38f);
-			CardButton(sb, edit, T("Изменить", "Edit"));
-			CardButton(sb, delete, T("Удалить", "Delete"));
+			CardButton(sb, edit, L("Markers.Edit"));
+			CardButton(sb, delete, L("Markers.Delete"));
 			if (click && edit.Contains(Mouse.X, Mouse.Y))
 			{
 				MarkerMode = MarkerPanel.Edit;
@@ -387,12 +388,12 @@ public sealed partial class RecipeBookSystem
 		}
 		else
 		{
-			Text(sb, T("Только автор или хозяин", "Author or host only"), 18f, 148f, Muted, 0.8f, 226f, 22f);
+			Text(sb, L("Markers.AuthorOrHostOnly"), 18f, 148f, Muted, 0.8f, 226f, 22f);
 		}
-		CardButton(sb, close, T("Закрыть", "Close"));
+		CardButton(sb, close, L("Markers.Close"));
 		if (close.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(T("Закрыть · Esc", "Close · Esc"));
+			MouseTip(L("Markers.CloseEsc"));
 			if (click)
 			{
 				CloseMarkerPanel();
