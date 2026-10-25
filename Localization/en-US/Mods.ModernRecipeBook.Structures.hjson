@@ -1,0 +1,19 @@
+Kind: Structure
+DungeonFurniture: Dungeon: furniture of its rooms
+DungeonLights: Dungeon: chandeliers and lanterns
+DungeonBanners: Dungeon: banners on its walls
+DungeonPaintings: Dungeon: paintings on its walls
+DungeonTraps: Dungeon: traps
+DungeonChest: Dungeon: {0}
+UnderworldHouses: Underworld houses
+UnderworldChest: Underworld: {0}
+DungeonBody: Placed in the Dungeon when the world is made; break it to take it. Until {0} is defeated, the {1} kills anyone who goes in
+TempleBody: Placed in the Jungle Temple when the world is made; break it to take it. The temple's door opens with the {0}, which {1} drops
+UnderworldBody: Placed in the ruined houses of the Underworld when the world is made; break it to take it
+BiomeChestBody: One such chest per world, locked since the world was made: a {0} opens it, and only once {1} is defeated
+LockedChestBody: Placed locked when the world is made: open it with a {0}, empty it and break it to take the chest
+OneColor: Only in a dungeon of its color: each world builds its Dungeon blue, green or pink
+ThreeKinds: Each world has only {0} of the {1} kinds
+RandomPainting: Paintings are picked at random, so not every world has this one
+CorruptionWorld: Only in a world with the Corruption
+CrimsonWorld: Only in a world with the Crimson
