@@ -14,6 +14,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 <img src="https://img.shields.io/badge/Magic%20Storage-0.7.0.11-7d3c98" alt="Magic Storage 0.7.0.11">
 <img src="https://img.shields.io/badge/multiplayer-supported-2ea44f" alt="Multiplayer supported">
 <img src="https://img.shields.io/badge/languages-EN%20%7C%20RU-555555" alt="English and Russian">
+<img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
 
 <p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
@@ -55,6 +56,7 @@ it right now from what I have*.
 - [Repository layout](#repository-layout)
 - [Contributing](#contributing)
 - [Changelog](#changelog)
+- [License](#license)
 - [Credits](#credits)
 
 ## About the project
@@ -111,6 +113,8 @@ Ctrl+1…6 opens a tab, Ctrl+Tab goes to the next one.
 - Search, mod, category, favorites, sort and stage are **kept per tab** and never reset by themselves: not when the
   book closes, not when you jump to another item. Ctrl+Backspace clears the open tab.
 
+<p align="center"><img src="docs/screenshots/search-text.png" width="80%" alt="Searching the items' own text"></p>
+
 ### Sorting
 
 Every sort works both ways (ascending and descending). The sort list adds what makes sense for the category you are
@@ -132,7 +136,11 @@ in, and a chosen sort comes back when you return to a category that has it.
 
 Modded rarities, which have no order of their own, are placed after Purple by the value of their items.
 
-<p align="center"><img src="docs/screenshots/sort-menu.png" width="70%" alt="Sort menu"></p>
+<p align="center">
+<img src="docs/screenshots/sort-weapons.png" width="37%" alt="Weapon sorts">
+<img src="docs/screenshots/sort-tools.png" width="61%" alt="Tools sorted by pickaxe power">
+</p>
+<p align="center"><img src="docs/screenshots/sort-menu.png" width="70%" alt="Sorting by crafting station"></p>
 
 ### Progression: stages and "Before: boss"
 
@@ -151,6 +159,12 @@ Modded rarities, which have no order of their own, are placed after Purple by th
 - It follows **your world's difficulty**: Classic, Expert, Master, Journey and Calamity's Revengeance decide which
   drops exist. Something only another difficulty gives says so. "Unknown stage" lists what cannot be placed, and the
   footer counts what the filter hid for that reason.
+
+<p align="center"><img src="docs/screenshots/stage-menu.png" width="80%" alt="Stage menu with every boss"></p>
+<p align="center">
+<img src="docs/screenshots/before-boss.png" width="54%" alt="Before: Astrum Aureus">
+<img src="docs/screenshots/stage-why.png" width="44%" alt="Why an item comes after a boss">
+</p>
 
 ### Class buttons and weapon traits
 
@@ -184,6 +198,7 @@ Modded rarities, which have no order of their own, are placed after Purple by th
 <img src="docs/screenshots/station-filter.png" width="62%" alt="Crafting station filter">
 <img src="docs/screenshots/active-stations.png" width="36%" alt="Active crafting stations">
 </p>
+<p align="center"><img src="docs/screenshots/craftable.png" width="70%" alt="Craftable filter"></p>
 
 ### The item card
 
@@ -217,6 +232,8 @@ Every source of an item in one list, each row with its chance and amount:
 
 An enemy row opens that mob's Bestiary card; a recipe row opens the recipe.
 
+<p align="center"><img src="docs/screenshots/how-to-get.png" width="80%" alt="How to Get"></p>
+
 ### Nearby storage
 
 - Every unlocked chest and dresser, the Piggy Bank, Safe, Defender's Forge and Void Vault, the open container, a
@@ -234,6 +251,10 @@ An enemy row opens that mob's Bestiary card; a recipe row opens the recipe.
 - Locked chests, chests another player has open and password networks are **listed as not counted**, with the reason.
 
 <p align="center"><img src="docs/screenshots/storage.png" width="860" alt="Storage tab"></p>
+<p align="center">
+<img src="docs/screenshots/storage-cells.png" width="56%" alt="Cells line with each network">
+<img src="docs/screenshots/not-counted.png" width="42%" alt="Why a storage is not counted">
+</p>
 <p align="center"><img src="docs/screenshots/craft-from-storage.png" width="70%" alt="Crafting from nearby storage"></p>
 
 ### Magic Storage integration
@@ -250,6 +271,15 @@ Magic Storage is fully integrated: the book uses Magic Storage's own members and
 - The **Changed** sort puts what was just stored, taken or crafted with first, whoever moved it, you or another
   player. The times are kept per character and world.
 - On a server the server checks the same rules itself and moves the items.
+
+<p align="center">
+<img src="docs/screenshots/storage-remote.png" width="60%" alt="A remote network through Portable Access">
+<img src="docs/screenshots/remote-stations.png" width="38%" alt="Stations of a remote Crafting Interface">
+</p>
+<p align="center">
+<img src="docs/screenshots/storage-quickstack.png" width="49%" alt="Quick Stack into remote storage">
+<img src="docs/screenshots/storage-changed.png" width="49%" alt="The Changed sort">
+</p>
 
 ### Calamity integration
 
@@ -271,6 +301,8 @@ Calamity is fully integrated too: bosses, biomes, events and drop rules come fro
 - **Mob cards** show Calamity's damage reduction.
 - Optional **Double-Tap Dash**: double-tap left or right to dash, while Calamity's dash key keeps working.
 
+<p align="center"><img src="docs/screenshots/calamity-spawns.png" width="70%" alt="A Calamity spawn rule read from its code"></p>
+
 ### Bestiary
 
 - Every mob of the game and its mods **by kind** (bosses, mini-bosses, enemies, town NPCs, critters), **event** (Blood
@@ -291,6 +323,10 @@ Calamity is fully integrated too: bosses, biomes, events and drop rules come fro
 <img src="docs/screenshots/mob-card.png" width="22%" alt="Mob card opened with Mouse3">
 </p>
 <p align="center"><img src="docs/screenshots/spawn-rules.png" width="60%" alt="Where and when a mob spawns"></p>
+<p align="center">
+<img src="docs/screenshots/bestiary-before-boss.png" width="62%" alt="Bestiary filtered to Before: Golem">
+<img src="docs/screenshots/sort-bestiary.png" width="36%" alt="Bestiary sorts">
+</p>
 
 ### Tracking
 
@@ -300,7 +336,11 @@ Calamity is fully integrated too: bosses, biomes, events and drop rules come fro
   accessory. Counts include your nearby storage.
 - The Tracking tab lists each goal's materials; hover one for its own tooltip, "?" opens How to Get.
 
-<p align="center"><img src="docs/screenshots/tracker.png" width="35%" alt="Tracker under the minimap"></p>
+<p align="center">
+<img src="docs/screenshots/tracker-cards.png" width="36%" alt="Tracking cards with progress bars">
+<img src="docs/screenshots/tracker-compact.png" width="30%" alt="Compact tracking lines under the minimap">
+</p>
+<p align="center"><img src="docs/screenshots/tracking-tab.png" width="80%" alt="Tracking tab"></p>
 
 ### Map teleport and shared markers
 
@@ -458,10 +498,6 @@ The mod is Both-sided and built for servers, Host & Play included; players joini
 2. In tModLoader open Workshop → Develop Mods and press **Build** next to Modern Recipe Book, or run `dotnet build` in
    the folder.
 
-Every push to `main` is built by GitHub Actions ([build.yml](.github/workflows/build.yml)): the `.tmod` is kept as a
-workflow artifact, and a version in `build.txt` that has no release yet gets one, with that version's CHANGELOG
-section as its notes and the `.tmod` attached.
-
 ## Repository layout
 
 | Path | |
@@ -485,10 +521,18 @@ user-facing text comes in both English and Russian, and every release gets a CHA
 Every release is in [CHANGELOG.md](CHANGELOG.md), newest first. The versions follow
 [Semantic Versioning](https://semver.org/).
 
+## License
+
+Modern Recipe Book is free software under the [GNU General Public License v3.0](LICENSE). You may use, change and
+share it, including a modified version of your own, as long as what you share stays under the same license with its
+source available.
+
+Copyright (C) 2026 h8suga
+
 ## Credits
 
 - Made by [h8suga](https://github.com/h8suga).
-- [DustY1337](https://github.com/DustY1337) laid the foundation of the mod.
+- [psychological1nstability](https://github.com/psychological1nstability) laid the foundation of the mod.
 - Built on [tModLoader](https://github.com/tModLoader/tModLoader).
 - Integrates with [Calamity Mod](https://calamitymod.wiki.gg/) and
   [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); both belong to their authors.

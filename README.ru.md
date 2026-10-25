@@ -14,6 +14,7 @@
 <img src="https://img.shields.io/badge/Magic%20Storage-0.7.0.11-7d3c98" alt="Magic Storage 0.7.0.11">
 <img src="https://img.shields.io/badge/multiplayer-supported-2ea44f" alt="Мультиплеер">
 <img src="https://img.shields.io/badge/languages-EN%20%7C%20RU-555555" alt="Английский и русский">
+<img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="Лицензия GPL-3.0">
 </p>
 
 <p align="center"><a href="README.md">English</a> · <b>Русский</b></p>
@@ -55,6 +56,7 @@
 - [Устройство репозитория](#устройство-репозитория)
 - [Участие в разработке](#участие-в-разработке)
 - [История изменений](#история-изменений)
+- [Лицензия](#лицензия)
 - [Авторы](#авторы)
 
 ## О проекте
@@ -113,6 +115,8 @@ Ctrl+1…6 открывает вкладку, Ctrl+Tab — следующую.
 - Поиск, мод, категория, избранное, сортировка и этап **хранятся у каждой вкладки** и сами не сбрасываются: ни при
   закрытии книги, ни при переходе к другому предмету. Ctrl+Backspace очищает открытую вкладку.
 
+<p align="center"><img src="docs/screenshots/search-text-ru.png" width="80%" alt="Поиск по тексту предметов"></p>
+
 ### Сортировки
 
 Каждая сортировка работает в обе стороны (по возрастанию и убыванию). Список сортировок добавляет то, что имеет смысл
@@ -134,7 +138,11 @@ Ctrl+1…6 открывает вкладку, Ctrl+Tab — следующую.
 
 Модовые редкости, у которых нет своего порядка, стоят после фиолетовой, по стоимости своих предметов.
 
-<p align="center"><img src="docs/screenshots/sort-menu.png" width="70%" alt="Меню сортировки"></p>
+<p align="center">
+<img src="docs/screenshots/sort-weapons-ru.png" width="37%" alt="Сортировки оружия">
+<img src="docs/screenshots/sort-tools.png" width="61%" alt="Инструменты по силе кирки">
+</p>
+<p align="center"><img src="docs/screenshots/sort-menu.png" width="70%" alt="Сортировка по станции крафта"></p>
 
 ### Прогрессия: этапы и «До: босс»
 
@@ -155,6 +163,12 @@ Ctrl+1…6 открывает вкладку, Ctrl+Tab — следующую.
 - Учитывает **сложность твоего мира**: обычная, эксперт, мастер, путешествие и Revengeance из Calamity решают, какая
   добыча существует. То, что даёт только другая сложность, так и подписано. «Этап неизвестен» показывает, что
   определить не удалось, а подвал считает, сколько фильтр из-за этого скрыл.
+
+<p align="center"><img src="docs/screenshots/stage-menu-ru.png" width="80%" alt="Меню этапов со всеми боссами"></p>
+<p align="center">
+<img src="docs/screenshots/before-boss-ru.png" width="54%" alt="До: Аструм Ауреус">
+<img src="docs/screenshots/stage-why-ru.png" width="44%" alt="Почему предмет идёт после босса">
+</p>
 
 ### Классы и свойства оружия
 
@@ -190,6 +204,7 @@ Ctrl+1…6 открывает вкладку, Ctrl+Tab — следующую.
 <img src="docs/screenshots/station-filter.png" width="62%" alt="Фильтр станций крафта">
 <img src="docs/screenshots/active-stations.png" width="36%" alt="Активные станции">
 </p>
+<p align="center"><img src="docs/screenshots/craftable-ru.png" width="70%" alt="Фильтр «Можно создать»"></p>
 
 ### Карточка предмета
 
@@ -224,6 +239,8 @@ Ctrl+1…6 открывает вкладку, Ctrl+Tab — следующую.
 
 Строка врага открывает его карточку в бестиарии, строка рецепта — рецепт.
 
+<p align="center"><img src="docs/screenshots/how-to-get.png" width="80%" alt="Где взять"></p>
+
 ### Хранилище рядом
 
 - Каждый незапертый сундук и комод, копилка, сейф, Кузница защитника и Пустотный сейф, открытый контейнер, Пустотная
@@ -241,6 +258,10 @@ Ctrl+1…6 открывает вкладку, Ctrl+Tab — следующую.
 - Запертые сундуки, сундуки, открытые другим игроком, и сети с паролем **перечислены как неучтённые**, с причиной.
 
 <p align="center"><img src="docs/screenshots/russian-storage.png" width="860" alt="Вкладка «Хранилище»"></p>
+<p align="center">
+<img src="docs/screenshots/storage-cells-ru.png" width="56%" alt="Строка ячеек по каждой сети">
+<img src="docs/screenshots/not-counted-ru.png" width="42%" alt="Почему хранилище не учтено">
+</p>
 <p align="center"><img src="docs/screenshots/craft-from-storage.png" width="70%" alt="Крафт из хранилища рядом"></p>
 
 ### Интеграция с Magic Storage
@@ -258,6 +279,15 @@ Magic Storage интегрирован полностью: книга польз
 - Сортировка **«Изменено»** ставит первым то, что только что положили, взяли или потратили на крафт, кто бы это ни
   сделал — ты или другой игрок. Время хранится у персонажа для каждого мира.
 - На сервере сам сервер проверяет те же правила и переносит предметы.
+
+<p align="center">
+<img src="docs/screenshots/storage-remote-ru.png" width="60%" alt="Удалённая сеть через Portable Access">
+<img src="docs/screenshots/remote-stations-ru.png" width="38%" alt="Станции удалённого Crafting Interface">
+</p>
+<p align="center">
+<img src="docs/screenshots/storage-quickstack-ru.png" width="49%" alt="Быстрый стак в удалённое хранилище">
+<img src="docs/screenshots/storage-changed-ru.png" width="49%" alt="Сортировка «Изменено»">
+</p>
 
 ### Интеграция с Calamity
 
@@ -282,6 +312,8 @@ Calamity тоже интегрирован полностью: боссы, би�
 - Необязательный **рывок двойным нажатием**: двойное нажатие влево или вправо — рывок, а клавиша рывка Calamity
   продолжает работать.
 
+<p align="center"><img src="docs/screenshots/calamity-spawns-ru.png" width="70%" alt="Правило появления Calamity из её кода"></p>
+
 ### Бестиарий
 
 - Каждый моб игры и её модов **по виду** (боссы, мини-боссы, враги, жители, существа), **событию** (Кровавая луна,
@@ -302,6 +334,10 @@ Calamity тоже интегрирован полностью: боссы, би�
 <img src="docs/screenshots/mob-card.png" width="22%" alt="Карточка моба по Mouse3">
 </p>
 <p align="center"><img src="docs/screenshots/spawn-rules.png" width="60%" alt="Где и когда появляется моб"></p>
+<p align="center">
+<img src="docs/screenshots/bestiary-before-boss.png" width="62%" alt="Бестиарий с фильтром «До: Голем»">
+<img src="docs/screenshots/sort-bestiary.png" width="36%" alt="Сортировки бестиария">
+</p>
 
 ### Отслеживание
 
@@ -312,7 +348,11 @@ Calamity тоже интегрирован полностью: боссы, би�
 - Вкладка «Отслеживание» перечисляет материалы каждой цели; наведи на материал — увидишь его подсказку, «?» открывает
   «Где взять».
 
-<p align="center"><img src="docs/screenshots/tracker.png" width="35%" alt="Трекер под мини-картой"></p>
+<p align="center">
+<img src="docs/screenshots/tracker-cards.png" width="36%" alt="Карточки отслеживания с полосками прогресса">
+<img src="docs/screenshots/tracker-compact-ru.png" width="30%" alt="Компактные строки под мини-картой">
+</p>
+<p align="center"><img src="docs/screenshots/tracking-tab-ru.png" width="80%" alt="Вкладка «Отслеживание»"></p>
 
 ### Телепорт по карте и общие метки
 
@@ -470,10 +510,6 @@ Calamity тоже интегрирован полностью: боссы, би�
 2. В tModLoader открой Workshop → Develop Mods и нажми **Build** у Modern Recipe Book или выполни `dotnet build` в
    папке.
 
-Каждый пуш в `main` собирает GitHub Actions ([build.yml](.github/workflows/build.yml)): `.tmod` сохраняется как
-артефакт сборки, а для версии из `build.txt`, у которой ещё нет релиза, создаётся релиз с разделом этой версии из
-CHANGELOG и приложенным `.tmod`.
-
 ## Устройство репозитория
 
 | Путь | |
@@ -497,10 +533,18 @@ Calamity и Magic Storage и приложи `tModLoader-Logs/client.log`. Pull r
 Все версии в [CHANGELOG.md](CHANGELOG.md), новые сверху, на английском. Номера версий следуют
 [семантическому версионированию](https://semver.org/lang/ru/).
 
+## Лицензия
+
+Modern Recipe Book — свободная программа под [GNU General Public License v3.0](LICENSE). Её можно использовать,
+менять и распространять, в том числе свою изменённую версию, если распространяемое остаётся под той же лицензией и с
+открытым исходным кодом.
+
+Copyright (C) 2026 h8suga
+
 ## Авторы
 
 - Автор: [h8suga](https://github.com/h8suga).
-- [DustY1337](https://github.com/DustY1337) заложил основу мода.
+- [psychological1nstability](https://github.com/psychological1nstability) заложил основу мода.
 - Сделано на [tModLoader](https://github.com/tModLoader/tModLoader).
 - Интеграция с [Calamity Mod](https://calamitymod.wiki.gg/) и
   [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); оба мода принадлежат своим авторам.
