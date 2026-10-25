@@ -31,6 +31,16 @@ public sealed class BookMagicStorage : ModSystem
 		internal float Distance;
 
 		internal string Name = "";
+
+		// How it was found: an access tile within the radius, the network open in Magic Storage's own window, a carried
+		// Portable Access. A network with no access tile in range is remote, and the Storage tab says so.
+		internal bool Nearby;
+
+		internal bool ViaWindow;
+
+		internal bool ViaCarried;
+
+		internal bool Remote => !Nearby;
 	}
 
 	private const BindingFlags All = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -492,6 +502,7 @@ public sealed class BookMagicStorage : ModSystem
 			}
 			Network network = Add(networks, heart);
 			network.Distance = Math.Min(network.Distance, Vector2.DistanceSquared(player.Center, location.ToWorldCoordinates(16f, 16f)));
+			network.ViaCarried = true;
 			if (crafting && stations != null && TileEntity.ByPosition.TryGetValue(location, out var entity) && CraftingType.IsInstanceOfType(entity) && StationsOf.GetValue(entity) is List<Item> list && !stations.Contains(list))
 			{
 				stations.Add(list);
@@ -539,6 +550,7 @@ public sealed class BookMagicStorage : ModSystem
 		}
 		Network network = Add(networks, heart);
 		network.Distance = Math.Min(network.Distance, distance);
+		network.Nearby = true;
 		if (stations != null && modTile.Name == "CraftingAccess" && TileEntity.ByPosition.TryGetValue(new Point16(x, y), out var entity) && CraftingType.IsInstanceOfType(entity) && StationsOf.GetValue(entity) is List<Item> list && !stations.Contains(list))
 		{
 			stations.Add(list);
@@ -579,7 +591,9 @@ public sealed class BookMagicStorage : ModSystem
 			{
 				return;
 			}
-			Add(networks, heart).Distance = 0f;
+			Network session = Add(networks, heart);
+			session.Distance = 0f;
+			session.ViaWindow = true;
 			if (stations != null && SessionCrafting.Invoke(storagePlayer, null) is object crafting && StationsOf.GetValue(crafting) is List<Item> list && !stations.Contains(list))
 			{
 				stations.Add(list);
@@ -595,7 +609,9 @@ public sealed class BookMagicStorage : ModSystem
 		{
 			if (HeartType.IsInstanceOfType(entity) && UsingOf.GetValue(entity) is bool[] users && player.whoAmI < users.Length && users[player.whoAmI] && CanAccess(player, entity))
 			{
-				Add(networks, entity).Distance = 0f;
+				Network session = Add(networks, entity);
+				session.Distance = 0f;
+				session.ViaWindow = true;
 			}
 		}
 	}

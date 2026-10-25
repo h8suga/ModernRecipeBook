@@ -422,6 +422,7 @@ public sealed class BookSources : ModSystem
 			(int Total, int Used, int Inactive) cells = BookMagicStorage.Cells(Networks[n].Heart);
 			NetworkCells.Add(cells);
 			signature = HashCode.Combine(signature, Networks[n].Position, Networks[n].Name, creative, items.Count, cells);
+			signature = HashCode.Combine(signature, Networks[n].Nearby, Networks[n].ViaWindow, Networks[n].ViaCarried);
 			foreach (Item item in items)
 			{
 				signature = HashCode.Combine(signature, item.type, item.prefix, item.stack);
@@ -879,9 +880,16 @@ public sealed class BookSources : ModSystem
 		{
 			parts.Add(BookSourceRules.Count(ChestsShown, ru, "chest", "chests", "сундук", "сундука", "сундуков"));
 		}
-		if (Networks.Count > 0)
+		// A network reached from afar (a carried Portable Access, Magic Storage's own window) is not "nearby": it is
+		// counted apart, so the line never claims it sits within the radius.
+		int remote = Networks.Count((BookMagicStorage.Network n) => n.Remote);
+		if (Networks.Count - remote > 0)
 		{
-			parts.Add(BookSourceRules.Count(Networks.Count, ru, "storage", "storages", "хранилище", "хранилища", "хранилищ"));
+			parts.Add(BookSourceRules.Count(Networks.Count - remote, ru, "storage", "storages", "хранилище", "хранилища", "хранилищ"));
+		}
+		if (remote > 0)
+		{
+			parts.Add(BookSourceRules.Count(remote, ru, "remote storage", "remote storages", "удалённое хранилище", "удалённых хранилища", "удалённых хранилищ"));
 		}
 		if (BanksShown > 0)
 		{
@@ -904,7 +912,7 @@ public sealed class BookSources : ModSystem
 			}
 			if (Networks.Count > 0)
 			{
-				lines.Add("Magic Storage: " + string.Join(", ", Networks.Select(NetworkLabel)));
+				lines.Add("Magic Storage: " + string.Join(", ", Networks.Select((BookMagicStorage.Network n) => NetworkLabel(n) + (n.Remote ? " (" + RemoteHow(n) + ")" : ""))));
 			}
 			return string.Join("\n", lines);
 		}
@@ -973,7 +981,7 @@ public sealed class BookSources : ModSystem
 			total += cells.Total;
 			used += cells.Used;
 			inactive += cells.Inactive;
-			rows.Add("Magic Storage · " + NetworkLabel(Networks[n]) + ": " + Of(cells.Used, cells.Total));
+			rows.Add("Magic Storage · " + NetworkLabel(Networks[n]) + (Networks[n].Remote ? T(" (удалённо)", " (remote)") : "") + ": " + Of(cells.Used, cells.Total));
 		}
 		if (MirrorChests > 0)
 		{
@@ -1014,8 +1022,21 @@ public sealed class BookSources : ModSystem
 
 	private static string BuildRadiusLine()
 	{
+		// A far network is not within any radius: the line then says only how it is reached ("Remote via Portable
+		// Access"); the owner read "Within 30 tiles" next to it as false.
+		BookMagicStorage.Network far = Networks.FirstOrDefault((BookMagicStorage.Network n) => n.Remote);
+		if (far != null)
+		{
+			return T("Удалённо ", "Remote ") + RemoteHow(far);
+		}
 		string within = T("В радиусе ", "Within ") + BookSourceRules.Count(BookNearbyConfig.Radius, Ru, "tile", "tiles", "блока", "блоков", "блоков");
 		return (Main.netMode == NetmodeID.MultiplayerClient) ? (within + T(" · задаёт хост", " · set by the host")) : within;
+	}
+
+	// "via Portable Access" / "via the Magic Storage window", for the tooltips.
+	private static string RemoteHow(BookMagicStorage.Network network)
+	{
+		return network.ViaCarried ? T("через Portable Access", "via Portable Access") : T("через окно Magic Storage", "via the Magic Storage window");
 	}
 
 	// "Not counted: 2 locked · 1 in use · 1 password", or "" when nothing was skipped.

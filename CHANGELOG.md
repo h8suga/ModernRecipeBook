@@ -17,6 +17,8 @@ patch for fixes, minor for features.
 - Deposit All in the Storage tab leaves Magic Storage locators (Portable Access, Portable Crafting Access, Locator)
   in your inventory: putting one away would cut off the network it reaches in the same click.
 - Deposit All never touches the hotbar, coins in it included. Favorites stay, as before.
+- A storage reached from afar (a carried Portable Access, or Magic Storage's own window) is named as such: "1 remote
+  storage", "Remote via Portable Access", instead of "Within 30 tiles", which it is not.
 
 ## 1.13.0 — 2026-10-25
 
