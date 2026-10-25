@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -11,65 +12,73 @@ using Terraria.ModLoader;
 
 namespace ModernRecipeBook;
 
-// Progression steps: the bosses in Boss Checklist order. Step 0 is the start; step k means "boss k is down". Every item,
-// recipe and mob gets the earliest step it can be had at (BookProgression), and the three stages are buckets of steps:
-// below the Wall of Flesh's step is pre-hardmode, from it to Moon Lord's hardmode, from Moon Lord's on post-Moon Lord.
-// "Before: X" shows everything below X's step: what can be had with every earlier boss down and X not.
+// Progression steps: the bosses in Boss Checklist's order, read the way Boss Checklist reads them and without it. Step
+// 0 is the start; step k means "boss k is down". Every item, recipe and mob gets the earliest step it can be had at
+// (BookProgression), and the three stages are buckets of steps: below the Wall of Flesh's step is pre-hardmode, from it
+// to Moon Lord's hardmode, from Moon Lord's on post-Moon Lord. "Before: X" shows everything below X's step: what can be
+// had with every earlier boss down and X not.
+//
+// Boss Checklist hardcodes the vanilla bosses with fixed values (BossTracker: King Slime 1 ... Moon Lord 18) and gets
+// the mods' from the mods themselves, which call it with "LogBoss". Calamity does that in
+// WeakReferenceSupport.AddCalamityBosses(Mod bossChecklist, Mod calamity); the book calls that method with itself as
+// the receiver (ModernRecipeBook.Call) and keeps what arrives: Calamity's own values, downed checks, NPCs, names and
+// availability. The vanilla rows and, if that call fails, Calamity's are the built-in table below.
 internal static class BookSteps
 {
 	// Key: Boss Checklist's ("Terraria Plantera", "CalamityMod AstrumAureus"), kept in saves. Npcs: every part that may
 	// carry the loot. Available: false for the other world evil's boss (Calamity's Hive Mind in a crimson world).
 	internal sealed record Step(string Key, string Mod, int[] Npcs, Func<bool> Downed, Func<string> Name, Func<bool> Available);
 
-	// Built-in order when Boss Checklist is not loaded: its vanilla values (BossTracker) merged with Calamity's
-	// (WeakReferenceSupport.BossChecklistProgressionValues, 2.2.4). "<mod> <entry> <npc,npc...> <flag>": the flag is a
-	// static bool of NPC, Main or DD2Event, or Calamity's DownedBossSystem field (read only).
+	// "<mod> <entry> <value> <npc,npc...> <flag>": Boss Checklist's vanilla values (BossTracker) and Calamity's
+	// (WeakReferenceSupport.BossChecklistProgressionValues, 2.2.4); the flag is a static bool of NPC, Main or DD2Event,
+	// or Calamity's DownedBossSystem field (read only). Calamity's rows stand in when its own registration cannot be
+	// read, and add parts it does not list (Draedon for the Exo Mechs).
 	private static readonly string[] Table =
 	{
-		"Terraria KingSlime KingSlime downedSlimeKing",
-		"CalamityMod DesertScourge DesertScourgeHead,DesertScourgeBody,DesertScourgeTail _downedDesertScourge",
-		"Terraria EyeofCthulhu EyeofCthulhu downedBoss1",
-		"CalamityMod Crabulon Crabulon _downedCrabulon",
-		"Terraria EaterofWorldsHead EaterofWorldsHead,EaterofWorldsBody,EaterofWorldsTail,BrainofCthulhu downedBoss2",
-		"CalamityMod HiveMind HiveMind _downedHiveMind",
-		"CalamityMod Perforators PerforatorHive _downedPerforator",
-		"Terraria QueenBee QueenBee downedQueenBee",
-		"Terraria SkeletronHead SkeletronHead downedBoss3",
-		"Terraria Deerclops Deerclops downedDeerclops",
-		"CalamityMod SlimeGod SlimeGodCore,EbonianPaladin,CrimulanPaladin,SplitEbonianPaladin,SplitCrimulanPaladin _downedSlimeGod",
-		"Terraria WallofFlesh WallofFlesh hardMode",
-		"Terraria QueenSlimeBoss QueenSlimeBoss downedQueenSlime",
-		"CalamityMod Cryogen Cryogen _downedCryogen",
-		"Terraria TheTwins Retinazer,Spazmatism downedMechBoss2",
-		"CalamityMod AquaticScourge AquaticScourgeHead,AquaticScourgeBody,AquaticScourgeBodyAlt,AquaticScourgeTail _downedAquaticScourge",
-		"Terraria TheDestroyer TheDestroyer,TheDestroyerBody,TheDestroyerTail downedMechBoss1",
-		"CalamityMod BrimstoneElemental BrimstoneElemental _downedBrimstoneElemental",
-		"Terraria SkeletronPrime SkeletronPrime downedMechBoss3",
-		"CalamityMod CalamitasClone CalamitasClone,Cataclysm,Catastrophe _downedCalamitasClone",
-		"Terraria Plantera Plantera downedPlantBoss",
-		"CalamityMod Leviathan Leviathan,Anahita _downedLeviathan",
-		"CalamityMod AstrumAureus AstrumAureus _downedAstrumAureus",
-		"Terraria Golem Golem,GolemHead downedGolemBoss",
-		"Terraria DukeFishron DukeFishron downedFishron",
-		"CalamityMod PlaguebringerGoliath PlaguebringerGoliath _downedPlaguebringer",
-		"Terraria HallowBoss HallowBoss downedEmpressOfLight",
-		"Terraria DD2Betsy DD2Betsy DownedInvasionT3",
-		"CalamityMod Ravager RavagerBody,RavagerClawLeft,RavagerClawRight,RavagerHead,RavagerLegLeft,RavagerLegRight _downedRavager",
-		"Terraria CultistBoss CultistBoss downedAncientCultist",
-		"CalamityMod AstrumDeus AstrumDeusHead,AstrumDeusBody,AstrumDeusTail _downedAstrumDeus",
-		"Terraria MoonLord MoonLordCore,MoonLordHead,MoonLordHand downedMoonlord",
-		"CalamityMod ProfanedGuardians ProfanedGuardianCommander,ProfanedGuardianDefender,ProfanedGuardianHealer _downedGuardians",
-		"CalamityMod Dragonfolly Dragonfolly _downedDragonfolly",
-		"CalamityMod Providence Providence _downedProvidence",
-		"CalamityMod CeaselessVoid CeaselessVoid _downedCeaselessVoid",
-		"CalamityMod StormWeaver StormWeaverHead,StormWeaverBody,StormWeaverTail _downedStormWeaver",
-		"CalamityMod Signus Signus _downedSignus",
-		"CalamityMod Polterghast Polterghast _downedPolterghast",
-		"CalamityMod OldDuke OldDuke _downedBoomerDuke",
-		"CalamityMod DevourerofGods DevourerofGodsHead,DevourerofGodsBody,DevourerofGodsTail _downedDoG",
-		"CalamityMod Yharon Yharon _downedYharon",
-		"CalamityMod ExoMechs Draedon,Apollo,Artemis,AresBody,ThanatosHead _downedExoMechs",
-		"CalamityMod Calamitas SupremeCalamitas _downedCalamitas"
+		"Terraria KingSlime 1 KingSlime downedSlimeKing",
+		"CalamityMod DesertScourge 1.6 DesertScourgeHead,DesertScourgeBody,DesertScourgeTail _downedDesertScourge",
+		"Terraria EyeofCthulhu 2 EyeofCthulhu downedBoss1",
+		"CalamityMod Crabulon 2.7 Crabulon _downedCrabulon",
+		"Terraria EaterofWorldsHead 3 EaterofWorldsHead,EaterofWorldsBody,EaterofWorldsTail,BrainofCthulhu downedBoss2",
+		"CalamityMod HiveMind 3.98 HiveMind _downedHiveMind",
+		"CalamityMod Perforators 3.99 PerforatorHive _downedPerforator",
+		"Terraria QueenBee 4 QueenBee downedQueenBee",
+		"Terraria SkeletronHead 5 SkeletronHead downedBoss3",
+		"Terraria Deerclops 6 Deerclops downedDeerclops",
+		"CalamityMod SlimeGod 6.7 SlimeGodCore,EbonianPaladin,CrimulanPaladin,SplitEbonianPaladin,SplitCrimulanPaladin _downedSlimeGod",
+		"Terraria WallofFlesh 7 WallofFlesh hardMode",
+		"Terraria QueenSlimeBoss 8 QueenSlimeBoss downedQueenSlime",
+		"CalamityMod Cryogen 8.5 Cryogen _downedCryogen",
+		"Terraria TheTwins 9 Retinazer,Spazmatism downedMechBoss2",
+		"CalamityMod AquaticScourge 9.5 AquaticScourgeHead,AquaticScourgeBody,AquaticScourgeBodyAlt,AquaticScourgeTail _downedAquaticScourge",
+		"Terraria TheDestroyer 10 TheDestroyer,TheDestroyerBody,TheDestroyerTail downedMechBoss1",
+		"CalamityMod BrimstoneElemental 10.5 BrimstoneElemental _downedBrimstoneElemental",
+		"Terraria SkeletronPrime 11 SkeletronPrime downedMechBoss3",
+		"CalamityMod CalamitasClone 11.7 CalamitasClone,Cataclysm,Catastrophe _downedCalamitasClone",
+		"Terraria Plantera 12 Plantera downedPlantBoss",
+		"CalamityMod Leviathan 12.8 Leviathan,Anahita _downedLeviathan",
+		"CalamityMod AstrumAureus 12.81 AstrumAureus _downedAstrumAureus",
+		"Terraria Golem 13 Golem,GolemHead downedGolemBoss",
+		"Terraria DukeFishron 14 DukeFishron downedFishron",
+		"CalamityMod PlaguebringerGoliath 14.5 PlaguebringerGoliath _downedPlaguebringer",
+		"Terraria HallowBoss 15 HallowBoss downedEmpressOfLight",
+		"Terraria DD2Betsy 16 DD2Betsy DownedInvasionT3",
+		"CalamityMod Ravager 16.5 RavagerBody,RavagerClawLeft,RavagerClawRight,RavagerHead,RavagerLegLeft,RavagerLegRight _downedRavager",
+		"Terraria CultistBoss 17 CultistBoss downedAncientCultist",
+		"CalamityMod AstrumDeus 17.5 AstrumDeusHead,AstrumDeusBody,AstrumDeusTail _downedAstrumDeus",
+		"Terraria MoonLord 18 MoonLordCore,MoonLordHead,MoonLordHand downedMoonlord",
+		"CalamityMod ProfanedGuardians 18.5 ProfanedGuardianCommander,ProfanedGuardianDefender,ProfanedGuardianHealer _downedGuardians",
+		"CalamityMod Dragonfolly 18.6 Dragonfolly _downedDragonfolly",
+		"CalamityMod Providence 19 Providence _downedProvidence",
+		"CalamityMod CeaselessVoid 19.6 CeaselessVoid _downedCeaselessVoid",
+		"CalamityMod StormWeaver 19.61 StormWeaverHead,StormWeaverBody,StormWeaverTail _downedStormWeaver",
+		"CalamityMod Signus 19.62 Signus _downedSignus",
+		"CalamityMod Polterghast 20 Polterghast _downedPolterghast",
+		"CalamityMod OldDuke 20.5 OldDuke _downedBoomerDuke",
+		"CalamityMod DevourerofGods 21 DevourerofGodsHead,DevourerofGodsBody,DevourerofGodsTail _downedDoG",
+		"CalamityMod Yharon 22 Yharon _downedYharon",
+		"CalamityMod ExoMechs 22.99 Draedon,Apollo,Artemis,AresBody,ThanatosHead _downedExoMechs",
+		"CalamityMod Calamitas 23 SupremeCalamitas _downedCalamitas"
 	};
 
 	// Names BookSpawnGates and the condition tables use for a step besides its NPCs' names.
@@ -92,8 +101,7 @@ internal static class BookSteps
 		["CalamityMod/NuclearTerror"] = "CalamityMod/Polterghast"
 	};
 
-	// Boss Checklist's own availability is not in its dictionary; Calamity's two world-evil bosses are the only ones
-	// in the table that need it (Main.drunkWorld has both evils).
+	// The built-in rows' world-evil bosses, as Calamity registers them ("availability"; Main.drunkWorld has both evils).
 	private static readonly Dictionary<string, Func<bool>> Availability = new Dictionary<string, Func<bool>>(StringComparer.Ordinal)
 	{
 		["CalamityMod HiveMind"] = () => !WorldGen.crimson || Main.drunkWorld,
@@ -108,7 +116,8 @@ internal static class BookSteps
 
 	private static bool built;
 
-	internal static bool FromBossChecklist { get; private set; }
+	// Where the modded bosses came from: "Calamity" (its own registration), "table" (the built-in rows) or "" (none).
+	internal static string Source { get; private set; } = "";
 
 	// The Wall of Flesh's and Moon Lord's steps: the stage buckets' edges.
 	internal static int HardmodeStep { get; private set; } = 1;
@@ -131,7 +140,7 @@ internal static class BookSteps
 		byNpc = new Dictionary<int, int>();
 		byKey = new Dictionary<string, int>(StringComparer.Ordinal);
 		built = false;
-		FromBossChecklist = false;
+		Source = "";
 	}
 
 	internal static void EnsureBuilt()
@@ -141,18 +150,29 @@ internal static class BookSteps
 			return;
 		}
 		built = true;
-		List<Step> table = FromTable();
-		List<Step> list = null;
+		List<(float Value, Step Step)> table = FromTable();
+		List<(float Value, Step Step)> calamity = null;
+		Source = table.Any((x) => x.Step.Mod != "Terraria") ? "table" : "";
+		string failure;
 		try
 		{
-			list = FromChecklist(table);
+			calamity = FromCalamity(table, out failure);
 		}
 		catch (Exception error)
 		{
-			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn("Boss Checklist's entries could not be read; the book uses its own boss order.", error);
+			failure = (error.InnerException ?? error).Message;
 		}
-		FromBossChecklist = list != null;
-		list ??= table;
+		if (failure != null)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn("Calamity's boss registration could not be read (" + failure + "); the book uses its own table for Calamity's bosses.");
+		}
+		if (calamity != null)
+		{
+			table = table.Where((x) => x.Step.Mod != "CalamityMod").Concat(calamity).ToList();
+			Source = "Calamity";
+		}
+		// Boss Checklist's order: by value, the built-in order breaking ties.
+		List<Step> list = table.OrderBy((x) => x.Value).Select((x) => x.Step).ToList();
 		list.Insert(0, new Step("start", "Terraria", Array.Empty<int>(), () => true, () => "", () => true));
 		steps = list;
 		byNpc = new Dictionary<int, int>();
@@ -167,13 +187,18 @@ internal static class BookSteps
 		}
 		HardmodeStep = byKey.GetValueOrDefault("Terraria WallofFlesh", 1);
 		MoonLordStep = byKey.GetValueOrDefault("Terraria MoonLord", HardmodeStep + 1);
-		ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Progression steps: {steps.Count - 1} bosses from " + (FromBossChecklist ? "Boss Checklist" : "the built-in table") + $"; Wall of Flesh at {HardmodeStep}, Moon Lord at {MoonLordStep}.");
+		ModContent.GetInstance<ModernRecipeBook>().Logger.Info($"Progression steps: {steps.Count - 1} bosses, mods' from " + Source switch
+		{
+			"Calamity" => "Calamity's own registration",
+			"table" => "the built-in table",
+			_ => "nowhere (vanilla only)"
+		} + $"; Wall of Flesh at {HardmodeStep}, Moon Lord at {MoonLordStep}.");
 	}
 
 	// The built-in table, with the bosses of mods that are not loaded left out.
-	private static List<Step> FromTable()
+	private static List<(float, Step)> FromTable()
 	{
-		List<Step> list = new List<Step>();
+		List<(float, Step)> list = new List<(float, Step)>();
 		Type calamity = ModLoader.TryGetMod("CalamityMod", out Mod mod) ? mod.Code.GetType("CalamityMod.DownedBossSystem") : null;
 		foreach (string row in Table)
 		{
@@ -182,8 +207,8 @@ internal static class BookSteps
 			{
 				continue;
 			}
-			int[] npcs = words[2].Split(',').Select((string name) => NpcType(words[0] == "Terraria" ? name : words[0] + "/" + name)).Where((int type) => type > 0).ToArray();
-			FieldInfo flag = (words[0] == "Terraria" ? new[] { typeof(NPC), typeof(Main), typeof(DD2Event) } : new[] { calamity }).Select((Type t) => t.GetField(words[3], BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)).FirstOrDefault((FieldInfo f) => f != null && f.FieldType == typeof(bool));
+			int[] npcs = words[3].Split(',').Select((string name) => NpcType(words[0] == "Terraria" ? name : words[0] + "/" + name)).Where((int type) => type > 0).ToArray();
+			FieldInfo flag = (words[0] == "Terraria" ? new[] { typeof(NPC), typeof(Main), typeof(DD2Event) } : new[] { calamity }).Select((Type t) => t.GetField(words[4], BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)).FirstOrDefault((FieldInfo f) => f != null && f.FieldType == typeof(bool));
 			if (npcs.Length == 0 || flag == null)
 			{
 				continue;
@@ -191,7 +216,7 @@ internal static class BookSteps
 			string key = words[0] + " " + words[1];
 			// A compiled read: FieldInfo.GetValue would box the flag on every "next boss" check.
 			Func<bool> downed = Expression.Lambda<Func<bool>>(Expression.Field(null, flag)).Compile();
-			list.Add(new Step(key, words[0], npcs, downed, TableName(words[0], words[1], npcs), Availability.GetValueOrDefault(key) ?? (() => true)));
+			list.Add((float.Parse(words[2], CultureInfo.InvariantCulture), new Step(key, words[0], npcs, downed, TableName(words[0], words[1], npcs), Availability.GetValueOrDefault(key) ?? (() => true))));
 		}
 		return list;
 	}
@@ -204,46 +229,59 @@ internal static class BookSteps
 			("Terraria", "MoonLord") => () => Language.GetTextValue("Enemies.MoonLord"),
 			("Terraria", "EaterofWorldsHead") => () => Lang.GetNPCNameValue(WorldGen.crimson ? NPCID.BrainofCthulhu : NPCID.EaterofWorldsHead),
 			("Terraria", _) => () => Lang.GetNPCNameValue(npcs[0]),
-			_ => () => Language.Exists("Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName") ? Language.GetTextValue("Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName") : Lang.GetNPCNameValue(npcs[0])
+			_ => () => Language.GetTextValue("Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName") is string text && text != "Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName" ? text : Lang.GetNPCNameValue(npcs[0])
 		};
 	}
 
-	// Boss Checklist's bosses (not its mini-bosses or events) in its order; entries with the same progression value are
-	// one step (the Eater of Worlds and the Brain of Cthulhu). The built-in table adds parts Boss Checklist does not list
-	// (Draedon for the Exo Mechs). Null when Boss Checklist is not loaded.
-	private static List<Step> FromChecklist(List<Step> table)
+	// Calamity's bosses as it hands them to Boss Checklist: its LogBoss calls, caught by ModernRecipeBook.Call while its
+	// WeakReferenceSupport.AddCalamityBosses runs with the book as the receiver (the mini-bosses it logs there are no
+	// steps). Null when Calamity is not loaded or when the method or its calls are not what 2.2.4 has (failure says why).
+	private static List<(float, Step)> FromCalamity(List<(float Value, Step Step)> table, out string failure)
 	{
-		if (!ModLoader.TryGetMod("BossChecklist", out Mod checklist))
+		failure = null;
+		if (!ModLoader.TryGetMod("CalamityMod", out Mod calamity))
 		{
 			return null;
 		}
-		if (checklist.Call("GetBossInfoDictionary", ModContent.GetInstance<ModernRecipeBook>(), "1.6") is not Dictionary<string, Dictionary<string, object>> entries)
+		MethodInfo register = calamity.Code.GetType("CalamityMod.WeakReferenceSupport")?.GetMethod("AddCalamityBosses", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new[] { typeof(Mod), typeof(Mod) }, null);
+		if (register == null)
 		{
-			throw new InvalidOperationException("GetBossInfoDictionary returned no dictionary");
+			failure = "no WeakReferenceSupport.AddCalamityBosses(Mod, Mod)";
+			return null;
 		}
-		List<Step> list = new List<Step>();
-		foreach (IGrouping<float, Dictionary<string, object>> group in from entry in entries.Values
-			where entry.GetValueOrDefault("isBoss") is true && entry.GetValueOrDefault("progression") is float
-			group entry by (float)entry["progression"] into g
-			orderby g.Key
-			select g)
+		List<object[]> logged = ModernRecipeBook.CaptureBossLogs(() => register.Invoke(null, new object[] { ModContent.GetInstance<ModernRecipeBook>(), calamity }));
+		List<(float, Step)> list = new List<(float, Step)>();
+		foreach (object[] args in logged.Where((object[] a) => (string)a[0] == "LogBoss"))
 		{
-			List<Dictionary<string, object>> same = group.ToList();
-			string key = (string)same[0]["key"];
-			Func<bool>[] downed = same.Select((Dictionary<string, object> e) => e.GetValueOrDefault("downed") as Func<bool>).Where((Func<bool> f) => f != null).ToArray();
-			LocalizedText[] names = same.Select((Dictionary<string, object> e) => e.GetValueOrDefault("displayName") as LocalizedText).Where((LocalizedText t) => t != null).ToArray();
-			// The Eater of Worlds and the Brain of Cthulhu share a step: the world's evil names it.
-			int brain = same.FindIndex((Dictionary<string, object> e) => (e.GetValueOrDefault("npcIDs") as List<int>)?.Contains(NPCID.BrainofCthulhu) == true);
-			// The built-in row with the same NPCs: its key, so a saved "Before" boss survives Boss Checklist coming or
-			// going (Boss Checklist names vanilla bosses its own way, "Terraria Skeleton").
-			int[] listed = same.SelectMany((Dictionary<string, object> e) => e.GetValueOrDefault("npcIDs") as List<int> ?? new List<int>()).ToArray();
-			Step own = table.FirstOrDefault((Step s) => s.Npcs.Intersect(listed).Any());
-			int[] npcs = listed.Concat(own?.Npcs ?? Array.Empty<int>()).Distinct().ToArray();
-			string mod = same[0].GetValueOrDefault("modSource") as string ?? key.Split(' ')[0];
-			Func<string> name = (names.Length == 2 && same.Count == 2 && brain >= 0) ? () => names[WorldGen.crimson ? brain : 1 - brain].Value : () => string.Join(" / ", names.Select((LocalizedText t) => t.Value));
-			list.Add(new Step(own?.Key ?? key, mod, npcs, () => downed.Any((Func<bool> f) => f()), name, Availability.GetValueOrDefault(key) ?? (() => true)));
+			// LogBoss: hostMod, internal name, progression, downed, NPC id(s), extra info (Boss Checklist's Call).
+			if (args.Length < 6 || args[1] is not Mod host || args[2] is not string name || args[4] is not Func<bool> downed)
+			{
+				failure = "a LogBoss call of another shape";
+				return null;
+			}
+			List<int> logs = args[5] switch
+			{
+				int one => new List<int> { one },
+				List<int> many => many,
+				_ => new List<int>()
+			};
+			Dictionary<string, object> extra = args.Length > 6 ? args[6] as Dictionary<string, object> : null;
+			string key = host.Name + " " + name;
+			Step own = table.Select((x) => x.Step).FirstOrDefault((Step s) => s.Key == key);
+			LocalizedText shown = extra?.GetValueOrDefault("displayName") as LocalizedText;
+			Func<string> fallback = own?.Name ?? (() => logs.Count > 0 ? Lang.GetNPCNameValue(logs[0]) : name);
+			// Calamity's text where it has one (Language.GetOrRegister gives a missing key back as its value).
+			Func<string> named = shown == null ? fallback : () => shown.Value != shown.Key ? shown.Value : fallback();
+			Func<bool> available = extra?.GetValueOrDefault("availability") as Func<bool> ?? own?.Available ?? (() => true);
+			int[] npcs = logs.Concat(own?.Npcs ?? Array.Empty<int>()).Distinct().ToArray();
+			list.Add((Convert.ToSingle(args[3], CultureInfo.InvariantCulture), new Step(key, host.Name, npcs, downed, named, available)));
 		}
-		return list.Count > 0 ? list : null;
+		if (list.Count == 0)
+		{
+			failure = "no LogBoss call arrived";
+			return null;
+		}
+		return list;
 	}
 
 	private static int NpcType(string name)

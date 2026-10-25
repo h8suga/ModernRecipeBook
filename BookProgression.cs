@@ -114,7 +114,7 @@ internal static class BookProgression
 	internal static IEnumerable<string> StepAudit()
 	{
 		Item[] all = ContentSamples.ItemsByType.Values.Where((Item i) => i != null && !i.IsAir).ToArray();
-		yield return $"steps={BookSteps.All.Count - 1} from={(BookSteps.FromBossChecklist ? "BossChecklist" : "table")} hardmode={BookSteps.HardmodeStep} moonlord={BookSteps.MoonLordStep} gates={UsedGates}";
+		yield return $"steps={BookSteps.All.Count - 1} from={BookSteps.Source} hardmode={BookSteps.HardmodeStep} moonlord={BookSteps.MoonLordStep} gates={UsedGates}";
 		for (int k = 0; k < BookSteps.All.Count; k++)
 		{
 			int[] here = all.Where((Item i) => ItemStep(i.type) == k).Select((Item i) => i.type).ToArray();
@@ -511,7 +511,7 @@ internal static class BookProgression
 		recipeMinimums = routes.Where((BookProgressionRules.Route route) => route.Key >= 0).ToDictionary((BookProgressionRules.Route route) => route.Key, (BookProgressionRules.Route route) => BookProgressionRules.MinimumStep(route, items, floors));
 		Built = true;
 		ILog logger = ModContent.GetInstance<ModernRecipeBook>().Logger;
-		logger.Info($"Progression audit ({timer.ElapsedMilliseconds} ms, {BookSteps.All.Count - 1} steps from {(BookSteps.FromBossChecklist ? "Boss Checklist" : "the built-in table")}, gates {(UsedGates ? "used" : "not ready")}, {probedCount} opaque conditions placed by probing) items: " + Totals(all.Select((Item i) => ItemStage(i.type))));
+		logger.Info($"Progression audit ({timer.ElapsedMilliseconds} ms, {BookSteps.All.Count - 1} steps, mods' from {BookSteps.Source}, gates {(UsedGates ? "used" : "not ready")}, {probedCount} opaque conditions placed by probing) items: " + Totals(all.Select((Item i) => ItemStage(i.type))));
 		logger.Info("Progression audit recipes: " + Totals(indexes.Select(RecipeStage)));
 		logger.Info("Progression audit Calamity items: " + Totals(from i in all
 			where i.ModItem?.Mod.Name == "CalamityMod"

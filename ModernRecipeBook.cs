@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using Terraria;
 using Terraria.ModLoader;
@@ -49,6 +51,35 @@ public sealed class ModernRecipeBook : Mod
 			ChainForward = KeybindLoader.RegisterKeybind(this, "ChainForward", "Mouse5");
 			MapTeleport = KeybindLoader.RegisterKeybind(this, "MapTeleport", MapTeleportKey);
 		}
+	}
+
+	// Boss Checklist's registration calls ("LogBoss", "LogMiniBoss", "LogEvent"), kept while BookSteps lets a mod register
+	// its bosses with the book (Calamity's WeakReferenceSupport.AddCalamityBosses). Anything else, and any call outside
+	// that, is ignored: the book is no Boss Checklist for other mods.
+	private static List<object[]> bossLogs;
+
+	internal static List<object[]> CaptureBossLogs(Action register)
+	{
+		bossLogs = new List<object[]>();
+		try
+		{
+			register();
+			return bossLogs;
+		}
+		finally
+		{
+			bossLogs = null;
+		}
+	}
+
+	public override object Call(params object[] args)
+	{
+		if (bossLogs != null && args.Length > 0 && args[0] is "LogBoss" or "LogMiniBoss" or "LogEvent")
+		{
+			bossLogs.Add(args);
+			return "Success";
+		}
+		return null;
 	}
 
 	public override void HandlePacket(BinaryReader reader, int whoAmI)
