@@ -3,7 +3,7 @@
 <h1 align="center">Modern Recipe Book</h1>
 
 <p align="center">
-A recipe book and bestiary for every item and mob in Terraria and its mods, for tModLoader.
+A recipe book, bestiary and storage browser for every item and mob in Terraria and its mods, for tModLoader.
 </p>
 
 <p align="center">
@@ -21,18 +21,30 @@ A recipe book and bestiary for every item and mob in Terraria and its mods, for 
 <p align="center"><img src="docs/screenshots/items.png" width="860" alt="Items tab with a weapon card"></p>
 
 Press **Mouse3** (middle click) and the book opens over the game. Every item and mob of the game and of every loaded
-mod is in it, read from the game itself: recipes, drops, shops, crates, fishing, world generation and spawn rules. It
-answers three questions without a wiki: *what is it*, *how do I get it*, and *can I make it right now*.
+mod is in it, read from the game itself, not from a wiki: recipes, drops, bags, shops, crates, fishing, world
+generation and spawn rules. It answers *what is it*, *how do I get it*, *when in the game can I get it* and *can I make
+it right now from what I have*.
 
 ## Contents
 
-- [Highlights](#highlights)
+- [About the project](#about-the-project)
+- [Why use it](#why-use-it)
 - [Features](#features)
-  - [Recipe book](#recipe-book)
+  - [Six tabs](#six-tabs)
+  - [Search, categories and favorites](#search-categories-and-favorites)
+  - [Sorting](#sorting)
+  - [Progression: stages and "Before: boss"](#progression-stages-and-before-boss)
+  - [Class buttons and weapon traits](#class-buttons-and-weapon-traits)
+  - [Crafting stations and "Craftable"](#crafting-stations-and-craftable)
+  - [The item card](#the-item-card)
+  - [How to Get](#how-to-get)
+  - [Nearby storage](#nearby-storage)
   - [Magic Storage integration](#magic-storage-integration)
   - [Calamity integration](#calamity-integration)
   - [Bestiary](#bestiary)
-  - [Tracking, map and armor sets](#tracking-map-and-armor-sets)
+  - [Tracking](#tracking)
+  - [Map teleport and shared markers](#map-teleport-and-shared-markers)
+  - [Keyboard and navigation](#keyboard-and-navigation)
   - [Languages](#languages)
 - [Compatibility](#compatibility)
 - [Installation](#installation)
@@ -40,94 +52,239 @@ answers three questions without a wiki: *what is it*, *how do I get it*, and *ca
 - [Configuration](#configuration)
 - [Multiplayer](#multiplayer)
 - [Building from source](#building-from-source)
+- [Repository layout](#repository-layout)
 - [Contributing](#contributing)
 - [Changelog](#changelog)
 - [Credits](#credits)
 
-## Highlights
+## About the project
 
-- **Everything in one window**: Items, Recipes, Bestiary, Storage, Recent crafts and Tracking tabs.
-- **How to Get** for any item: recipes, drops, bags, crates, shops, fishing, shimmer and the world itself, with the
-  drop chances of *your* world's difficulty and seed.
-- **Craft from everything nearby**: chests, banks and Magic Storage networks, even a remote one.
-- **Full Magic Storage and Calamity integration**, read from their own code: networks, Portable Access, Crafting
-  Interface; Calamity bosses, biomes, events, Revengeance, the Rogue class.
-- **Bestiary** with animated portraits, drops, spawn rules and the stats you have earned.
-- **Multiplayer-ready**, in English and Russian, every action on a keyboard shortcut.
+I made Modern Recipe Book for myself: I could not find a recipe or storage mod that was both convenient and pleasant
+to look at. It is a personal project, so regular updates are not promised, and it depends on the versions of
+tModLoader, Calamity and Magic Storage it was built and tested against (see [Compatibility](#compatibility)); a new
+version of any of them may break parts of it.
+
+That said, it is a solid base to build on: the sources, the design notes in [docs](docs/) and an automated build are
+all here. Forks and pull requests are welcome.
+
+## Why use it
+
+- **No wiki tab.** Every source is read from the game and its mods, so modded items, recipes changed by other mods and
+  your world's difficulty are always right.
+- **Knows where you are in the game.** Every item, recipe and mob has the boss it waits for; "Before: &lt;boss&gt;"
+  shows exactly what you can get now, and "Next boss" follows your world by itself.
+- **Crafts from everything around you**: inventory, chests, banks and Magic Storage, even a network far away.
+- **Fully integrated with Magic Storage and Calamity**, read from their own code.
+- **Hover anything** that stands for an item to read its own tooltip; every count says where it comes from.
+- **Every filter stays** until you change it, per tab, and Back/Forward walk through everything you did.
+- **Multiplayer-ready**, fast (heavy data is built in small steps while the book is open) and fully in English and
+  Russian.
 
 ## Features
 
-### Recipe book
+### Six tabs
 
-- **Search** by name or by the item's own text, a mod filter, favorites, categories and sorting: name, ID, mod,
-  crafting station, rarity, sell price, and damage, defense, healing, tool power and more where the category has them.
-  Each tab keeps its own filters.
-- **Stage filter**: Pre-Hardmode, Hardmode, Post-Moon Lord, or "Before: &lt;boss&gt;" for any vanilla or Calamity boss
-  ("Next boss" by default). The stage of each item and mob is worked out from recipe chains, boss drops and bags,
-  shops, crates, enemy drops, banners and world generation, for your world's difficulty.
-- **Class buttons** (Melee, Ranged, Magic, Summoner, Rogue): weapons, armor and accessories are classified by what they
-  actually boost. The **Traits** filter narrows weapons to homing, piercing, through walls, auto attack, minion or
-  sentry, and says why a weapon counts.
-- **Station filter**: untick the crafting stations you lack to hide what only they make. Items and Recipes can also
-  show only what you can craft right now.
-- **Item card**: the recipe with have/need counts, batches (x1, x5, x10, Max), Craft, Track and Favorite, or Used in.
-  Recipes that differ in one ingredient show as one, "A or B". Back and Forward walk through everything you opened.
-- **How to Get** lists every source of an item, with this world's drop chances. Loot only another difficulty or seed
-  drops is marked "Not in this world".
-- **Hover any row that stands for an item** to read that item's own tooltip, no click needed.
+| Tab | What it lists |
+|---|---|
+| **Items** | Every item, with its card: recipe, Used in, How to Get |
+| **Recipes** | Every recipe, one row per recipe; recipes that differ in one ingredient are one |
+| **Bestiary** | Every mob of the game and its mods, with drops, spawns and stats |
+| **Storage** | Everything in your nearby chests, banks and Magic Storage networks |
+| **Recent** | What you crafted lately |
+| **Tracking** | The items and armor sets you follow, with the materials still missing |
+
+Ctrl+1…6 opens a tab, Ctrl+Tab goes to the next one.
+
+### Search, categories and favorites
+
+- **Search** by name, ID, mod or the item's own text as the game shows it, with every mod's edits: "rogue" finds the
+  Monk's Shirt and the weapon flasks. Name matches come first, then text matches; the pager says how many came from
+  the text. Stat lines ("50 rogue damage") are left out so they do not drown the rest.
+- **Mod filter**: only mods that have something on the open tab are listed.
+- **Categories** with icons: weapons (swords, yoyos, bows, guns, rocket launchers, minions, whips, sentries), tools
+  (pickaxes, axes, hammers, fishing rods, bait, hooks), armor (helmets, chest, legs, vanity), accessories, wings, ammo
+  (arrows, bullets, rockets), placeables (blocks, platforms, walls, furniture, stations, chests, doors, chairs, tables,
+  light sources, torches, wiring), potions (healing, mana, buffs, food and drinks), pets, light pets, mounts,
+  minecarts, dyes, hair dyes, boss summons, treasure bags, fishing crates, critters, materials, ores, bars, gems,
+  Extractinator, Expert, Master and consumables.
+- **Favorites**: Alt+Click an item in the grid or Alt+F on the card, and filter by favorites.
+- Search, mod, category, favorites, sort and stage are **kept per tab** and never reset by themselves: not when the
+  book closes, not when you jump to another item. Ctrl+Backspace clears the open tab.
+
+### Sorting
+
+Every sort works both ways (ascending and descending). The sort list adds what makes sense for the category you are
+in, and a chosen sort comes back when you return to a category that has it.
+
+| Where | Sorts |
+|---|---|
+| Every list | Name, ID, Mod, Rarity, Sell price |
+| Items and Recipes | Crafting station: weakest or strongest first, by the station the easiest recipe needs |
+| Weapons | Damage, Speed, Crit chance, Knockback |
+| Ammo | Damage, Knockback |
+| Armor and accessories | Defense |
+| Wings | Flight time |
+| Potions and food | Healing, Mana, Buff duration |
+| Tools | Pickaxe power, Axe power, Hammer power |
+| Fishing rods and bait | Fishing power, Bait power |
+| Bestiary | Stage (earliest first), Met (oldest or newest first) |
+| Storage | Changed (what was just stored, taken or crafted with, newest or oldest first) |
+
+Modded rarities, which have no order of their own, are placed after Purple by the value of their items.
+
+<p align="center"><img src="docs/screenshots/sort-menu.png" width="70%" alt="Sort menu"></p>
+
+### Progression: stages and "Before: boss"
+
+- Every item, recipe and mob has **the boss it waits for**, in the order of the vanilla and Calamity bosses. The card
+  names it ("After Plantera"), and its hint shows why: "Spectre Bar ← Ectoplasm ← drop: Dungeon Spirit".
+- The stage is the **earliest** point something can be had, worked out from recipe chains (ingredients, stations and
+  conditions all the way down), boss drops and bags, crates, presents, shops and their conditions, enemy drops and
+  banners, enemy spawns (post-Plantera Dungeon, eclipse, moons, Martians, pillars, Acid Rain, mods' spawn rules), ores
+  and the pickaxe they need, fishing spots and world generation.
+- **Stage filter** in the header: All, Pre-Hardmode, Hardmode, Post-Moon Lord, or **"Before: &lt;boss&gt;"** for any
+  vanilla or Calamity boss: what you can get or craft with every earlier boss down and that one still alive. The menu
+  shows every boss in three columns with its head, the downed ones ticked.
+- **"Next boss"** (Alt+5) is the first boss not yet down in your world and moves on by itself when you beat it.
+- It works on Items, Recipes, the Bestiary and the card's Used in list. Storage has a stage filter of its own, so
+  browsing Hardmode never hides the Pre-Hardmode materials in your chests.
+- It follows **your world's difficulty**: Classic, Expert, Master, Journey and Calamity's Revengeance decide which
+  drops exist. Something only another difficulty gives says so. "Unknown stage" lists what cannot be placed, and the
+  footer counts what the filter hid for that reason.
+
+### Class buttons and weapon traits
+
+- **Class buttons**: Melee, Ranged, Magic, Summoner and Rogue (with Calamity) narrow weapons, ammo, armor, accessories
+  and buff potions to one class. Armor and accessories are classified by what they actually boost, set bonuses
+  included, and Calamity's reworks of vanilla gear are followed (Monk and Shinobi armor count for summoner and rogue).
+- **Traits** filter: Homing, Homing stealth strike (Calamity), Pierces, Through walls, Auto attack, Minion, Sentry.
+  Tick one or more and only the weapons and ammo with all of them stay; each row says how many listed items have it.
+- The card names the item's traits under its name, and the hint says where each comes from: the description's own
+  words (quoted), the projectile's stats, or a weapon checked in the game's code. Nothing is guessed: a trait the book
+  cannot be sure of is left out.
 
 <p align="center">
 <img src="docs/screenshots/weapon-traits.png" width="49%" alt="Weapon traits filter">
-<img src="docs/screenshots/station-filter.png" width="49%" alt="Crafting station filter">
+<img src="docs/screenshots/traits-tooltip.png" width="49%" alt="Why a weapon counts as homing">
 </p>
+
+### Crafting stations and "Craftable"
+
+- **Station filter** (the anvil button): lists the crafting stations of what the other filters show, with how many
+  items need each. Untick the ones you lack and whatever only they make is hidden; an item stays while one of its
+  recipes needs none of them.
+- **Craftable** (the hammer button): only what you can craft right now, from your inventory and nearby storage, at the
+  stations in reach. It updates when your materials change and combines with every other filter.
+- **Active stations**: a chip in the footer shows the strongest station in reach and how many count. Hover it for their
+  icons, grouped: placed nearby, in a Magic Storage Crafting Interface, and surroundings such as water, honey, lava,
+  snow or a graveyard. A station that counts only through another (the Adamantite Forge's Furnace) is dimmed with that
+  station's icon on its corner.
+
 <p align="center">
-<img src="docs/screenshots/traits-tooltip.png" width="56%" alt="Why a weapon counts as homing">
-<img src="docs/screenshots/sort-menu.png" width="42%" alt="Sort menu">
+<img src="docs/screenshots/station-filter.png" width="62%" alt="Crafting station filter">
+<img src="docs/screenshots/active-stations.png" width="36%" alt="Active crafting stations">
 </p>
+
+### The item card
+
+- The **recipe** with have/need counts that include your nearby storage, the station and conditions, and whose mod
+  the recipe comes from (a vanilla item says Terraria even when another mod changed its recipe).
+- **Batches**: x1, x5, x10 and Max (as many as your materials allow, up to 100). **Craft** pulls the missing
+  materials out of nearby storage by itself.
+- **Recipe variants**: recipes of one item that differ in a single ingredient are one recipe, "Shadow Scale / or
+  Tissue Sample"; the row counts the alternative you have most of, and Craft, Max and Track use the one you can make.
+- **Used in**: everything the item is crafted into. Click an ingredient or a Used in row to open that item.
+- **Armor**: the set bonus of the shown combination in the game's own words (Calamity's reworked sets included) and
+  every piece of the set; click a piece to switch to it.
+- **Track**, **Track Set**, **Favorite** and **How to Get** right on the card.
+
+<p align="center"><img src="docs/screenshots/set-bonus.png" width="70%" alt="Armor set bonus"></p>
+
+### How to Get
+
+Every source of an item in one list, each row with its chance and amount:
+
+- **recipes**, with the station;
+- **drops** of bosses and enemies, with this world's chance and conditions. Loot only another difficulty or seed
+  drops (a boss's own weapons in Expert, which come in its Treasure Bag) is marked "Not in this world" and listed
+  last. A condition without a text says whether it holds in your world ("met" or "not met yet");
+- **treasure bags, crates, presents and lock boxes**;
+- **shops**, the Travelling Merchant included, with their conditions ("NPC lives here", "player carries item");
+- **the world itself**: where a plant grows, what breaking blocks, plants and trees drops (by the game's own drop code),
+  where to mine an ore or gem and with which pickaxe, fishing spots and quest fish, world chests and structures
+  (Calamity's Draedon labs, shrines and the Brimstone Crag included);
+- **shimmer**, the **bug net**, **banners**, **trades** and recorded **music boxes**.
+
+An enemy row opens that mob's Bestiary card; a recipe row opens the recipe.
+
+### Nearby storage
+
+- Every unlocked chest and dresser, the Piggy Bank, Safe, Defender's Forge and Void Vault, the open container, a
+  carried Void Bag and every Magic Storage network within the radius (10–50 tiles, 30 by default) are **one list** on
+  the Storage tab, with search, filters and sorting.
+- **Cells line**: "Cells: 1,234 / 3,200", counting Magic Storage cells as Magic Storage's own window does, plus chest
+  slots. It turns amber at 90% full; hover it for each network and the chests apart.
+- **Take like from a chest**: a click takes the stack onto the cursor, holding right-click takes more and more with
+  the game's own speed-up, Shift+Click sends it to the inventory, Ctrl+Click to the trash.
+- **Put away**: Shift+Click an inventory item or drop it from the cursor onto the list. It goes onto matching stacks
+  first, then into the nearest Magic Storage, then into the nearest chest with room.
+- **Deposit All, Quick Stack and Restock** buttons. Deposit All never touches the hotbar, favorites or Magic Storage
+  locators; Quick Stack only adds to stacks that are already there and says what went where.
+- Card counts, Craftable, Max and the tracker **count all of it**, and Craft takes from it.
+- Locked chests, chests another player has open and password networks are **listed as not counted**, with the reason.
+
+<p align="center"><img src="docs/screenshots/storage.png" width="860" alt="Storage tab"></p>
+<p align="center"><img src="docs/screenshots/craft-from-storage.png" width="70%" alt="Crafting from nearby storage"></p>
 
 ### Magic Storage integration
 
 Magic Storage is fully integrated: the book uses Magic Storage's own members and rules, not a copy of them.
 
-- Every network in reach is part of the **Storage** tab, next to your chests and banks: its items, how many cells of
-  its storage units are taken, and the stations of its Crafting Interface.
-- **Craft from it directly**: the book counts what the network holds and takes the materials out itself.
-- A bound **Portable Access** or **Portable Crafting Access** you carry brings its network in from afar, by Magic
-  Storage's own range rules. A network opened through the Magic Storage window counts too; both read "Remote".
-- **Quick Stack, Deposit All and Restock** reach the network, the remote one included. Deposit All leaves your hotbar,
-  favorites and Magic Storage locators alone.
-- Locked and password networks are named ("Not counted: 1 locked · 1 password"), never silently skipped.
-- The **Changed** sort puts what was just stored, taken or crafted with first, whoever moved it.
-
-<p align="center"><img src="docs/screenshots/storage.png" width="860" alt="Storage tab"></p>
-<p align="center">
-<img src="docs/screenshots/craft-from-storage.png" width="62%" alt="Crafting from nearby storage">
-<img src="docs/screenshots/active-stations.png" width="36%" alt="Active crafting stations">
-</p>
-
-The footer chip shows the crafting stations in reach: nearby, in a Crafting Interface (near you or through a Portable
-Crafting Access), and surroundings such as water or snow.
+- Every network in reach counts, without connecting or picking one: its items, its storage units' cells (inactive
+  units and the unlimited Creative Storage Unit are left out and named), its Crafting Interface stations.
+- A bound **Portable Access** in your inventory brings its network in from afar, by Magic Storage's own rules (range,
+  pylons, the storage still in place, the password); a **Portable Crafting Access** brings its Crafting Interface's
+  stations. A network opened through Magic Storage's window counts too. All of them read "Remote".
+- Crafting, tracking, Max and Craftable count the network; Craft pulls from it; deposits go into the nearest network.
+- Quick Stack, Deposit All and Restock reach it, the remote one included.
+- The **Changed** sort puts what was just stored, taken or crafted with first, whoever moved it, you or another
+  player. The times are kept per character and world.
+- On a server the server checks the same rules itself and moves the items.
 
 ### Calamity integration
 
 Calamity is fully integrated too: bosses, biomes, events and drop rules come from Calamity's own code.
 
-- **Every Calamity boss is a progression step.** The stage filter, "Before: &lt;boss&gt;" and each item's "After
-  &lt;boss&gt;" follow Calamity's order. Boss Checklist is not needed.
-- **Biomes and events**: the Sulphurous Sea, the Abyss layers, the Sunken Sea, the Astral Infection and the Brimstone
-  Crag sort the Bestiary, and so do the Acid Rain tiers. Where and after which boss a mob spawns is read from
-  Calamity's spawn code.
-- **Drop rules**: chances follow your world's difficulty, Revengeance included. Ores that appear on a boss's first
-  kill (Cryonic, Perennial, Uelibloom, Auric and others) say which boss and where, and Calamity's early-hardmode ore
-  order is taken into account.
-- **Rogue** has its own class button, and the Traits filter knows homing stealth strikes.
+- **Boss order**: every Calamity boss and mini-boss is a progression step, in Calamity's own order with its own
+  downed checks. Boss Checklist is not needed.
+- **Spawn rules from Calamity's code**: Plaguebringer "Jungle · after Golem", Cryo Slime "Snow · after Cryogen ·
+  after any two mechanical bosses", Aero Slime "after The Hive Mind or The Perforator Hive". The **Acid Rain** enemies
+  say where and when ("Cragmaw Mire: in water · after Aquatic Scourge") and how the event starts.
+- **Biomes**: the Sulphurous Sea, the Abyss layers, the Sunken Sea, the Astral Infection and the Brimstone Crag sort
+  the Bestiary; Acid Rain mini-bosses count as mini-bosses.
+- **Drops**: Revengeance drops and Calamity's text-less drop conditions are judged against your world.
+- **Ores**: those that appear on a boss's first kill (Cryonic, Perennial, Uelibloom, Auric, Exodium and others) name
+  that boss and where they generate; Calamity's early-hardmode ore order and its pickaxe requirements (Astral Ore 210,
+  Exodium 225) are followed.
+- **Rogue**: its own class button, the homing stealth strike trait, and Calamity's reworks of vanilla gear (Monk,
+  Shinobi, Gladiator armor, weapon flasks) in the class filter; reworked set bonuses on armor cards.
+- **Mob cards** show Calamity's damage reduction.
+- Optional **Double-Tap Dash**: double-tap left or right to dash, while Calamity's dash key keeps working.
 
 ### Bestiary
 
-Every mob by kind, event and biome, with an animated portrait over its biome, its own drops, where and after which
-boss it spawns (read from the mods' own spawn code too) and, once you have met it as the vanilla Bestiary requires,
-its life, defense, damage, coins, kills and banner progress. Press Mouse3 on a mob in the world to open its entry.
-The book remembers when you first and last met each mob; "Recently seen" lists the last ones.
+- Every mob of the game and its mods **by kind** (bosses, mini-bosses, enemies, town NPCs, critters), **event** (Blood
+  Moon, eclipse, rain, windy day, blizzard, sandstorm, Halloween, Christmas, party, invasions) and **biome**, with
+  search, mod filter, sorting, favorites, the stage filter and "encountered only".
+- The card has an **animated portrait over its biome**, its own drops first (with this world's chances; drops any
+  enemy can give are folded under "Any enemy"), and **where and after which boss it spawns**, read from the mods' own
+  spawn code too.
+- Once you have met it, as the vanilla Bestiary requires (enemies after a kill, town NPCs after a chat, critters once
+  seen): life, defense, damage, knockback resistance, coins, kills and banner progress. A boss's numbers follow
+  Expert/Master and the number of players in the world.
+- **Mouse3 on a mob in the world** opens its entry.
+- The book records **when you first and last met** each mob: "Recently seen" lists the last 24, and the Bestiary sorts
+  by when you met them.
 
 <p align="center">
 <img src="docs/screenshots/bestiary-spawns.png" width="66%" alt="Bestiary card with spawn rules">
@@ -135,25 +292,51 @@ The book remembers when you first and last met each mob; "Recently seen" lists t
 </p>
 <p align="center"><img src="docs/screenshots/spawn-rules.png" width="60%" alt="Where and when a mob spawns"></p>
 
-### Tracking, map and armor sets
+### Tracking
 
-- **Tracking**: follow up to five items or whole armor sets. Cards or compact lines under the minimap count the
-  materials you still need.
-- **Map**: Mouse3 on an explored spot of the full map teleports you there. Shared markers with a badge and an optional
-  name show everyone who placed them and when.
-- **Armor cards** show the set bonus and every piece of the set.
+- Track up to **five goals**: an item with its amount, or a whole armor set. Track keeps the book open, so you can add
+  several in a row.
+- The overlay shows them as **cards with progress bars**, or as **compact lines under the minimap** like an info
+  accessory. Counts include your nearby storage.
+- The Tracking tab lists each goal's materials; hover one for its own tooltip, "?" opens How to Get.
+
+<p align="center"><img src="docs/screenshots/tracker.png" width="35%" alt="Tracker under the minimap"></p>
+
+### Map teleport and shared markers
+
+- **Teleport**: Mouse3 on an explored spot of the full map takes you there. Unexplored spots refuse; inside blocks or
+  next to lava you land on the nearest safe floor.
+- **Shared markers**: right-click the full map to place a marker with an optional name and one of 12 badges. Everyone
+  on the server sees it on the full map, the minimap and the overlay, with who placed it and how long ago. Only its
+  author or the host can edit or delete it, and it is saved with the world.
 
 <p align="center">
-<img src="docs/screenshots/tracker.png" width="30%" alt="Tracker under the minimap">
-<img src="docs/screenshots/marker-create.png" width="34%" alt="Placing a map marker">
-<img src="docs/screenshots/marker-view.png" width="31%" alt="A placed marker">
+<img src="docs/screenshots/marker-create.png" width="45%" alt="Placing a map marker">
+<img src="docs/screenshots/marker-view.png" width="41%" alt="A placed marker">
 </p>
-<p align="center"><img src="docs/screenshots/set-bonus.png" width="70%" alt="Armor set bonus"></p>
+
+### Keyboard and navigation
+
+- **Back and Forward** (Mouse4/Mouse5, Alt+←/→) walk through everything: tabs, filters, selected items, card steps,
+  How to Get and enemy cards.
+- **Every action has a shortcut**, named in its button's tooltip; F1 shows them all. Arrows move the selection in the
+  grid, PgUp/PgDn turn pages, Esc closes the top window only.
+- **Hover tooltips** everywhere: any row that stands for an item shows that item's own tooltip; a cut-short value
+  shows in full.
+- The book's own shortcuts never leak into the game: Ctrl/Alt+digits do not switch the hotbar and quick buff does not
+  fire under them.
+
+<p align="center"><img src="docs/screenshots/shortcuts.png" width="70%" alt="Shortcuts help"></p>
 
 ### Languages
 
-The book is fully translated into Russian, including what it writes about items, sources and mobs. It follows the
-game's language setting.
+The book speaks English and Russian, including everything it writes about items, sources and mobs, and follows the
+game's language setting. With any other language the book's own texts are in English, while item, mob, biome and
+mod names come from the game in that language.
+
+The mod's settings and keybind names live in `Localization/*.hjson` and translate the usual tModLoader way. The
+book's own texts are still built into the code as English/Russian pairs, so a full translation into another
+language needs them moved into the localization files first.
 
 <p align="center">
 <img src="docs/screenshots/russian-items.png" width="49%" alt="Items tab in Russian">
@@ -184,8 +367,8 @@ On a server, install the same file on the server and on every client.
 
 ## Controls
 
-Open the book with **Mouse3** (rebindable in Controls). Every button's tooltip names its shortcut, and **F1** in the
-book shows them all.
+Open the book with **Mouse3** (rebindable in Controls). With the inventory open, Mouse3 on an item in any slot opens
+that item.
 
 <details>
 <summary><b>All shortcuts</b></summary>
@@ -241,11 +424,9 @@ book shows them all.
 
 </details>
 
-<p align="center"><img src="docs/screenshots/shortcuts.png" width="70%" alt="Shortcuts help"></p>
-
 ## Configuration
 
-Mod Configuration → Recipe Book (yours) and Recipe Book: Server (the host's).
+Mod Configuration → **Recipe Book** (yours) and **Recipe Book: Server** (the host's).
 
 | Option | Default | |
 |---|---|---|
@@ -262,10 +443,13 @@ Mod Configuration → Recipe Book (yours) and Recipe Book: Server (the host's).
 
 ## Multiplayer
 
-The mod is Both-sided and built for servers, Host & Play included. Taking from and putting into storage is carried out
-by the server; map markers are shared and kept with the world; spawn rules and world sources are read on clients the
-same way as in single player. The host decides in Recipe Book: Server whether
-nearby storage, map teleport and markers are on.
+The mod is Both-sided and built for servers, Host & Play included; players joining download it.
+
+- Taking from and putting into storage is carried out by the server, which checks every request; holding right-click
+  is batched so it never runs into the server's rate limit.
+- Map markers are shared and kept with the world; only their author or the host can change them.
+- Spawn rules and world sources are read on clients the same way as in single player.
+- The host decides in **Recipe Book: Server** whether nearby storage, map teleport and markers are on.
 
 ## Building from source
 
@@ -274,14 +458,27 @@ nearby storage, map teleport and markers are on.
 2. In tModLoader open Workshop → Develop Mods and press **Build** next to Modern Recipe Book, or run `dotnet build` in
    the folder.
 
-The [docs](docs/) folder has the design notes of the larger features (nearby storage, boss progression, spawn gates,
-weapon traits and others); it is kept out of the built `.tmod`.
+Every push to `main` is built by GitHub Actions ([build.yml](.github/workflows/build.yml)): the `.tmod` is kept as a
+workflow artifact, and a version in `build.txt` that has no release yet gets one, with that version's CHANGELOG
+section as its notes and the `.tmod` attached.
+
+## Repository layout
+
+| Path | |
+|---|---|
+| `ModernRecipeBook.csproj` | The project; tModLoader builds the mod from this folder |
+| `build.txt`, `description.txt`, `icon.png` | The mod's metadata, as tModLoader reads them |
+| `src/` | The C# sources |
+| `Localization/` | English and Russian texts |
+| `Assets/` | Textures |
+| `docs/` | Design notes of the larger features and the README screenshots (kept out of the `.tmod`) |
+| `.github/workflows/` | The build and release workflow |
 
 ## Contributing
 
 Bugs and ideas go to [Issues](../../issues). For a bug, say what you did, what you expected and what happened, with
 your tModLoader, Calamity and Magic Storage versions and `tModLoader-Logs/client.log`. Pull requests are welcome;
-user-facing text comes in both English and Russian.
+user-facing text comes in both English and Russian, and every release gets a CHANGELOG entry.
 
 ## Changelog
 
@@ -290,7 +487,7 @@ Every release is in [CHANGELOG.md](CHANGELOG.md), newest first. The versions fol
 
 ## Credits
 
-- Author: 2k17clubbb.
+- Made by [h8suga](https://github.com/h8suga), who published it as 2k17clubbb.
 - Built on [tModLoader](https://github.com/tModLoader/tModLoader).
 - Integrates with [Calamity Mod](https://calamitymod.wiki.gg/) and
   [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); both belong to their authors.
