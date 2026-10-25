@@ -499,7 +499,7 @@ Calamity и Magic Storage и приложи `tModLoader-Logs/client.log`. Pull r
 
 ## Авторы
 
-- Сделал [h8suga](https://github.com/h8suga), публиковал под псевдонимом 2k17clubbb.
+- Автор: [h8suga](https://github.com/h8suga).
 - Сделано на [tModLoader](https://github.com/tModLoader/tModLoader).
 - Интеграция с [Calamity Mod](https://calamitymod.wiki.gg/) и
   [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); оба мода принадлежат своим авторам.

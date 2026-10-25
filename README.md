@@ -487,7 +487,7 @@ Every release is in [CHANGELOG.md](CHANGELOG.md), newest first. The versions fol
 
 ## Credits
 
-- Made by [h8suga](https://github.com/h8suga), who published it as 2k17clubbb.
+- Made by [h8suga](https://github.com/h8suga).
 - Built on [tModLoader](https://github.com/tModLoader/tModLoader).
 - Integrates with [Calamity Mod](https://calamitymod.wiki.gg/) and
   [Magic Storage](https://github.com/absoluteAquarian/MagicStorage); both belong to their authors.
