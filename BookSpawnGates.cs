@@ -138,6 +138,9 @@ internal static class BookSpawnGates
 
 	private static bool built;
 
+	// Probed for this world (the progression steps of modded enemies read the gates).
+	internal static bool Built => built;
+
 	private static bool spotsRequested;
 
 	// Tiles around a spot that SpawnCondition and the mods' checks read; the server sends 3x3 sections around it.
@@ -262,21 +265,10 @@ internal static class BookSpawnGates
 		};
 	}
 
-	private static void Probe()
+	// The world's progression flags (NPC.downed*, Main.hardMode, DD2Event.DownedInvasion*, Calamity's DownedBossSystem
+	// fields) and Steps with the flags each sets, the steps of mods that are not loaded left out.
+	private static (FieldInfo[] Flags, List<(string Boss, FieldInfo[] Flags, BookStage Stage)> Steps) ReadProgression()
 	{
-		Stopwatch timer = Stopwatch.StartNew();
-		ModernRecipeBook mod = ModContent.GetInstance<ModernRecipeBook>();
-		// SpawnCondition.X.Chance, which most mods' SpawnChance return, is what NPCSpawnHelper.DoChecks worked out for
-		// the spawn info last; NPCLoader.ChooseSpawn runs it before asking the mods.
-		Type helper = typeof(ModNPC).Assembly.GetType("Terraria.ModLoader.Utilities.NPCSpawnHelper");
-		Action reset = helper?.GetMethod("Reset", BindingFlags.Static | BindingFlags.NonPublic)?.CreateDelegate<Action>();
-		Action<NPCSpawnInfo> check = helper?.GetMethod("DoChecks", BindingFlags.Static | BindingFlags.NonPublic)?.CreateDelegate<Action<NPCSpawnInfo>>();
-		FieldInfo biomeFlags = typeof(Player).GetField("modBiomeFlags", BindingFlags.Instance | BindingFlags.NonPublic);
-		if (reset == null || check == null || biomeFlags == null)
-		{
-			mod.Logger.Warn("Spawn gates: tModLoader's spawn helpers were not found; mob cards keep the Bestiary's spawn tags.");
-			return;
-		}
 		Type downed = ModLoader.TryGetMod("CalamityMod", out Mod calamity) ? calamity.Code.GetType("CalamityMod.DownedBossSystem") : null;
 		FieldInfo[] flags = typeof(NPC).GetFields(BindingFlags.Static | BindingFlags.Public).Where((FieldInfo f) => f.Name.StartsWith("downed", StringComparison.Ordinal))
 			.Concat(typeof(DD2Event).GetFields(BindingFlags.Static | BindingFlags.Public).Where((FieldInfo f) => f.Name.StartsWith("DownedInvasion", StringComparison.Ordinal)))
@@ -307,6 +299,99 @@ internal static class BookSpawnGates
 			}));
 			steps.Add((words[0], set, reached));
 		}
+		return (flags, steps);
+	}
+
+	// Sets the named steps as on(k) says and every other flag (events, pillars) to rest; "any mechanical boss"
+	// follows the three, as in the game.
+	private static void OpenSteps(FieldInfo[] flags, List<(string Boss, FieldInfo[] Flags, BookStage Stage)> steps, Func<int, bool> on, bool rest)
+	{
+		foreach (FieldInfo flag in flags)
+		{
+			flag.SetValue(null, rest);
+		}
+		for (int k = 0; k < steps.Count; k++)
+		{
+			foreach (FieldInfo flag in steps[k].Flags)
+			{
+				flag.SetValue(null, on(k));
+			}
+		}
+		NPC.downedMechBossAny = NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3;
+	}
+
+	// Mods' opaque conditions (Calamity's AddIf lambdas: "NPC.downedGolemBoss" for Scoria Ore from the Chaotic Puffer)
+	// asked the same way: the flags open step by step in Steps' order, and a test's answer is the boss of the first
+	// step after which it passes ("" when it passes with nothing down). Null for a test that also fails with everything
+	// open (it waits for a biome, the time or an event, not progression) or throws. Every flag is put back.
+	internal static string[] ProbeSteps(IReadOnlyList<Func<bool>> tests)
+	{
+		string[] results = new string[tests.Count];
+		if (tests.Count == 0)
+		{
+			return results;
+		}
+		(FieldInfo[] flags, List<(string Boss, FieldInfo[] Flags, BookStage Stage)> steps) = ReadProgression();
+		object[] saved = flags.Select((FieldInfo f) => f.GetValue(null)).ToArray();
+		bool[] open = new bool[tests.Count];
+		bool[] done = new bool[tests.Count];
+		try
+		{
+			OpenSteps(flags, steps, (int k) => true, rest: true);
+			for (int i = 0; i < tests.Count; i++)
+			{
+				open[i] = Passes(tests[i]);
+			}
+			for (int step = -1; step < steps.Count; step++)
+			{
+				OpenSteps(flags, steps, (int k) => k <= step, rest: false);
+				for (int i = 0; i < tests.Count; i++)
+				{
+					if (open[i] && !done[i] && Passes(tests[i]))
+					{
+						done[i] = true;
+						results[i] = step < 0 ? "" : steps[step].Boss;
+					}
+				}
+			}
+		}
+		finally
+		{
+			for (int f = 0; f < flags.Length; f++)
+			{
+				flags[f].SetValue(null, saved[f]);
+			}
+		}
+		return results;
+		static bool Passes(Func<bool> test)
+		{
+			try
+			{
+				return test();
+			}
+			catch (Exception)
+			{
+				return false;
+			}
+		}
+	}
+
+	private static void Probe()
+	{
+		Stopwatch timer = Stopwatch.StartNew();
+		ModernRecipeBook mod = ModContent.GetInstance<ModernRecipeBook>();
+		// SpawnCondition.X.Chance, which most mods' SpawnChance return, is what NPCSpawnHelper.DoChecks worked out for
+		// the spawn info last; NPCLoader.ChooseSpawn runs it before asking the mods.
+		Type helper = typeof(ModNPC).Assembly.GetType("Terraria.ModLoader.Utilities.NPCSpawnHelper");
+		Action reset = helper?.GetMethod("Reset", BindingFlags.Static | BindingFlags.NonPublic)?.CreateDelegate<Action>();
+		Action<NPCSpawnInfo> check = helper?.GetMethod("DoChecks", BindingFlags.Static | BindingFlags.NonPublic)?.CreateDelegate<Action<NPCSpawnInfo>>();
+		FieldInfo biomeFlags = typeof(Player).GetField("modBiomeFlags", BindingFlags.Instance | BindingFlags.NonPublic);
+		if (reset == null || check == null || biomeFlags == null)
+		{
+			mod.Logger.Warn("Spawn gates: tModLoader's spawn helpers were not found; mob cards keep the Bestiary's spawn tags.");
+			return;
+		}
+		(FieldInfo[] flags, List<(string Boss, FieldInfo[] Flags, BookStage Stage)> steps) = ReadProgression();
 		List<(Place Place, Player Player, NPCSpawnInfo Info, int Variants)> stands = new List<(Place, Player, NPCSpawnInfo, int)>();
 		foreach (Place place in Places)
 		{
@@ -530,22 +615,9 @@ internal static class BookSpawnGates
 		}
 		Summary = $"Spawn gate audit ({timer.ElapsedMilliseconds} ms): probed {npcs.Count} NPCs in {stands.Count} places over {steps.Count} steps; {gates.Count} got a gate ({several} of them one way of several), {state.Count((int s) => s == Ungated)} open from the start, {errors} errors ({inconsistent} inconsistent).";
 		mod.Logger.Info(Summary);
-		// Sets the named steps as on(k) says and every other flag (events, pillars) to rest; "any mechanical boss"
-		// follows the three, as in the game.
 		void Open(Func<int, bool> on, bool rest)
 		{
-			foreach (FieldInfo flag in flags)
-			{
-				flag.SetValue(null, rest);
-			}
-			for (int k = 0; k < steps.Count; k++)
-			{
-				foreach (FieldInfo flag in steps[k].Flags)
-				{
-					flag.SetValue(null, on(k));
-				}
-			}
-			NPC.downedMechBossAny = NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3;
+			OpenSteps(flags, steps, on, rest);
 		}
 		// Which of these gated mobs spawn as the flags stand, in any variant that worked with everything open.
 		HashSet<int> Spawning(IEnumerable<int> mobs)

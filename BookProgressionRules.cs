@@ -4,73 +4,92 @@ using System.Linq;
 
 namespace ModernRecipeBook;
 
+// Steps are BookSteps indexes: 0 the start, k after boss k, -1 unknown.
 internal static class BookProgressionRules
 {
 	// Source names where the route comes from for the audit ("drop:Bag", recipes leave it null).
-	internal sealed record Route(int Key, int Output, BookStage Floor, int[][] Ingredients, bool Uncertain = false, string Source = null);
+	internal sealed record Route(int Key, int Output, int Floor, int[][] Ingredients, bool Uncertain = false, string Source = null);
 
 	internal static Dictionary<string, int[]> BuildNameIndex(IEnumerable<KeyValuePair<string, int>> entries)
 	{
 		return entries.Where((KeyValuePair<string, int> e) => !string.IsNullOrEmpty(e.Key)).GroupBy((KeyValuePair<string, int> e) => e.Key, StringComparer.Ordinal).ToDictionary((IGrouping<string, KeyValuePair<string, int>> g) => g.Key, (IGrouping<string, KeyValuePair<string, int>> g) => g.Select((KeyValuePair<string, int> e) => e.Value).Distinct().ToArray(), StringComparer.Ordinal);
 	}
 
-	internal static bool Matches(BookStageFilter filter, BookStage stage)
+	// The list filter: everything; one stage's steps; everything below a boss's step ("before" is that step); or
+	// what the model could not place.
+	internal static bool Matches(BookStageFilter filter, int step, int before)
 	{
-		if (filter != BookStageFilter.All)
+		return filter switch
 		{
-			return stage == (BookStage)(filter - 1);
-		}
-		return true;
+			BookStageFilter.All => true,
+			BookStageFilter.BeforeBoss => step >= 0 && step < before,
+			BookStageFilter.Unknown => step < 0,
+			_ => step >= 0 && BookSteps.StageOf(step) == (BookStage)(filter - 1)
+		};
 	}
 
-	internal static bool MatchesChain(BookStageFilter filter, BookStage stage, BookStage minimum)
+	// Used In: a recipe the model could not place still shows when what it takes at least is no later than the filter.
+	internal static bool MatchesChain(BookStageFilter filter, int step, int minimum, int before)
 	{
-		if (!Matches(filter, stage))
+		if (Matches(filter, step, before))
 		{
-			if (stage == BookStage.Unknown)
-			{
-				if (filter != BookStageFilter.All)
-				{
-					return (int)(filter - 1) >= (int)minimum;
-				}
-				return true;
-			}
+			return true;
+		}
+		if (step >= 0)
+		{
 			return false;
 		}
-		return true;
+		return filter switch
+		{
+			BookStageFilter.BeforeBoss => minimum < before,
+			BookStageFilter.PreHardmode or BookStageFilter.Hardmode or BookStageFilter.PostHardmode => (int)(filter - 1) >= (int)BookSteps.StageOf(minimum),
+			_ => true
+		};
 	}
 
-	internal static BookStage MinimumStage(Route route, IReadOnlyDictionary<int, BookStage> items, IReadOnlyDictionary<int, BookStage> floors)
+	internal static int MinimumStep(Route route, IReadOnlyDictionary<int, int> items, IReadOnlyDictionary<int, int> floors)
 	{
-		int result = Math.Max(0, Math.Max((int)route.Floor, (int)(floors.TryGetValue(route.Output, out var floor) ? floor : BookStage.PreHardmode)));
-		int[][] ingredients = route.Ingredients;
-		foreach (int[] group in ingredients)
+		int result = Math.Max(0, Math.Max(route.Floor, floors.TryGetValue(route.Output, out var floor) ? floor : 0));
+		foreach (int[] group in route.Ingredients)
 		{
-			int minimum = ((group.Length != 0) ? group.Min((int type) => (int)((items.TryGetValue(type, out var value) && value != BookStage.Unknown) ? value : BookStage.PreHardmode)) : 0);
+			int minimum = (group.Length != 0) ? group.Min((int type) => (items.TryGetValue(type, out var value) && value >= 0) ? value : 0) : 0;
 			result = Math.Max(result, minimum);
 		}
-		return (BookStage)result;
+		return result;
 	}
 
-	// reasons: seed reasons in, and for every item lowered by a route the route that did it.
-	internal static (Dictionary<int, BookStage> Items, Dictionary<int, BookStage> Recipes) Resolve(IReadOnlyDictionary<int, BookStage> seeds, IReadOnlyDictionary<int, BookStage> floors, IReadOnlyList<Route> routes, Dictionary<int, string> reasons = null)
+	// Least fixed point from the seeds: a route gives its output the latest of its floor and, per ingredient group, the
+	// earliest member. via: for every item a route placed, that route (the rest keep their seed).
+	internal static (Dictionary<int, int> Items, Dictionary<int, int> Recipes) Resolve(IReadOnlyDictionary<int, int> seeds, IReadOnlyDictionary<int, int> floors, IReadOnlyList<Route> routes, Dictionary<int, Route> via = null)
 	{
-		Dictionary<int, BookStage> items = new Dictionary<int, BookStage>(seeds);
-		Dictionary<int, BookStage> recipes = new Dictionary<int, BookStage>();
+		Dictionary<int, int> items = new Dictionary<int, int>(seeds);
+		Dictionary<int, int> recipes = new Dictionary<int, int>();
+		// Items placed only by a lower bound (see Evaluate): any real value replaces them.
+		HashSet<int> bounded = new HashSet<int>();
+		via?.Clear();
 		bool changed;
 		do
 		{
 			changed = false;
 			foreach (Route route in routes)
 			{
-				BookStage next = Evaluate(route);
-				BookStage old = Read(route.Output);
-				if (next != BookStage.Unknown && (old == BookStage.Unknown || next < old))
+				int next = Evaluate(route, out bool bound);
+				int old = Read(route.Output);
+				bool wasBound = bounded.Contains(route.Output);
+				if (next >= 0 && (old < 0 || (bound ? (wasBound && next < old) : (next < old || wasBound))))
 				{
 					items[route.Output] = next;
-					if (reasons != null)
+					if (bound)
 					{
-						reasons[route.Output] = route.Source ?? ("recipe:" + route.Key);
+						bounded.Add(route.Output);
+					}
+					else
+					{
+						bounded.Remove(route.Output);
+					}
+					if (via != null)
+					{
+						via[route.Output] = route;
 					}
 					changed = true;
 				}
@@ -79,49 +98,50 @@ internal static class BookProgressionRules
 		while (changed);
 		foreach (Route route2 in routes)
 		{
-			recipes[route2.Key] = Evaluate(route2);
+			recipes[route2.Key] = Evaluate(route2, out _);
 		}
 		return (Items: items, Recipes: recipes);
-		BookStage Evaluate(Route route3)
+		int Evaluate(Route route3, out bool bound)
 		{
-			bool unknown = route3.Uncertain || route3.Floor == BookStage.Unknown;
-			BookStage stage = (BookStage)Math.Max(0, Math.Max((int)route3.Floor, (int)Floor(route3.Output)));
-			int[][] ingredients = route3.Ingredients;
-			for (int i = 0; i < ingredients.Length; i++)
+			bound = false;
+			bool unknown = route3.Uncertain || route3.Floor < 0;
+			int step = Math.Max(0, Math.Max(route3.Floor, Floor(route3.Output)));
+			foreach (int[] group in route3.Ingredients)
 			{
-				BookStage[] known = (from s in ingredients[i].Select(Read)
-					where s != BookStage.Unknown
-					select s).ToArray();
-				if (known.Length == 0)
+				int best = -1;
+				foreach (int type in group)
+				{
+					int s = Read(type);
+					if (s >= 0 && (best < 0 || s < best))
+					{
+						best = s;
+					}
+				}
+				if (best < 0)
 				{
 					unknown = true;
 				}
 				else
 				{
-					stage = (BookStage)Math.Max((int)stage, known.Min((BookStage s) => (int)s));
+					step = Math.Max(step, best);
 				}
 			}
-			if (!unknown || stage == BookStage.PostHardmode)
+			// Nothing comes later than post-Moon Lord, so a route already there is placed even with a part unknown, as a
+			// lower bound that only stands while nothing else places the item.
+			if (!unknown)
 			{
-				return stage;
+				return step;
 			}
-			return BookStage.Unknown;
+			bound = BookSteps.StageOf(step) == BookStage.PostHardmode;
+			return bound ? step : -1;
 		}
-		BookStage Floor(int item)
+		int Floor(int item)
 		{
-			if (!floors.TryGetValue(item, out var s))
-			{
-				return BookStage.PreHardmode;
-			}
-			return s;
+			return floors.TryGetValue(item, out var s) ? s : 0;
 		}
-		BookStage Read(int item)
+		int Read(int item)
 		{
-			if (!items.TryGetValue(item, out var s))
-			{
-				return BookStage.Unknown;
-			}
-			return s;
+			return items.TryGetValue(item, out var s) ? s : -1;
 		}
 	}
 }

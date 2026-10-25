@@ -338,9 +338,37 @@ internal static class BookItemSources
 		list.Add(source);
 	}
 
+	// A drop rule condition that holds when another does not: the failed-condition branch of a LeadingConditionRule.
+	internal sealed class NotCondition : IItemDropRuleCondition
+	{
+		internal readonly IItemDropRuleCondition Inner;
+
+		internal NotCondition(IItemDropRuleCondition inner)
+		{
+			Inner = inner;
+		}
+
+		public bool CanDrop(DropAttemptInfo info)
+		{
+			return !Inner.CanDrop(info);
+		}
+
+		public bool CanShowItemDropInUI()
+		{
+			return true;
+		}
+
+		public string GetConditionDescription()
+		{
+			return null;
+		}
+	}
+
 	// Split reports for the stages. Sequential rules report each entry as a failed roll of the previous one,
 	// so a condition on an early entry (the Present's hardmode-only Snow Globe) leaks onto everything after
-	// it: entries are reported alone.
+	// it: entries are reported alone. A LeadingConditionRule reports its failed-condition branch under the
+	// condition itself (Chains.TryIfDoesntFillConditions), though it drops when the condition fails (Calamity's
+	// AddFail: the Caustic Croaker Staff before Aquatic Scourge); that branch is reported under its negation.
 	private static List<DropRateInfo> Reports(IEnumerable<IItemDropRule> rules)
 	{
 		List<DropRateInfo> rates = new List<DropRateInfo>();
@@ -357,6 +385,26 @@ internal static class BookItemSources
 		return rates.Where((DropRateInfo r) => r.itemId > 0 && r.dropRate > 0f).ToList();
 		static void Report(IItemDropRule rule, List<DropRateInfo> rates)
 		{
+			if (rule is LeadingConditionRule leading)
+			{
+				foreach (IItemDropRuleChainAttempt chain in leading.ChainedRules)
+				{
+					bool failed = chain is Chains.TryIfDoesntFillConditions;
+					if (chain is Chains.TryIfDoesntFillConditions { hideLootReport: true } or Chains.TryIfSucceeded { hideLootReport: true } or Chains.TryIfFailedRandomRoll { hideLootReport: true })
+					{
+						continue;
+					}
+					List<DropRateInfo> branch = new List<DropRateInfo>();
+					Report(chain.RuleToChain, branch);
+					foreach (DropRateInfo entry in branch)
+					{
+						DropRateInfo gated = entry;
+						gated.AddCondition(failed ? new NotCondition(leading.condition) : leading.condition);
+						rates.Add(gated);
+					}
+				}
+				return;
+			}
 			IItemDropRule[] sequence = (rule as SequentialRulesNotScalingWithLuckRule)?.rules ?? (rule as SequentialRulesRule)?.rules;
 			if (sequence == null)
 			{

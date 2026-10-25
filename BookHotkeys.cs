@@ -28,6 +28,7 @@ internal static class BookHotkeys
 		Stage2,
 		Stage3,
 		Stage4,
+		Stage5,
 		MoveLeft,
 		MoveRight,
 		MoveUp,
@@ -132,7 +133,7 @@ internal static class BookHotkeys
 		{
 			return Action.Refresh;
 		}
-		// Alt+letter acts on the item in the card; Alt+1..4 picks the stage. Plain letters would also reach the
+		// Alt+letter acts on the item in the card; Alt+1..5 picks the stage (5: before the next boss). Plain letters would also reach the
 		// game (T throws the held item), Alt keeps them to the book.
 		if (alt && !ctrl && !shift)
 		{
@@ -167,6 +168,10 @@ internal static class BookHotkeys
 			if (Press(Keys.D4))
 			{
 				return Action.Stage4;
+			}
+			if (Press(Keys.D5))
+			{
+				return Action.Stage5;
 			}
 		}
 		if (arrows && !ctrl && !alt && !shift)

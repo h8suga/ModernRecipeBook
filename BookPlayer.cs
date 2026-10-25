@@ -97,7 +97,7 @@ public sealed class BookPlayer : ModPlayer
 			return;
 		}
 		KeyboardState keys = Keyboard.GetState();
-		// Ctrl+1..5 (tabs) and Alt+1..4 (stage): vanilla picks a hotbar slot while a digit is held, so a digit
+		// Ctrl+1..5 (tabs) and Alt+1..5 (stage): vanilla picks a hotbar slot while a digit is held, so a digit
 		// pressed with Ctrl or Alt stays blocked until it is released, even when the modifier is let go first.
 		// The triggers can lag the live keyboard by an update, so the digit counts as held while either shows it.
 		bool digit = HotbarDigits.Any(keys.IsKeyDown) || HotbarTriggerHeld();

@@ -234,7 +234,7 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			NPC npc = mob.Sample;
-			if ((terms.Length > 0 && !BookRules.Search(terms, BookRules.SearchText(npc.FullName, mob.Key, ContentSamples.NpcPersistentIdsByNetIds[mob.NetId], ModName(mob.Mod)))) ||!BookProgressionRules.Matches(StageFilter, BookProgression.NpcStage(mob.NetId)))
+			if ((terms.Length > 0 && !BookRules.Search(terms, BookRules.SearchText(npc.FullName, mob.Key, ContentSamples.NpcPersistentIdsByNetIds[mob.NetId], ModName(mob.Mod)))) ||!BookProgressionRules.Matches(StageFilter, BookProgression.NpcStep(mob.NetId), StageBefore))
 			{
 				continue;
 			}
@@ -269,7 +269,7 @@ public sealed partial class RecipeBookSystem
 		{
 			BookSortMode.ItemId => a.Order.CompareTo(b.Order),
 			BookSortMode.Mod => string.Compare(ModName(a.Mod), ModName(b.Mod), StringComparison.CurrentCultureIgnoreCase),
-			BookSortMode.Stage => BookProgression.NpcStage(a.NetId).CompareTo(BookProgression.NpcStage(b.NetId)),
+			BookSortMode.Stage => BookProgression.NpcStep(a.NetId).CompareTo(BookProgression.NpcStep(b.NetId)),
 			_ => 0,
 		};
 		if (comparison == 0 && SortMode != BookSortMode.ItemId)
@@ -647,7 +647,7 @@ public sealed partial class RecipeBookSystem
 		BookRect tags = BookGeometry.MobTags;
 		Box(sb, tags, Raised, border: false, 8f);
 		string clipped = null;
-		TagLine(0, T("Этап", "Stage"), StageName(BookProgression.NpcStage(netId)));
+		TagLine(0, T("Этап", "Stage"), StepName(BookProgression.NpcStep(netId)));
 		TagLine(1, T("Биом", "Biome"), (EnemyBiomes.Length > 0) ? EnemyBiomes : T("Не указан", "Not listed"));
 		TagLine(2, T("Появление", "Spawns"), (EnemySpawn.Length > 0) ? EnemySpawn : T("Не указано", "Not listed"));
 		bool tracked = ContentSamples.NpcBestiaryCreditIdsByNpcNetIds.TryGetValue(mob.NetId, out string credit) && SeenMobs.TryGet(credit, out _);
