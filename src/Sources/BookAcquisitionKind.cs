@@ -21,5 +21,7 @@ internal enum BookAcquisitionKind
 	World,
 	Machine,
 	DevSet,
+	Quest,
+	Event,
 	Unknown
 }
