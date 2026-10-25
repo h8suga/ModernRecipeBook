@@ -408,6 +408,24 @@ public sealed class BookMagicStorage : ModSystem
 		}
 	}
 
+	// A Magic Storage Locator or anything built on it (Portable Access, Portable Crafting Access): by type name, so it
+	// holds even when a member group failed to bind.
+	internal static bool IsLocator(Item item)
+	{
+		if (item?.ModItem == null || item.ModItem.Mod != Owner)
+		{
+			return false;
+		}
+		for (Type t = item.ModItem.GetType(); t != null; t = t.BaseType)
+		{
+			if (t.FullName == "MagicStorage.Items.Locator")
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	// Each bound Portable Access in the inventory, checked as PortableAccess.DoOpenStorage and OpenStorage check it when
 	// used: the location still holds the item's tile (a heart, or a Crafting Interface for the crafting ones) at frame
 	// 0,0; then, with a limited range, the player near the location, or else a valid pylon near the player and one near

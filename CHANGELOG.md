@@ -3,7 +3,7 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
-## Unreleased
+## 1.14.0 — 2026-10-25
 
 ### Added
 - A bound Portable Access in your inventory is enough: you no longer have to open Magic Storage's window. Its network's
@@ -12,6 +12,10 @@ patch for fixes, minor for features.
   listed in Active stations. Magic Storage's own rules decide whether it reaches: its range, pylons, a storage still in
   place, and the network's password. When it does not, the Storage tab's "Not counted" line says why. Works on a
   server, which checks the same rules itself.
+
+### Fixed
+- Deposit All in the Storage tab leaves Magic Storage locators (Portable Access, Portable Crafting Access, Locator)
+  in your inventory: putting one away would cut off the network it reaches in the same click.
 
 ## 1.13.0 — 2026-10-25
 
