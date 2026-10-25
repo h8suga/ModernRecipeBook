@@ -16,6 +16,7 @@ patch for fixes, minor for features.
 ### Fixed
 - Deposit All in the Storage tab leaves Magic Storage locators (Portable Access, Portable Crafting Access, Locator)
   in your inventory: putting one away would cut off the network it reaches in the same click.
+- Deposit All never touches the hotbar, coins in it included. Favorites stay, as before.
 
 ## 1.13.0 — 2026-10-25
 

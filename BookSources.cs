@@ -1541,8 +1541,9 @@ public sealed class BookSources : ModSystem
 		SoundEngine.PlaySound(in SoundID.Grab);
 	}
 
-	// Vanilla's chest Deposit All (ChestUI.DepositAll): slots 10..49 except favorites, and coins from every other slot
-	// only when a target already holds coins (ChestUI.MoveCoins). Coins are not exchanged into higher ones. Magic
+	// Vanilla's chest Deposit All (ChestUI.DepositAll): slots 10..49 except favorites, and coins from the coin slots
+	// only when a target already holds coins (ChestUI.MoveCoins). The hotbar (0..9) is never touched, coins in it
+	// included: the owner asked for the first row to stay. Coins are not exchanged into higher ones. Magic
 	// Storage locators stay too: a carried Portable Access is how the book reaches a far network, and putting it away
 	// would cut that network off in the same click.
 	internal static void DepositAll()
@@ -1558,10 +1559,10 @@ public sealed class BookSources : ModSystem
 			coins |= Tallies.TryGetValue(coin, out var tally) && (tally.Chests > 0 || tally.Storage > 0);
 		}
 		List<Item> items = new List<Item>();
-		for (int k = 0; k < 58; k++)
+		for (int k = 10; k < 58; k++)
 		{
 			Item item = player.inventory[k];
-			if (item != null && !item.IsAir && !item.favorited && !BookMagicStorage.IsLocator(item) && ((k >= 10 && k < 50) || (coins && ItemID.Sets.CommonCoin[item.type])))
+			if (item != null && !item.IsAir && !item.favorited && !BookMagicStorage.IsLocator(item) && (k < 50 || (coins && ItemID.Sets.CommonCoin[item.type])))
 			{
 				items.Add(TakeOut(player.inventory, k));
 			}
