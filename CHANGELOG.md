@@ -10,6 +10,16 @@ patch for fixes, minor for features.
   does, with the row's counts and the click hint under it. Before, it showed only the counts and needed a click to
   read the item.
 
+### Fixed
+- Drop chances follow the world you play in. A drop whose chance differs by difficulty or world seed (Classic vs
+  Expert, Revengeance, the Constant or Remix seeds) showed "Varies by condition" in the Bestiary and in How to Get;
+  it now shows this world's chance, e.g. Defective Sphere from a Deadly Sphere: 6.67% in Expert. Of 594 such loot
+  lines, 22 still vary in an Expert Revengeance world, all by conditions that change as you play.
+- Loot only another difficulty or seed drops (a boss's own weapons in Expert, which come in its Treasure Bag) reads
+  "Not in this world · Classic" and is listed last, instead of a chance that never applies here.
+- Vanilla's Classic / Expert / Master conditions no longer read "Special condition · not met yet": they have no text
+  of their own, and the book now names them.
+
 ## 1.15.0 — 2026-10-25
 
 ### Added

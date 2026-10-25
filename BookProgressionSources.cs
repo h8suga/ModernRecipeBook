@@ -549,15 +549,46 @@ internal static class BookProgressionSources
 
 	internal static bool ModeBlocked(IItemDropRuleCondition condition)
 	{
+		return ModeGate(condition) == false;
+	}
+
+	// Drop conditions that read only the world's seed, which never changes: judged by asking them.
+	private static readonly HashSet<string> SeedGates = Set("DontStarveIsUp DontStarveIsNotUp DrunkWorldIsUp DrunkWorldIsNotUp ForTheWorthyIsUp ForTheWorthyIsNotUp TenthAnniversaryIsUp TenthAnniversaryIsNotUp ZenithSeedIsUp ZenithSeedIsNotUp BeesSeed NotBeesSeed NoTrapsSeed NotNoTrapsSeed RemixSeed NotRemixSeed");
+
+	// For the loot lists: whether a condition fixed for this world (difficulty or seed) holds; null when it is not fixed.
+	// The remix seed's hardmode/pre-hardmode drops fail outside a remix world and are a hardmode condition inside one.
+	// Progression keeps its own reading of seeds (DropConditionStep).
+	internal static bool? WorldGate(IItemDropRuleCondition condition)
+	{
+		if (ModeGate(condition) is bool mode)
+		{
+			return mode;
+		}
+		if (condition == null || condition.GetType().Assembly != typeof(Main).Assembly)
+		{
+			return null;
+		}
+		string name = condition.GetType().Name;
+		if (SeedGates.Contains(name))
+		{
+			return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, IsInSimulation = true, rng = Main.rand });
+		}
+		return (name is "RemixSeedEasymode" or "RemixSeedHardmode") && !Main.remixWorld ? false : null;
+	}
+
+	// Whether a drop condition that is a difficulty gate holds in the current world; null when it is no difficulty gate.
+	internal static bool? ModeGate(IItemDropRuleCondition condition)
+	{
 		if (condition is SimpleItemDropRuleCondition simple)
 		{
-			return ModeBlocked(WrappedKey(simple), simple.Predicate);
+			string key = WrappedKey(simple);
+			return key != null && ModeConditions.Contains(key) ? simple.Predicate() : null;
 		}
 		if (condition is BookItemSources.NotCondition not)
 		{
-			return NegatedModeGate(not) == false;
+			return NegatedModeGate(not);
 		}
-		return condition != null && condition.GetType().Assembly == typeof(Main).Assembly && VanillaModeGate(condition.GetType().Name) == false;
+		return condition != null && condition.GetType().Assembly == typeof(Main).Assembly ? VanillaModeGate(condition.GetType().Name) : null;
 	}
 
 	// Whether a failed-condition branch of a difficulty gate drops in this world; null when the gate is no difficulty.

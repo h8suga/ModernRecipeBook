@@ -969,6 +969,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return (source.ConditionLabel.Length > 0) ? (materials + " · " + source.ConditionLabel) : materials;
 		}
 		string kind = AcquisitionKindName(source.Kind);
+		if (group.OtherWorld)
+		{
+			return kind + " · " + T("не в этом мире", "not in this world") + ((group.Rules.Length == 1 && source.ConditionLabel.Length > 0) ? (" · " + source.ConditionLabel) : "");
+		}
 		if (group.Rules.Length > 1)
 		{
 			return kind + " · " + T("зависит от условий", "varies by condition");
@@ -1024,7 +1028,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionRule rule = (expanded ? group.Rules[index] : group.Rules[0]);
 			BookAcquisitionEntry source = (expanded ? rule.Source : group.Source);
 			bool opens = !expanded && AcquisitionOpens(group);
-			bool varies = !expanded && group.Rules.Length > 1;
+			bool varies = !expanded && (group.Rules.Length > 1 || group.OtherWorld);
 			BookRect bounds = BookGeometry.AcquisitionRow(row);
 			bool hover = bounds.Contains(Mouse.X, Mouse.Y);
 			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
