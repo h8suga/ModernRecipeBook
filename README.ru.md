@@ -7,7 +7,8 @@
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.15.1-4c8f5a" alt="Версия 1.15.1">
+<img src="https://img.shields.io/badge/version-1.16.1-4c8f5a" alt="Версия 1.16.1">
+<a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
 <img src="https://img.shields.io/badge/Calamity-2.2.4-b03a2e" alt="Calamity 2.2.4">
@@ -413,6 +414,12 @@ pull request'ом или выпусти своим модом-переводом
 читаются так же, как ванильные.
 
 ## Установка
+
+Подпишись на мод в [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107), затем включи
+**Modern Recipe Book** в Workshop → Manage Mods и перезагрузи моды. Игроки, которые заходят на сервер с этим модом,
+скачивают его сами.
+
+Без Steam:
 
 1. Скачай `ModernRecipeBook.tmod` из [последнего релиза](../../releases/latest).
 2. Положи его в `Documents/My Games/Terraria/tModLoader/Mods`.

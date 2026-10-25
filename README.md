@@ -7,7 +7,8 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.15.1-4c8f5a" alt="Version 1.15.1">
+<img src="https://img.shields.io/badge/version-1.16.1-4c8f5a" alt="Version 1.16.1">
+<a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
 <img src="https://img.shields.io/badge/Calamity-2.2.4-b03a2e" alt="Calamity 2.2.4">
@@ -401,6 +402,12 @@ Without Calamity or Magic Storage the book works with whatever the game has. Oth
 mobs are read the same way as vanilla ones.
 
 ## Installation
+
+Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107), then enable
+**Modern Recipe Book** in Workshop → Manage Mods and reload the mods. Players joining a server that has it download it
+by themselves.
+
+Without Steam:
 
 1. Download `ModernRecipeBook.tmod` from the [latest release](../../releases/latest).
 2. Put it into `Documents/My Games/Terraria/tModLoader/Mods`.
