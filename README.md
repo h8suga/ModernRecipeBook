@@ -79,8 +79,8 @@ all here. Forks and pull requests are welcome.
 - **Fully integrated with Magic Storage and Calamity**, read from their own code.
 - **Hover anything** that stands for an item to read its own tooltip; every count says where it comes from.
 - **Every filter stays** until you change it, per tab, and Back/Forward walk through everything you did.
-- **Multiplayer-ready**, fast (heavy data is built in small steps while the book is open) and fully in English and
-  Russian.
+- **Multiplayer-ready**, fast (heavy data is built in small steps while the book is open), fully in English and
+  Russian, and **translatable** into any language like Calamity.
 
 ## Features
 
@@ -371,12 +371,15 @@ Calamity is fully integrated too: bosses, biomes, events and drop rules come fro
 ### Languages
 
 The book speaks English and Russian, including everything it writes about items, sources and mobs, and follows the
-game's language setting. With any other language the book's own texts are in English, while item, mob, biome and
+game's language setting. With a language it has no translation for, the book's own texts are in English, while item, mob, biome and
 mod names come from the game in that language.
 
-The mod's settings and keybind names live in `Localization/*.hjson` and translate the usual tModLoader way. The
-book's own texts are still built into the code as English/Russian pairs, so a full translation into another
-language needs them moved into the localization files first.
+**Translate it into your language** the way Calamity is translated: every text of the book, its settings and control
+names live in `Localization/<culture>/Mods.ModernRecipeBook.<Area>.hjson`. Copy the `en-US` folder to your language's
+folder (`de-DE`, `fr-FR`, `es-ES`, `it-IT`, `pl-PL`, `pt-BR`, `zh-Hans`) and translate the values; whatever you
+leave out stays English, so a partial translation already works. Counted texts follow your language's plural rules.
+Send it as a pull request or as a translation mod of your own; [TRANSLATING.md](TRANSLATING.md) explains the files,
+placeholders and plurals.
 
 <p align="center">
 <img src="docs/screenshots/russian-items.png" width="49%" alt="Items tab in Russian">

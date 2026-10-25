@@ -1,5 +1,5 @@
 displayName = Modern Recipe Book
-author = 2k17clubbb
+author = h8suga
 version = 1.16.0
 side = Both
 weakReferences = MagicStorage
