@@ -403,6 +403,10 @@ internal static class BookItemSources
 		{
 			Add(source);
 		}
+		foreach (BookItemSource source in BookCurated.Sources())
+		{
+			Add(source);
+		}
 	}
 
 	// Chance per opened bag of every developer and patron set item (VanillaDevSets and tModLoader's own sets, whose items

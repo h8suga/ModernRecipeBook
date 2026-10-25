@@ -919,7 +919,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionKind.World => L("Common.World"),
 			BookAcquisitionKind.Machine => L("Common.Machine"),
 			BookAcquisitionKind.DevSet => L("Common.DeveloperSet"),
-			_ => L("Common.NoData"),
+			_ => BookCurated.KindName(kind) ?? L("Common.NoData"),
 		};
 	}
 
@@ -3877,7 +3877,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		foreach (Item item in ContentSamples.ItemsByType.Values.OrderBy((Item item4) => item4.type))
 		{
 			// Nameless internal items (e.g. ManaCloakStar, an effect sprite) are not catalogue entries.
-			if (item != null && !item.IsAir && item.type > 0 && !string.IsNullOrWhiteSpace(item.Name))
+			if (item != null && !item.IsAir && item.type > 0 && !string.IsNullOrWhiteSpace(item.Name) && !BookCurated.Hidden(item))
 			{
 				AllItems.Add(item.type);
 				sources.Add(item.ModItem?.Mod.Name ?? "Terraria");

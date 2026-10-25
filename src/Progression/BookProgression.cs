@@ -810,6 +810,17 @@ internal static class BookProgression
 					routes.Add(new BookProgressionRules.Route(sourceKey--, item, 0, new int[1][] { BookItemSources.HardmodeBags }, Source: "devset"));
 				}
 			}
+			// Curated sources of the areas in BookCurated.
+			foreach (var (item, step, why) in BookCurated.Steps())
+			{
+				sourced.Add(item);
+				seed(item, step, why, 0);
+			}
+			foreach (var (item, inputs, floor, why) in BookCurated.Routes())
+			{
+				sourced.Add(item);
+				routes.Add(new BookProgressionRules.Route(sourceKey--, item, floor, inputs, Source: why));
+			}
 			// A machine's product comes with the machine.
 			foreach (var (machine, product, _) in BookItemSources.Machines)
 			{

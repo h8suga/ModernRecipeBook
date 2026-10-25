@@ -135,7 +135,7 @@ public sealed partial class RecipeBookSystem
 		case BookAcquisitionKind.Fishing:
 			return FishingEntry(s);
 		default:
-			return NaturalEntry(s);
+			return BookCurated.Entry(s) ?? NaturalEntry(s);
 		}
 	}
 
