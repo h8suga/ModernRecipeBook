@@ -797,7 +797,9 @@ public sealed partial class RecipeBookSystem
 			FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
 			if (hover)
 			{
-				MouseTip(item.Name + "\n" + (varies ? (EnemyLootTooltip(loot) + "\n") : "") + T("Клик: карточка предмета", "Click: the item's card"));
+				// The item's own tooltip; under it what the row cuts short: every rule with its full conditions.
+				string rules = (varies || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot) + "\n") : "";
+				HoverItemRow(item, (loot.OtherWorld ? (T("Не в этом мире", "Not in this world") + "\n") : "") + rules + T("Клик: карточка предмета", "Click: the item's card"));
 			}
 		}
 		if (pages > 1)

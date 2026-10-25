@@ -9,6 +9,10 @@ patch for fixes, minor for features.
 - Hovering an ingredient or a Used in row in the item card shows that item's own tooltip at once, as a grid cell
   does, with the row's counts and the click hint under it. Before, it showed only the counts and needed a click to
   read the item.
+- The same for every other row that stands for an item: Bestiary loot (a mob's own and Any enemy), the armor set's
+  pieces in the card, How to Get sources that are items (a Treasure Bag, a crate, what shimmers into it) and the
+  Tracking tab's materials. Under the item's own lines come only what the row cuts short: a loot row's full
+  conditions for every rule, "Not in this world", the click hint.
 
 ### Fixed
 - Drop chances follow the world you play in. A drop whose chance differs by difficulty or world seed (Classic vs
