@@ -22,7 +22,10 @@ internal enum BookMessage : byte
 	NearbyPull,
 	NearbyGive,
 	NearbyAck,
-	NearbyDeposit
+	NearbyDeposit,
+	// The Storage tab's Quick Stack into the counted networks: the client's locked slots, then the server's result.
+	NearbyQuickStack,
+	NearbyStacked
 }
 
 public sealed class ModernRecipeBook : Mod
@@ -59,7 +62,7 @@ public sealed class ModernRecipeBook : Mod
 		case >= BookMessage.MarkerList and <= BookMessage.MarkerRefused:
 			BookMapMarkers.Receive(kind, reader, whoAmI);
 			break;
-		case >= BookMessage.NearbySubscribe and <= BookMessage.NearbyDeposit:
+		case >= BookMessage.NearbySubscribe and <= BookMessage.NearbyStacked:
 			BookNearbyServer.Receive(kind, reader, whoAmI);
 			break;
 		}

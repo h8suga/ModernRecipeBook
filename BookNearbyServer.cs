@@ -1034,7 +1034,7 @@ public sealed class BookNearbyServer : ModSystem
 
 	// What each message cost on the side that received it: count and bytes, payload plus tML's 4-byte header (length,
 	// message 250, mod id). Read on the stand: c call p=ModernRecipeBook.BookNearbyServer.Traffic
-	private const int Kinds = BookMessage.NearbyDeposit - BookMessage.NearbySubscribe + 1;
+	private const int Kinds = BookMessage.NearbyStacked - BookMessage.NearbySubscribe + 1;
 
 	internal static readonly int[] Received = new int[Kinds];
 
@@ -1115,6 +1115,117 @@ public sealed class BookNearbyServer : ModSystem
 		case BookMessage.NearbyAck:
 			Ack(whoAmI, reader.ReadInt32());
 			break;
+		case BookMessage.NearbyQuickStack:
+		{
+			int n = Math.Min((int)reader.ReadByte(), MaxQuickStackSlots);
+			List<int> slots = new List<int>(n);
+			for (int i = 0; i < n; i++)
+			{
+				slots.Add(reader.ReadInt16());
+			}
+			Status status = QuickStack(whoAmI, slots, out int moved, out int remote);
+			ModPacket packet = NewPacket(BookMessage.NearbyStacked);
+			packet.Write((byte)status);
+			packet.Write7BitEncodedInt(moved);
+			packet.Write7BitEncodedInt(remote);
+			packet.Send(whoAmI);
+			break;
 		}
+		}
+	}
+
+	// The main inventory's 40 slots and a Void Bag's 40.
+	internal const int MaxQuickStackSlots = 80;
+
+	// The Storage tab's Quick Stack, after vanilla's own (docs/nearby-storage.md §4.10). Vanilla's quick-stack rules on
+	// the given slots, which only the main inventory (10..49) and a Void Bag in use may be: no favorite, no coin, never
+	// a Magic Storage locator. An item goes only into a counted network that already holds its type, nearest first; what
+	// does not fit stays in its slot, with no fallback to another network or a chest. Networks are found as for a pull,
+	// the carried Portable Access checked here again. Like Chest.ServerPlaceItem, it works on the server's copy of the
+	// inventory and sends every given slot back, changed or not: the client locked those slots and takes the server's
+	// copy of each while locked.
+	internal static Status QuickStack(int p, IReadOnlyList<int> slots, out int moved, out int remote)
+	{
+		moved = remote = 0;
+		Player player = Main.player[p];
+		Status status = Status.Invalid;
+		List<(Item, Point16)> deposited = new List<(Item, Point16)>();
+		if (Admit(p, Of(p), out Status refusal) && BookMagicStorage.Writable)
+		{
+			List<BookMagicStorage.Network> networks = new List<BookMagicStorage.Network>();
+			BookMagicStorage.Scan(player, BookNearbyConfig.Radius + BookSourceRules.SlackTiles, null, networks, null, out _);
+			networks.Sort((BookMagicStorage.Network a, BookMagicStorage.Network b) => a.Distance.CompareTo(b.Distance));
+			List<HashSet<int>> holds = new List<HashSet<int>>(networks.Count);
+			List<Item> stored = new List<Item>();
+			foreach (BookMagicStorage.Network network in networks)
+			{
+				stored.Clear();
+				BookMagicStorage.CollectItems(network.Heart, stored);
+				holds.Add(new HashSet<int>(stored.Select((Item i) => i.type)));
+			}
+			try
+			{
+				foreach (int slot in slots)
+				{
+					Item item = QuickStackSlot(player, slot);
+					if (item == null || item.IsAir || item.favorited || item.IsACoin || BookMagicStorage.IsLocator(item))
+					{
+						continue;
+					}
+					for (int n = 0; n < networks.Count && !item.IsAir; n++)
+					{
+						if (!holds[n].Contains(item.type))
+						{
+							continue;
+						}
+						int before = item.stack;
+						DepositInto(networks[n], item, deposited);
+						int got = before - (item.IsAir ? 0 : item.stack);
+						moved += got;
+						if (networks[n].Remote)
+						{
+							remote += got;
+						}
+					}
+				}
+			}
+			catch (Exception error)
+			{
+				// What was placed stays placed; the slots below are sent as they are now, so nothing is lost or doubled.
+				ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Nearby quick stack failed part way.", error);
+			}
+			SafeReport(p, new List<(Item, Origin)>(), deposited);
+			status = (moved == 0) ? Status.Nothing : Status.Done;
+		}
+		else
+		{
+			status = BookMagicStorage.Writable ? refusal : Status.Off;
+		}
+		if (Main.netMode == NetmodeID.Server)
+		{
+			foreach (int slot in slots)
+			{
+				Item item = QuickStackSlot(player, slot);
+				if (item != null)
+				{
+					NetMessage.SendData(MessageID.SyncEquipment, -1, -1, null, p, slot, item.prefix);
+				}
+			}
+		}
+		return status;
+	}
+
+	// The item a quick-stack slot id names (PlayerItemSlotID), or null for any other slot.
+	private static Item QuickStackSlot(Player player, int slot)
+	{
+		if (slot >= PlayerItemSlotID.Inventory0 + 10 && slot < PlayerItemSlotID.Inventory0 + 50)
+		{
+			return player.inventory[slot - PlayerItemSlotID.Inventory0];
+		}
+		if (slot >= PlayerItemSlotID.Bank4_0 && slot < PlayerItemSlotID.Bank4_0 + 40 && player.useVoidBag())
+		{
+			return player.bank4.item[slot - PlayerItemSlotID.Bank4_0];
+		}
+		return null;
 	}
 }

@@ -312,6 +312,7 @@ public sealed class BookSources : ModSystem
 			AwaitingTicks++;
 		}
 		AgePending();
+		FlushQuickStack();
 		FlushHeld();
 		if (!need)
 		{
@@ -1601,7 +1602,8 @@ public sealed class BookSources : ModSystem
 		Refresh(force: true);
 	}
 
-	// The inventory's own Quick Stack to Nearby Chests (vanilla radius; Magic Storage extends it to its networks).
+	// The inventory's own Quick Stack to Nearby Chests (vanilla radius; Magic Storage extends it to the networks near the
+	// player), then the same into every network the book counts, remote ones included (FlushQuickStack).
 	internal static void QuickStack()
 	{
 		Player player = Main.LocalPlayer;
@@ -1611,6 +1613,109 @@ public sealed class BookSources : ModSystem
 		}
 		player.QuickStackAllChests();
 		Say(() => T("Сложено в сундуки рядом", "Stacked into nearby chests"));
+		ScanDue = LocalDue = true;
+		QuickStackQueued = HasStorage;
+		FlushQuickStack();
+	}
+
+	// Waits for vanilla's own round trip: on a client its slots stay locked (HasLockedInventory) until the server sent
+	// each back, and a slot the server sends after that is ignored.
+	private static bool QuickStackQueued;
+
+	private static void FlushQuickStack()
+	{
+		Player player = Main.LocalPlayer;
+		if (!QuickStackQueued || player.HasLockedInventory())
+		{
+			return;
+		}
+		QuickStackQueued = false;
+		if (!HasStorage)
+		{
+			return;
+		}
+		// The types the counted networks hold, as this side sees them; the server checks again on its own copy.
+		HashSet<int> held = new HashSet<int>();
+		foreach (List<Item> items in NetworkItems.Take(Networks.Count))
+		{
+			foreach (Item item in items)
+			{
+				held.Add(item.type);
+			}
+		}
+		List<int> slots = new List<int>();
+		for (int k = 10; k < 50; k++)
+		{
+			if (QuickStackable(player.inventory[k], held))
+			{
+				slots.Add(PlayerItemSlotID.Inventory0 + k);
+			}
+		}
+		int lastBag = -1;
+		if (player.useVoidBag())
+		{
+			for (int m = 0; m < 40; m++)
+			{
+				if (QuickStackable(player.bank4.item[m], held))
+				{
+					slots.Add(PlayerItemSlotID.Bank4_0 + m);
+					lastBag = m;
+				}
+			}
+		}
+		if (slots.Count == 0)
+		{
+			return;
+		}
+		if (Main.netMode == NetmodeID.SinglePlayer)
+		{
+			BookNearbyServer.Status status = BookNearbyServer.QuickStack(Main.myPlayer, slots, out int moved, out int remote);
+			OnStacked(status, moved, remote);
+			return;
+		}
+		// Locked as vanilla locks a slot it sends for quick stacking, so the server's copy of each comes back into it.
+		foreach (int slot in slots)
+		{
+			if (slot < PlayerItemSlotID.Inventory0 + 50)
+			{
+				player.inventoryChestStack[slot - PlayerItemSlotID.Inventory0] = true;
+			}
+		}
+		if (lastBag >= 0)
+		{
+			player.disableVoidBag = lastBag;
+		}
+		ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbyQuickStack);
+		packet.Write((byte)slots.Count);
+		foreach (int slot in slots)
+		{
+			packet.Write((short)slot);
+		}
+		packet.Send();
+	}
+
+	private static bool QuickStackable(Item item, HashSet<int> held)
+	{
+		return item != null && !item.IsAir && !item.favorited && !item.IsACoin && !BookMagicStorage.IsLocator(item) && held.Contains(item.type);
+	}
+
+	// "Stacked 12 items · 3 into remote storage". Only slots whose type a counted network holds were sent, so nothing
+	// moved means no room there.
+	private static void OnStacked(BookNearbyServer.Status status, int moved, int remote)
+	{
+		if (moved > 0)
+		{
+			Say(() => Ru ? ((remote == moved) ? ("Сложено в удалённое хранилище: " + Count(moved)) : ("Сложено в хранилище: " + Count(moved) + ((remote > 0) ? (" · в удалённое: " + Count(remote)) : ""))) : ("Stacked " + Count(moved) + " items" + ((remote == moved) ? " into remote storage" : ((remote > 0) ? (" · " + Count(remote) + " into remote storage") : " into storage"))));
+		}
+		else
+		{
+			Say(() => status switch
+			{
+				BookNearbyServer.Status.Busy => T("Слишком часто: подождите", "Too fast: wait a moment"),
+				BookNearbyServer.Status.Off => T("Хранилища рядом выключены", "Nearby storage is off"),
+				_ => T("Сложено в сундуки рядом · в хранилище нет места", "Stacked into nearby chests · no room in storage"),
+			});
+		}
 		ScanDue = LocalDue = true;
 	}
 
@@ -2040,6 +2145,14 @@ public sealed class BookSources : ModSystem
 				removes.Add(reader.ReadInt16());
 			}
 			ApplyChests(flags, locked, inUse, upserts, removes);
+			break;
+		}
+		case BookMessage.NearbyStacked:
+		{
+			BookNearbyServer.Status status = (BookNearbyServer.Status)reader.ReadByte();
+			int moved = reader.Read7BitEncodedInt();
+			int remote = reader.Read7BitEncodedInt();
+			OnStacked(status, moved, remote);
 			break;
 		}
 		case BookMessage.NearbyGive:

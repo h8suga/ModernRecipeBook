@@ -5929,7 +5929,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		switch (button)
 		{
 		case StorageButton.QuickStack:
-			return BookMagicStorage.Installed ? T("Сложить в сундуки и хранилища рядом · Ctrl+Q", "Quick stack to nearby chests and storages · Ctrl+Q") : T("Сложить в сундуки рядом · Ctrl+Q", "Quick stack to nearby chests · Ctrl+Q");
+			return BookMagicStorage.Installed ? (T("Сложить в сундуки и хранилища рядом · Ctrl+Q", "Quick stack to nearby chests and storages · Ctrl+Q") + "\n" + T("И в каждое учтённое хранилище, удалённое тоже, если в нём уже есть такой предмет", "Also into every counted storage, remote ones too, that already holds the item")) : T("Сложить в сундуки рядом · Ctrl+Q", "Quick stack to nearby chests · Ctrl+Q");
 		case StorageButton.Restock:
 			return BookSources.Enabled ? T("Дополнить стопки в инвентаре из того, что рядом · Ctrl+R", "Top up inventory stacks from nearby · Ctrl+R") : StorageOffTitle;
 		}
