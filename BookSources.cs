@@ -275,6 +275,7 @@ public sealed class BookSources : ModSystem
 		NetworkItems.Clear();
 		NetworkCells.Clear();
 		Stations.Clear();
+		Carried.Clear();
 		Tallies.Clear();
 		Listed.Clear();
 		Display.Clear();
@@ -386,13 +387,14 @@ public sealed class BookSources : ModSystem
 		int password = 0;
 		if (Enabled)
 		{
-			BookMagicStorage.Scan(player, BookNearbyConfig.Radius, Banks, Networks, Stations, out password);
+			BookMagicStorage.Scan(player, BookNearbyConfig.Radius, Banks, Networks, Stations, out password, Carried);
 		}
 		else
 		{
 			Banks.Clear();
 			Networks.Clear();
 			Stations.Clear();
+			Carried.Clear();
 		}
 		SkippedPassword = password;
 		while (NetworkItems.Count < Networks.Count)
@@ -405,6 +407,10 @@ public sealed class BookSources : ModSystem
 		foreach (int bank in Banks)
 		{
 			signature = HashCode.Combine(signature, bank);
+		}
+		foreach ((bool Crafting, BookMagicStorage.CarriedSkip Why) skip in Carried)
+		{
+			signature = HashCode.Combine(signature, skip.Crafting, skip.Why);
 		}
 		for (int n = 0; n < Networks.Count; n++)
 		{
@@ -811,6 +817,7 @@ public sealed class BookSources : ModSystem
 		TextsKey = key;
 		SummaryText = BuildSummary();
 		NotCountedText = BuildNotCounted();
+		NotCountedTipText = BuildNotCountedTip();
 		RadiusText = BuildRadiusLine();
 		BuildCells();
 	}
@@ -1036,10 +1043,51 @@ public sealed class BookSources : ModSystem
 		{
 			parts.Add(SkippedPassword + T(" с паролем", " password"));
 		}
+		foreach ((bool Crafting, BookMagicStorage.CarriedSkip Why) skip in Carried)
+		{
+			parts.Add((skip.Crafting ? T("Портативный доступ к созданию", "Portable Crafting Access") : T("Портативный доступ", "Portable Access")) + " — " + skip.Why switch
+			{
+				BookMagicStorage.CarriedSkip.OutOfRange => T("вне досягаемости", "out of range"),
+				BookMagicStorage.CarriedSkip.NoPylon => T("у хранилища нет пилона", "no pylon near the storage"),
+				BookMagicStorage.CarriedSkip.Missing => T("хранилища нет на месте", "storage missing"),
+				_ => T("загружается", "loading"),
+			});
+		}
 		return (parts.Count == 0) ? "" : (T("Не учтены: ", "Not counted: ") + string.Join(" · ", parts));
 	}
 
-	internal static string NotCountedTip => T("Запертые сундуки и сундуки, открытые другим игроком, пропускаются.\nХранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.", "Locked chests and chests another player has open are skipped.\nA storage with a password counts once you join it in Magic Storage.");
+	// A carried Portable Access the last scan did not count, with why (BookMagicStorage.AddCarried).
+	private static readonly List<(bool Crafting, BookMagicStorage.CarriedSkip Why)> Carried = new List<(bool, BookMagicStorage.CarriedSkip)>();
+
+	// The line's explanation, only for what it lists (built with it).
+	private static string NotCountedTipText = "";
+
+	internal static string NotCountedTip
+	{
+		get
+		{
+			UpdateTexts();
+			return NotCountedTipText;
+		}
+	}
+
+	private static string BuildNotCountedTip()
+	{
+		List<string> lines = new List<string>();
+		if (SkippedLocked > 0 || SkippedInUse > 0)
+		{
+			lines.Add(T("Запертые сундуки и сундуки, открытые другим игроком, пропускаются.", "Locked chests and chests another player has open are skipped."));
+		}
+		if (SkippedPassword > 0)
+		{
+			lines.Add(T("Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.", "A storage with a password counts once you join it in Magic Storage."));
+		}
+		if (Carried.Count > 0)
+		{
+			lines.Add(T("Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон.", "A Portable Access in your inventory counts by Magic Storage's own rules: within its range of the storage, or at a pylon while the storage has a pylon near it."));
+		}
+		return string.Join("\n", lines);
+	}
 
 	// "From: inventory, 2 chests, Magic Storage" for a craft that needs more than the inventory has.
 	internal static string CraftSources(IReadOnlyDictionary<int, long> banks, IReadOnlyDictionary<int, long> remote)

@@ -6008,10 +6008,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool cellsCut = cellsText.Length > 0 && FixedLabel(sb, cellsText, cells.X, cells.Y, BookSources.CellsAlmostFull ? Caution : TextColor, 0.85f, cells.Width, cells.Height);
 		BookRect skipped = BookGeometry.StorageSkipped;
 		string skippedText = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? T("Связь с Magic Storage отключена (client.log)", "Magic Storage support is off (see client.log)") : (on ? BookSources.NotCounted : "");
-		if (skippedText.Length > 0)
-		{
-			FixedLabel(sb, skippedText, skipped.X, skipped.Y, Caution, 0.8f, skipped.Width, skipped.Height);
-		}
+		bool skippedCut = skippedText.Length > 0 && FixedLabel(sb, skippedText, skipped.X, skipped.Y, Caution, 0.8f, skipped.Width, skipped.Height);
 		Box(sb, content.X, skipped.Y + skipped.Height + 8f, content.Width, 1f, Border);
 		BookRect icon = BookGeometry.StorageItemIcon;
 		BookRect stack = new BookRect(icon.X, icon.Y, content.Width, icon.Height);
@@ -6065,7 +6062,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (on && skippedText.Length > 0 && skipped.Contains(Mouse.X, Mouse.Y))
 		{
-			MouseTip(BookSources.NotCountedTip);
+			// A cut line keeps its whole text above the explanation, as the cells line does.
+			string tip = BookSources.NotCountedTip;
+			MouseTip(skippedCut ? ((tip.Length > 0) ? (skippedText + "\n" + tip) : skippedText) : tip);
 		}
 		else if (selected != null && stack.Contains(Mouse.X, Mouse.Y))
 		{

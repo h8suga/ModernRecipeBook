@@ -91,6 +91,44 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static PropertyInfo NumItemsOf;
 
+	// A carried Portable Access (any tier, the crafting ones too), checked by MS's own members: a group of its own, on
+	// both sides, since the server checks it again before a pull or a deposit.
+	private static bool Portable;
+
+	private static Type PortableType;
+
+	private static PropertyInfo LocationOf;
+
+	private static MethodInfo RangeOf;
+
+	private static MethodInfo ContextOf;
+
+	private static MethodInfo HeartFromAccess;
+
+	private static MethodInfo NearAccess;
+
+	private static MethodInfo PylonsNear;
+
+	private static MethodInfo PylonNearStorage;
+
+	// Why a carried, bound Portable Access does not count (BookSources' "not counted" line). Locked networks count as
+	// "password" with the access tiles.
+	internal enum CarriedSkip : byte
+	{
+		OutOfRange,
+		NoPylon,
+		Missing,
+		Loading
+	}
+
+	// Multiplayer client: when each far location's sections were last asked for (BookMessage.MapSections).
+	private static readonly Dictionary<Point16, ulong> SectionsAsked = new Dictionary<Point16, ulong>();
+
+	private const int SectionRetryTicks = 300;
+
+	// Multiplayer client: the location last sent to the server per inventory slot (0..57; 58 is the cursor copy).
+	private static readonly Point16[] SentLocations = new Point16[58];
+
 	// The server's writes.
 	private static MethodInfo WithdrawOf;
 
@@ -137,6 +175,7 @@ public sealed class BookMagicStorage : ModSystem
 		Writable = Readable && TryBind("write", BindWriting);
 		CanHide = !Main.dedServ && Readable && TryBind("hide", BindHiding);
 		Countable = !Main.dedServ && Readable && TryBind("cells", BindCells);
+		Portable = Readable && TryBind("portable", BindPortable);
 		if (CanHide)
 		{
 			On_UserInterface.Update += UpdateNativeInterface;
@@ -217,6 +256,19 @@ public sealed class BookMagicStorage : ModSystem
 		NumItemsOf = Property(UnitType, "NumItems");
 	}
 
+	private static void BindPortable()
+	{
+		PortableType = Get("Items.PortableAccess");
+		LocationOf = Property(Get("Items.Locator"), "Location");
+		RangeOf = Method(PortableType, "GetEffectiveRange", typeof(float).MakeByRefType(), typeof(int).MakeByRefType());
+		ContextOf = Method(PortableType, "OpenContext", typeof(int).MakeByRefType(), typeof(string).MakeByRefType(), typeof(string).MakeByRefType(), typeof(bool).MakeByRefType());
+		Type utility = Get("Utility");
+		HeartFromAccess = Method(utility, "GetHeartFromAccess", typeof(Point16));
+		NearAccess = Method(utility, "PlayerIsNearAccess", typeof(Player), typeof(Point16), typeof(float));
+		PylonsNear = Method(utility, "NearbyPylons", typeof(Player), typeof(float));
+		PylonNearStorage = Method(utility, "StorageSystemHasNearbyPylon", typeof(Player), HeartType, typeof(int));
+	}
+
 	private static void BindWriting()
 	{
 		WithdrawOf = Method(HeartType, "Withdraw", typeof(Item), typeof(bool));
@@ -264,6 +316,10 @@ public sealed class BookMagicStorage : ModSystem
 		{
 			Countable = false;
 		}
+		else if (group == "portable")
+		{
+			Portable = false;
+		}
 		else
 		{
 			CanHide = false;
@@ -273,9 +329,12 @@ public sealed class BookMagicStorage : ModSystem
 	// One pass over the tiles within `tiles` of the player: bank tiles (-2..-5, once each) and Magic Storage access
 	// tiles. Each heart is listed once with its nearest access tile; a heart the player may not use counts in
 	// `locked`. `stations` gets the station lists of counted Crafting Interfaces. The network the player has open in
-	// MS (or, on the server, has locked in MS) is added however far it is.
-	internal static void Scan(Player player, int tiles, List<int> banks, List<Network> networks, List<List<Item>> stations, out int locked)
+	// MS (or, on the server, has locked in MS) is added however far it is, and so is the network of each bound Portable
+	// Access the player carries when MS itself would open it from here (AddCarried); `carried` gets the ones that would
+	// not, with the reason.
+	internal static void Scan(Player player, int tiles, List<int> banks, List<Network> networks, List<List<Item>> stations, out int locked, List<(bool Crafting, CarriedSkip Why)> carried = null)
 	{
+		carried?.Clear();
 		locked = 0;
 		banks?.Clear();
 		networks.Clear();
@@ -324,6 +383,17 @@ public sealed class BookMagicStorage : ModSystem
 				}
 			}
 		}
+		if (readMs && Portable)
+		{
+			try
+			{
+				AddCarried(player, networks, stations, ref refused, carried);
+			}
+			catch (Exception error)
+			{
+				Fail("portable", error);
+			}
+		}
 		locked = refused?.Count ?? 0;
 		if (readMs)
 		{
@@ -336,6 +406,105 @@ public sealed class BookMagicStorage : ModSystem
 				Fail("read", error);
 			}
 		}
+	}
+
+	// Each bound Portable Access in the inventory, checked as PortableAccess.DoOpenStorage and OpenStorage check it when
+	// used: the location still holds the item's tile (a heart, or a Crafting Interface for the crafting ones) at frame
+	// 0,0; then, with a limited range, the player near the location, or else a valid pylon near the player and one near
+	// the storage (Utility.PlayerIsNearAccess, NearbyPylons, StorageSystemHasNearbyPylon); then MS's security. Its network
+	// ranks by the distance to the location, so networks in reach of the player stay first. A crafting one adds its
+	// interface's stations. On a multiplayer client a location whose tiles have not arrived is asked for once.
+	private static void AddCarried(Player player, List<Network> networks, List<List<Item>> stations, ref HashSet<object> refused, List<(bool Crafting, CarriedSkip Why)> carried)
+	{
+		for (int slot = 0; slot < SentLocations.Length; slot++)
+		{
+			Item item = player.inventory[slot];
+			if (item == null || item.IsAir || item.ModItem == null || !PortableType.IsInstanceOfType(item.ModItem))
+			{
+				continue;
+			}
+			Point16 location = (Point16)LocationOf.GetValue(item.ModItem);
+			if (location.X < 0 || location.Y < 0 || location.X >= Main.maxTilesX - 1 || location.Y >= Main.maxTilesY - 1)
+			{
+				continue;
+			}
+			// MS binds a locator on the client alone (StorageHeart.RightClick) and the slot is not resent for mod data, so
+			// the server, which checks the same item before a pull, would keep the old location: send the slot once per
+			// new location, as the game syncs any changed slot.
+			if (Main.netMode == NetmodeID.MultiplayerClient && player.whoAmI == Main.myPlayer && SentLocations[slot] != location)
+			{
+				SentLocations[slot] = location;
+				NetMessage.SendData(MessageID.SyncEquipment, -1, -1, null, player.whoAmI, slot);
+			}
+			object[] context = new object[4];
+			ContextOf.Invoke(item.ModItem, context);
+			bool crafting = (bool)context[3];
+			if (!LocationLoaded(location))
+			{
+				carried?.Add((crafting, CarriedSkip.Loading));
+				continue;
+			}
+			Tile tile = Main.tile[location.X, location.Y];
+			object heart = (tile.HasTile && tile.TileType == (int)context[0] && tile.TileFrameX == 0 && tile.TileFrameY == 0) ? HeartFromAccess.Invoke(null, new object[1] { location }) : null;
+			if (heart == null)
+			{
+				carried?.Add((crafting, CarriedSkip.Missing));
+				continue;
+			}
+			object[] range = new object[2];
+			float playerRange = ((bool)RangeOf.Invoke(item.ModItem, range) && (float)range[0] >= 0f) ? (float)range[0] : -1f;
+			int pylonRange = (int)range[1];
+			if (playerRange >= 0f && !(bool)NearAccess.Invoke(null, new object[3] { player, location, playerRange }))
+			{
+				if (!((IEnumerable)PylonsNear.Invoke(null, new object[2] { player, playerRange })).GetEnumerator().MoveNext())
+				{
+					carried?.Add((crafting, CarriedSkip.OutOfRange));
+					continue;
+				}
+				if (pylonRange >= 0 && !(bool)PylonNearStorage.Invoke(null, new object[3] { player, heart, pylonRange }))
+				{
+					carried?.Add((crafting, CarriedSkip.NoPylon));
+					continue;
+				}
+			}
+			if (!CanAccess(player, heart))
+			{
+				(refused ??= new HashSet<object>(ReferenceEqualityComparer.Instance)).Add(heart);
+				continue;
+			}
+			Network network = Add(networks, heart);
+			network.Distance = Math.Min(network.Distance, Vector2.DistanceSquared(player.Center, location.ToWorldCoordinates(16f, 16f)));
+			if (crafting && stations != null && TileEntity.ByPosition.TryGetValue(location, out var entity) && CraftingType.IsInstanceOfType(entity) && StationsOf.GetValue(entity) is List<Item> list && !stations.Contains(list))
+			{
+				stations.Add(list);
+			}
+		}
+	}
+
+	// Single player and the server have every tile. A client asks the server for the 3x3 sections around a location it
+	// lacks (the heart's units stand next to it), once, and again only after SectionRetryTicks while still missing.
+	private static bool LocationLoaded(Point16 location)
+	{
+		if (Main.netMode != NetmodeID.MultiplayerClient || Main.sectionManager.TilesLoaded(location.X, location.Y, location.X + 1, location.Y + 1))
+		{
+			return true;
+		}
+		if (!SectionsAsked.TryGetValue(location, out ulong asked) || Main.GameUpdateCount - asked >= SectionRetryTicks)
+		{
+			SectionsAsked[location] = Main.GameUpdateCount;
+			ModPacket packet = ModContent.GetInstance<ModernRecipeBook>().GetPacket();
+			packet.Write((byte)BookMessage.MapSections);
+			packet.Write(location.X);
+			packet.Write(location.Y);
+			packet.Send();
+		}
+		return false;
+	}
+
+	public override void OnWorldUnload()
+	{
+		SectionsAsked.Clear();
+		Array.Fill(SentLocations, Point16.NegativeOne);
 	}
 
 	private static void AddAccess(Player player, ModTile modTile, int x, int y, float distance, List<Network> networks, List<List<Item>> stations, ref HashSet<object> refused)
@@ -792,7 +961,8 @@ public sealed class BookMagicStorage : ModSystem
 			On_ItemSlot.LeftClick_ItemArray_int_int -= BlockLeftClick;
 			On_ItemSlot.RightClick_ItemArray_int_int -= BlockRightClick;
 		}
-		Hooked = Installed = Readable = Writable = CanHide = Countable = false;
+		Hooked = Installed = Readable = Writable = CanHide = Countable = Portable = false;
+		SectionsAsked.Clear();
 		Owner = null;
 		SavedTiles = null;
 		MergedTiles = Array.Empty<bool>();
