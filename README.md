@@ -16,6 +16,8 @@ A recipe book and bestiary for every item and mob in Terraria and its mods, for 
 <img src="https://img.shields.io/badge/languages-EN%20%7C%20RU-555555" alt="English and Russian">
 </p>
 
+<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a></p>
+
 <p align="center"><img src="docs/screenshots/items.png" width="860" alt="Items tab with a weapon card"></p>
 
 Press **Mouse3** (middle click) and the book opens over the game. Every item and mob of the game and of every loaded
