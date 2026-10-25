@@ -1,0 +1,109 @@
+# Builds the mod on every push to main and keeps the build as a workflow artifact. When build.txt names a version
+# that has no GitHub release yet, it creates one (tag v<version> on this commit, notes from that version's CHANGELOG
+# section) and attaches the .tmod; a release that already exists only gets the .tmod if it has none.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # The tModLoader release the mod is built against; update it together with the game.
+  TML_VERSION: v2026.08.3.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # tModLoader takes the mod's name from its folder, and the .csproj imports ..\tModLoader.targets.
+      - uses: actions/checkout@v4
+        with:
+          path: ModSources/ModernRecipeBook
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download tModLoader
+        run: |
+          curl -fsSL -o tml.zip "https://github.com/tModLoader/tModLoader/releases/download/${TML_VERSION}/tModLoader.zip"
+          unzip -q tml.zip -d tModLoader
+          cat > ModSources/tModLoader.targets <<EOF
+          <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+            <Import Project="$GITHUB_WORKSPACE/tModLoader/tMLMod.targets" />
+          </Project>
+          EOF
+
+      - name: Build
+        run: |
+          dotnet build ModSources/ModernRecipeBook/ModernRecipeBook.csproj -c Release -nologo \
+            "-p:ExtraBuildModFlags=-tmlsavedirectory $GITHUB_WORKSPACE/save"
+          test -f save/Mods/ModernRecipeBook.tmod
+
+      # The .tmod header must carry the version build.txt names.
+      - name: Check version
+        id: version
+        run: |
+          version=$(sed -n 's/^version *= *//p' ModSources/ModernRecipeBook/build.txt | tr -d '\r')
+          python3 - "$version" <<'EOF'
+          import struct, sys
+          def text(b, i):
+              n = shift = 0
+              while True:
+                  c = b[i]; i += 1
+                  n |= (c & 0x7F) << shift; shift += 7
+                  if c < 0x80:
+                      return b[i:i + n].decode(), i + n
+          b = open('save/Mods/ModernRecipeBook.tmod', 'rb').read()
+          assert b[:4] == b'TMOD', 'not a .tmod'
+          tml, i = text(b, 4)
+          i += 20 + 256 + 4  # hash, signature, data length
+          name, i = text(b, i)
+          version, i = text(b, i)
+          print(f'{name} {version}, tModLoader {tml}')
+          assert (name, version) == ('ModernRecipeBook', sys.argv[1]), f'expected ModernRecipeBook {sys.argv[1]}'
+          EOF
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          cp save/Mods/ModernRecipeBook.tmod "ModernRecipeBook-$version.tmod"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ModernRecipeBook-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: ModernRecipeBook-${{ steps.version.outputs.version }}.tmod
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          cp save/Mods/ModernRecipeBook.tmod ModernRecipeBook.tmod
+          if gh release view "$tag" > /dev/null 2>&1; then
+            if gh release view "$tag" --json assets -q '.assets[].name' | grep -qx ModernRecipeBook.tmod; then
+              echo "Release $tag already has its .tmod"
+            else
+              gh release upload "$tag" ModernRecipeBook.tmod
+            fi
+            exit 0
+          fi
+          # This version's CHANGELOG section, up to the next "## " heading.
+          awk -v v="$VERSION" '$0 ~ "^## " v "( |$)" {on=1; next} on && /^## / {exit} on' \
+            ModSources/ModernRecipeBook/CHANGELOG.md > notes.md
+          {
+            echo
+            echo "**Install:** put \`ModernRecipeBook.tmod\` into \`Documents/My Games/Terraria/tModLoader/Mods\` (on a server: the server and every client), then enable it in Manage Mods."
+            echo
+            echo "Built with tModLoader ${TML_VERSION#v}. Tested versions of Terraria, Calamity and Magic Storage: see the README's Compatibility section."
+          } >> notes.md
+          gh release create "$tag" ModernRecipeBook.tmod --target "$GITHUB_SHA" \
+            --title "Modern Recipe Book $VERSION" --notes-file notes.md --latest
