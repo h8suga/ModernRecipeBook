@@ -77,16 +77,20 @@ internal static class BookItemSources
 	// Murasama-style curated sources ------------------------------------------------------------------
 
 	// Loot Calamity 2.2.4 puts into chests and structures at world generation (Draedon labs, underground
-	// shrines, Brimstone Crag, Vernal Pass; not the Astral shrine, which comes with the hardmode meteor) plus lab
-	// machines that drop themselves when mined. All of it can be picked up before hardmode.
-	internal static readonly HashSet<string> CalamityWorldgenItems = Set("BloodyMary CoastalDemonfish CorruptionEffigy CrimsonEffigy CyanSeekingMechanism DraedonsLogHell DraedonsLogJungle DraedonsLogPlanetoid DraedonsLogSnowBiome DraedonsLogSunkenSea DubiousPlating EncryptedSchematicHell EncryptedSchematicIce EncryptedSchematicJungle EncryptedSchematicPlanetoid EncryptedSchematicSunkenSea FellerofEvergreens FrozenCube FungalSymbiote GladiatorsLocket GreenSeekingMechanism HadalStew LabSeekingMechanism LuxorsGift MysteriousCircuitry OddMushroom PlasmaDriveCore PrismShard RedSeekingMechanism SlagfireDouser SlurperPole SpelunkersAmulet SulphurskinPotion SuspiciousScrap Terminus TrinketofChi UnstableGraniteCore VoidTorch WhiteSeekingMechanism YellowSeekingMechanism PowerCellFactoryItem ChargingStationItem");
+	// shrines, Brimstone Crag, Vernal Pass; not the Astral shrine, which comes with the hardmode meteor) plus objects
+	// that drop themselves when mined: lab machines, the Onyx Excavator of the cavern lab (OnyxExcavatorTile in the
+	// Arsenal_Lab_Onyx schematic) and the Crag's broken pylon (BrimstoneCrag: CragsPylonBrokenTile). All of it can be
+	// picked up before hardmode.
+	internal static readonly HashSet<string> CalamityWorldgenItems = Set("BloodyMary CoastalDemonfish CorruptionEffigy CrimsonEffigy CyanSeekingMechanism DraedonsLogHell DraedonsLogJungle DraedonsLogPlanetoid DraedonsLogSnowBiome DraedonsLogSunkenSea DubiousPlating EncryptedSchematicHell EncryptedSchematicIce EncryptedSchematicJungle EncryptedSchematicPlanetoid EncryptedSchematicSunkenSea FellerofEvergreens FrozenCube FungalSymbiote GladiatorsLocket GreenSeekingMechanism HadalStew LabSeekingMechanism LuxorsGift MysteriousCircuitry OddMushroom PlasmaDriveCore PrismShard RedSeekingMechanism SlagfireDouser SlurperPole SpelunkersAmulet SulphurskinPotion SuspiciousScrap Terminus TrinketofChi UnstableGraniteCore VoidTorch WhiteSeekingMechanism YellowSeekingMechanism PowerCellFactoryItem ChargingStationItem OnyxExcavatorKey CragsPylon");
 
 	// World generation loot that waits for a boss, with no other source: the Astral Chest AstralChestGeneration puts
-	// in the Dungeon opens after Astrum Aureus (AstralChestLocked.UnlockChest); the Hell lab's Murasama lies there from
-	// the start but only swings after the Devourer of Gods (Murasama.CanUseItem). Item, place, chest icon, gate.
+	// in the Dungeon opens after Astrum Aureus (AstralChestLocked.UnlockChest), and only then can the emptied chest itself
+	// be broken (Chest.CanDestroyChest); the Hell lab's Murasama lies there from the start but only swings after the
+	// Devourer of Gods (Murasama.CanUseItem). Item, place, chest icon, gate.
 	internal static readonly (string Item, string Place, string Icon, string Gate)[] CalamityGatedWorldgenItems =
 	{
 		("HeavenfallenStardisk", "AstralChest", "AstralChest", "CalamityMod/AstrumAureus"),
+		("AstralChest", "AstralChest", "AstralChest", "CalamityMod/AstrumAureus"),
 		("Murasama", "HellLab", "AgedSecurityChest", "CalamityMod/DevourerofGodsHead")
 	};
 
