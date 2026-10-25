@@ -28,6 +28,15 @@ patch for fixes, minor for features.
   Dungeon Spirit".
 - "Unknown stage" in the stage menu lists what the book cannot place, and the footer counts what the stage filter hid
   for that reason.
+- Weapon traits filter on Items and Recipes: a Traits button under the class buttons opens a list of traits — Homing,
+  Homing stealth strike (with Calamity), Pierces, Through walls, Auto attack, Minion, Sentry. Tick one or more and only
+  the weapons and ammo that have all of them stay. It works with every other filter, is kept with your UI state and
+  only changes when you change it. Each row shows how many listed items have that trait.
+- The item card names the item's traits under its name; hover it to see where each one comes from: the description's
+  own words (quoted), the projectile's stats, or a weapon checked by hand in the game's code. Homing is read from the
+  description, in English too when the game speaks another language; a few vanilla weapons whose text does not say it
+  (Razorblade Typhoon, Magic Missile, Wasp Gun and more) were checked in the code. Nothing is guessed: a trait the book
+  cannot be sure of is left out.
 
 ### Fixed
 - How to Get said Hallowed Ore comes after The Destroyer; with Calamity it comes with the third mechanical boss,

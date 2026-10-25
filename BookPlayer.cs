@@ -134,9 +134,9 @@ public sealed class BookPlayer : ModPlayer
 		{
 			BlockTriggers(f1);
 		}
-		// Ctrl+Enter crafts in the book (and Enter ticks a row of the station menu); vanilla would open the chat on the same Enter (it waits for chatRelease,
+		// Ctrl+Enter crafts in the book (and Enter ticks a row of the station or traits menu); vanilla would open the chat on the same Enter (it waits for chatRelease,
 		// which it sets again only once Enter is let go). Runs right before vanilla's chat toggle.
-		if ((keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl) || RecipeBookSystem.StationMenuOpen) && keys.IsKeyDown(Keys.Enter))
+		if ((keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl) || RecipeBookSystem.StationMenuOpen || RecipeBookSystem.TraitMenuOpen) && keys.IsKeyDown(Keys.Enter))
 		{
 			Main.chatRelease = false;
 		}
