@@ -575,6 +575,12 @@ internal static class BookItemTraits
 
 	private static bool Scan(MethodInfo method, FieldInfo field, MethodInfo call)
 	{
+		return IlMembers(method, (OpCode op) => op == OpCodes.Stfld || (call != null && (op == OpCodes.Call || op == OpCodes.Callvirt))).Any(((OpCode Op, MemberInfo Member) x) => x.Op == OpCodes.Stfld ? x.Member == field : x.Member == call);
+	}
+
+	// The fields and methods a method's IL names, for the opcodes asked (BookKillConditions reads drop predicates with it).
+	internal static IEnumerable<(OpCode Op, MemberInfo Member)> IlMembers(MethodInfo method, Func<OpCode, bool> wanted)
+	{
 		byte[] il;
 		try
 		{
@@ -582,18 +588,18 @@ internal static class BookItemTraits
 		}
 		catch
 		{
-			return false;
+			yield break;
 		}
 		if (il == null)
 		{
-			return false;
+			yield break;
 		}
 		if (!opsReady)
 		{
 			ReadOpCodes();
 		}
 		Module module = method.Module;
-		Type[] typeArguments = method.DeclaringType.IsGenericType ? method.DeclaringType.GetGenericArguments() : null;
+		Type[] typeArguments = (method.DeclaringType?.IsGenericType ?? false) ? method.DeclaringType.GetGenericArguments() : null;
 		Type[] methodArguments = method.IsGenericMethod ? method.GetGenericArguments() : null;
 		int i = 0;
 		while (i < il.Length)
@@ -609,24 +615,25 @@ internal static class BookItemTraits
 				OperandType.InlineSwitch => (i + 4 <= il.Length) ? (4 + 4 * BitConverter.ToInt32(il, i)) : 4,
 				_ => 4
 			};
-			if (i + 4 <= il.Length && (op == OpCodes.Stfld || (call != null && (op == OpCodes.Call || op == OpCodes.Callvirt))))
+			if (i + 4 <= il.Length && (op.OperandType is OperandType.InlineField or OperandType.InlineMethod) && wanted(op))
 			{
 				int token = BitConverter.ToInt32(il, i);
+				MemberInfo member = null;
 				try
 				{
-					if (op == OpCodes.Stfld ? (module.ResolveField(token, typeArguments, methodArguments) == field) : (module.ResolveMethod(token, typeArguments, methodArguments) == call))
-					{
-						return true;
-					}
+					member = op.OperandType == OperandType.InlineField ? module.ResolveField(token, typeArguments, methodArguments) : module.ResolveMethod(token, typeArguments, methodArguments);
 				}
 				catch
 				{
 					// A token the generic context cannot resolve: not ours.
 				}
+				if (member != null)
+				{
+					yield return (op, member);
+				}
 			}
 			i += size;
 		}
-		return false;
 	}
 
 	private static void ReadDescriptions(double budgetMs)

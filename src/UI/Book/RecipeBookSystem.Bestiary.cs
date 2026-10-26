@@ -523,9 +523,40 @@ public sealed partial class RecipeBookSystem
 		{
 			EnemyReadErrors++;
 		}
-		EnemyLoot = OrderLoot(ReadLoot(own));
+		EnemyLoot = OrderLoot(FromBags(ReadLoot(own)));
 		EnemyGlobalLoot = ReadLoot(global).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		RebuildMobLootLines();
+	}
+
+	// In Expert and Master a boss drops its Treasure Bag instead of its Classic loot (ItemDropRule.BossBag and the like
+	// report the bag under IsExpert, the loot under NotExpert): a Classic-only row the bag gives in this world becomes the
+	// bag's row (BookEnemyLoot.Bag: the bag's rules are this world's, the boss's own stay among the reports for the hover).
+	// The bag's rules are read as Player.OpenBossBag rolls them, without an NPC.
+	private static List<BookEnemyLoot> FromBags(List<BookEnemyLoot> loot)
+	{
+		int npc = LootNpc;
+		foreach (int bag in loot.Where((BookEnemyLoot x) => !x.OtherWorld && ItemID.Sets.BossBag[x.ItemType]).Select((BookEnemyLoot x) => x.ItemType).ToList())
+		{
+			LootNpc = 0;
+			Dictionary<int, BookEnemyLoot> inside = new Dictionary<int, BookEnemyLoot>();
+			try
+			{
+				inside = ReadLoot(Main.ItemDropsDB.GetRulesForItemID(bag)).Where((BookEnemyLoot x) => !x.OtherWorld).ToDictionary((BookEnemyLoot x) => x.ItemType);
+			}
+			catch (Exception)
+			{
+				EnemyReadErrors++;
+			}
+			LootNpc = npc;
+			for (int i = 0; i < loot.Count; i++)
+			{
+				if (loot[i].OtherWorld && inside.TryGetValue(loot[i].ItemType, out BookEnemyLoot fromBag))
+				{
+					loot[i] = new BookEnemyLoot(loot[i].Reports.Concat(fromBag.Reports), bag);
+				}
+			}
+		}
+		return loot;
 	}
 
 	// Dev audit for the test stand: every mob's own loot that reads "Varies by condition" counting every difficulty's
@@ -568,6 +599,50 @@ public sealed partial class RecipeBookSystem
 		return loot.OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 	}
 
+	// Dev audit for the test stand: every condition label on a mob's own loot in this world that says no more than
+	// "Special condition", "only on certain kills" or "not met yet" (mob, item, label, the condition's type and the method
+	// that decides it), after a count of every condition label there.
+	internal static IEnumerable<string> KillConditionAudit()
+	{
+		int keep = LootNpc;
+		string[] notMet = L("Common.ConditionNotMetYet", "\u0001").Split('\u0001');
+		HashSet<string> vague = new HashSet<string>(StringComparer.Ordinal) { L("Common.SpecialCondition"), L("Common.ConditionMet", L("Common.SpecialCondition")), L("KillConditions.OnCertainKills") };
+		int labels = 0;
+		List<string> lines = new List<string>();
+		foreach (int id in ContentSamples.NpcsByNetId.Keys.OrderBy((int x) => x))
+		{
+			LootNpc = id;
+			List<DropRateInfo> rates = new List<DropRateInfo>();
+			try
+			{
+				foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(id, includeGlobalDrops: false))
+				{
+					BookItemSources.ReportShown(rule, rates, new DropRateInfoChainFeed(1f));
+				}
+			}
+			catch (Exception)
+			{
+				continue;
+			}
+			foreach (DropRateInfo rate in rates.Where((DropRateInfo r) => ContentSamples.ItemsByType.TryGetValue(r.itemId, out Item item) && !item.IsAir && !BookKillConditions.OtherNpcs(r, id)))
+			{
+				bool otherMode = false;
+				List<(IItemDropRuleCondition Condition, string Label)> said = (rate.conditions ?? new List<IItemDropRuleCondition>()).Select((IItemDropRuleCondition c) => (c, LootConditionLabel(c, ref otherMode))).Where(((IItemDropRuleCondition, string Label) x) => !string.IsNullOrEmpty(x.Label)).ToList();
+				if (otherMode)
+				{
+					continue;
+				}
+				labels += said.Count;
+				foreach ((IItemDropRuleCondition condition, string label) in said.Where(((IItemDropRuleCondition, string Label) x) => vague.Contains(x.Label) || (x.Label.StartsWith(notMet[0], StringComparison.Ordinal) && x.Label.EndsWith(notMet[1], StringComparison.Ordinal))))
+				{
+					lines.Add(string.Join('\t', id, Lang.GetNPCNameValue(id), ContentSamples.ItemsByType[rate.itemId].Name, label, BookKillConditions.Describe(condition)));
+				}
+			}
+		}
+		LootNpc = keep;
+		return lines.Distinct().Prepend($"kill conditions: {lines.Distinct().Count()} vague of {labels} condition labels on mobs' own loot in this world (expert={Main.expertMode}, master={Main.masterMode})");
+	}
+
 	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules)
 	{
 		List<BookEnemyDrop> drops = new List<BookEnemyDrop>();
@@ -576,7 +651,7 @@ public sealed partial class RecipeBookSystem
 			List<DropRateInfo> rates = new List<DropRateInfo>();
 			try
 			{
-				rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+				BookItemSources.ReportShown(rule, rates, new DropRateInfoChainFeed(1f));
 			}
 			catch (Exception)
 			{
@@ -585,7 +660,8 @@ public sealed partial class RecipeBookSystem
 			}
 			foreach (DropRateInfo rate in rates)
 			{
-				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir)
+				// A drop of another mob sharing these rules (an Exo Mech's trophy on the others) is not this one's.
+				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir || BookKillConditions.OtherNpcs(rate, LootNpc))
 				{
 					continue;
 				}
@@ -595,29 +671,39 @@ public sealed partial class RecipeBookSystem
 				foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 				{
 					keys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
-					try
+					string label = LootConditionLabel(condition, ref otherMode);
+					if (!string.IsNullOrEmpty(label))
 					{
-						// A difficulty or seed gate this world meets says nothing here; one it fails marks the rule as another world's.
-						bool? gate = BookProgressionSources.WorldGate(condition);
-						otherMode |= gate == false;
-						if (gate == true)
-						{
-							continue;
-						}
-						// Vanilla's difficulty conditions have no text of their own: their word comes first.
-						string label = DropConditionLabel(condition, condition.GetConditionDescription());
-						conditions.Add(string.IsNullOrWhiteSpace(label) ? HiddenConditionLabel(condition, LootNpc) : label);
-					}
-					catch (Exception)
-					{
-						conditions.Add(L("Bestiary.UnknownCondition"));
-						EnemyReadErrors++;
+						conditions.Add(label);
 					}
 				}
 				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode));
 			}
 		}
 		return BookEnemyRules.Group(drops);
+	}
+
+	// A loot row's word for one condition, null when it says nothing: a difficulty or seed gate this world meets says
+	// nothing here, one it fails marks the rule as another world's.
+	private static string LootConditionLabel(IItemDropRuleCondition condition, ref bool otherMode)
+	{
+		try
+		{
+			bool? gate = BookProgressionSources.WorldGate(condition);
+			otherMode |= gate == false;
+			if (gate == true)
+			{
+				return null;
+			}
+			// Vanilla's difficulty conditions have no text of their own: their word comes first.
+			string label = DropConditionLabel(condition, condition.GetConditionDescription());
+			return string.IsNullOrWhiteSpace(label) ? HiddenConditionLabel(condition, LootNpc) : label;
+		}
+		catch (Exception)
+		{
+			EnemyReadErrors++;
+			return L("Bestiary.UnknownCondition");
+		}
 	}
 
 	private static void RebuildMobLootLines()
@@ -817,13 +903,20 @@ public sealed partial class RecipeBookSystem
 		{
 			CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
 		}
-		string detail = loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? L("Bestiary.VariesByCondition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
+		// What the boss's Treasure Bag gives in this world names the bag (BookEnemyLoot.Bag).
+		string bag = (loot.Bag > 0) ? L("KillConditions.InBag", ContentSamples.ItemsByType[loot.Bag].Name) : "";
+		string detail = loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? ((bag.Length > 0) ? bag : L("Bestiary.VariesByCondition")) : (loot.Amount + ((bag.Length > 0) ? (" · " + bag) : "") + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
 		FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
 		if (hover)
 		{
-			// The item's own tooltip; under it what the row cuts short: every rule with its full conditions.
-			string rules = (varies || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot) + "\n") : "";
-			HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + rules + L("Bestiary.ClickTheItemSCard"));
+			// The item's own tooltip; under it what the row cuts short: every rule with its full conditions (a bag's row:
+			// the bag's, then the boss's own Classic ones).
+			string rules = (varies || loot.Bag > 0 || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot.Rules) + "\n") : "";
+			if (loot.Bag > 0)
+			{
+				rules += EnemyLootTooltip(loot.Reports.Where((BookEnemyDrop r) => r.OtherMode)) + "\n";
+			}
+			HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + ((bag.Length > 0) ? (bag + "\n") : "") + rules + KillConditionNote(loot.Rules.Select((BookEnemyDrop r) => r.Conditions)) + L("Bestiary.ClickTheItemSCard"));
 		}
 	}
 

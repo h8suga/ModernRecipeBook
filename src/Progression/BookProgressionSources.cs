@@ -350,9 +350,11 @@ internal static class BookProgressionSources
 		List<object> keys = new List<object>();
 		List<Func<bool>> tests = new List<Func<bool>>();
 		HashSet<object> seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
-		foreach ((IItemDropRuleCondition condition, NPC npc) in drops)
+		// A failed-condition branch's own condition too, which may be reported nowhere else: its step names that branch
+		// "before" it (RecipeBookSystem.HiddenConditionLabel).
+		foreach ((IItemDropRuleCondition condition, NPC npc) in drops.SelectMany(((IItemDropRuleCondition Condition, NPC Npc) d) => d.Condition is BookItemSources.NotCondition not ? new[] { d, (not.Inner, d.Npc) } : new[] { d }))
 		{
-			if (condition != null && seen.Add(condition) && DropConditionStep(condition) == null)
+			if (condition != null && seen.Add(condition) && ReadDropConditionStep(condition) == null)
 			{
 				DropAttemptInfo info = new DropAttemptInfo
 				{
@@ -505,8 +507,14 @@ internal static class BookProgressionSources
 	}
 
 	// Same for item drop rule conditions. Condition.ToDropCondition wraps a recipe-style Condition (Calamity
-	// uses it for Zenith-world and Revengeance drops), which is read by its key.
+	// uses it for Zenith-world and Revengeance drops), which is read by its key. A condition that tests the dying NPC
+	// (BookKillConditions: Astrum Deus's split worms) is no progression gate unless the probe found one in it too.
 	internal static int? DropConditionStep(IItemDropRuleCondition condition)
+	{
+		return ReadDropConditionStep(condition) ?? (BookKillConditions.TestsNpc(condition) ? 0 : null);
+	}
+
+	private static int? ReadDropConditionStep(IItemDropRuleCondition condition)
 	{
 		if (condition == null)
 		{
@@ -553,12 +561,14 @@ internal static class BookProgressionSources
 		return ModeGate(condition) == false;
 	}
 
-	// Drop conditions that read only the world's seed, which never changes: judged by asking them.
-	private static readonly HashSet<string> SeedGates = Set("DontStarveIsUp DontStarveIsNotUp DrunkWorldIsUp DrunkWorldIsNotUp ForTheWorthyIsUp ForTheWorthyIsNotUp TenthAnniversaryIsUp TenthAnniversaryIsNotUp ZenithSeedIsUp ZenithSeedIsNotUp BeesSeed NotBeesSeed NoTrapsSeed NotNoTrapsSeed RemixSeed NotRemixSeed");
+	// Drop conditions that read only the world's seed, which never changes, or its evil and difficulty (the Eye of
+	// Cthulhu's ore and seeds, in Classic and in its bag): judged by asking them.
+	private static readonly HashSet<string> SeedGates = Set("DontStarveIsUp DontStarveIsNotUp DrunkWorldIsUp DrunkWorldIsNotUp ForTheWorthyIsUp ForTheWorthyIsNotUp TenthAnniversaryIsUp TenthAnniversaryIsNotUp ZenithSeedIsUp ZenithSeedIsNotUp BeesSeed NotBeesSeed NoTrapsSeed NotNoTrapsSeed RemixSeed NotRemixSeed IsCorruption IsCrimson IsCorruptionAndNotExpert IsCrimsonAndNotExpert");
 
 	// For the loot lists: whether a condition fixed for this world (difficulty or seed) holds; null when it is not fixed.
-	// The remix seed's hardmode/pre-hardmode drops fail outside a remix world and are a hardmode condition inside one.
-	// Progression keeps its own reading of seeds (DropConditionStep).
+	// The remix seed's hardmode/pre-hardmode drops fail outside a remix world and are a hardmode condition inside one, and
+	// so does Mechdusa's kill outside a remix For the Worthy world (Conditions.MechdusaKill). Progression keeps its own
+	// reading of seeds (DropConditionStep).
 	internal static bool? WorldGate(IItemDropRuleCondition condition)
 	{
 		if (ModeGate(condition) is bool mode)
@@ -574,7 +584,7 @@ internal static class BookProgressionSources
 		{
 			return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, IsInSimulation = true, rng = Main.rand });
 		}
-		return (name is "RemixSeedEasymode" or "RemixSeedHardmode") && !Main.remixWorld ? false : null;
+		return ((name is "RemixSeedEasymode" or "RemixSeedHardmode") && !Main.remixWorld) || (name == "MechdusaKill" && !(Main.remixWorld && Main.getGoodWorld)) ? false : null;
 	}
 
 	// Whether a drop condition that is a difficulty gate holds in the current world; null when it is no difficulty gate.

@@ -768,20 +768,37 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Difficulty conditions get a one-word label; anything else keeps the mod's own description.
 	// A drop condition its mod left without a text (Calamity's AddIf lambdas, e.g. Hadarian Wings once Astrum Aureus is
 	// dead) is named by the boss progression places it after (a known condition, or what the probe found), and asked
-	// whether it holds in this world now.
+	// whether it holds in this world now. One that tests the dying NPC instead (BookKillConditions: Astrum Deus's split
+	// worms, a Wulfrum robot's supercharge) says nothing when a normal kill of the mob meets it, else only that it depends
+	// on the kill: the world's state cannot tell met from not met.
 	private static string HiddenConditionLabel(IItemDropRuleCondition condition, int npcNetId)
 	{
-		string name = BookProgressionSources.DropConditionStep(condition) is int step && step > 0 ? StepName(step) : L("Common.SpecialCondition");
+		int? step = BookProgressionSources.DropConditionStep(condition);
+		if (step is not > 0 && BookKillConditions.TestsNpc(condition))
+		{
+			return BookKillConditions.MetOnKill(condition, npcNetId) == true ? "" : L(BookKillConditions.LabelKey(condition, npcNetId));
+		}
+		// The failed branch of a progression gate (Calamity's AddFail: the Caustic Croaker Staff until Aquatic Scourge)
+		// drops before that boss, and once it is down that is over, not "not yet".
+		int before = (step is not > 0 && condition is BookItemSources.NotCondition not && BookProgressionSources.DropConditionStep(not.Inner) is int gate && gate > 0) ? gate : 0;
+		string name = step is int known && known > 0 ? StepName(known) : (before > 0 ? L("Stages.Before", BookSteps.Name(before)) : L("Common.SpecialCondition"));
 		try
 		{
 			NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
 			DropAttemptInfo info = new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand };
-			return L(condition.CanDrop(info) ? "Common.ConditionMet" : "Common.ConditionNotMetYet", name);
+			return L(condition.CanDrop(info) ? "Common.ConditionMet" : (before > 0 ? "KillConditions.AlreadyPast" : "Common.ConditionNotMetYet"), name);
 		}
 		catch (Exception)
 		{
 			return name;
 		}
+	}
+
+	// The hover's sentence under rows whose conditions ("a; b" lists) name one that depends on the kill.
+	private static string KillConditionNote(IEnumerable<string> conditions)
+	{
+		HashSet<string> labels = BookKillConditions.LabelKeys.Select((string key) => L(key)).ToHashSet(StringComparer.Ordinal);
+		return conditions.Any((string list) => list.Split("; ").Any(labels.Contains)) ? (L("KillConditions.DependsOnTheKill") + "\n") : "";
 	}
 
 	private static string DropConditionLabel(IItemDropRuleCondition condition, string full)
@@ -801,6 +818,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (condition is Conditions.NotMasterMode)
 		{
 			return L("Common.NotMaster");
+		}
+		// The Eye of Cthulhu's Classic ore and seeds by the world's evil (judged as world gates, WorldGate), and Waffle's
+		// Iron from the four mechanical bosses at once in a remix For the Worthy world (Conditions.MechdusaKill).
+		if (condition is Conditions.IsCorruptionAndNotExpert)
+		{
+			return L("KillConditions.CorruptionClassic");
+		}
+		if (condition is Conditions.IsCrimsonAndNotExpert)
+		{
+			return L("KillConditions.CrimsonClassic");
+		}
+		if (condition is Conditions.MechdusaKill)
+		{
+			return L("KillConditions.Mechdusa");
 		}
 		return full;
 	}
@@ -1000,7 +1031,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe", ModName(group.Source.Owner)) + "\n") : "") + L("Common.OpenRecipe");
 		}
-		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : (CanOpenContents(group) ? L("Contents.ShowWhatSInside") : L("Common.ShowConditions")));
+		return (withName ? (group.Source.Name + "\n") : "") + KillConditionNote(group.Rules.Select((BookAcquisitionRule r) => r.Source.ConditionLabel)) + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : (CanOpenContents(group) ? L("Contents.ShowWhatSInside") : L("Common.ShowConditions")));
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
@@ -2519,9 +2550,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 	}
 
-	private static string EnemyLootTooltip(BookEnemyLoot loot)
+	private static string EnemyLootTooltip(IEnumerable<BookEnemyDrop> rules)
 	{
-		return string.Join("\n", loot.Rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : L("Common.NoConditions2"))));
+		return string.Join("\n", rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : L("Common.NoConditions2"))).Distinct(StringComparer.Ordinal));
 	}
 
 	// The progression step ("After Plantera"); an unknown one is either a source the current difficulty rules out or
