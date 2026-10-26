@@ -36,6 +36,7 @@ public sealed partial class RecipeBookSystem
 				AcquisitionReadErrors++;
 			}
 		}
+		FromBags(entries);
 		// Natural rows that read the same (acorns from treetops, dirt from every grass) are one row naming
 		// every place; How to Get lists the world's sources first.
 		return (from p in entries.Select((BookAcquisitionEntry e, int i) => (Entry: e, Index: i))
@@ -47,6 +48,27 @@ public sealed partial class RecipeBookSystem
 				Name = string.Join(", ", g.SelectMany((BookAcquisitionEntry x) => x.Name.Split(", ")).Distinct()),
 				Body = string.Join("\n", g.Select((BookAcquisitionEntry x) => x.Body).Where((string b) => b.Length > 0).Distinct())
 			})).ToList();
+	}
+
+	// As the mob's card (RecipeBookSystem.Bestiary FromBags): in Expert and Master a boss's Classic-only drop comes out of
+	// the Treasure Bag it drops instead, so its row takes the bag's chance and amount and names the bag.
+	private static void FromBags(List<BookAcquisitionEntry> entries)
+	{
+		List<BookAcquisitionEntry> bags = entries.Where((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Container && !e.OtherMode && ItemID.Sets.BossBag[e.ItemType]).ToList();
+		for (int i = 0; i < entries.Count && bags.Count > 0; i++)
+		{
+			BookAcquisitionEntry drop = entries[i];
+			if (drop.Kind != BookAcquisitionKind.Drop || !drop.OtherMode || drop.NpcNetId == 0)
+			{
+				continue;
+			}
+			BookAcquisitionEntry bag = bags.FirstOrDefault((BookAcquisitionEntry b) => BookItemSources.For(b.ItemType).Any((BookItemSource s) => s.Kind == BookAcquisitionKind.Drop && s.Npc == drop.NpcNetId && DropEntry(s) is { OtherMode: false }));
+			if (bag != null)
+			{
+				string label = L("KillConditions.InBag", ItemName(bag.ItemType)) + (bag.ConditionLabel.Length > 0 ? " · " + bag.ConditionLabel : "");
+				entries[i] = drop with { Chance = bag.Chance, Amount = bag.Amount, Body = label, ConditionLabel = label, Conditional = true, ReportKey = bag.ReportKey, OtherMode = false };
+			}
+		}
 	}
 
 	// A title naming more than three places keeps the first three and a count; the tooltip lists them all.
@@ -142,6 +164,11 @@ public sealed partial class RecipeBookSystem
 	private static BookAcquisitionEntry DropEntry(BookItemSource s)
 	{
 		DropRateInfo rate = s.Rate.Value;
+		// As on the mob's card (ReadLoot): another mob's drop that shares these rules is no source of this mob.
+		if (s.Kind == BookAcquisitionKind.Drop && BookKillConditions.OtherNpcs(rate, s.Npc))
+		{
+			return null;
+		}
 		List<string> conditions = new List<string>();
 		List<string> conditionKeys = new List<string>();
 		List<string> shortConditions = new List<string>();
@@ -165,6 +192,11 @@ public sealed partial class RecipeBookSystem
 					description = DropConditionLabel(condition, "");
 				}
 				string full = string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, s.Npc) : description;
+				// A test of the dying mob that its normal kill meets says nothing, as on its card.
+				if (full.Length == 0)
+				{
+					continue;
+				}
 				conditions.Add(full);
 				shortConditions.Add(DropConditionLabel(condition, full));
 			}

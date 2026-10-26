@@ -16,8 +16,13 @@ internal sealed class BookEnemyLoot
 	// Only another difficulty or seed drops it: the mob never drops it in this world.
 	internal bool OtherWorld { get; }
 
-	internal BookEnemyLoot(IEnumerable<BookEnemyDrop> reports)
+	// The boss's Treasure Bag it comes out of in this world when the boss itself drops it only in Classic: the rules are
+	// then the bag's (RecipeBookSystem.ReadMobLoot); 0 for the mob's own loot.
+	internal int Bag { get; }
+
+	internal BookEnemyLoot(IEnumerable<BookEnemyDrop> reports, int bag = 0)
 	{
+		Bag = bag;
 		Reports = reports.ToArray();
 		ItemType = Reports[0].ItemType;
 		// The rules of this world's difficulty; an item only another mode drops (a Master relic in Expert) keeps its own.

@@ -174,6 +174,8 @@ internal static class BookItemSources
 		byItem = new Dictionary<int, List<BookItemSource>>();
 		ReadErrors = 0;
 		BookWorldSources.Clear();
+		BookKillConditions.Clear();
+		NotCondition.Clear();
 	}
 
 	internal static void EnsureBuilt()
@@ -315,7 +317,7 @@ internal static class BookItemSources
 				List<DropRateInfo> rates = new List<DropRateInfo>();
 				try
 				{
-					rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+					ReportShown(rule, rates, new DropRateInfoChainFeed(1f));
 				}
 				catch (Exception)
 				{
@@ -453,14 +455,31 @@ internal static class BookItemSources
 		list.Add(source);
 	}
 
-	// A drop rule condition that holds when another does not: the failed-condition branch of a LeadingConditionRule.
+	// A drop rule condition that holds when another does not: the failed-condition branch of a LeadingConditionRule. One
+	// per condition (Of), so the stages, How to Get and the Bestiary card read the same object and the probe's answer.
 	internal sealed class NotCondition : IItemDropRuleCondition
 	{
 		internal readonly IItemDropRuleCondition Inner;
 
-		internal NotCondition(IItemDropRuleCondition inner)
+		private static Dictionary<IItemDropRuleCondition, NotCondition> made = new Dictionary<IItemDropRuleCondition, NotCondition>(ReferenceEqualityComparer.Instance);
+
+		private NotCondition(IItemDropRuleCondition inner)
 		{
 			Inner = inner;
+		}
+
+		internal static NotCondition Of(IItemDropRuleCondition inner)
+		{
+			if (!made.TryGetValue(inner, out NotCondition not))
+			{
+				not = made[inner] = new NotCondition(inner);
+			}
+			return not;
+		}
+
+		internal static void Clear()
+		{
+			made = new Dictionary<IItemDropRuleCondition, NotCondition>(ReferenceEqualityComparer.Instance);
 		}
 
 		public bool CanDrop(DropAttemptInfo info)
@@ -514,7 +533,7 @@ internal static class BookItemSources
 					foreach (DropRateInfo entry in branch)
 					{
 						DropRateInfo gated = entry;
-						gated.AddCondition(failed ? new NotCondition(leading.condition) : leading.condition);
+						gated.AddCondition(failed ? NotCondition.Of(leading.condition) : leading.condition);
 						rates.Add(gated);
 					}
 				}
@@ -531,6 +550,41 @@ internal static class BookItemSources
 				Report(entry, rates);
 			}
 			Chains.ReportDroprates(rule.ChainedRules, 1f, rates, new DropRateInfoChainFeed(1f));
+		}
+	}
+
+	// What How to Get and the Bestiary card list: the game's own report (chances as the drop UI computes them), except that
+	// a LeadingConditionRule's failed-condition branch carries the condition's negation, as in Reports (Nova's Starblight
+	// Soot drops when it does not blow itself up).
+	internal static void ReportShown(IItemDropRule rule, List<DropRateInfo> rates, DropRateInfoChainFeed feed)
+	{
+		if (rule is not LeadingConditionRule leading)
+		{
+			rule.ReportDroprates(rates, feed);
+			return;
+		}
+		// As LeadingConditionRule.ReportDroprates: every branch with the rule's chance of 1.
+		foreach (IItemDropRuleChainAttempt chain in leading.ChainedRules)
+		{
+			DropRateInfoChainFeed branch = feed.With(1f);
+			if (chain is Chains.TryIfDoesntFillConditions failed)
+			{
+				if (!failed.hideLootReport)
+				{
+					branch.AddCondition(NotCondition.Of(leading.condition));
+					ReportShown(failed.RuleToChain, rates, branch);
+				}
+				continue;
+			}
+			branch.AddCondition(leading.condition);
+			if (chain is Chains.TryIfSucceeded { hideLootReport: false } succeeded)
+			{
+				ReportShown(succeeded.RuleToChain, rates, branch);
+			}
+			else
+			{
+				chain.ReportDroprates(1f, rates, branch);
+			}
 		}
 	}
 
