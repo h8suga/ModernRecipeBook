@@ -523,7 +523,7 @@ public sealed partial class RecipeBookSystem
 		{
 			EnemyReadErrors++;
 		}
-		EnemyLoot = ReadLoot(own).OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		EnemyLoot = OrderLoot(ReadLoot(own));
 		EnemyGlobalLoot = ReadLoot(global).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		RebuildMobLootLines();
 	}
@@ -560,6 +560,12 @@ public sealed partial class RecipeBookSystem
 		}
 		LootNpc = keep;
 		return lines.Prepend($"varies: {before} counting every difficulty, {lines.Count} in this world, {otherWorld} not in this world (expert={Main.expertMode}, master={Main.masterMode})");
+	}
+
+	// What this world gives first, most likely first, then by name; another difficulty's or seed's loot last.
+	private static List<BookEnemyLoot> OrderLoot(IEnumerable<BookEnemyLoot> loot)
+	{
+		return loot.OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 	}
 
 	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules)
@@ -780,27 +786,7 @@ public sealed partial class RecipeBookSystem
 				}
 				continue;
 			}
-			BookEnemyLoot loot = line.Loot;
-			bool dim = line.Kind == LootLineKind.Global;
-			Item item = ContentSamples.ItemsByType[loot.ItemType];
-			Box(sb, rect, hover ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
-			Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
-			bool varies = loot.Rules.Length > 1 || loot.OtherWorld;
-			string chance = varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance);
-			float chanceWidth = (chance.Length > 0) ? (TextWidth(chance, 0.85f) + 4f) : 0f;
-			FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, dim ? Muted : TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
-			if (chance.Length > 0)
-			{
-				CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
-			}
-			string detail = loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? L("Bestiary.VariesByCondition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
-			FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
-			if (hover)
-			{
-				// The item's own tooltip; under it what the row cuts short: every rule with its full conditions.
-				string rules = (varies || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot) + "\n") : "";
-				HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + rules + L("Bestiary.ClickTheItemSCard"));
-			}
+			DrawLootRow(sb, rect, line.Loot, line.Kind == LootLineKind.Global);
 		}
 		if (pages > 1)
 		{
@@ -813,6 +799,31 @@ public sealed partial class RecipeBookSystem
 			{
 				MouseTip(L("Bestiary.NextWheel"));
 			}
+		}
+	}
+
+	// One loot row, of the mob card and of a container's Contents: name and chance, then the amount and conditions.
+	private static void DrawLootRow(SpriteBatch sb, BookRect rect, BookEnemyLoot loot, bool dim)
+	{
+		bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		Item item = ContentSamples.ItemsByType[loot.ItemType];
+		Box(sb, rect, hover ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
+		Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
+		bool varies = loot.Rules.Length > 1 || loot.OtherWorld;
+		string chance = varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance);
+		float chanceWidth = (chance.Length > 0) ? (TextWidth(chance, 0.85f) + 4f) : 0f;
+		FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, dim ? Muted : TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
+		if (chance.Length > 0)
+		{
+			CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
+		}
+		string detail = loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? L("Bestiary.VariesByCondition") : (loot.Amount + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
+		FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
+		if (hover)
+		{
+			// The item's own tooltip; under it what the row cuts short: every rule with its full conditions.
+			string rules = (varies || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot) + "\n") : "";
+			HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + rules + L("Bestiary.ClickTheItemSCard"));
 		}
 	}
 
@@ -885,9 +896,9 @@ public sealed partial class RecipeBookSystem
 			}
 			else if (line.Loot != null)
 			{
-				// The item opens on Items; Back returns to this mob.
+				// The item opens on Items, a Treasure Bag on what it holds; Back returns to this mob.
 				SwitchTab(0);
-				StepCard(line.Loot.ItemType, usedIn: false);
+				StepCard(line.Loot.ItemType, CardModeFor(line.Loot.ItemType));
 			}
 			return;
 		}

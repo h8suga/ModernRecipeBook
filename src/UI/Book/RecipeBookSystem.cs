@@ -272,8 +272,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static bool Catalogue = true;
 
-	// The card's "Used in" list: recipes that take the card's item, optionally only the craftable ones.
-	private static bool UsedInMode;
+	// What the item card lists: its recipe, the recipes that take it (Used in, optionally only the craftable ones), or
+	// what a container holds. Contents stays chosen for the next container; an item without loot shows its recipe.
+	private static BookCardMode CardMode;
+
+	private static BookCardMode ShownCardMode => (CardMode != BookCardMode.Contents || HasContents(SelectedItem?.type ?? 0)) ? CardMode : BookCardMode.Recipe;
 
 	private static bool UsedInCraftableOnly;
 
@@ -751,7 +754,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				SwitchTab(0);
 			}
-			StepCard(type, usedIn: false);
+			StepCard(type, BookCardMode.Recipe);
 			Variant = Math.Max(0, BookRecipeVariants.For(type).IndexOf(BookRecipeVariants.Of(index)));
 		}
 	}
@@ -802,10 +805,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return full;
 	}
 
-	// A row opens something only when there is more to see: its recipe, the enemy card or several drop rules.
+	// A row opens something only when there is more to see: its recipe, the enemy card, what a container holds or
+	// several drop rules.
 	private static bool AcquisitionOpens(BookAcquisitionGroup group)
 	{
-		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group))
+		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group) && !CanOpenContents(group))
 		{
 			if (group.CanExpand)
 			{
@@ -880,6 +884,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			else if (CanOpenEnemy(source))
 			{
 				ShowMobFromSource(source);
+			}
+			else if (CanOpenContents(source))
+			{
+				OpenContents(source.Source.ItemType);
 			}
 			else if (AcquisitionOpens(source))
 			{
@@ -992,7 +1000,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe", ModName(group.Source.Owner)) + "\n") : "") + L("Common.OpenRecipe");
 		}
-		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : L("Common.ShowConditions"));
+		return (withName ? (group.Source.Name + "\n") : "") + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : (CanOpenContents(group) ? L("Contents.ShowWhatSInside") : L("Common.ShowConditions")));
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
@@ -1495,7 +1503,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// Shows another item in the card without touching the grid; History records the step.
-	private static void StepCard(int type, bool usedIn)
+	private static void StepCard(int type, BookCardMode mode)
 	{
 		if (type <= 0 || !ContentSamples.ItemsByType.ContainsKey(type))
 		{
@@ -1505,12 +1513,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ArmorFocus = 0;
 		Variant = 0;
 		DetailsPage = 0;
-		UsedInMode = usedIn;
+		CardMode = mode;
 	}
 
 	// Everything Back/Forward restores: the tab and its filters, the stage and class, the selection and the card, and the
 	// How to Get / enemy cards. Pages are kept too, but paging alone never adds an entry.
-	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, string StageBoss, BookClass Class, BookTrait Traits, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, bool UsedInMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
+	private sealed record NavState(int Tab, string Query, string ModFilter, string CategoryKey, bool FavoritesOnly, bool MetOnly, bool CraftableOnly, BookSortMode SortMode, bool SortDescending, string Stations, BookStageFilter Stage, string StageBoss, BookClass Class, BookTrait Traits, int Selected, int Variant, int ArmorFocus, int FocusType, int MobFocus, int LiveMob, BookCardMode CardMode, bool UsedInCraftableOnly, string AcquisitionVariants, int AcquisitionVariant, int AcquisitionGroup, int Page, int DetailsPage, int AcquisitionPage, int AcquisitionRulePage)
 	{
 		internal NavState WithoutPages => this with
 		{
@@ -1524,7 +1532,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static NavState CaptureNav()
 	{
 		BookUiState.TabFilters filters = LiveTabFilters();
-		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, StageBoss, ClassFilter, TraitFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, UsedInMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
+		return new NavState(CurrentTab, filters.Query, filters.ModFilter, filters.CategoryKey, filters.FavoritesOnly, filters.MetOnly, filters.CraftableOnly, filters.SortMode, filters.SortDescending, string.Join("|", filters.ExcludedStations), StageFilter, StageBoss, ClassFilter, TraitFilter, Selected, Variant, ArmorFocus, FocusType, MobFocus, LiveMob, CardMode, UsedInCraftableOnly, AcquisitionOpen ? string.Join(",", AcquisitionVariants) : "", AcquisitionVariant, AcquisitionGroup, Page, DetailsPage, AcquisitionPage, AcquisitionRulePage);
 	}
 
 	private static void RestoreNav(NavState state)
@@ -1564,7 +1572,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		FocusType = state.FocusType;
 		MobFocus = state.MobFocus;
 		LiveMob = state.LiveMob;
-		UsedInMode = state.UsedInMode;
+		CardMode = state.CardMode;
 		Page = Math.Clamp(state.Page, 0, Pages - 1);
 		DetailsPage = state.DetailsPage;
 		RestoreCards(state);
@@ -3186,7 +3194,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			["CategoryKey"] = state.CategoryKey,
 
 			["FavoritesOnly"] = state.FavoritesOnly,
-			["UsedInMode"] = state.UsedInMode,
+			["CardMode"] = state.CardMode.ToString(),
 			["UsedInCraftableOnly"] = state.UsedInCraftableOnly,
 			["SortMode"] = state.SortMode.ToString(),
 			["SortDescending"] = state.SortDescending,
@@ -3259,9 +3267,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				state.FavoritesOnly = tag.GetBool("FavoritesOnly");
 			}
-			if (tag.ContainsKey("UsedInMode"))
+			// Saves before version 10 have the UsedInMode bool: Used in, or the recipe.
+			if (tag.ContainsKey("CardMode") && Enum.TryParse<BookCardMode>(tag.GetString("CardMode"), ignoreCase: true, out var cardMode))
 			{
-				state.UsedInMode = tag.GetBool("UsedInMode");
+				state.CardMode = cardMode;
+			}
+			else if (tag.ContainsKey("UsedInMode"))
+			{
+				state.CardMode = tag.GetBool("UsedInMode") ? BookCardMode.UsedIn : BookCardMode.Recipe;
 			}
 			// Version 3 called it ChainCraftableOnly (the Chains tab's "Craftable" toggle).
 			if (tag.ContainsKey("UsedInCraftableOnly") || tag.ContainsKey("ChainCraftableOnly"))
@@ -3375,7 +3388,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			TraitFilter = (int)TraitFilter,
 			CategoryKey = categoryKey,
 			FavoritesOnly = FavoritesOnly,
-			UsedInMode = UsedInMode,
+			CardMode = CardMode,
 			UsedInCraftableOnly = UsedInCraftableOnly,
 			SortMode = SortMode,
 			SortDescending = SortDescending,
@@ -3427,7 +3440,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		StorageStageBoss = state.StorageStageBoss;
 		ClassFilter = (BookClass)state.ClassFilter;
 		TraitFilter = (BookTrait)state.TraitFilter;
-		UsedInMode = state.UsedInMode;
+		CardMode = state.CardMode;
 		UsedInCraftableOnly = state.UsedInCraftableOnly;
 		WindowScalePercent = state.WindowScalePercent;
 		HasCustomWindowPosition = state.HasCustomPosition;
@@ -3741,7 +3754,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		TrackerPositionY = 1f;
 		SetTyping(value: false);
 		BookCrafting.Clear();
-		UsedInMode = (UsedInCraftableOnly = false);
+		CardMode = BookCardMode.Recipe;
+		UsedInCraftableOnly = false;
 		AppliedAvailabilityVersion = -1;
 		Open = (MouseOver = (ModMenu = (StorageView = (RecentView = (TrackingView = (BestiaryView = false))))));
 		Catalogue = true;
@@ -3752,6 +3766,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		ResetCard();
 		History.Clear();
 		LiveMobStats.Clear();
+		// Loot rows say what this world drops (another difficulty's are marked): read them again in the next one.
+		MobCardKey = default;
+		ContentsKey = default;
 		UsedInCache.Clear();
 		BatchChoice = 0;
 		InvalidateBatchEstimate();
@@ -3827,7 +3844,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			SwitchTab(0);
 		}
-		StepCard(type, usedIn: true);
+		StepCard(type, BookCardMode.UsedIn);
 		Open = true;
 		LastLeft = Main.mouseLeft;
 		LastRight = Main.mouseRight;
@@ -4811,7 +4828,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				// Shift+Click opens the item straight on its Used in list.
 				if (!StorageView && (keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift)))
 				{
-					UsedInMode = true;
+					CardMode = BookCardMode.UsedIn;
 				}
 				DetailsPage = (Variant = 0);
 				BookCrafting.LastMessage = "";
@@ -4838,9 +4855,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Item chosen = SelectedItem;
 		Recipe materialRecipe = SelectedRecipe;
 		float top = RecipeBlockTop(chosen);
-		if (UsedInMode)
+		BookCardMode mode = ShownCardMode;
+		if (mode == BookCardMode.UsedIn)
 		{
 			if (HandleUsedInClick(chosen.type, top))
+			{
+				return;
+			}
+		}
+		else if (mode == BookCardMode.Contents)
+		{
+			if (HandleContentsClick(chosen.type, top))
 			{
 				return;
 			}
@@ -4891,7 +4916,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 					}
 					else
 					{
-						StepCard(material.type, usedIn: false);
+						StepCard(material.type, BookCardMode.Recipe);
 					}
 				}
 				return;
@@ -5130,7 +5155,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.ToggleUsedIn:
 			if (CardShown)
 			{
-				UsedInMode = !UsedInMode;
+				CardMode = (ShownCardMode == BookCardMode.UsedIn) ? BookCardMode.Recipe : BookCardMode.UsedIn;
 				DetailsPage = 0;
 			}
 			else if (CardMob != null)
@@ -5203,11 +5228,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return MobMaxDetailsPage();
 		}
-		if (UsedInMode && SelectedItem != null)
+		BookCardMode mode = ShownCardMode;
+		if (mode != BookCardMode.Recipe && SelectedItem != null)
 		{
 			float top = RecipeBlockTop(SelectedItem);
-			int count = VisibleUsedIn(SelectedItem.type).Rows.Count;
-			int size = UsedInPageSize(top, count);
+			bool usedIn = mode == BookCardMode.UsedIn;
+			int count = usedIn ? VisibleUsedIn(SelectedItem.type).Rows.Count : Contents(SelectedItem.type).Count;
+			int size = CardListPageSize(top, count, usedIn ? UsedInRowStep : ContentsRowStep);
 			return Math.Max(0, (count - 1) / size);
 		}
 		Recipe r = SelectedRecipe;
@@ -6680,9 +6707,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 		DrawCardNav(sb);
 		DrawDetailHeader(sb, chosen, r);
 		Box(sb, 812f, top - 12f, 284f, 1f, Border, border: false, 0f);
-		if (UsedInMode)
+		BookCardMode mode = ShownCardMode;
+		if (mode == BookCardMode.UsedIn)
 		{
 			DrawUsedIn(sb, chosen, top);
+		}
+		else if (mode == BookCardMode.Contents)
+		{
+			DrawContents(sb, chosen, top);
 		}
 		else if (r != null)
 		{
@@ -6831,21 +6863,37 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Recipe | Used in, and Contents for an item with loot of its own (BookCardMode's order).
 	private static string[] CardModeLabels()
 	{
-		return new string[2]
+		string[] modes = new string[2]
 		{
 			L("Common.Recipe2"),
 			L("Common.UsedIn")
 		};
+		return HasContents(SelectedItem?.type ?? 0) ? modes.Append(L("Contents.Contents")).ToArray() : modes;
 	}
 
+	// Two modes split the switch evenly. Three share it by the length of their labels (Применение and Содержимое do
+	// not fit a third each), so at the usual text size every one fits.
 	private static BookRect[] CardModeRects()
 	{
-		return SegmentRects(BookGeometry.CardMode, CardModeLabels(), 0.8f, natural: false);
+		string[] labels = CardModeLabels();
+		BookRect[] rects = SegmentRects(BookGeometry.CardMode, labels, 0.8f, natural: false);
+		if (labels.Length > 2)
+		{
+			float[] needs = labels.Select((string label) => TextWidth(label, 0.8f) + 12f).ToArray();
+			float x = BookGeometry.CardMode.X;
+			for (int i = 0; i < rects.Length; i++)
+			{
+				rects[i] = rects[i] with { X = x, Width = BookGeometry.CardMode.Width * needs[i] / needs.Sum() };
+				x += rects[i].Width;
+			}
+		}
+		return rects;
 	}
 
-	// Card navigation: back through the steps taken in the card, and Recipe / Used in for the shown item.
+	// Card navigation: back through the steps taken in the card, and Recipe / Used in (/ Contents) for the shown item.
 	private static void DrawCardNav(SpriteBatch sb)
 	{
 		BookRect back = BookGeometry.CardBack;
@@ -6856,12 +6904,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			MouseTip((canBack ? L("Common.BackTo", HistoryLabel(History.Previous)) : L("Common.Back")) + "\nMouse4 · Alt+←");
 		}
+		string[] labels = CardModeLabels();
 		BookRect[] modes = CardModeRects();
-		Segmented(sb, modes, CardModeLabels(), UsedInMode ? 1 : 0, 0.8f);
+		Segmented(sb, modes, labels, (int)ShownCardMode, 0.8f);
 		int hover = MenuOpen ? (-1) : SegmentAt(modes);
 		if (hover >= 0)
 		{
-			MouseTip((hover == 0) ? L("Common.WhatTheItemIsMadeOf") : L("Common.WhatYouCanMakeFromIt"));
+			string tip = hover switch
+			{
+				0 => L("Common.WhatTheItemIsMadeOf"),
+				1 => L("Common.WhatYouCanMakeFromIt"),
+				_ => L("Contents.WhatSInside")
+			};
+			// The hint replaces the tip of a label cut short, so that label leads it.
+			MouseTip((TextWidth(labels[hover], 0.8f) > modes[hover].Width - 12f) ? (labels[hover] + "\n" + tip) : tip);
 		}
 	}
 
@@ -6877,9 +6933,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return false;
 		}
-		UsedInMode = mode == 1;
+		CardMode = (BookCardMode)mode;
 		DetailsPage = 0;
-		if (UsedInMode && UsedInCraftableOnly)
+		if (CardMode == BookCardMode.UsedIn && UsedInCraftableOnly)
 		{
 			BookCrafting.Refresh(force: true);
 		}
@@ -6943,15 +6999,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return new BookRect(812f, top + 32f + slot * UsedInRowStep, 284f, 40f);
 	}
 
-	// Rows that fit above the actions; when the list needs pages, the pager takes the last row's place.
-	private static int UsedInPageSize(float top, int count)
+	// Rows of a card list (Used in, Contents) that fit above the actions; when the list needs pages, the pager takes the
+	// last row's place.
+	private static int CardListPageSize(float top, int count, float step)
 	{
-		int unpaged = Math.Max(1, (int)((BookGeometry.DetailListBottom - top - 32f + 4f) / UsedInRowStep));
+		int unpaged = Math.Max(1, (int)((BookGeometry.DetailListBottom - top - 32f + 4f) / step));
 		if (count <= unpaged)
 		{
 			return unpaged;
 		}
-		return Math.Max(1, (int)((BookGeometry.DetailListPagedBottom - top - 32f + 4f) / UsedInRowStep));
+		return Math.Max(1, (int)((BookGeometry.DetailListPagedBottom - top - 32f + 4f) / step));
 	}
 
 	private static void DrawUsedIn(SpriteBatch sb, Item chosen, float top)
@@ -6988,7 +7045,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			EmptyState(sb, new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f), title, hint);
 			return;
 		}
-		int size = UsedInPageSize(top, view.Rows.Count);
+		int size = CardListPageSize(top, view.Rows.Count, UsedInRowStep);
 		int pages = (view.Rows.Count + size - 1) / size;
 		DetailsPage = Math.Clamp(DetailsPage, 0, pages - 1);
 		for (int slot = 0; slot < size; slot++)
@@ -7047,7 +7104,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return true;
 		}
 		UsedInView view = VisibleUsedIn(type);
-		int size = UsedInPageSize(top, view.Rows.Count);
+		int size = CardListPageSize(top, view.Rows.Count, UsedInRowStep);
 		int pages = Math.Max(1, (view.Rows.Count + size - 1) / size);
 		if (pages > 1 && BookGeometry.DetailListPrevious.Contains(Mouse.X, Mouse.Y))
 		{
@@ -7068,7 +7125,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			if (UsedInRow(top, slot).Contains(Mouse.X, Mouse.Y))
 			{
-				StepCard(Main.recipe[view.Rows[n]].createItem.type, usedIn: true);
+				StepCard(Main.recipe[view.Rows[n]].createItem.type, BookCardMode.UsedIn);
 				return true;
 			}
 		}
