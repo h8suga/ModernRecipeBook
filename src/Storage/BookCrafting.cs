@@ -250,7 +250,7 @@ internal static class BookCrafting
 			return SourcesCache.Text;
 		}
 		Dictionary<int, long>[] plan = Plan(recipe, batches, out _);
-		string text = (plan == null) ? "" : BookSources.CraftSources(plan[1], plan[2]);
+		string text = (plan == null) ? "" : BookSources.CraftSources(plan[0], plan[1], plan[2]);
 		SourcesCache = (recipe.RecipeIndex, batches, BookSources.Version, text);
 		return text;
 	}

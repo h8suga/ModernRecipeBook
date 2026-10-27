@@ -164,10 +164,8 @@ Ready: Ready
 Nearby: Nearby
 MagicStorageSupportIsOffSee: Magic Storage support is off (see client.log)
 NoItemSelected: No item selected
-ClickAnItemInTheGrid: Click an item in the grid
 Taking: Taking…
 RefreshF5: Refresh · F5
-CtrlClickTrashAltClickFavorite: Ctrl+Click: trash · Alt+Click: favorite
 AllSources: All sources
 F1AllKeyboardShortcuts: F1 · All keyboard shortcuts
 DragToMoveTheWindow: Drag to move the window
@@ -204,7 +202,6 @@ NoCraftsYet: No crafts yet
 ItemsYouCraftWillAppearHere: Items you craft will appear here
 RecipesFromHistoryArenTLoaded: Recipes from history aren't loaded
 EnableTheModsThatAddThem: Enable the mods that add them
-Stacks: Stacks: {0}
 Items: Items: {0}
 Mobs: Mobs: {0}
 Recent: Recent: {0}/{1}

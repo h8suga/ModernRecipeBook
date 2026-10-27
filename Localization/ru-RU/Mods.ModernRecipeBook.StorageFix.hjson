@@ -1,0 +1,16 @@
+DepositNotSent: Не удалось отправить на сервер: предметы вернулись
+HoverAnItemInTheGrid: Наведите на предмет в сетке
+ClickStoreTheHeldItem: Клик: положить предмет с курсора в хранилище
+Kinds: Видов: {0}
+StationInterface: Модуль
+StationNotNearby: Не рядом
+StationNotNearbyTip: Ни рядом, ни в доступном модуле создания предметов
+CellMore: Alt+клик: в избранное · Mouse3: карточка
+CellMoreWithTrash: Ctrl+клик: в корзину · Alt+клик: в избранное · Mouse3: карточка
+PortableAccessMissingTip: Хранилища, к которому он привязан, нет на месте: привяжите его заново, нажав им ПКМ по сердцу хранилища (портативный доступ к созданию — по модулю создания предметов).
+PortableAccessLoadingTip: Его хранилище далеко и ещё не пришло с сервера; оно учтётся, как только придёт.
+WithinAndRemote: "{0} · хранилище {1}"
+ToppedUp: Пополнено: {0}
+ItemPlus: "{0} +{1}"
+NothingToStack: Ничего не сложено
+NoRoomInStorage: В хранилище нет места

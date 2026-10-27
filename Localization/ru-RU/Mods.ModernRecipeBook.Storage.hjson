@@ -23,8 +23,7 @@ From: Откуда: {0}
 NoLongerNearby: Этого уже нет рядом
 InventoryFull: Инвентарь полон
 TakenToInventory: Забрано в инвентарь
-ClickTakeRightClickTakeOne: Клик — взять · ПКМ — одну · Shift+клик — в инвентарь
-StacksToppedUp: Стопки пополнены
+ClickTakeRightClickTakeOne: Клик: взять · ПКМ: одну · Shift+клик: в инвентарь
 NothingToTopUp: Нечего пополнять
 StackedIntoNearbyChests: Сложено в сундуки рядом
 TooFastWaitAMoment: Слишком часто: подождите

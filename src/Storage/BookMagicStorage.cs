@@ -146,6 +146,8 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static FieldInfo UsingOf;
 
+	private static FieldInfo AccessingOf;
+
 	private static MethodInfo RefreshOf;
 
 	private static MethodInfo AuditWithdrawOf;
@@ -292,6 +294,7 @@ public sealed class BookMagicStorage : ModSystem
 		WithdrawOf = Method(HeartType, "Withdraw", typeof(Item), typeof(bool));
 		DepositOf = Method(HeartType, "DepositItem", typeof(Item));
 		UsingOf = Field(HeartType, "clientUsingHeart");
+		AccessingOf = Field(Get("Common.Systems.SecuritySystem"), "accessingPlayer");
 		RefreshOf = Method(Get("NetHelper"), "SendRefreshNetworkItems", typeof(Point16), typeof(bool), typeof(IEnumerable<int>));
 		Type audit = Get("Common.Systems.Auditing.AuditSystem");
 		AuditWithdrawOf = Method(audit, "ReportItemWithdraw", typeof(int), HeartType, typeof(Item));
@@ -319,7 +322,9 @@ public sealed class BookMagicStorage : ModSystem
 			try
 			{
 				object heart = GuiHeart.Invoke(null, null);
-				banked = heart != null && BookSources.BankInventoryCoins((Item item) => !quickStack || (bool)HasItemOf.Invoke(heart, new object[3] { item, Main.LocalPlayer, true }));
+				// HasItem checks security as a withdraw does (MS:MagicStorage.Components/TEStorageHeart.cs:1020-1024);
+				// MS asks it inside its own context.
+				banked = heart != null && BookSources.BankInventoryCoins((Item item) => !quickStack || As(Main.myPlayer, () => (bool)HasItemOf.Invoke(heart, new object[3] { item, Main.LocalPlayer, true })));
 			}
 			catch (Exception error)
 			{
@@ -753,16 +758,67 @@ public sealed class BookMagicStorage : ModSystem
 		return entity;
 	}
 
-	// Server and single player only. Prefix-exact, like MS's own withdraw (TEStorageUnit.WithdrawFromItemCollection).
-	internal static Item Withdraw(object heart, Item lookFor)
+	// MS checks a network's security against SecuritySystem.accessingPlayer, a static that is 0 outside an access context
+	// (MS:MagicStorage.Common.Systems/SecuritySystem.cs:118-127, 161, 1127-1133): a call outside one runs as player 0,
+	// whoever asked. The context is a ref struct reflection cannot use (M6), so the field is set around the call as
+	// AccessContext.Use sets it, to the player the operation is for, as MS's own packet handler does
+	// (MS:MagicStorage/NetHelper.cs:767). -1 checks nobody (AccessibleFromContext).
+	private static T As<T>(int player, Func<T> call)
 	{
-		return (Item)WithdrawOf.Invoke(heart, new object[2] { lookFor, false });
+		if (AccessingOf == null)
+		{
+			return call();
+		}
+		object before = AccessingOf.GetValue(null);
+		AccessingOf.SetValue(null, player);
+		try
+		{
+			return call();
+		}
+		finally
+		{
+			AccessingOf.SetValue(null, before);
+		}
 	}
 
-	// Leaves what did not fit in `item`.
-	internal static void Deposit(object heart, Item item)
+	// Server and single player only, as `player`. Prefix-exact, like MS's own withdraw
+	// (TEStorageUnit.WithdrawFromItemCollection).
+	internal static Item Withdraw(object heart, Item lookFor, int player)
 	{
-		DepositOf.Invoke(heart, new object[1] { item });
+		return As(player, () => (Item)WithdrawOf.Invoke(heart, new object[2] { lookFor, false }));
+	}
+
+	// Leaves what did not fit in `item`. A restore passes -1: the items go back where they came from, and the player
+	// they were for may have left.
+	internal static void Deposit(object heart, Item item, int player)
+	{
+		As(player, () => DepositOf.Invoke(heart, new object[1] { item }));
+	}
+
+	// Server: MS clears a heart's "window open" flag when the client says so or the heart is mined
+	// (MS:MagicStorage.Components/StorageHeart.cs:83); its disconnect hook reads the client's own state, which the server
+	// does not have (MS:MagicStorage/StoragePlayer.cs:211-214). A player who left with the window open would leave the
+	// flag to whoever takes the slot next, and AddSession would count that heart as theirs from anywhere.
+	internal static void ForgetSession(int player)
+	{
+		if (UsingOf == null)
+		{
+			return;
+		}
+		try
+		{
+			foreach (TileEntity entity in TileEntity.ByID.Values)
+			{
+				if (HeartType.IsInstanceOfType(entity) && UsingOf.GetValue(entity) is bool[] users && player < users.Length)
+				{
+					users[player] = false;
+				}
+			}
+		}
+		catch (Exception error)
+		{
+			Fail("write", error);
+		}
 	}
 
 	// Viewers' MS windows refresh and the server's MS audit log records the player, as for MS's own operations

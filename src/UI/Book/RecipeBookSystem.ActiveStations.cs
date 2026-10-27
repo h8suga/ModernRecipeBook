@@ -279,6 +279,26 @@ public sealed partial class RecipeBookSystem
 		return fromInterface ? InterfaceTiles.Contains(tile) : PlacedTiles[tile];
 	}
 
+	// A recipe's station as the chip sees it now, for the card's and the Tracking tab's station rows: placed nearby (or
+	// counting through one that is), in a counted Crafting Interface, or neither. The short status, the tooltip's line
+	// and the colour.
+	private static (string Status, string Tip, Color Color) StationState(int tile)
+	{
+		foreach (ActiveStation station in ActiveStations)
+		{
+			if (station.Tile != tile)
+			{
+				continue;
+			}
+			if (station.Interface)
+			{
+				return (L("StorageFix.StationInterface"), L("ActiveStations.InTheCraftingInterface"), Good);
+			}
+			return (L("ActiveStations.Nearby"), (station.Via >= 0) ? L("ActiveStations.CountsVia", StationName(station.Via)) : L("ActiveStations.PlacedNearby"), Good);
+		}
+		return (L("StorageFix.StationNotNearby"), L("StorageFix.StationNotNearbyTip"), Bad);
+	}
+
 	private static Item ActiveStationIcon(ActiveStation station)
 	{
 		if (station.Tile < 0)
