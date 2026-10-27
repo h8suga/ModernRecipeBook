@@ -59,15 +59,15 @@ public sealed partial class RecipeBookSystem
 		return new BookRect(812f, top + 32f + slot * ContentsRowStep, 284f, 42f);
 	}
 
-	// A lock box's key (BookCodeSources.KeyOf) takes a line under the section label; the rows start below it.
+	// A lock box's key (BookCodeSources.KeyOf) takes a line above the list, which starts below it.
 	private static BookRect ContentsKeyRow(float top)
 	{
-		return new BookRect(812f, top + 32f, 284f, 30f);
+		return new BookRect(812f, top + 2f, 284f, 28f);
 	}
 
 	private static float ContentsListTop(int type, float top)
 	{
-		return BookCodeSources.KeyOf(type) != null ? top + 36f : top;
+		return BookCodeSources.KeyOf(type) != null ? top + 32f : top;
 	}
 
 	private static void DrawContentsKey(SpriteBatch sb, int type, float top)
@@ -80,20 +80,28 @@ public sealed partial class RecipeBookSystem
 		bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 		Item item = ContentSamples.ItemsByType[key];
 		Box(sb, rect, hover ? HoverFill : Raised, border: true, 8f);
-		Icon(sb, item, rect.X + 5f, rect.Y + 3f, 24f, tooltip: false);
-		FixedLabel(sb, L(usedUp ? "ItemsSources.OpensWithUsedUp" : "ItemsSources.OpensWithKept", item.Name), rect.X + 36f, rect.Y + 5f, TextColor, 0.8f, rect.Width - 44f, 20f);
+		Icon(sb, item, rect.X + 5f, rect.Y + 2f, 24f, tooltip: false);
+		FixedLabel(sb, L(usedUp ? "ItemsSources.OpensWithUsedUp" : "ItemsSources.OpensWithKept", item.Name), rect.X + 36f, rect.Y + 4f, TextColor, 0.8f, rect.Width - 44f, 20f);
 		if (hover)
 		{
 			HoverItemRow(item, L(usedUp ? "ItemsSources.KeyUsedUpBody" : "ItemsSources.KeyKeptBody", item.Name, ContentSamples.ItemsByType[type].Name) + "\n" + L("Bestiary.ClickTheItemSCard"));
 		}
 	}
 
+	private static bool HandleContentsKeyClick(int type, float top)
+	{
+		if (BookCodeSources.KeyOf(type) is (int key, _) && ContentsKeyRow(top).Contains(Mouse.X, Mouse.Y))
+		{
+			StepCard(key, CardModeFor(key));
+			return true;
+		}
+		return false;
+	}
+
 	private static void DrawContents(SpriteBatch sb, Item chosen, float top)
 	{
 		List<BookEnemyLoot> loot = Contents(chosen.type);
 		SectionLabel(sb, L("Contents.Items", loot.Count), 812f, top + 3f, 284f);
-		DrawContentsKey(sb, chosen.type, top);
-		top = ContentsListTop(chosen.type, top);
 		if (loot.Count == 0)
 		{
 			EmptyState(sb, new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f), L("Contents.NothingListed"), L("Contents.TheGameDoesNotSay"));
@@ -122,12 +130,6 @@ public sealed partial class RecipeBookSystem
 
 	private static bool HandleContentsClick(int type, float top)
 	{
-		if (BookCodeSources.KeyOf(type) is (int key, _) && ContentsKeyRow(top).Contains(Mouse.X, Mouse.Y))
-		{
-			StepCard(key, CardModeFor(key));
-			return true;
-		}
-		top = ContentsListTop(type, top);
 		List<BookEnemyLoot> loot = Contents(type);
 		int size = CardListPageSize(top, loot.Count, ContentsRowStep);
 		int pages = Math.Max(1, (loot.Count + size - 1) / size);
