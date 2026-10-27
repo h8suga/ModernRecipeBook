@@ -3,6 +3,31 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.18.0 — 2026-10-27
+
+### Added
+- The item card of anything with loot of its own (boss Treasure Bags, fishing crates, presents, Calamity's bags and
+  geodes) gets a third mode, **Contents**: what it holds, with the same rows, chances, conditions and hover as the
+  mob card's loot. A Treasure Bag on a mob card and a Container row in How to Get open it straight on its Contents.
+
+### Fixed
+- No drop condition reads "Special condition" any more:
+  - a condition that tests the kill itself (Astrum Deus's split worms, the last Exo Mech, a supercharged Wulfrum
+    robot) says nothing when a normal kill meets it, and otherwise what the kill needs ("While supercharged");
+  - rules of another difficulty, Revengeance/Death or seed say which ("Not in this world · Death mode"), loot that
+    drops only before a boss reads "Before: Eater of Worlds", a boss's own first-kill loot reads "Only the first
+    kill", and gates the world meets say nothing.
+- In Expert and Master worlds a boss's Classic-only loot is listed as coming from its Treasure Bag ("In Treasure Bag
+  (Empress of Light)", with the bag's chance) on the mob card and in How to Get; the hover marks the boss's own
+  Classic chance as not in this world.
+- Drops of a rule's failed branch (Nova's Starblight Soot, the Caustic Croaker Staff before Aquatic Scourge) are
+  listed under the right condition.
+- Drops the game's Bestiary hides for good (Calamity's hidden drops such as the Coldheart Icicle) are hidden in the
+  card, How to Get and stages too; Windy Balloon kites say they come from the slime they lift.
+- In a drunk world the evil boss step reads "Eater of Worlds or Brain of Cthulhu", and both evils' loot counts as
+  this world's.
+- The mob card no longer shows the previous world's loot after you enter a world of another difficulty.
+
 ## 1.17.1 — 2026-10-26
 
 ### Fixed

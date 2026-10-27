@@ -7,7 +7,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.17.1-4c8f5a" alt="Version 1.17.1">
+<img src="https://img.shields.io/badge/version-1.18.0-4c8f5a" alt="Version 1.18.0">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
@@ -89,7 +89,7 @@ all here. Forks and pull requests are welcome.
 
 | Tab | What it lists |
 |---|---|
-| **Items** | Every item, with its card: recipe, Used in, How to Get |
+| **Items** | Every item, with its card: recipe, Used in, Contents, How to Get |
 | **Recipes** | Every recipe, one row per recipe; recipes that differ in one ingredient are one |
 | **Bestiary** | Every mob of the game and its mods, with drops, spawns and stats |
 | **Storage** | Everything in your nearby chests, banks and Magic Storage networks |
@@ -210,6 +210,8 @@ Modded rarities, which have no order of their own, are placed after Purple by th
 - **Recipe variants**: recipes of one item that differ in a single ingredient are one recipe, "Shadow Scale / or
   Tissue Sample"; the row counts the alternative you have most of, and Craft, Max and Track use the one you can make.
 - **Used in**: everything the item is crafted into. Click an ingredient or a Used in row to open that item.
+- **Contents**: what a Treasure Bag, crate, present or geode holds, with the chances and conditions of your world;
+  a bag on a mob card or a container in How to Get opens straight on it.
 - **Armor**: the set bonus of the shown combination in the game's own words (Calamity's reworked sets included) and
   every piece of the set; click a piece to switch to it.
 - **Track**, **Track Set**, **Favorite** and **How to Get** right on the card.
