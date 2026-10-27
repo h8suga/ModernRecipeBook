@@ -795,8 +795,10 @@ public sealed partial class RecipeBookSystem
 				EnemyReadErrors++;
 				continue;
 			}
-			foreach (DropRateInfo rate in rates)
+			bool[] onTop = BookEnemyRules.OnTop(rule, rates);
+			for (int at = 0; at < rates.Count; at++)
 			{
+				DropRateInfo rate = rates[at];
 				// A drop of another mob sharing these rules (an Exo Mech's trophy on the others) is not this one's, and one the
 				// game's Bestiary hides is not listed either.
 				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir || BookKillConditions.OtherNpcs(rate, LootNpc) || BookProgressionSources.HiddenFromUI(rate) || (fits != null && !fits(rate)))
@@ -825,7 +827,7 @@ public sealed partial class RecipeBookSystem
 						mentions.Add(target);
 					}
 				}
-				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode, past, now, index, mentions.ToArray()));
+				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode, past, now, index, mentions.ToArray(), onTop[at]));
 			}
 		}
 		return BookEnemyRules.Group(drops);

@@ -93,6 +93,8 @@ patch for fixes, minor for features.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
+- A drop that only follows another of the same item is part of its row: Abyssal and Sulphuric Treasure's Healing
+  Potion reads "12.86% ×1–2" instead of "Varies by condition" (in Expert one more at 1/3 after the first).
 - Fishing rows show their gates again ("with Wulfrum Fishing Pole", "By day", "Hardmode", "In lava").
 - Ctrl+Backspace resets the filters while you type in the search too, as "Nothing found · Ctrl+Backspace resets
   filters" says.

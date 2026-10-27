@@ -203,7 +203,7 @@ public sealed partial class RecipeBookSystem
 		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? L("HowToGet.AnyEnemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
 		string label = string.Join("; ", conditions.Distinct());
 		string key = string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal));
-		BookEnemyDrop drop = new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, label, key, otherMode, past, now, s.Rule, mentions.ToArray());
+		BookEnemyDrop drop = new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, label, key, otherMode, past, now, s.Rule, mentions.ToArray(), s.OnTop);
 		return new BookAcquisitionEntry(name, label, s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, label, BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, key), OtherMode: otherMode || past, SourceItem: s.Kind == BookAcquisitionKind.Container ? s.From : 0, Drop: drop, Mentions: mentions.ToArray());
 	}
 

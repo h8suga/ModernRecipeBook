@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using Terraria.GameContent.ItemDropRules;
 
 namespace ModernRecipeBook.Sources;
 
@@ -49,11 +51,14 @@ internal static class BookEnemyRules
 		{
 			return null;
 		}
-		List<int> now = Enumerable.Range(0, rules.Count).Where((int i) => rules[i].Now != false).ToList();
+		// A drop on top of another (OnTop) only follows it: no rule of its own, its amount added to the other's.
+		int extra = rules.Where((BookEnemyDrop r) => r.OnTop && r.Now != false).Sum((BookEnemyDrop r) => r.Max);
+		List<int> now = Enumerable.Range(0, rules.Count).Where((int i) => rules[i].Now != false && !rules[i].OnTop).ToList();
 		if (now.Count <= 1)
 		{
-			BookEnemyDrop shown = rules[now.Count == 1 ? now[0] : 0];
-			return new BookDropPick(now.Count == 1 ? now[0] : 0, shown.Chance, shown.Min, shown.Max, 1, shown.Conditions);
+			int at = now.Count == 1 ? now[0] : 0;
+			BookEnemyDrop shown = rules[at];
+			return extra > 0 ? new BookDropPick(-1, shown.Chance, shown.Min, shown.Max + extra, 1, shown.Conditions) : new BookDropPick(at, shown.Chance, shown.Min, shown.Max, 1, shown.Conditions);
 		}
 		List<BookEnemyDrop> each = now.Select((int i) => rules[i]).ToList();
 		if (each.Any((BookEnemyDrop r) => r.Now == null) || each.Select((BookEnemyDrop r) => r.Rule).Distinct().Count() != each.Count)
@@ -64,6 +69,56 @@ internal static class BookEnemyRules
 		List<BookEnemyDrop> always = each.Where((BookEnemyDrop r) => r.Chance >= 1f).ToList();
 		int min = always.Count > 0 ? always.Sum((BookEnemyDrop r) => r.Min) : each.Min((BookEnemyDrop r) => r.Min);
 		string[] conditions = each.Select((BookEnemyDrop r) => r.Conditions).Distinct(StringComparer.Ordinal).ToArray();
-		return new BookDropPick(-1, 1f - none, min, each.Sum((BookEnemyDrop r) => r.Max), each.Count, conditions.Length == 1 ? conditions[0] : "");
+		return new BookDropPick(-1, 1f - none, min, each.Sum((BookEnemyDrop r) => r.Max) + extra, each.Count, conditions.Length == 1 ? conditions[0] : "");
+	}
+
+	// Which of a rule's reports are a second drop of an item on top of its first: a drop of the item whose success chain
+	// drops it once more (Chains.TryIfSucceeded rolls only after its rule dropped). Calamity's Abyssal and Sulphuric
+	// Treasure give a Healing Potion, and in Expert one more at 1/3 (AbyssalTreasure.ModifyItemLoot:
+	// itemDropRule2.OnSuccess(expert).OnSuccess(188, 3)); the second is reported under the first's conditions and more,
+	// at a lower chance.
+	internal static bool[] OnTop(IItemDropRule rule, List<DropRateInfo> rates)
+	{
+		bool[] top = new bool[rates.Count];
+		if (rates.Select((DropRateInfo r) => r.itemId).Distinct().Count() == rates.Count)
+		{
+			return top;
+		}
+		HashSet<int> again = new HashSet<int>();
+		HashSet<IItemDropRule> path = new HashSet<IItemDropRule>(ReferenceEqualityComparer.Instance);
+		Walk(rule, new HashSet<int>(), 0);
+		for (int i = 0; i < rates.Count; i++)
+		{
+			DropRateInfo rate = rates[i];
+			List<IItemDropRuleCondition> mine = rate.conditions ?? new List<IItemDropRuleCondition>();
+			top[i] = again.Contains(rate.itemId) && rates.Any((DropRateInfo first) => first.itemId == rate.itemId && first.dropRate > rate.dropRate && (first.conditions?.Count ?? 0) < mine.Count && (first.conditions ?? new List<IItemDropRuleCondition>()).All(mine.Contains));
+		}
+		return top;
+		void Walk(IItemDropRule node, HashSet<int> above, int depth)
+		{
+			if (node == null || depth > 32 || !path.Add(node))
+			{
+				return;
+			}
+			int own = (node as CommonDrop)?.itemId ?? 0;
+			if (own > 0 && above.Contains(own))
+			{
+				again.Add(own);
+			}
+			// The rules a rule holds (OneFromRulesRule.options, DropBasedOnExpertMode's two, SequentialRulesRule.rules...).
+			foreach (FieldInfo field in node.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			{
+				object value = field.GetValue(node);
+				foreach (IItemDropRule inner in value as IEnumerable<IItemDropRule> ?? (value is IItemDropRule one ? new[] { one } : Array.Empty<IItemDropRule>()))
+				{
+					Walk(inner, above, depth + 1);
+				}
+			}
+			foreach (IItemDropRuleChainAttempt chain in node.ChainedRules)
+			{
+				Walk(chain.RuleToChain, (chain is Chains.TryIfSucceeded && own > 0) ? new HashSet<int>(above) { own } : above, depth + 1);
+			}
+			path.Remove(node);
+		}
 	}
 }

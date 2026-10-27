@@ -38,6 +38,9 @@ internal sealed record BookItemSource(BookAcquisitionKind Kind, int Item)
 
 	internal int Rule { get; init; }
 
+	// The report is a second drop of an item on top of the first (BookEnemyRules.OnTop).
+	internal bool OnTop { get; init; }
+
 	internal AbstractNPCShop Shop { get; init; }
 
 	internal AbstractNPCShop.Entry Entry { get; init; }
@@ -308,11 +311,12 @@ internal static class BookItemSources
 					ReadErrors++;
 					continue;
 				}
-				foreach (DropRateInfo rate in rates)
+				bool[] onTop = BookEnemyRules.OnTop(rules[index], rates);
+				for (int i = 0; i < rates.Count; i++)
 				{
-					if (rate.itemId > 0)
+					if (rates[i].itemId > 0)
 					{
-						Add(make(rate) with { Rule = index });
+						Add(make(rates[i]) with { Rule = index, OnTop = onTop[i] });
 					}
 				}
 			}

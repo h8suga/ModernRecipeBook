@@ -87,7 +87,7 @@ internal sealed class BookAcquisitionGroup
 		if (!OtherWorld && own.Count > 0 && (Rules.Length > 1 || own.Any(((int Index, BookAcquisitionEntry[] Alike) x) => x.Alike.Length > 1)) && own.All(((int Index, BookAcquisitionEntry[] Alike) x) => x.Alike.All((BookAcquisitionEntry e) => e.Drop != null)))
 		{
 			Pick = BookEnemyRules.Pick(own.Select(((int Index, BookAcquisitionEntry[] Alike) x) => BookEnemyRules.Merge(x.Alike.Select((BookAcquisitionEntry e) => e.Drop).ToList())).ToList());
-			string[] labels = own.Select(((int Index, BookAcquisitionEntry[] Alike) x) => x.Alike[0].ConditionLabel).Distinct(StringComparer.Ordinal).ToArray();
+			string[] labels = own.Where(((int Index, BookAcquisitionEntry[] Alike) x) => !x.Alike[0].Drop.OnTop).Select(((int Index, BookAcquisitionEntry[] Alike) x) => x.Alike[0].ConditionLabel).Distinct(StringComparer.Ordinal).ToArray();
 			sharedLabel = labels.Length == 1 ? labels[0] : "";
 			Shown = (Pick != null && Pick.Shown >= 0) ? Rules[own[Pick.Shown].Index] : Rules[0];
 		}

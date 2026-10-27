@@ -6,4 +6,5 @@ namespace ModernRecipeBook.Sources;
 // world now (false: not yet), null when the kill or an event decides (a supercharged robot, a moon's wave). Rule: the
 // top-level rule it comes from; two of them roll on their own (ItemDropResolver.TryDropping tries every rule).
 // Mentions: what its conditions name (the boss of their step, the place they ask for), each under its condition's label.
-internal sealed record BookEnemyDrop(int ItemType, float Chance, int Min, int Max, string Conditions, string ConditionKey, bool OtherMode = false, bool Past = false, bool? Now = true, int Rule = 0, BookMention[] Mentions = null);
+// OnTop: a second drop of the item that only follows its first (BookEnemyRules.OnTop).
+internal sealed record BookEnemyDrop(int ItemType, float Chance, int Min, int Max, string Conditions, string ConditionKey, bool OtherMode = false, bool Past = false, bool? Now = true, int Rule = 0, BookMention[] Mentions = null, bool OnTop = false);
