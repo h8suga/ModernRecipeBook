@@ -67,7 +67,7 @@ internal static class BookProgressionSources
 	// October 2026) matched to Calamity 2.2.4 internal names. Vanilla NPCs not listed appear before hardmode.
 	private static readonly HashSet<string> VanillaHardmodeNpcs = Set("BloodJelly Frankenstein FungoFish Ghost AncientCultistSquidhead AncientDoom AncientLight AnglerFish AngryNimbus AngryTrapper Arapaima ArmoredSkeleton ArmoredViking BigMimicCorruption BigMimicCrimson BigMimicHallow BigMimicJungle BlackRecluse BlackRecluseWall BloodEelBody BloodEelHead BloodEelTail BloodFeeder BloodMummy BloodNautilus BloodSquid BoneLee BrainScrambler Butcher ChaosElemental ChatteringTeethBomb Clinger Clown Corruptor CorruptSlime CreatureFromTheDeep Crimslime CrimsonAxe CultistArcherBlue CultistArcherWhite CultistBoss CultistBossClone CultistDevote CultistDragonBody1 CultistDragonBody2 CultistDragonBody3 CultistDragonBody4 CultistDragonHead CultistDragonTail CursedHammer Cyborg DarkMummy DD2Betsy DD2DrakinT2 DD2DrakinT3 DD2KoboldFlyerT2 DD2KoboldFlyerT3 DD2KoboldWalkerT2 DD2KoboldWalkerT3 DD2LightningBugT3 DD2OgreT2 DD2OgreT3 DD2WitherBeastT2 DD2WitherBeastT3 DeadlySphere DemonTaxCollector Derpling DesertBeast DesertDjinn DesertGhoul DesertGhoulCorruption DesertGhoulCrimson DesertGhoulHallow DesertLamiaDark DesertLamiaLight DesertScorpionWalk DesertScorpionWall DetonatingBubble DiabolistRed DiabolistWhite DiggerBody DiggerHead DiggerTail DrManFly DukeFishron DuneSplicerBody DuneSplicerHead DuneSplicerTail DungeonSpirit ElfArcher ElfCopter EmpressButterfly EnchantedSword Everscream Eyezor FloatyGross Flocko Fritz Gastropod GiantBat GiantCursedSkull GiantFlyingFox GiantFungiBulb GiantTortoise GigaZapper GingerbreadMan GoblinShark GoblinSummoner Golem GrayGrunt GreenJellyfish HallowBoss HeadlessHorseman Hellhound Herpling HoppinJack IceElemental IceGolem IceMimic IceQueen IceTortoise IchorSticker IcyMerman IlluminantBat IlluminantSlime JungleCreeper JungleCreeperWall Krampus Lavabat LightMummy LightningBug LunarTowerNebula LunarTowerSolar LunarTowerStardust LunarTowerVortex MartianDrone MartianEngineer MartianOfficer MartianProbe MartianSaucer MartianSaucerCannon MartianSaucerCore MartianSaucerTurret MartianTurret MartianWalker Medusa Mimic MisterStabby MoonLordFreeEye MoonLordHead MoonLordLeechBlob MossHornet Moth Mothron MothronSpawn MourningWood Mummy Nailhead NebulaBeast NebulaBrain NebulaHeadcrab NebulaSoldier Necromancer NecromancerArmored Nutcracker NutcrackerSpinning Paladin Parrot PigronCorruption PigronCrimson PigronHallow Pirate PirateCaptain PirateCorsair PirateCrossbower PirateDeadeye PirateDeckhand PirateGhost PirateShip PirateShipCannon Pixie Plantera Poltergeist PossessedArmor PresentMimic Princess Probe Psycho Pumpking PumpkingBlade QueenSlimeBoss QueenSlimeMinionPurple RaggedCaster RaggedCasterOpenCoat RainbowSlime RayGunner Reaper RedDevil Retinazer RockGolem RuneWizard SandElemental SandShark SandsharkCorrupt SandsharkCrimson SandsharkHallow SantaClaus SantaNK1 Scarecrow1 Scarecrow10 Scarecrow2 Scarecrow3 Scarecrow4 Scarecrow5 Scarecrow6 Scarecrow7 Scarecrow8 Scarecrow9 Scutlix ScutlixRider SeekerBody SeekerHead SeekerTail ShadowFlameApparition Sharkron Sharkron2 SkeletonArcher SkeletonSniper SkeletronPrime Slimer SnowBalla SnowmanGangsta SolarCorite SolarCrawltipedeBody SolarCrawltipedeHead SolarCrawltipedeTail SolarDrakomire SolarDrakomireRider SolarFlare SolarGoop SolarSolenian SolarSpearman SolarSroller Spazmatism Splinterling StardustCellBig StardustJellyfishBig StardustSoldier StardustSpiderBig StardustWormHead Steampunker SwampThing TaxCollector TheDestroyer TheDestroyerBody TheDestroyerTail ThePossessed ToxicSludge Truffle TruffleWorm TruffleWormDigger Unicorn Vampire VampireBat VortexHornet VortexHornetQueen VortexLarva VortexRifleman VortexSoldier WanderingEye Werewolf Wizard Wolf Wraith WyvernBody WyvernBody2 WyvernBody3 WyvernHead WyvernLegs WyvernTail Yeti ZombieElf ZombieElfBeard ZombieElfGirl");
 
-	private static readonly HashSet<string> CalamityHardmodeNpcs = Set("AnthozoanCrab AquaticAberration AquaticScourgeBody AquaticScourgeBodyAlt AquaticScourgeHead AquaticScourgeTail Archmage Aries Astraglomerate AstralachneaGround AstralachneaWall AstralProbe AstralSlime AstrumAureus AstrumDeusBody AstrumDeusHead AstrumDeusTail Atlas AureusSpawn AuroraSpirit BelchingCoral BlindedAngler Bohldohr Brimling BrimstoneElemental CalamitasClone ChaoticPuffer CloudElemental CragmawMire CrawlerCrystal Cryogen Cryon CryoSlime EarthElemental Eidolist FlakCrab FusionFeeder GiantSquid GreatSandShark GulperEelBody GulperEelBodyAlt GulperEelHead GulperEelTail Hadarian IceClasper InfernalCongealment IrradiatedSlime Mantis MantisShrimp Melter Nova OarfishBody OarfishHead OarfishTail Orthocera OverloadedSoldier PerennialSlime PestilentSlime PlaguebringerGoliath PlaguebringerMiniboss PlagueCharger PlagueChargerLarge Plagueshell RavagerBody RavagerClawLeft RavagerClawRight RavagerHead RavagerHead2 RavagerLegLeft RavagerLegRight RenegadeWarlock SeaSerpent1 SeaSerpent2 SeaSerpent3 SeaSerpent4 SeaSerpent5 ShockstormShuttle SightseerCollider SightseerSpitter StellarCulex SulphurousSkater Trilobite Twinkler Viruling");
+	private static readonly HashSet<string> CalamityHardmodeNpcs = Set("AnthozoanCrab AquaticAberration AquaticScourgeBody AquaticScourgeBodyAlt AquaticScourgeHead AquaticScourgeTail Archmage Aries Astraglomerate Glomerling AstralachneaGround AstralachneaWall AstralProbe AstralSlime AstrumAureus AstrumDeusBody AstrumDeusHead AstrumDeusTail Atlas AureusSpawn AuroraSpirit BelchingCoral BlindedAngler Bohldohr Brimling BrimstoneElemental CalamitasClone ChaoticPuffer CloudElemental CragmawMire CrawlerCrystal Cryogen Cryon CryoSlime EarthElemental Eidolist FlakCrab FusionFeeder GiantSquid GreatSandShark GulperEelBody GulperEelBodyAlt GulperEelHead GulperEelTail Hadarian IceClasper InfernalCongealment IrradiatedSlime Mantis MantisShrimp Melter Nova OarfishBody OarfishHead OarfishTail Orthocera OverloadedSoldier PerennialSlime PestilentSlime PlaguebringerGoliath PlaguebringerMiniboss PlagueCharger PlagueChargerLarge Plagueshell RavagerBody RavagerClawLeft RavagerClawRight RavagerHead RavagerHead2 RavagerLegLeft RavagerLegRight RenegadeWarlock SeaSerpent1 SeaSerpent2 SeaSerpent3 SeaSerpent4 SeaSerpent5 ShockstormShuttle SightseerCollider SightseerSpitter StellarCulex SulphurousSkater Trilobite Twinkler Viruling");
 
 	private static readonly HashSet<string> CalamityPostNpcs = Set("Bloatfish BloodwormFleeing BloodwormNormal BloomSlime BobbitWormHead BobbitWormSegment BrimstoneWitch CeaselessVoid ColossalSquid DevourerofGodsBody DevourerofGodsHead DevourerofGodsTail DraconicSwarmer Dragonfolly EidolonWyrmBody EidolonWyrmBodyAlt EidolonWyrmHead EidolonWyrmTail GammaSlime ImpiousImmolator Mauler NuclearTerror OldDuke PhantomSpirit PhantomSpiritL PhantomSpiritM PhantomSpiritS Polterghast PolterPhantom PrimordialWyrmBody PrimordialWyrmBodyAlt PrimordialWyrmHead PrimordialWyrmTail ProfanedEnergyBody ProfanedEnergyLantern Providence ReaperShark ScornEater SepulcherArm SepulcherBody SepulcherBodyEnergyBall SepulcherHead SepulcherTail Signus SoulSeeker SoulSeekerSupreme StormWeaverBody StormWeaverHead StormWeaverTail SupremeCalamitas THELORDE WildBumblebirb Yharon");
 
@@ -114,8 +114,9 @@ internal static class BookProgressionSources
 	// the Dungeon Guardian at a player inside), the post-Plantera Dungeon and the Temple (its key drops from Plantera); the
 	// Solar Eclipse after any mechanical boss, its Reaper after all three and the rest of it after Plantera
 	// (NPC.SpawnNPC); the Pumpkin and Frost Moons (their medallions need Ectoplasm); Martian Madness (the probe waits for
-	// Golem); town NPCs by Main.UpdateTime_SpawnTownNPCs. The Lunar Events and the Old One's Army tiers go by name
-	// (NpcTerm).
+	// Golem); town NPCs by Main.UpdateTime_SpawnTownNPCs; the Lunatic Devotees and Cultist Archers once Golem and Skeletron
+	// are down (CultistRitual.CheckRitual: hardMode, downedGolemBoss, downedBoss3). The Lunar Events and the Old One's Army
+	// tiers go by name (NpcTerm).
 	private static readonly Dictionary<string, (string Term, BookStage Stage)> VanillaNpcTerms = Terms(
 		(BookStage.PreHardmode, "Dryad=EyeofCthulhu;EaterofWorldsHead;SkeletronHead DD2Bartender=EaterofWorldsHead WitchDoctor=QueenBee Clothier=SkeletronHead Mechanic=SkeletronHead AngryBones=SkeletronHead AngryBonesBig=SkeletronHead AngryBonesBigMuscle=SkeletronHead AngryBonesBigHelmet=SkeletronHead DarkCaster=SkeletronHead CursedSkull=SkeletronHead DungeonSlime=SkeletronHead"),
 		(BookStage.Hardmode, "DungeonSpirit=Plantera RustyArmoredBonesAxe=Plantera RustyArmoredBonesFlail=Plantera RustyArmoredBonesSword=Plantera RustyArmoredBonesSwordNoArmor=Plantera BlueArmoredBones=Plantera BlueArmoredBonesMace=Plantera BlueArmoredBonesNoPants=Plantera BlueArmoredBonesSword=Plantera HellArmoredBones=Plantera HellArmoredBonesSpikeShield=Plantera HellArmoredBonesMace=Plantera HellArmoredBonesSword=Plantera RaggedCaster=Plantera RaggedCasterOpenCoat=Plantera Necromancer=Plantera NecromancerArmored=Plantera DiabolistRed=Plantera DiabolistWhite=Plantera SkeletonCommando=Plantera SkeletonSniper=Plantera TacticalSkeleton=Plantera Paladin=Plantera GiantCursedSkull=Plantera BoneLee=Plantera "
@@ -124,7 +125,20 @@ internal static class BookProgressionSources
 			+ "Scarecrow1=Plantera Scarecrow2=Plantera Scarecrow3=Plantera Scarecrow4=Plantera Scarecrow5=Plantera Scarecrow6=Plantera Scarecrow7=Plantera Scarecrow8=Plantera Scarecrow9=Plantera Scarecrow10=Plantera Splinterling=Plantera Hellhound=Plantera Poltergeist=Plantera HeadlessHorseman=Plantera MourningWood=Plantera Pumpking=Plantera PumpkingBlade=Plantera "
 			+ "ZombieElf=Plantera ZombieElfBeard=Plantera ZombieElfGirl=Plantera ElfArcher=Plantera GingerbreadMan=Plantera Nutcracker=Plantera NutcrackerSpinning=Plantera Yeti=Plantera ElfCopter=Plantera Krampus=Plantera Flocko=Plantera Everscream=Plantera SantaNK1=Plantera IceQueen=Plantera PresentMimic=Plantera "
 			+ "MartianProbe=Golem BrainScrambler=Golem GrayGrunt=Golem RayGunner=Golem MartianOfficer=Golem MartianEngineer=Golem MartianTurret=Golem MartianDrone=Golem GigaZapper=Golem ScutlixRider=Golem Scutlix=Golem MartianWalker=Golem MartianSaucer=Golem MartianSaucerCannon=Golem MartianSaucerTurret=Golem MartianSaucerCore=Golem "
-			+ "Steampunker=mechs:any Cyborg=Plantera"));
+			+ "Steampunker=mechs:any Cyborg=Plantera CultistDevote=Golem CultistArcherBlue=Golem CultistArcherWhite=Golem"));
+
+	// A vanilla boss's minions and loose parts, which only exist in its fight, as the boss's step: the Eye's servants
+	// (NPC.cs:14964), the Brain's Creepers (:27227), the Wall's Hungry and Leech (:20456, :20783, :86256) and eyes,
+	// Skeletron's hands (:16486), the Destroyer's Probes (:14583), Prime's arms (:22410-22426), Plantera's hooks and
+	// tentacles (:26572, :26831), Golem's fists and free head (:14307-14309, :83836), Duke Fishron's Sharkrons and bubbles
+	// (:43567), the Queen Slime's minions, the Lunatic Cultist's dragons, visions, clones and lights (:58482-58784) and
+	// Moon Lord's True Eyes and leech clots.
+	private static readonly Dictionary<string, string> VanillaMinions = Pairs("ServantofCthulhu=EyeofCthulhu Creeper=EaterofWorldsHead TheHungry=Hardmode TheHungryII=Hardmode LeechHead=Hardmode LeechBody=Hardmode LeechTail=Hardmode WallofFleshEye=Hardmode SkeletronHand=SkeletronHead Probe=TheDestroyer PrimeCannon=SkeletronPrime PrimeSaw=SkeletronPrime PrimeVice=SkeletronPrime PrimeLaser=SkeletronPrime PlanterasHook=Plantera PlanterasTentacle=Plantera GolemFistLeft=Golem GolemFistRight=Golem GolemHeadFree=Golem Sharkron=DukeFishron Sharkron2=DukeFishron DetonatingBubble=DukeFishron QueenSlimeMinionBlue=QueenSlimeBoss QueenSlimeMinionPink=QueenSlimeBoss QueenSlimeMinionPurple=QueenSlimeBoss CultistDragonHead=CultistBoss CultistDragonBody1=CultistBoss CultistDragonBody2=CultistBoss CultistDragonBody3=CultistBoss CultistDragonBody4=CultistBoss CultistDragonTail=CultistBoss AncientCultistSquidhead=CultistBoss CultistBossClone=CultistBoss AncientLight=CultistBoss AncientDoom=CultistBoss MoonLordFreeEye=PostHardmode MoonLordLeechBlob=PostHardmode");
+
+	// A mod boss's minions: the mod's NPC types the boss's own class names through ModContent.NPCType<T>() (Signus's
+	// Cosmic Lanterns and Mines, Supreme Calamitas's brothers and Sepulcher, Astrum Aureus's spawn), by the earliest boss
+	// that names one. Read once (BookSteps' NPCs are fixed after loading).
+	private static Dictionary<int, int> modMinions;
 
 	// Calamity's town NPCs (CanTownNPCSpawn): the Archmage after Cryogen, the Sea King after the Desert Scourge and
 	// the Giant Clam, the Brimstone Witch after Supreme Calamitas. The Bohldohr lives in the Jungle Temple
@@ -221,6 +235,11 @@ internal static class BookProgressionSources
 		{
 			return step;
 		}
+		step = MinionStep(type);
+		if (step >= 0)
+		{
+			return step;
+		}
 		BookStage stage = NpcStage(type);
 		ModNPC modNpc = NPCLoader.GetNPC(type);
 		string term = NpcTerm(modNpc, type, out BookStage termStage);
@@ -233,6 +252,60 @@ internal static class BookProgressionSources
 			return Step(AcidRainTerms[rain.Tier], stage == BookStage.Unknown ? BookStage.PreHardmode : stage);
 		}
 		return BookSteps.Of(stage);
+	}
+
+	// The step of the boss whose fight a minion belongs to (VanillaMinions, ModMinions); -1 for any other NPC. A mod NPC
+	// that also spawns on its own (the spawn probe saw it: the Hive Mind's Dank Creepers roam the Corruption) or with the
+	// Acid Rain is none.
+	internal static int MinionStep(int type)
+	{
+		ModNPC modNpc = NPCLoader.GetNPC(type);
+		if (modNpc == null)
+		{
+			return NPCID.Search.TryGetName(type, out string name) && VanillaMinions.TryGetValue(name, out string boss) ? BookSteps.Resolve(boss) : -1;
+		}
+		return BookSpawnGates.Of(type) == null && BookBestiary.AcidRainOf(type) == null && ModMinions().TryGetValue(type, out int step) ? step : -1;
+	}
+
+	private static Dictionary<int, int> ModMinions()
+	{
+		if (modMinions != null)
+		{
+			return modMinions;
+		}
+		modMinions = new Dictionary<int, int>();
+		MethodInfo npcType = typeof(ModContent).GetMethods(BindingFlags.Public | BindingFlags.Static).First((MethodInfo m) => m.Name == nameof(ModContent.NPCType) && m.IsGenericMethodDefinition);
+		Dictionary<Type, int> types = new Dictionary<Type, int>();
+		foreach (ModNPC npc in ModContent.GetContent<ModNPC>())
+		{
+			types.TryAdd(npc.GetType(), npc.Type);
+		}
+		for (int k = 1; k < BookSteps.All.Count; k++)
+		{
+			foreach (int boss in BookSteps.All[k].Npcs)
+			{
+				if (NPCLoader.GetNPC(boss) is not ModNPC modBoss)
+				{
+					continue;
+				}
+				foreach (MethodInfo method in Methods(modBoss.GetType()))
+				{
+					foreach ((System.Reflection.Emit.OpCode _, MemberInfo member) in BookItemTraits.IlMembers(method, (System.Reflection.Emit.OpCode op) => op == System.Reflection.Emit.OpCodes.Call))
+					{
+						if (member is MethodInfo { IsGenericMethod: true } call && call.GetGenericMethodDefinition() == npcType && types.TryGetValue(call.GetGenericArguments()[0], out int minion) && BookSteps.Npc(minion) < 0 && BookSteps.MiniBoss(minion) < 0 && !ContentSamples.NpcsByNetId[minion].townNPC)
+						{
+							modMinions[minion] = Math.Min(modMinions.GetValueOrDefault(minion, k), k);
+						}
+					}
+				}
+			}
+		}
+		return modMinions;
+		// A class's own methods and those of its nested types (lambdas, local closures).
+		static IEnumerable<MethodInfo> Methods(Type type)
+		{
+			return type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly).Concat(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic).SelectMany(Methods));
+		}
 	}
 
 	private static string NpcTerm(ModNPC modNpc, int type, out BookStage stage)
@@ -858,6 +931,12 @@ internal static class BookProgressionSources
 	private static HashSet<string> Set(string names)
 	{
 		return new HashSet<string>(names.Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
+	}
+
+	// "name=value name=value".
+	private static Dictionary<string, string> Pairs(string pairs)
+	{
+		return pairs.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select((string p) => p.Split('=')).ToDictionary((string[] p) => p[0], (string[] p) => p[1], StringComparer.Ordinal);
 	}
 
 	private static Dictionary<string, BookStage> Stages(string pre, string hard, string post)

@@ -2467,9 +2467,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		NPC npc = ContentSamples.NpcsByNetId[id];
 		List<string> biomes = new List<string>();
 		List<string> spawn = new List<string>();
+		bool inEvent = false;
 		try
 		{
 			HashSet<object> biomeTags = (from f in typeof(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes).GetFields(BindingFlags.Static | BindingFlags.Public)
+				select f.GetValue(null)).ToHashSet();
+			HashSet<object> eventTags = (from t in new[] { typeof(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Invasions), typeof(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Events) }
+				from f in t.GetFields(BindingFlags.Static | BindingFlags.Public)
 				select f.GetValue(null)).ToHashSet();
 			BestiaryEntry entry = Main.BestiaryDB.FindEntryByNPCID(npc.type);
 			if (entry != null)
@@ -2487,6 +2491,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 						if (!string.IsNullOrWhiteSpace(label) && !(label == key))
 						{
 							(biomeTags.Contains(element) ? biomes : spawn).Add(label);
+							inEvent |= eventTags.Contains(element);
 						}
 					}
 					catch (Exception)
@@ -2526,12 +2531,79 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + L("Common.TheModLetsItSpawnAfter")) : "") + "\n" + L("Common.FromTheModSOwnSpawn");
 		}
+		SpawnFallback(id, inEvent);
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
 		ReadEnemyPortrait(id);
 		if (EnemyReadErrors > 0)
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Enemy card for NPC net ID {id}: {EnemyReadErrors} reports/tags could not be read.");
+		}
+	}
+
+	// What the Spawns and Biome lines say where the Bestiary's tags and the spawn probe say nothing, and a boss's summon in
+	// any case: Boss Checklist's summon items and spawn text (BookBossInfo), a minion's fight (BookProgressionSources.
+	// MinionStep), the event an entry of Boss Checklist's puts it in (the Lunar Events' pillars and their enemies), the
+	// Lunatic Devotees' ritual (CultistRitual), a town NPC's move-in, and for a mob with a biome and no time or event tag
+	// "Any time", as the Bestiary means it.
+	private static void SpawnFallback(int netId, bool inEvent)
+	{
+		int index = BookBestiary.IndexOf(netId);
+		BookMob mob = index >= 0 ? BookBestiary.Mobs[index] : null;
+		int[] types = (mob?.Variants ?? Array.Empty<int>()).Prepend(netId).Select((int v) => ContentSamples.NpcsByNetId[v].type).Distinct().ToArray();
+		List<BookBossInfo.Entry> entries = types.SelectMany(BookBossInfo.Of).Distinct().ToList();
+		BookBossInfo.Entry boss = entries.FirstOrDefault((BookBossInfo.Entry e) => !e.Event);
+		BookBossInfo.Entry happening = entries.FirstOrDefault((BookBossInfo.Entry e) => e.Event);
+		int minion = types.Select(BookProgressionSources.MinionStep).Where((int s) => s >= 0).DefaultIfEmpty(-1).Min();
+		BookMobKind kind = mob?.Kind ?? BookMobKind.Enemy;
+		string line = "", biome = "", info = "";
+		if (boss != null && (kind == BookMobKind.Boss || EnemySpawn.Length == 0))
+		{
+			string how = boss.Info();
+			string[] items = boss.Items.Select(ItemName).Where((string n) => n.Length > 0).Distinct().ToArray();
+			line = items.Length > 0 ? L("SourceRows.SummonedWith", string.Join(L("Common.OrSeparator"), items)) : how;
+			if (line.Length > 0)
+			{
+				info = (items.Length > 0 && how.Length > 0 ? how + "\n" : "") + L(boss.FromChecklist ? "SourceRows.FromBossChecklist" : "SourceRows.FromBossRegistration");
+			}
+			biome = L("SourceRows.WhereSummoned");
+		}
+		else if (EnemySpawn.Length == 0 && minion >= 0)
+		{
+			line = L("SourceRows.DuringFight", BookSteps.Name(minion));
+			biome = L("SourceRows.WhereItsBossFights", BookSteps.Name(minion));
+			info = L("SourceRows.FromBossCode");
+		}
+		else if (EnemySpawn.Length == 0 && happening != null && happening.Name().Length > 0)
+		{
+			line = L("SourceRows.During", happening.Name());
+			info = L(happening.FromChecklist ? "SourceRows.FromBossChecklist" : "SourceRows.FromBossRegistration");
+		}
+		else if (EnemySpawn.Length == 0 && types.Any((int t) => t is NPCID.CultistDevote or NPCID.CultistArcherBlue or NPCID.CultistArcherWhite))
+		{
+			line = L("SourceRows.CultistRitual");
+			info = L("SourceRows.FromGameCode");
+		}
+		else if (EnemySpawn.Length == 0 && kind == BookMobKind.Town)
+		{
+			line = L("SourceRows.MovesIn");
+		}
+		else if (EnemySpawn.Length == 0 && EnemyBiomes.Length > 0)
+		{
+			line = L("SourceRows.AnyTime");
+		}
+		if (line.Length > 0)
+		{
+			EnemySpawn = EnemySpawn.Length > 0 ? line + " · " + EnemySpawn : line;
+		}
+		// The hint: the whole line, then how it comes and where that is read from.
+		if (info.Length > 0)
+		{
+			EnemySpawnTip = string.Join("\n", new[] { EnemySpawn, EnemySpawnTip, info }.Where((string t) => t.Length > 0));
+		}
+		if (EnemyBiomes.Length == 0)
+		{
+			EnemyBiomes = inEvent || happening != null ? L("SourceRows.WhereTheEventIs") : biome;
 		}
 	}
 

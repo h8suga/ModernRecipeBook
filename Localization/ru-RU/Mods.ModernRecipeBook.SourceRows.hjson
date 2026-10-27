@@ -84,3 +84,16 @@ InTurn: Сундуки получают эти предметы по очере�
 UpperDesert: Только в верхней части подземной пустыни
 LowerDesert: Только в её глубокой части
 ClickChestCard: Клик: карточка предмета «{0}»
+SummonedWith: Призывается: {0}
+FromBossChecklist: Из Boss Checklist
+FromBossRegistration: Из записи мода для Boss Checklist
+WhereSummoned: Там, где его призвали
+DuringFight: Во время боя с боссом {0}
+WhereItsBossFights: Там, где идёт бой с боссом {0}
+During: Во время события «{0}»
+CultistRitual: У входа в Темницу, пока культисты проводят ритуал
+MovesIn: Заселяется в свободный дом
+AnyTime: В любое время
+WhereTheEventIs: Там, где идёт событие
+FromBossCode: Из кода самого босса
+FromGameCode: Из кода игры

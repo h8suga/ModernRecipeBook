@@ -84,3 +84,16 @@ InTurn: The chests take these in turn, so a world with few of them can lack one
 UpperDesert: Only in the upper part of the underground desert
 LowerDesert: Only in its deeper part
 ClickChestCard: Click: the {0}'s card
+SummonedWith: Summoned with {0}
+FromBossChecklist: From Boss Checklist
+FromBossRegistration: From the mod's entry for Boss Checklist
+WhereSummoned: Wherever it is summoned
+DuringFight: During {0}'s fight
+WhereItsBossFights: Wherever {0} is fought
+During: During {0}
+CultistRitual: Outside the Dungeon, while the cultists hold their ritual
+MovesIn: Moves into a free house
+AnyTime: Any time
+WhereTheEventIs: Wherever the event is
+FromBossCode: From the boss's own code
+FromGameCode: From the game's code

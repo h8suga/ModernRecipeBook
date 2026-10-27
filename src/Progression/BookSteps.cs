@@ -119,6 +119,10 @@ internal static class BookSteps
 	// Where the modded bosses came from: "Calamity" (its own registration), "table" (the built-in rows) or "" (none).
 	internal static string Source { get; private set; } = "";
 
+	// Calamity's calls to Boss Checklist as they arrived (LogBoss, LogMiniBoss, LogEvent): BookBossInfo reads their spawn
+	// items and texts when Boss Checklist itself is not loaded.
+	internal static List<object[]> CalamityLogs { get; private set; } = new List<object[]>();
+
 	// The Wall of Flesh's and Moon Lord's steps: the stage buckets' edges.
 	internal static int HardmodeStep { get; private set; } = 1;
 
@@ -141,6 +145,7 @@ internal static class BookSteps
 		byKey = new Dictionary<string, int>(StringComparer.Ordinal);
 		built = false;
 		Source = "";
+		CalamityLogs = new List<object[]>();
 	}
 
 	internal static void EnsureBuilt()
@@ -251,6 +256,7 @@ internal static class BookSteps
 			return null;
 		}
 		List<object[]> logged = ModernRecipeBook.CaptureBossLogs(() => register.Invoke(null, new object[] { ModContent.GetInstance<ModernRecipeBook>(), calamity }));
+		CalamityLogs = logged;
 		List<(float, Step)> list = new List<(float, Step)>();
 		foreach (object[] args in logged.Where((object[] a) => (string)a[0] == "LogBoss"))
 		{
