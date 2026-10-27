@@ -35,6 +35,10 @@ public sealed partial class RecipeBookSystem
 	// mob's own drops, as the Bestiary leaves them out; open or folded for every mob until the player changes it.
 	private static bool MobGlobalOpen;
 
+	// Another world's loot (another difficulty's or seed's, a branch this world is past) folds into one row at the end of
+	// the mob card and of Contents, the same way: Astrum Aureus has 93 rows of a Zenith world's.
+	private static bool OtherWorldsOpen;
+
 	private static List<BookEnemyLoot> EnemyGlobalLoot = new List<BookEnemyLoot>();
 
 	private enum LootLineKind
@@ -42,13 +46,16 @@ public sealed partial class RecipeBookSystem
 		Own,
 		NoOwn,
 		Global,
-		GlobalRow
+		GlobalRow,
+		Other,
+		OtherRow
 	}
 
 	private readonly record struct LootLine(LootLineKind Kind, BookEnemyLoot Loot);
 
-	// What the Loot view lists, in order: own drops (or the "no drops of its own" line), the "Any enemy" row,
-	// and the global drops when that row is open. Rebuilt with the card and when the row is toggled.
+	// What the Loot view lists, in order: this world's own drops (or the "no drops of its own" line), the "Any enemy"
+	// row and the global drops when it is open, the "Not in this world" row and another world's drops when it is open.
+	// Rebuilt with the card and when a row is toggled.
 	private static readonly List<LootLine> MobLootLines = new List<LootLine>();
 
 	// What the card's caches (loot, tags, stats, portrait) were read for.
@@ -522,10 +529,11 @@ public sealed partial class RecipeBookSystem
 		return Math.Max(0, (MobLootLines.Count - 1) / BookGeometry.MobLootRows);
 	}
 
-	// The mob whose loot is being read: a condition without a text is checked against it (HiddenConditionLabel).
+	// The mob whose loot is being read: a condition without a text is checked against it (LootCondition).
 	private static int LootNpc;
 
-	// The mob's own rules, as the Bestiary reads them (no global drops), most likely first; then the global ones.
+	// The mob's own rules, as the Bestiary reads them (no global drops), most likely first; then the global ones it can
+	// give (GlobalDropFits).
 	private static void ReadMobLoot(int id)
 	{
 		LootNpc = id;
@@ -541,9 +549,32 @@ public sealed partial class RecipeBookSystem
 		{
 			EnemyReadErrors++;
 		}
+		NPC sample = ContentSamples.NpcsByNetId.GetValueOrDefault(id);
 		EnemyLoot = OrderLoot(FromBags(ReadLoot(own)));
-		EnemyGlobalLoot = ReadLoot(global).OrderBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		EnemyGlobalLoot = ReadLoot(global, (DropRateInfo rate) => GlobalDropFits(rate, sample)).OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		RebuildMobLootLines();
+	}
+
+	// What vanilla's global drops ask of the dying mob itself, the rest being the world, the season and where the player
+	// stands (ItemDropDatabase.RegisterGlobalRules): a coin value, for all of them (MechBossSpawnersDropRule.CanDrop, the
+	// keys' Conditions.*KeyCondition, PirateMap); for Halloween's weapons a weak mob (HalloweenWeapons: value under 500,
+	// damage under 40, defense under 20, each times the difficulty's multiplier, which the Classic sample leaves out on both
+	// sides); for the goodie bag and the present a hostile one that hurts (HalloweenGoodieBagDrop, XmasPresentDrop: lifeMax
+	// above 1, damage, not friendly, no Slimer or Meteor Head); for Living Flames and the yoyos (RegisterYoyos:
+	// Conditions.YoyoCascade, Yoyos*) lifeMax above 5, not friendly; for the souls no boss and none of
+	// NPCID.Sets.CannotDropSouls (SoulOfWhateverConditionCanDrop). The pillars, their enemies, Lunatic Devotees, boss
+	// minions, critters and town NPCs are worth no coins. Another mod's global rule is kept.
+	private static bool GlobalDropFits(DropRateInfo rate, NPC npc)
+	{
+		return npc == null || (rate.conditions ?? new List<IItemDropRuleCondition>()).All((IItemDropRuleCondition condition) => condition switch
+		{
+			Conditions.MechanicalBossesDummyCondition or Conditions.PirateMap or Conditions.JungleKeyCondition or Conditions.CorruptKeyCondition or Conditions.CrimsonKeyCondition or Conditions.HallowKeyCondition or Conditions.FrozenKeyCondition or Conditions.DesertKeyCondition => npc.value > 0f,
+			Conditions.HalloweenWeapons => npc.value > 0f && npc.value < 500f && npc.damage < 40 && npc.defense < 20,
+			Conditions.HalloweenGoodieBagDrop or Conditions.XmasPresentDrop => npc.lifeMax > 1 && npc.damage > 0 && !npc.friendly && npc.type != NPCID.Slimer && npc.type != NPCID.MeteorHead && npc.value > 0f,
+			Conditions.LivingFlames or Conditions.YoyoCascade or Conditions.YoyosAmarok or Conditions.YoyosYelets or Conditions.YoyosKraken or Conditions.YoyosHelFire => npc.lifeMax > 5 && npc.value > 0f && !npc.friendly,
+			Conditions.SoulOfLight or Conditions.SoulOfNight => !npc.boss && !NPCID.Sets.CannotDropSouls[npc.type] && npc.lifeMax > 1 && !npc.friendly && npc.value >= 1f,
+			_ => true
+		});
 	}
 
 	// In Expert and Master a boss drops its Treasure Bag instead of its Classic loot (ItemDropRule.BossBag and the like
@@ -577,8 +608,9 @@ public sealed partial class RecipeBookSystem
 		return loot;
 	}
 
-	// Dev audit for the test stand: every mob's own loot that reads "Varies by condition" counting every difficulty's
-	// rules, what never drops in this world, and what still varies in it (mob, item, the rules).
+	// Dev audit for the test stand: every mob's own loot (with its Treasure Bag's rows, as its card) and every container's
+	// that reads "Varies by condition" counting every difficulty's rules, what never drops in this world, and what still
+	// varies in it (mob or container, item, the rules).
 	internal static IEnumerable<string> VariesAudit()
 	{
 		int keep = LootNpc;
@@ -597,30 +629,90 @@ public sealed partial class RecipeBookSystem
 			{
 				continue;
 			}
-			foreach (BookEnemyLoot loot in ReadLoot(rules))
-			{
-				before += (loot.Reports.Select((BookEnemyDrop x) => BookAcquisitionGrouping.DropRuleKey(x.Chance, x.Min, x.Max, x.ConditionKey)).Distinct().Count() > 1) ? 1 : 0;
-				otherWorld += loot.OtherWorld ? 1 : 0;
-				if (loot.Rules.Length > 1 && !loot.OtherWorld)
-				{
-					lines.Add(string.Join('\t', id, Lang.GetNPCNameValue(id), ContentSamples.ItemsByType[loot.ItemType].Name, string.Join(" | ", loot.Rules.Select((BookEnemyDrop r) => BookAcquisitionRules.Chance(r.Chance) + " " + r.Conditions + " [" + string.Join(",", r.ConditionKey.Split('|').Select((string k) => k.Split(',')[0].Split('.', '+').Last())) + "]"))));
-				}
-			}
+			Count(FromBags(ReadLoot(rules)), id, Lang.GetNPCNameValue(id));
+		}
+		LootNpc = 0;
+		foreach (int type in ContentSamples.ItemsByType.Keys.Where((int t) => t > 0 && HasContents(t)).OrderBy((int t) => t))
+		{
+			Count(ReadLoot(Main.ItemDropsDB.GetRulesForItemID(type)), type, "item:" + ContentSamples.ItemsByType[type].Name);
 		}
 		LootNpc = keep;
 		return lines.Prepend($"varies: {before} counting every difficulty, {lines.Count} in this world, {otherWorld} not in this world (expert={Main.expertMode}, master={Main.masterMode})");
+		void Count(IEnumerable<BookEnemyLoot> loot, int id, string name)
+		{
+			foreach (BookEnemyLoot row in loot)
+			{
+				before += (row.Reports.Select((BookEnemyDrop x) => BookAcquisitionGrouping.DropRuleKey(x.Chance, x.Min, x.Max, x.ConditionKey)).Distinct().Count() > 1) ? 1 : 0;
+				otherWorld += row.OtherWorld ? 1 : 0;
+				if (row.Pick == null && !row.OtherWorld)
+				{
+					lines.Add(string.Join('\t', id, name, ContentSamples.ItemsByType[row.ItemType].Name, string.Join(" | ", row.Rules.Select((BookEnemyDrop r) => BookAcquisitionRules.Chance(r.Chance) + " " + r.Conditions + " now=" + (r.Now?.ToString() ?? "?") + " rule=" + r.Rule + " [" + string.Join(",", r.ConditionKey.Split('|').Select((string k) => k.Split(',')[0].Split('.', '+').Last())) + "]"))));
+				}
+			}
+		}
 	}
 
-	// What this world gives first, most likely first, then by name; another difficulty's or seed's loot last.
+	// Dev audit for the test stand: every line of every mob card's loot (each variant, both fold rows open) and of every
+	// container's Contents, as drawn (kind, id, name, the mob's coin value, section, item, chance, second line, rules,
+	// rules of other worlds, rules added up); how: also How to Get's drop and container rows of every item.
+	internal static IEnumerable<string> LootAudit(bool how = false)
+	{
+		const string Tab = "\t";
+		int keep = LootNpc;
+		(bool global, bool other) = (MobGlobalOpen, OtherWorldsOpen);
+		MobGlobalOpen = OtherWorldsOpen = true;
+		List<string> lines = new List<string>();
+		foreach (int net in BookBestiary.Mobs.SelectMany((BookMob m) => m.Variants).Distinct())
+		{
+			ReadMobLoot(net);
+			Lines("mob", net, Lang.GetNPCNameValue(net) + Tab + ContentSamples.NpcsByNetId[net].value.ToString(System.Globalization.CultureInfo.InvariantCulture), MobLootLines);
+		}
+		foreach (int type in ContentSamples.ItemsByType.Keys.Where((int t) => t > 0 && HasContents(t)).OrderBy((int t) => t))
+		{
+			ContentsKey = default;
+			Lines("contents", type, ContentSamples.ItemsByType[type].Name + Tab, Contents(type));
+		}
+		for (int type = 1; how && type < ItemLoader.ItemCount; type++)
+		{
+			if (!ContentSamples.ItemsByType.TryGetValue(type, out Item item) || item.IsAir)
+			{
+				continue;
+			}
+			foreach (BookAcquisitionGroup group in BookAcquisitionGrouping.Build(SourceEntries(type)).Where((BookAcquisitionGroup g) => g.Source.Kind is BookAcquisitionKind.Drop or BookAcquisitionKind.Container))
+			{
+				lines.Add(string.Join(Tab, "how", type, item.Name, group.Source.Name, group.Source.Kind, group.Varies ? "" : group.Chance, group.Varies ? "" : group.Amount, AcquisitionDetailText(group), group.Rules.Length, group.Pick?.Count ?? 0));
+			}
+		}
+		LootNpc = keep;
+		(MobGlobalOpen, OtherWorldsOpen) = (global, other);
+		ContentsKey = default;
+		return lines;
+		void Lines(string kind, int id, string name, List<LootLine> list)
+		{
+			foreach (LootLine line in list)
+			{
+				if (line.Loot == null)
+				{
+					lines.Add(string.Join(Tab, kind, id, name, line.Kind));
+					continue;
+				}
+				(string chance, string detail, string _) = LootRowText(line.Loot);
+				lines.Add(string.Join(Tab, kind, id, name, line.Kind, ContentSamples.ItemsByType[line.Loot.ItemType].Name, chance, detail, OneLine(EnemyLootTooltip(line.Loot.Rules)), OneLine(EnemyLootTooltip(line.Loot.Reports.Where((BookEnemyDrop r) => r.OtherMode || r.Past))), line.Loot.Pick?.Count ?? 0));
+			}
+		}
+		static string OneLine(string text) => text.Replace("\n", " | ");
+	}
+
+	// What this world gives first, most likely first, then by name; another world's loot last.
 	private static List<BookEnemyLoot> OrderLoot(IEnumerable<BookEnemyLoot> loot)
 	{
-		return loot.OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+		return loot.OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Pick?.Chance ?? x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 	}
 
-	// Dev audit for the test stand: every condition label on a mob's own loot, this world's rows and another world's
-	// alike, that says no more than "Special condition", "only on certain kills" or "not met yet" (mob, item, here or
-	// other, label, the condition's type and the method that decides it), after a count of every condition label; all:
-	// every label, for review.
+	// Dev audit for the test stand: every condition label on a mob's own loot and on a container's, this world's rows and
+	// another world's alike, that says no more than "Special condition", "only on certain kills" or "not met yet" (mob or
+	// container, item, here or other, label, the condition's type and the method that decides it), after a count of every
+	// condition label; all: every label, for review.
 	internal static IEnumerable<string> KillConditionAudit(bool all = false)
 	{
 		int keep = LootNpc;
@@ -631,40 +723,51 @@ public sealed partial class RecipeBookSystem
 		List<string> lines = new List<string>();
 		foreach (int id in ContentSamples.NpcsByNetId.Keys.OrderBy((int x) => x))
 		{
+			Audit(id, Lang.GetNPCNameValue(id), () => Main.ItemDropsDB.GetRulesForNPCID(id, includeGlobalDrops: false));
+		}
+		foreach (int type in ContentSamples.ItemsByType.Keys.Where((int t) => t > 0 && HasContents(t)).OrderBy((int t) => t))
+		{
+			Audit(0, "item:" + ContentSamples.ItemsByType[type].Name, () => Main.ItemDropsDB.GetRulesForItemID(type));
+		}
+		LootNpc = keep;
+		List<string> listed = lines.Distinct().ToList();
+		return listed.Prepend($"kill conditions: {listed.Count} {(all ? "listed" : "vague")} of {labels} condition labels on mobs' and containers' own loot, {listed.Count((string l) => l.Split('\t')[3] == "other")} of them on another world's rows (expert={Main.expertMode}, master={Main.masterMode})");
+		void Audit(int id, string name, Func<List<IItemDropRule>> read)
+		{
 			LootNpc = id;
 			List<DropRateInfo> rates = new List<DropRateInfo>();
 			try
 			{
-				foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(id, includeGlobalDrops: false))
+				foreach (IItemDropRule rule in read())
 				{
 					BookItemSources.ReportShown(rule, rates, new DropRateInfoChainFeed(1f));
 				}
 			}
 			catch (Exception)
 			{
-				continue;
+				return;
 			}
 			foreach (DropRateInfo rate in rates.Where((DropRateInfo r) => ContentSamples.ItemsByType.TryGetValue(r.itemId, out Item item) && !item.IsAir && !BookKillConditions.OtherNpcs(r, id) && !BookProgressionSources.HiddenFromUI(r)))
 			{
-				bool otherMode = false;
-				List<(IItemDropRuleCondition Condition, string Label)> said = (rate.conditions ?? new List<IItemDropRuleCondition>()).Select((IItemDropRuleCondition c) => (c, LootConditionLabel(c, ref otherMode))).Where(((IItemDropRuleCondition, string Label) x) => !string.IsNullOrEmpty(x.Label)).ToList();
+				List<(IItemDropRuleCondition Condition, LootWord Word)> said = (rate.conditions ?? new List<IItemDropRuleCondition>()).Select((IItemDropRuleCondition c) => (c, LootConditionWord(c, rate.itemId))).Where(((IItemDropRuleCondition, LootWord Word) x) => !string.IsNullOrEmpty(x.Word.Label)).ToList();
+				bool other = said.Any(((IItemDropRuleCondition, LootWord Word) x) => x.Word.OtherMode || x.Word.Past);
 				labels += said.Count;
-				foreach ((IItemDropRuleCondition condition, string label) in said.Where(((IItemDropRuleCondition, string Label) x) => all || vague.Contains(x.Label) || x.Label.Contains(special, StringComparison.Ordinal) || (x.Label.StartsWith(notMet[0], StringComparison.Ordinal) && x.Label.EndsWith(notMet[1], StringComparison.Ordinal))))
+				foreach ((IItemDropRuleCondition condition, LootWord word) in said.Where(((IItemDropRuleCondition, LootWord Word) x) => all || vague.Contains(x.Word.Label) || x.Word.Label.Contains(special, StringComparison.Ordinal) || (x.Word.Label.StartsWith(notMet[0], StringComparison.Ordinal) && x.Word.Label.EndsWith(notMet[1], StringComparison.Ordinal))))
 				{
-					lines.Add(string.Join('\t', id, Lang.GetNPCNameValue(id), ContentSamples.ItemsByType[rate.itemId].Name, otherMode ? "other" : "here", label, BookKillConditions.Describe(condition)));
+					lines.Add(string.Join('\t', id, name, ContentSamples.ItemsByType[rate.itemId].Name, other ? "other" : "here", word.Label, BookKillConditions.Describe(condition)));
 				}
 			}
 		}
-		LootNpc = keep;
-		List<string> listed = lines.Distinct().ToList();
-		return listed.Prepend($"kill conditions: {listed.Count} {(all ? "listed" : "vague")} of {labels} condition labels on mobs' own loot, {listed.Count((string l) => l.Split('\t')[3] == "other")} of them on another world's rows (expert={Main.expertMode}, master={Main.masterMode})");
 	}
 
-	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules)
+	// Each rule's reports by its place among the rules (BookEnemyDrop.Rule); fits leaves out drops this mob cannot have.
+	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules, Func<DropRateInfo, bool> fits = null)
 	{
 		List<BookEnemyDrop> drops = new List<BookEnemyDrop>();
+		int index = -1;
 		foreach (IItemDropRule rule in rules)
 		{
+			index++;
 			List<DropRateInfo> rates = new List<DropRateInfo>();
 			try
 			{
@@ -679,67 +782,80 @@ public sealed partial class RecipeBookSystem
 			{
 				// A drop of another mob sharing these rules (an Exo Mech's trophy on the others) is not this one's, and one the
 				// game's Bestiary hides is not listed either.
-				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir || BookKillConditions.OtherNpcs(rate, LootNpc) || BookProgressionSources.HiddenFromUI(rate))
+				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir || BookKillConditions.OtherNpcs(rate, LootNpc) || BookProgressionSources.HiddenFromUI(rate) || (fits != null && !fits(rate)))
 				{
 					continue;
 				}
 				List<string> conditions = new List<string>();
 				List<string> keys = new List<string>();
 				bool otherMode = false;
+				bool past = false;
+				bool? now = true;
 				foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 				{
 					keys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
-					string label = LootConditionLabel(condition, ref otherMode);
-					if (!string.IsNullOrEmpty(label))
+					LootWord word = LootConditionWord(condition, rate.itemId);
+					otherMode |= word.OtherMode;
+					past |= word.Past;
+					now = BookEnemyRules.Both(now, word.Now);
+					if (!string.IsNullOrEmpty(word.Label))
 					{
-						conditions.Add(label);
+						conditions.Add(word.Label);
 					}
 				}
-				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode));
+				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode, past, now, index));
 			}
 		}
 		return BookEnemyRules.Group(drops);
 	}
 
-	// A loot row's word for one condition, null when it says nothing: a difficulty or seed gate this world meets says
-	// nothing here, one it fails marks the rule as another world's.
-	private static string LootConditionLabel(IItemDropRuleCondition condition, ref bool otherMode)
+	// A loot row's word for one condition (LootCondition) on the mob read (LootNpc; 0 for a container's).
+	private static LootWord LootConditionWord(IItemDropRuleCondition condition, int item)
 	{
 		try
 		{
-			bool? gate = BookProgressionSources.WorldGate(condition);
-			otherMode |= gate == false;
-			if (gate == true)
-			{
-				return null;
-			}
-			// Vanilla's difficulty conditions have no text of their own: their word comes first.
-			string label = DropConditionLabel(condition, condition.GetConditionDescription());
-			return string.IsNullOrWhiteSpace(label) ? HiddenConditionLabel(condition, LootNpc) : label;
+			return LootCondition(condition, LootNpc, item);
 		}
 		catch (Exception)
 		{
 			EnemyReadErrors++;
-			return L("Bestiary.UnknownCondition");
+			return new LootWord(L("Bestiary.UnknownCondition"), Now: null);
 		}
 	}
 
 	private static void RebuildMobLootLines()
 	{
 		MobLootLines.Clear();
-		MobLootLines.AddRange(EnemyLoot.Select((BookEnemyLoot loot) => new LootLine(LootLineKind.Own, loot)));
-		if (EnemyLoot.Count == 0 && EnemyGlobalLoot.Count > 0)
+		MobLootLines.AddRange(LootLines(EnemyLoot, EnemyGlobalLoot));
+	}
+
+	// The rows of a loot list: this world's (or "no drops of its own" over global ones), the "Any enemy" row and its
+	// drops while open, the "Not in this world" row and another world's drops while open.
+	private static List<LootLine> LootLines(List<BookEnemyLoot> loot, List<BookEnemyLoot> global)
+	{
+		List<LootLine> lines = loot.Where((BookEnemyLoot x) => !x.OtherWorld).Select((BookEnemyLoot x) => new LootLine(LootLineKind.Own, x)).ToList();
+		List<BookEnemyLoot> other = loot.Where((BookEnemyLoot x) => x.OtherWorld).ToList();
+		if (lines.Count == 0 && global.Count > 0)
 		{
-			MobLootLines.Add(new LootLine(LootLineKind.NoOwn, null));
+			lines.Add(new LootLine(LootLineKind.NoOwn, null));
 		}
-		if (EnemyGlobalLoot.Count > 0)
+		if (global.Count > 0)
 		{
-			MobLootLines.Add(new LootLine(LootLineKind.GlobalRow, null));
+			lines.Add(new LootLine(LootLineKind.GlobalRow, null));
 			if (MobGlobalOpen)
 			{
-				MobLootLines.AddRange(EnemyGlobalLoot.Select((BookEnemyLoot loot) => new LootLine(LootLineKind.Global, loot)));
+				lines.AddRange(global.Select((BookEnemyLoot x) => new LootLine(LootLineKind.Global, x)));
 			}
 		}
+		if (other.Count > 0)
+		{
+			lines.Add(new LootLine(LootLineKind.OtherRow, null));
+			if (OtherWorldsOpen)
+			{
+				lines.AddRange(other.Select((BookEnemyLoot x) => new LootLine(LootLineKind.Other, x)));
+			}
+		}
+		return lines;
 	}
 
 	private static string[] MobModeLabels()
@@ -853,7 +969,7 @@ public sealed partial class RecipeBookSystem
 	}
 
 	// Loot rows: name and chance on the first line, amount and conditions below; a click opens the item. The
-	// "Any enemy" row folds the global drops, shown dimmed when open.
+	// "Any enemy" row folds the global drops and the "Not in this world" row another world's, shown dimmed when open.
 	private static void DrawMobLoot(SpriteBatch sb)
 	{
 		BookRect body = BookGeometry.MobBody;
@@ -871,26 +987,7 @@ public sealed partial class RecipeBookSystem
 			{
 				break;
 			}
-			LootLine line = MobLootLines[index];
-			BookRect rect = BookGeometry.MobLootRow(row);
-			bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
-			if (line.Kind == LootLineKind.NoOwn)
-			{
-				CenterLabel(sb, L("Bestiary.NoDropsOfItsOwn"), rect.X, rect.Y, rect.Width, rect.Height, Muted, 0.85f);
-				continue;
-			}
-			if (line.Kind == LootLineKind.GlobalRow)
-			{
-				Box(sb, rect, hover ? HoverFill : Panel, border: true, 8f);
-				Chevron(sb, rect.X + 18f, rect.Y + rect.Height / 2f, 4f, MobGlobalOpen ? 0 : 3, Muted);
-				FixedLabel(sb, L("Bestiary.AnyEnemy") + " · " + EnemyGlobalLoot.Count, rect.X + 36f, rect.Y + 11f, TextColor, 0.85f, rect.Width - 44f, 20f);
-				if (hover)
-				{
-					MouseTip(L("Bestiary.DropsAnyEnemyCanHave") + "\n" + (MobGlobalOpen ? L("Bestiary.ClickFold") : L("Bestiary.ClickShow")));
-				}
-				continue;
-			}
-			DrawLootRow(sb, rect, line.Loot, line.Kind == LootLineKind.Global);
+			DrawLootLine(sb, BookGeometry.MobLootRow(row), MobLootLines[index], EnemyGlobalLoot.Count, EnemyLoot.Count((BookEnemyLoot x) => x.OtherWorld));
 		}
 		if (pages > 1)
 		{
@@ -906,6 +1003,65 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
+	// One line of a loot list (LootLines): "no drops of its own", a fold row ("Any enemy · 22", "Not in this world · 93";
+	// the counts of what they hold) or a loot row, the global ones dimmed.
+	private static void DrawLootLine(SpriteBatch sb, BookRect rect, LootLine line, int globalCount, int otherCount)
+	{
+		bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		switch (line.Kind)
+		{
+		case LootLineKind.NoOwn:
+			CenterLabel(sb, L("Bestiary.NoDropsOfItsOwn"), rect.X, rect.Y, rect.Width, rect.Height, Muted, 0.85f);
+			return;
+		case LootLineKind.GlobalRow:
+			FoldRow(L("Bestiary.AnyEnemy") + " · " + globalCount, L("Bestiary.DropsAnyEnemyCanHave"), MobGlobalOpen);
+			return;
+		case LootLineKind.OtherRow:
+			FoldRow(L("BestiaryLoot.NotInThisWorldCount", otherCount), L("BestiaryLoot.NotInThisWorldTip"), OtherWorldsOpen);
+			return;
+		}
+		DrawLootRow(sb, rect, line.Loot, line.Kind != LootLineKind.Own);
+		void FoldRow(string label, string tip, bool open)
+		{
+			Box(sb, rect, hover ? HoverFill : Panel, border: true, 8f);
+			Chevron(sb, rect.X + 18f, rect.Y + rect.Height / 2f, 4f, open ? 0 : 3, Muted);
+			FixedLabel(sb, label, rect.X + 36f, rect.Y + 11f, TextColor, 0.85f, rect.Width - 44f, 20f);
+			if (hover)
+			{
+				MouseTip(tip + "\n" + (open ? L("Bestiary.ClickFold") : L("Bestiary.ClickShow")));
+			}
+		}
+	}
+
+	// A click on a fold row opens or folds it: true, the list is to be rebuilt.
+	private static bool ToggleLootFold(LootLine line)
+	{
+		switch (line.Kind)
+		{
+		case LootLineKind.GlobalRow:
+			MobGlobalOpen = !MobGlobalOpen;
+			return true;
+		case LootLineKind.OtherRow:
+			OtherWorldsOpen = !OtherWorldsOpen;
+			return true;
+		}
+		return false;
+	}
+
+	// A loot row's chance, its second line and the bag it names. What the boss's Treasure Bag gives in this world names
+	// the bag (BookEnemyLoot.Bag). A branch this world is past says so by its own label ("Only the first kill · already
+	// past"), another world's says "Not in this world".
+	private static (string Chance, string Detail, string Bag) LootRowText(BookEnemyLoot loot)
+	{
+		BookDropPick pick = loot.Pick;
+		bool varies = loot.OtherWorld || pick == null;
+		string bag = (loot.Bag > 0) ? L("KillConditions.InBag", ContentSamples.ItemsByType[loot.Bag].Name) : "";
+		string conditions = pick?.Conditions ?? "";
+		string otherWorld = loot.PastOnly ? string.Join("; ", loot.Rules.Select((BookEnemyDrop r) => r.Conditions).Distinct(StringComparer.Ordinal)) : (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && conditions.Length > 0) ? (" · " + conditions) : ""));
+		string detail = loot.OtherWorld ? otherWorld : varies ? ((bag.Length > 0) ? bag : L("Bestiary.VariesByCondition")) : (loot.Amount + ((bag.Length > 0) ? (" · " + bag) : "") + ((conditions.Length > 0) ? (" · " + conditions) : ""));
+		return (varies ? "" : BookAcquisitionRules.Chance(pick.Chance), detail, bag);
+	}
+
 	// One loot row, of the mob card and of a container's Contents: name and chance, then the amount and conditions.
 	private static void DrawLootRow(SpriteBatch sb, BookRect rect, BookEnemyLoot loot, bool dim)
 	{
@@ -913,28 +1069,41 @@ public sealed partial class RecipeBookSystem
 		Item item = ContentSamples.ItemsByType[loot.ItemType];
 		Box(sb, rect, hover ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
 		Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
-		bool varies = loot.Rules.Length > 1 || loot.OtherWorld;
-		string chance = varies ? "" : BookAcquisitionRules.Chance(loot.Rules[0].Chance);
+		BookDropPick pick = loot.Pick;
+		bool varies = loot.OtherWorld || pick == null;
+		(string chance, string detail, string bag) = LootRowText(loot);
 		float chanceWidth = (chance.Length > 0) ? (TextWidth(chance, 0.85f) + 4f) : 0f;
 		FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, dim ? Muted : TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
 		if (chance.Length > 0)
 		{
 			CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
 		}
-		// What the boss's Treasure Bag gives in this world names the bag (BookEnemyLoot.Bag).
-		string bag = (loot.Bag > 0) ? L("KillConditions.InBag", ContentSamples.ItemsByType[loot.Bag].Name) : "";
-		string detail = loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + ((loot.Rules.Length == 1 && loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : "")) : varies ? ((bag.Length > 0) ? bag : L("Bestiary.VariesByCondition")) : (loot.Amount + ((bag.Length > 0) ? (" · " + bag) : "") + ((loot.Rules[0].Conditions.Length > 0) ? (" · " + loot.Rules[0].Conditions) : ""));
+		string conditions = pick?.Conditions ?? "";
 		FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
 		if (hover)
 		{
-			// The item's own tooltip; under it what the row cuts short: every rule with its full conditions (a bag's row:
-			// the bag's, then the boss's own Classic ones as another world's).
-			string rules = (varies || loot.Bag > 0 || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot.Rules) + "\n") : "";
-			if (loot.Bag > 0)
+			// The item's own tooltip; under it what the row cuts short: this world's rules with their full conditions (a bag's
+			// row: the bag's), then another world's (the boss's own Classic ones) and those already past; how rules that add
+			// up roll, and a moon's odds by wave.
+			BookEnemyDrop[] others = loot.OtherWorld ? Array.Empty<BookEnemyDrop>() : loot.Reports.Where((BookEnemyDrop r) => r.OtherMode || r.Past).ToArray();
+			string rules = (varies || loot.Bag > 0 || conditions.Length > 0 || others.Length > 0 || pick.Count > 1) ? (EnemyLootTooltip(loot.Rules) + "\n") : "";
+			if (others.Any((BookEnemyDrop r) => r.OtherMode))
 			{
-				rules += EnemyLootTooltip(loot.Reports.Where((BookEnemyDrop r) => r.OtherMode), L("Bestiary.NotInThisWorld") + " · ") + "\n";
+				rules += EnemyLootTooltip(others.Where((BookEnemyDrop r) => r.OtherMode), L("Bestiary.NotInThisWorld") + " · ") + "\n";
 			}
-			HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + ((bag.Length > 0) ? (bag + "\n") : "") + rules + KillConditionNote(loot.Rules.Select((BookEnemyDrop r) => r.Conditions)) + L("Bestiary.ClickTheItemSCard"));
+			if (others.Any((BookEnemyDrop r) => !r.OtherMode))
+			{
+				rules += EnemyLootTooltip(others.Where((BookEnemyDrop r) => !r.OtherMode)) + "\n";
+			}
+			if (!varies && pick.Count > 1)
+			{
+				rules += L("BestiaryLoot.RulesRollSeparately", pick.Count) + "\n";
+			}
+			foreach (bool frost in new[] { false, true }.Where((bool f) => loot.Reports.Any((BookEnemyDrop r) => r.ConditionKey.Contains(f ? "+FrostMoonDropGatingChance," : "+PumpkinMoonDropGatingChance,", StringComparison.Ordinal))))
+			{
+				rules += WaveTable(frost) + "\n";
+			}
+			HoverItemRow(item, ((loot.OtherWorld && !loot.PastOnly) ? (L("Bestiary.NotInThisWorld") + "\n") : "") + ((bag.Length > 0) ? (bag + "\n") : "") + rules + KillConditionNote(loot.Rules.Select((BookEnemyDrop r) => r.Conditions)) + L("Bestiary.ClickTheItemSCard"));
 		}
 	}
 
@@ -1000,9 +1169,8 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			LootLine line = MobLootLines[index];
-			if (line.Kind == LootLineKind.GlobalRow)
+			if (ToggleLootFold(line))
 			{
-				MobGlobalOpen = !MobGlobalOpen;
 				RebuildMobLootLines();
 			}
 			else if (line.Loot != null)

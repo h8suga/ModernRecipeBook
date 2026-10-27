@@ -414,14 +414,14 @@ internal static class BookProgressionSources
 	// belongs to (OtherWorlds: Supreme Calamitas's Levi in Death mode).
 	private static Dictionary<object, int> before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
 
-	private static Dictionary<object, (string Key, string Arg)> otherWorld = new Dictionary<object, (string, string)>(ReferenceEqualityComparer.Instance);
+	private static Dictionary<object, (string Key, string Arg)[]> otherWorld = new Dictionary<object, (string, string)[]>(ReferenceEqualityComparer.Instance);
 
 	internal static void Clear()
 	{
 		calamityDropGates = null;
 		probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
 		before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
-		otherWorld = new Dictionary<object, (string, string)>(ReferenceEqualityComparer.Instance);
+		otherWorld = new Dictionary<object, (string, string)[]>(ReferenceEqualityComparer.Instance);
 	}
 
 	// The secret seeds by the Main flag each sets, as the seed is typed (UIWorldCreation.ProcessSeed; the drunk world's
@@ -456,8 +456,11 @@ internal static class BookProgressionSources
 
 	// The worlds an opaque drop condition (a mod's lambda reading Main.expertMode, a seed flag or Calamity's difficulty)
 	// is asked in besides this one, one flag at a time and each put back: the other difficulties (Main.GameMode),
-	// Calamity's Revengeance and Death (CalamityWorld.revenge and .death) and every seed flipped. Each with the label
-	// of what the condition then needs.
+	// Calamity's Revengeance and Death (CalamityWorld.revenge and .death), every seed flipped, single player or
+	// multiplayer (Calamity's StarterBag and AbyssalTreasure: Main.netMode == 1), the world's copper or tin (StarterBag:
+	// WorldGen.SavedOreTiers.Copper == 166), its evil outside a drunk world (StuffedFish: !WorldGen.crimson; a drunk world
+	// turns it over every dawn, EventGate) and a Hardcore character (DevourerofGodsBag's Cosmic Plushie:
+	// info.player.difficulty == 2). Each with the label of what the condition then needs.
 	private static List<(Action Apply, Action Restore, string Key, string Arg)> OtherWorlds()
 	{
 		List<(Action, Action, string, string)> worlds = new List<(Action, Action, string, string)>();
@@ -480,6 +483,19 @@ internal static class BookProgressionSources
 				worlds.Add((() => field.SetValue(null, !now), () => field.SetValue(null, now), now ? off : on, arg));
 			}
 		}
+		int net = Main.netMode;
+		worlds.Add((() => Main.netMode = net == NetmodeID.MultiplayerClient ? NetmodeID.SinglePlayer : NetmodeID.MultiplayerClient, () => Main.netMode = net, net == NetmodeID.MultiplayerClient ? "BestiaryLoot.InSinglePlayer" : "BestiaryLoot.InMultiplayer", null));
+		int copper = WorldGen.SavedOreTiers.Copper;
+		int otherCopper = copper == TileID.Tin ? TileID.Copper : TileID.Tin;
+		worlds.Add((() => WorldGen.SavedOreTiers.Copper = otherCopper, () => WorldGen.SavedOreTiers.Copper = copper, otherCopper == TileID.Tin ? "BestiaryLoot.TinWorld" : "BestiaryLoot.CopperWorld", null));
+		if (!Main.drunkWorld)
+		{
+			bool crimson = WorldGen.crimson;
+			worlds.Add((() => WorldGen.crimson = !crimson, () => WorldGen.crimson = crimson, crimson ? "BestiaryLoot.CorruptionWorld" : "BestiaryLoot.CrimsonWorld", null));
+		}
+		Player player = Main.LocalPlayer;
+		byte difficulty = player.difficulty;
+		worlds.Add((() => player.difficulty = difficulty == PlayerDifficultyID.Hardcore ? PlayerDifficultyID.SoftCore : PlayerDifficultyID.Hardcore, () => player.difficulty = difficulty, difficulty == PlayerDifficultyID.Hardcore ? "BestiaryLoot.NotHardcoreCharacter" : "BestiaryLoot.HardcoreCharacter", null));
 		return worlds;
 	}
 
@@ -489,7 +505,7 @@ internal static class BookProgressionSources
 	{
 		probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
 		before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
-		otherWorld = new Dictionary<object, (string, string)>(ReferenceEqualityComparer.Instance);
+		otherWorld = new Dictionary<object, (string, string)[]>(ReferenceEqualityComparer.Instance);
 		List<object> keys = new List<object>();
 		List<Func<bool>> tests = new List<Func<bool>>();
 		HashSet<object> seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
@@ -533,7 +549,11 @@ internal static class BookProgressionSources
 			}
 		}
 		left = left.Where((int i) => !before.ContainsKey(keys[i])).ToList();
-		foreach ((Action apply, Action restore, string key, string arg) in OtherWorlds())
+		// One flip at a time, then two together for what is left (Death mode and a Hardcore character).
+		List<(Action Apply, Action Restore, string Key, string Arg)> worlds = OtherWorlds();
+		IEnumerable<int[]> flips = Enumerable.Range(0, worlds.Count).Select((int a) => new[] { a })
+			.Concat(Enumerable.Range(0, worlds.Count).SelectMany((int a) => Enumerable.Range(a + 1, worlds.Count - a - 1).Select((int b) => new[] { a, b })));
+		foreach (int[] flip in flips)
 		{
 			if (left.Count == 0)
 			{
@@ -542,20 +562,26 @@ internal static class BookProgressionSources
 			string[] there, thereBefore;
 			try
 			{
-				apply();
+				foreach (int w in flip)
+				{
+					worlds[w].Apply();
+				}
 				List<Func<bool>> asked = left.Select((int i) => tests[i]).ToList();
 				there = BookSpawnGates.ProbeSteps(asked);
 				thereBefore = BookSpawnGates.ProbeSteps(asked.Select((Func<bool> test) => (Func<bool>)(() => !test())).ToList());
 			}
 			finally
 			{
-				restore();
+				foreach (int w in Enumerable.Reverse(flip))
+				{
+					worlds[w].Restore();
+				}
 			}
 			for (int n = 0; n < left.Count; n++)
 			{
 				if (there[n] != null || !string.IsNullOrEmpty(thereBefore[n]))
 				{
-					otherWorld[keys[left[n]]] = (key, arg);
+					otherWorld[keys[left[n]]] = flip.Select((int w) => (worlds[w].Key, worlds[w].Arg)).ToArray();
 				}
 			}
 			left = left.Where((int i) => !otherWorld.ContainsKey(keys[i])).ToList();
@@ -566,11 +592,15 @@ internal static class BookProgressionSources
 	// World events a drop lambda may wait for, asked with the flag on and off and put back: the label of the state it
 	// needs, null when no event changes it. Calamity's Eidolist drops its Eidolon Tablet only while no Lunar Event is on
 	// (Eidolist.ModifyNPCLoot: "!NPC.LunarApocalypseIsUp").
+	// So is a drunk world's evil, which it turns over every dawn (Main.UpdateTime_StartDay): Calamity's StuffedFish gives
+	// Corrupt Seeds (AddIf "!WorldGen.crimson") on its Corruption days.
 	private static readonly (FieldInfo Flag, string On, string Off)[] Events = { (typeof(NPC).GetField(nameof(NPC.LunarApocalypseIsUp)), "KillConditions.DuringLunarEvents", "KillConditions.NotDuringLunarEvents") };
+
+	private static readonly (FieldInfo Flag, string On, string Off) DrunkEvil = (typeof(WorldGen).GetField(nameof(WorldGen.crimson)), "BestiaryLoot.OnCrimsonDays", "BestiaryLoot.OnCorruptionDays");
 
 	internal static string EventGate(Func<bool> holds)
 	{
-		foreach ((FieldInfo flag, string on, string off) in Events)
+		foreach ((FieldInfo flag, string on, string off) in Main.drunkWorld ? Events.Append(DrunkEvil) : Events)
 		{
 			object now = flag.GetValue(null);
 			bool withOn, withOff;
@@ -599,10 +629,75 @@ internal static class BookProgressionSources
 		return condition != null && before.TryGetValue(condition, out int step) ? step : 0;
 	}
 
-	// The other world an opaque drop condition belongs to, as its label key and argument; null for this world's.
-	internal static (string Key, string Arg)? OtherWorldOf(IItemDropRuleCondition condition)
+	// The other world an opaque drop condition belongs to, as the label keys and arguments of what it needs (one flip, or
+	// two together); null for this world's.
+	internal static (string Key, string Arg)[] OtherWorldOf(IItemDropRuleCondition condition)
 	{
 		return condition != null && otherWorld.TryGetValue(condition, out var world) ? world : null;
+	}
+
+	// Whether only the world's progression decides a drop condition, so that asking it now says whether it holds in this
+	// world now: a step it comes before (BeforeStep), one the tables or the probe found (a probed mod lambda, a wrapped
+	// Condition the tables know, Calamity's ore gates), vanilla's boss flags, and the failed branch of any of them. Not a
+	// gate whose answer also needs the kill, the player's place, a season or a moon's wave (keys, souls, Halloween, the
+	// moons' wave odds: their Conditions.*.CanDrop ask !info.IsInSimulation or roll).
+	internal static bool FollowsProgression(IItemDropRuleCondition condition)
+	{
+		if (condition == null || BeforeStep(condition) > 0 || CalamityDropGate(condition) != null)
+		{
+			return true;
+		}
+		if (condition is BookItemSources.NotCondition not)
+		{
+			return Probed(not) != null || FollowsProgression(not.Inner);
+		}
+		if (condition is SimpleItemDropRuleCondition simple)
+		{
+			string key = WrappedKey(simple);
+			bool known = key != null && (VanillaConditions.ContainsKey(key) || (key.StartsWith(CalamityConditionPrefix, StringComparison.Ordinal) && CalamityConditions.TryGetValue(key.Substring(CalamityConditionPrefix.Length), out var calamity) && calamity.Term.Length > 0));
+			return known || Probed(condition) != null;
+		}
+		if (condition.GetType().Assembly == typeof(Main).Assembly)
+		{
+			return condition.GetType().Name is "IsHardmode" or "DownedAllMechBosses" or "DownedPlantera" or "FirstTimeKillingPlantera" or "BeatAnyMechBoss";
+		}
+		return Probed(condition) != null;
+	}
+
+	// Calamity's ore gates as their mechanical-boss term ("mechs:any", "mechs:two", "mechs:all": DropHelper.MythrilCondition,
+	// AdamantiteCondition, HallowedBarsCondition read NPC.downedMechBossAny or two or three of the flags), also through
+	// the failed branch (negated); null for any other condition and with the Early Hardmode Progression Rework off.
+	internal static string MechGate(IItemDropRuleCondition condition, out bool negated)
+	{
+		negated = condition is BookItemSources.NotCondition;
+		string gate = CalamityDropGate(condition is BookItemSources.NotCondition not ? not.Inner : condition);
+		return string.IsNullOrEmpty(gate) ? null : gate;
+	}
+
+	// A seed Condition.ToDropCondition wraps (Calamity's DropHelper.GFB: "Conditions.WorldZenith"; NotRemix:
+	// "Conditions.WorldNotRemix"; Terraria.Condition keys them "Conditions.World[Not]<seed>") as the seed typed and
+	// whether it needs it; null for any other key.
+	internal static (string Seed, bool With)? WrappedSeed(string key)
+	{
+		if (key == null || !key.StartsWith("Conditions.World", StringComparison.Ordinal))
+		{
+			return null;
+		}
+		string name = key.Substring("Conditions.World".Length);
+		bool with = name == "NotTheBees" || !name.StartsWith("Not", StringComparison.Ordinal);
+		string field = (with ? name : name.Substring(3)) switch
+		{
+			"Drunk" => "drunkWorld",
+			"Remix" => "remixWorld",
+			"NotTheBees" => "notTheBeesWorld",
+			"ForTheWorthy" => "getGoodWorld",
+			"Anniversary" => "tenthAnniversaryWorld",
+			"DontStarve" => "dontStarveWorld",
+			"NoTraps" => "noTrapsWorld",
+			"Zenith" => "zenithWorld",
+			_ => null
+		};
+		return field == null ? null : (Seeds.First(((string Field, string Seed) s) => s.Field == field).Seed, with);
 	}
 
 	private static int? Probed(object condition)
@@ -923,7 +1018,7 @@ internal static class BookProgressionSources
 	}
 
 	// The description is the "Drops: {0}" template; the wrapped Condition's text is its first argument.
-	private static string WrappedKey(SimpleItemDropRuleCondition simple)
+	internal static string WrappedKey(SimpleItemDropRuleCondition simple)
 	{
 		return ((simple.Description?.BoundArgs?.FirstOrDefault() as LocalizedText) ?? simple.Description)?.Key;
 	}

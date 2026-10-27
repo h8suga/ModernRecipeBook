@@ -1,0 +1,32 @@
+Until: Until {0}
+HardmodeUntil: Hardmode, until {0}
+AfterMoonLord: After Moon Lord
+AfterTheFirstKill: From the second kill on
+AfterAnyMechanicalBoss: After any mechanical boss
+AfterTwoMechanicalBosses: After any two mechanical bosses
+AfterAllMechanicalBosses: After all three mechanical bosses
+UntilAnyMechanicalBoss: Until the first mechanical boss
+UntilTwoMechanicalBosses: Until the second mechanical boss
+UntilAllMechanicalBosses: Until the third mechanical boss
+WaveOddsToEveryKill: 1 in {0} at wave 1, every kill from wave {1}
+WaveOdds: 1 in {0} at wave 1, 1 in {1} at wave {2}
+EveryKill: every kill
+OneIn: 1 in {0}
+Wave: Wave {0}: {1}
+Waves: Waves {0}–{1}: {2}
+ForCharacterNamed: For a character named {0}
+RulesRollSeparately: "{0} rules apply and each rolls on its own: the chance is of at least one, the amounts add up"
+NotInThisWorldCount: Not in this world · {0}
+NotInThisWorldTip: Drops of another difficulty or seed, and those this world is already past
+InSinglePlayer: In single player
+InMultiplayer: In multiplayer
+TinWorld: Tin world
+CopperWorld: Copper world
+CrimsonWorld: Crimson world
+CorruptionWorld: Corruption world
+HardcoreCharacter: Hardcore character
+NotHardcoreCharacter: Not a Hardcore character
+OnCrimsonDays: On the drunk world's Crimson days
+OnCorruptionDays: On the drunk world's Corruption days
+NameTier: "{0} (tier {1})"
+NameVariant: "{0} (variant {1})"

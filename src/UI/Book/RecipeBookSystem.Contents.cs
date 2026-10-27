@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Localization;
@@ -12,10 +13,13 @@ namespace ModernRecipeBook.UI.Book;
 // same ReadLoot, so a drop and the same item in its bag say the same.
 public sealed partial class RecipeBookSystem
 {
-	// What the list was read for: once per item shown and language, and again in the next world (ResetView).
-	private static (int Type, string Culture) ContentsKey;
+	// What the list was read for: once per item shown and language, and again in the next world (ResetView); its lines
+	// again when the "Not in this world" row is opened or folded.
+	private static (int Type, string Culture, bool Open) ContentsKey;
 
 	private static List<BookEnemyLoot> ContentsLoot = new List<BookEnemyLoot>();
+
+	private static List<LootLine> ContentsLines = new List<LootLine>();
 
 	private const float ContentsRowStep = 46f;
 
@@ -30,25 +34,32 @@ public sealed partial class RecipeBookSystem
 		return HasContents(type) ? BookCardMode.Contents : BookCardMode.Recipe;
 	}
 
-	private static List<BookEnemyLoot> Contents(int type)
+	// The lines Contents lists (LootLines): this world's rows, then the "Not in this world" row.
+	private static List<LootLine> Contents(int type)
 	{
-		(int, string) key = (type, Language.ActiveCulture.Name);
+		(int, string, bool) key = (type, Language.ActiveCulture.Name, OtherWorldsOpen);
+		if (ContentsKey.Type == type && ContentsKey.Culture == key.Item2 && ContentsKey.Open != OtherWorldsOpen)
+		{
+			ContentsKey = key;
+			ContentsLines = LootLines(ContentsLoot, new List<BookEnemyLoot>());
+		}
 		if (ContentsKey != key)
 		{
 			ContentsKey = key;
-			// A container's rule is not checked against a mob (HiddenConditionLabel): opening a bag has none
+			// A container's rule is not checked against a mob (LootCondition): opening a bag has none
 			// (Player.DropFromItem leaves DropAttemptInfo.npc empty).
 			int mob = LootNpc;
 			LootNpc = 0;
 			EnemyReadErrors = 0;
 			ContentsLoot = OrderLoot(ReadLoot(Main.ItemDropsDB.GetRulesForItemID(type)));
+			ContentsLines = LootLines(ContentsLoot, new List<BookEnemyLoot>());
 			LootNpc = mob;
 			if (EnemyReadErrors > 0)
 			{
 				ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Contents of item {type}: {EnemyReadErrors} reports could not be read.");
 			}
 		}
-		return ContentsLoot;
+		return ContentsLines;
 	}
 
 	// The mob card's loot row (BookGeometry.MobLootRow) under the section label.
@@ -59,8 +70,8 @@ public sealed partial class RecipeBookSystem
 
 	private static void DrawContents(SpriteBatch sb, Item chosen, float top)
 	{
-		List<BookEnemyLoot> loot = Contents(chosen.type);
-		SectionLabel(sb, L("Contents.Items", loot.Count), 812f, top + 3f, 284f);
+		List<LootLine> loot = Contents(chosen.type);
+		SectionLabel(sb, L("Contents.Items", ContentsLoot.Count), 812f, top + 3f, 284f);
 		if (loot.Count == 0)
 		{
 			EmptyState(sb, new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f), L("Contents.NothingListed"), L("Contents.TheGameDoesNotSay"));
@@ -71,7 +82,7 @@ public sealed partial class RecipeBookSystem
 		DetailsPage = Math.Clamp(DetailsPage, 0, pages - 1);
 		for (int slot = 0; slot < size && DetailsPage * size + slot < loot.Count; slot++)
 		{
-			DrawLootRow(sb, ContentsRow(top, slot), loot[DetailsPage * size + slot], dim: false);
+			DrawLootLine(sb, ContentsRow(top, slot), loot[DetailsPage * size + slot], 0, ContentsLoot.Count((BookEnemyLoot x) => x.OtherWorld));
 		}
 		if (pages > 1)
 		{
@@ -89,7 +100,7 @@ public sealed partial class RecipeBookSystem
 
 	private static bool HandleContentsClick(int type, float top)
 	{
-		List<BookEnemyLoot> loot = Contents(type);
+		List<LootLine> loot = Contents(type);
 		int size = CardListPageSize(top, loot.Count, ContentsRowStep);
 		int pages = Math.Max(1, (loot.Count + size - 1) / size);
 		if (pages > 1 && BookGeometry.DetailListPrevious.Contains(Mouse.X, Mouse.Y))
@@ -106,8 +117,11 @@ public sealed partial class RecipeBookSystem
 		{
 			if (ContentsRow(top, slot).Contains(Mouse.X, Mouse.Y))
 			{
-				int item = loot[DetailsPage * size + slot].ItemType;
-				StepCard(item, CardModeFor(item));
+				LootLine line = loot[DetailsPage * size + slot];
+				if (!ToggleLootFold(line) && line.Loot != null)
+				{
+					StepCard(line.Loot.ItemType, CardModeFor(line.Loot.ItemType));
+				}
 				return true;
 			}
 		}

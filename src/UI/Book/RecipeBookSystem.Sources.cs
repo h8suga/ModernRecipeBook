@@ -51,23 +51,24 @@ public sealed partial class RecipeBookSystem
 	}
 
 	// As the mob's card (RecipeBookSystem.Bestiary FromBags): in Expert and Master a boss's Classic-only drop comes out of
-	// the Treasure Bag it drops instead, so its row takes the bag's chance and amount and names the bag.
+	// the Treasure Bag it drops instead, so the boss's row takes every rule of the bag for it, named after the bag (the
+	// group adds them up as the card does: the Terrarian's two Moon Lord bag rules, BookAcquisitionGroup.Pick).
 	private static void FromBags(List<BookAcquisitionEntry> entries)
 	{
 		List<BookAcquisitionEntry> bags = entries.Where((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Container && !e.OtherMode && ItemID.Sets.BossBag[e.ItemType]).ToList();
-		for (int i = 0; i < entries.Count && bags.Count > 0; i++)
+		foreach (int npc in entries.Where((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Drop && e.NpcNetId != 0 && bags.Count > 0).GroupBy((BookAcquisitionEntry e) => e.NpcNetId).Where((IGrouping<int, BookAcquisitionEntry> g) => g.All((BookAcquisitionEntry e) => e.OtherMode)).Select((IGrouping<int, BookAcquisitionEntry> g) => g.Key).ToList())
 		{
-			BookAcquisitionEntry drop = entries[i];
-			if (drop.Kind != BookAcquisitionKind.Drop || !drop.OtherMode || drop.NpcNetId == 0)
+			int bag = bags.Select((BookAcquisitionEntry b) => b.ItemType).FirstOrDefault((int b) => BookItemSources.For(b).Any((BookItemSource s) => s.Kind == BookAcquisitionKind.Drop && s.Npc == npc && DropEntry(s) is { OtherMode: false }));
+			if (bag == 0)
 			{
 				continue;
 			}
-			BookAcquisitionEntry bag = bags.FirstOrDefault((BookAcquisitionEntry b) => BookItemSources.For(b.ItemType).Any((BookItemSource s) => s.Kind == BookAcquisitionKind.Drop && s.Npc == drop.NpcNetId && DropEntry(s) is { OtherMode: false }));
-			if (bag != null)
+			BookAcquisitionEntry drop = entries.First((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Drop && e.NpcNetId == npc);
+			entries.InsertRange(entries.IndexOf(drop), bags.Where((BookAcquisitionEntry b) => b.ItemType == bag).Select((BookAcquisitionEntry b) =>
 			{
-				string label = L("KillConditions.InBag", ItemName(bag.ItemType)) + (bag.ConditionLabel.Length > 0 ? " · " + bag.ConditionLabel : "");
-				entries[i] = drop with { Chance = bag.Chance, Amount = bag.Amount, Body = label, ConditionLabel = label, Conditional = true, ReportKey = bag.ReportKey, OtherMode = false };
-			}
+				string label = L("KillConditions.InBag", ItemName(bag)) + (b.ConditionLabel.Length > 0 ? " · " + b.ConditionLabel : "");
+				return drop with { Chance = b.Chance, Amount = b.Amount, Body = label, ConditionLabel = label, Conditional = true, ReportKey = b.ReportKey, OtherMode = false, Drop = b.Drop };
+			}).ToList());
 		}
 	}
 
@@ -163,45 +164,37 @@ public sealed partial class RecipeBookSystem
 		}
 		List<string> conditions = new List<string>();
 		List<string> conditionKeys = new List<string>();
-		List<string> shortConditions = new List<string>();
 		bool otherMode = false;
+		bool past = false;
+		bool? now = true;
 		foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 		{
 			conditionKeys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
 			try
 			{
-				// As the Bestiary reads it (ReadLoot): a met difficulty or seed gate is no condition in this world.
-				bool? gate = BookProgressionSources.WorldGate(condition);
-				otherMode |= gate == false;
-				if (gate == true)
+				// Worded as on the mob's card (LootCondition): a met difficulty or seed gate, or a test of the dying mob its
+				// normal kill meets, says nothing.
+				LootWord word = LootCondition(condition, s.Npc, rate.itemId);
+				otherMode |= word.OtherMode;
+				past |= word.Past;
+				now = BookEnemyRules.Both(now, word.Now);
+				if (!string.IsNullOrEmpty(word.Label))
 				{
-					continue;
+					conditions.Add(word.Label);
 				}
-				// Vanilla's difficulty conditions without a text of their own get their word.
-				string description = condition.GetConditionDescription();
-				if (string.IsNullOrWhiteSpace(description))
-				{
-					description = DropConditionLabel(condition, "");
-				}
-				string full = string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, s.Npc) : description;
-				// A test of the dying mob that its normal kill meets says nothing, as on its card.
-				if (full.Length == 0)
-				{
-					continue;
-				}
-				conditions.Add(full);
-				shortConditions.Add(DropConditionLabel(condition, full));
 			}
 			catch (Exception)
 			{
-				string unavailable = L("HowToGet.UnknownCondition");
-				conditions.Add(unavailable);
-				shortConditions.Add(unavailable);
+				conditions.Add(L("HowToGet.UnknownCondition"));
+				now = null;
 				AcquisitionReadErrors++;
 			}
 		}
 		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? L("HowToGet.AnyEnemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
-		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))), OtherMode: otherMode, SourceItem: s.Kind == BookAcquisitionKind.Container ? s.From : 0);
+		string label = string.Join("; ", conditions.Distinct());
+		string key = string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal));
+		BookEnemyDrop drop = new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, label, key, otherMode, past, now, s.Rule);
+		return new BookAcquisitionEntry(name, label, s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, label, BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, key), OtherMode: otherMode || past, SourceItem: s.Kind == BookAcquisitionKind.Container ? s.From : 0, Drop: drop);
 	}
 
 	private static BookAcquisitionEntry FishingEntry(BookItemSource s)
