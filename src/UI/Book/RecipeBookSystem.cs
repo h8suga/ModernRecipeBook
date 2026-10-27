@@ -894,11 +894,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return full;
 	}
 
-	// A row opens something only when there is more to see: its recipe, the enemy card, what a container holds or
-	// several drop rules.
+	// A row opens something only when there is more to see: its recipe, the enemy card, the card of the item it stands
+	// for (a container on what it holds) or several drop rules.
 	private static bool AcquisitionOpens(BookAcquisitionGroup group)
 	{
-		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group) && !CanOpenContents(group))
+		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group) && RowItem(group) == 0)
 		{
 			if (group.CanExpand)
 			{
@@ -907,6 +907,30 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return false;
 		}
 		return true;
+	}
+
+	// The item a How to Get row stands for (BookAcquisitionEntry.SourceItem), unless it is the item looked up.
+	private static int RowItem(BookAcquisitionGroup group)
+	{
+		int item = group.Source.SourceItem;
+		return (item > 0 && item != AcquisitionVariants[AcquisitionVariant] && ContentSamples.ItemsByType.ContainsKey(item)) ? item : 0;
+	}
+
+	// A row of the chest an item lies in (BookChestLoot, BookStructures): its click opens the chest's card.
+	private static bool ChestRow(BookAcquisitionGroup group)
+	{
+		return group.Source.Kind is BookAcquisitionKind.Chest or BookAcquisitionKind.Structure;
+	}
+
+	// That item's card, a bag or crate on what it holds (CardModeFor); Back returns to How to Get.
+	private static void OpenItemCard(int type)
+	{
+		CloseAcquisition();
+		if (StorageView || TrackingView || BestiaryView)
+		{
+			SwitchTab(0);
+		}
+		StepCard(type, CardModeFor(type));
 	}
 
 	private static void HandleAcquisitionInput(bool click, KeyboardState keys)
@@ -974,9 +998,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				ShowMobFromSource(source);
 			}
-			else if (CanOpenContents(source))
+			else if (RowItem(source) is int item and > 0)
 			{
-				OpenContents(source.Source.ItemType);
+				OpenItemCard(item);
 			}
 			else if (AcquisitionOpens(source))
 			{
@@ -1089,7 +1113,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe", ModName(group.Source.Owner)) + "\n") : "") + L("Common.OpenRecipe");
 		}
-		return (withName ? (group.Source.Name + "\n") : "") + KillConditionNote(group.Rules.Select((BookAcquisitionRule r) => r.Source.ConditionLabel)) + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : (CanOpenContents(group) ? L("Contents.ShowWhatSInside") : L("Common.ShowConditions")));
+		int item = RowItem(group);
+		string action = true switch
+		{
+			_ when CanOpenEnemy(group) => L("Common.OpenInBestiary"),
+			_ when item == 0 => L("Common.ShowConditions"),
+			_ when HasContents(item) => L("Contents.ShowWhatSInside"),
+			_ when ChestRow(group) => L("SourceRows.ClickChestCard", ItemName(item)),
+			_ => L("Bestiary.ClickTheItemSCard")
+		};
+		return (withName ? (group.Source.Name + "\n") : "") + KillConditionNote(group.Rules.Select((BookAcquisitionRule r) => r.Source.ConditionLabel)) + action;
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
@@ -1143,18 +1176,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Label(sb, BookGeometry.AcquisitionSourceAction(row), ">", hover ? TextColor : Muted);
 			}
-			// A source that is an item (a bag, a crate, what shimmers into it) shows that item's own tooltip with the
-			// row's lines under it; the item's name is its title.
-			Item sourceItem = (source.Kind is BookAcquisitionKind.Container or BookAcquisitionKind.Shimmer or BookAcquisitionKind.Use or BookAcquisitionKind.Record or BookAcquisitionKind.Machine && source.ItemType > 0) ? ContentSamples.ItemsByType.GetValueOrDefault(source.ItemType) : null;
+			// A row that stands for an item (a bag, what shimmers into it, what a trade takes) shows that item's own tooltip
+			// with the row's lines under it; one that stands for the chest the item lies in says where, as other rows do.
+			int rowItem = RowItem(group);
+			Item sourceItem = (rowItem > 0 && !ChestRow(group)) ? ContentSamples.ItemsByType[rowItem] : null;
+			// What the row leaves out (where exactly, how often), then the click.
+			string body = (rowItem > 0 && group.Rules.Length == 1 && source.Body.Length > 0 && source.Body != source.ConditionLabel) ? (source.Body + "\n") : "";
 			if (hover && opens)
 			{
 				if (sourceItem != null)
 				{
-					HoverItemRow(sourceItem, AcquisitionHint(group, withName: false));
+					HoverItemRow(sourceItem, body + AcquisitionHint(group, withName: false));
 				}
 				else
 				{
-					MouseTip(AcquisitionHint(group, Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
+					MouseTip(body + AcquisitionHint(group, body.Length == 0 && Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
 				}
 			}
 			else if (hover && expanded)
@@ -1168,10 +1204,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 				{
 					MouseTip(report);
 				}
-			}
-			else if (hover && sourceItem != null)
-			{
-				HoverItemRow(sourceItem, (source.Body != source.ConditionLabel) ? source.Body : "");
 			}
 			else if (hover && source.Kind != BookAcquisitionKind.Craft && source.Body.Length > 0 && source.Body != source.ConditionLabel)
 			{
@@ -2604,6 +2636,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			"Hallow" => L("Common.Hallow"),
 			"Sky" => L("Common.Sky"),
 			"Abyss" => L("Common.Abyss"),
+			"Granite" or "Marble" or "SpiderNest" or "SurfaceMushroom" or "UndergroundMushroom" => Language.GetTextValue("Bestiary_Biomes." + key),
 			_ => ModContent.TryFind(key, out ModBiome biome) ? biome.DisplayName.Value : key
 		};
 	}
@@ -2993,6 +3026,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 				OpenAcquisition(line.Icon.type, line.SourceTypes);
 				return;
 			}
+			// An ingredient or station row opens that item's card on Items; Back returns to the goal.
+			if (line.Icon != null && !line.Icon.IsAir && rect.Contains(Mouse.X, Mouse.Y))
+			{
+				SwitchTab(0);
+				StepCard(line.Icon.type, CardModeFor(line.Icon.type));
+				return;
+			}
 		}
 	}
 
@@ -3108,7 +3148,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 				}
 				continue;
 			}
-			Box(sb, rect, Raised, border: false, 8f);
+			bool opens = line.Icon != null && !line.Icon.IsAir && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y) && !(line.SourceTypes != null && TrackingObtain(rect).Contains(Mouse.X, Mouse.Y));
+			Box(sb, rect, opens ? HoverFill : Raised, border: false, 8f);
 			float textX = rect.X + 12f;
 			if (line.Icon != null && !line.Icon.IsAir)
 			{
@@ -3132,10 +3173,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 					continue;
 				}
 			}
-			// The whole row, not just its icon, shows the item's own tooltip.
+			// The whole row, not just its icon, shows the item's own tooltip, and a click opens its card.
 			if (line.Icon != null && !line.Icon.IsAir && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
 			{
-				HoverItemRow(line.Icon, "");
+				HoverItemRow(line.Icon, L("Common.ClickOpenThisItem"));
 			}
 		}
 		if (pages.Count > 1)

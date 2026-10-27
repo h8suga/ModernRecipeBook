@@ -384,10 +384,11 @@ internal static class BookSteps
 		return npc != null && MiniBosses.TryGetValue(npc.Mod.Name + "/" + npc.Name, out string after) ? Resolve(after) : -1;
 	}
 
-	// A spawn gate's step: every requirement met (the latest), each the earliest of its ways.
+	// A spawn gate's step: every requirement met (the latest), each the earliest of its ways. A mob open from the start has
+	// no gate (its step comes from its drops, as for a mob the probe never saw).
 	internal static int Gate(BookSpawnGates.Gate gate)
 	{
-		if (gate == null)
+		if (gate == null || gate.Terms.Length == 0)
 		{
 			return -1;
 		}
