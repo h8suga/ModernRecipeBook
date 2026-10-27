@@ -72,6 +72,12 @@ patch for fixes, minor for features.
   held right-click, start above the chat, and "+N more" opens the Tracking tab.
 - F1 lists every gesture where it works; Alt+U cycles Recipe / Used In / Contents; Russian set goals are named
   («Святая броня») and the Russian texts use the game's and Magic Storage's terms.
+- Multiplayer: a Restock or take that lands during Quick Stack no longer destroys the items; a friend can use a Magic
+  Storage network with a password; leaving with Magic Storage's window open no longer makes that network the next
+  player's; items in flight go back before the server's last save; a Void Bag no longer locks Quick Stack.
+- Storage tab: a cell and its panel count that cell's prefix; the panel's item opens its card and takes a held item;
+  Restock says what it took; station rows say Nearby, Interface or Not nearby; Recent records crafts made in Magic
+  Storage's window. With the book closed, a storage change costs about 60 µs instead of 2 ms.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
