@@ -3,6 +3,12 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.20.1 — 2026-10-27
+
+### Fixed
+- Resummoned vanilla minions (Terraprisma, Stardust Dragon and the like) came back without their buff, so the server
+  and the other players didn't see them until the next use. They now get the buff a use gives.
+
 ## 1.20.0 — 2026-10-27
 
 ### Added

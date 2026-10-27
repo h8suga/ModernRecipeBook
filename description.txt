@@ -1,4 +1,4 @@
-Modern Recipe Book 1.20.0
+Modern Recipe Book 1.20.1
 
 A recipe book and bestiary for every item and mob in the game and its mods, in English and Russian, and translatable into any language like Calamity (Localization/<culture> files). Open it with Mouse3 (rebindable in Controls).
 

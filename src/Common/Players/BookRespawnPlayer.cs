@@ -13,8 +13,8 @@ namespace ModernRecipeBook.Common.Players;
 // - the minions the player died with come back, the same ones: each use that summoned them (its item and prefix,
 //   BookMinionSource) is made again with a copy of that item, through the game's own shot (Player.ItemCheck_Shoot: every
 //   mod's ModifyShootStats/Shoot, SpawnMinionOnCursor's originalDamage) and the item's buff as a use gives it
-//   (Player.ItemCheck_Inner: AddBuff(item.buffType, item.buffTime)). The item does not have to be carried, and no mana is
-//   taken: they are the minions the death took;
+//   (Player.ItemCheck_Inner: AddBuff(item.buffType, item.buffTime) when it has a buffTime, else ItemCheck_ApplyPetBuffs).
+//   The item does not have to be carried, and no mana is taken: they are the minions the death took;
 // - the Bewitching Table and War Table buffs come back with the time they had left. Death clears every buff that is not
 //   Main.persistentBuff (Player.UpdateDead), and the tables give them only on a click (Player.TileInteractionsUse:
 //   AddBuff(150, 108000) at tile 354, AddBuff(348, 108000) at tile 464).
@@ -23,6 +23,10 @@ public sealed class BookRespawnPlayer : ModPlayer
 	private static readonly int[] TableBuffs = { BuffID.Bewitched, BuffID.WarTable };
 
 	private static readonly MethodInfo Shoot = typeof(Player).GetMethod("ItemCheck_Shoot", BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(int), typeof(Item), typeof(int) }, null);
+
+	// Vanilla summon items have no buffTime: a use gives their buff here (Terraprisma and the rest: 3600 ticks). Without it
+	// the minion has no buff, and the server and the other players drop it.
+	private static readonly MethodInfo PetBuffs = typeof(Player).GetMethod("ItemCheck_ApplyPetBuffs", BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(Item) }, null);
 
 	private readonly List<(int Type, int Prefix)> uses = new List<(int, int)>();
 
@@ -86,10 +90,11 @@ public sealed class BookRespawnPlayer : ModPlayer
 			return;
 		}
 		Item item = new Item(type, 1, prefix);
-		if (item.buffType > 0)
+		if (item.buffType != 0 && item.buffTime != 0)
 		{
 			Player.AddBuff(item.buffType, item.buffTime);
 		}
+		PetBuffs?.Invoke(Player, new object[] { item });
 		Shoot.Invoke(Player, new object[] { Player.whoAmI, item, Player.GetWeaponDamage(item) });
 	}
 }
