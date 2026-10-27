@@ -487,9 +487,10 @@ internal static class BookItemSources
 			return !Inner.CanDrop(info);
 		}
 
+		// As the game shows the branch, reported under the condition itself (LeadingConditionRule.ReportDroprates).
 		public bool CanShowItemDropInUI()
 		{
-			return true;
+			return Inner.CanShowItemDropInUI();
 		}
 
 		public string GetConditionDescription()

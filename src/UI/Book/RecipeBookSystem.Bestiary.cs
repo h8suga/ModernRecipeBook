@@ -599,14 +599,16 @@ public sealed partial class RecipeBookSystem
 		return loot.OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenByDescending((BookEnemyLoot x) => x.Rules.Max((BookEnemyDrop r) => r.Chance)).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 	}
 
-	// Dev audit for the test stand: every condition label on a mob's own loot in this world that says no more than
-	// "Special condition", "only on certain kills" or "not met yet" (mob, item, label, the condition's type and the method
-	// that decides it), after a count of every condition label there.
-	internal static IEnumerable<string> KillConditionAudit()
+	// Dev audit for the test stand: every condition label on a mob's own loot, this world's rows and another world's
+	// alike, that says no more than "Special condition", "only on certain kills" or "not met yet" (mob, item, here or
+	// other, label, the condition's type and the method that decides it), after a count of every condition label; all:
+	// every label, for review.
+	internal static IEnumerable<string> KillConditionAudit(bool all = false)
 	{
 		int keep = LootNpc;
 		string[] notMet = L("Common.ConditionNotMetYet", "\u0001").Split('\u0001');
-		HashSet<string> vague = new HashSet<string>(StringComparer.Ordinal) { L("Common.SpecialCondition"), L("Common.ConditionMet", L("Common.SpecialCondition")), L("KillConditions.OnCertainKills") };
+		string special = L("Common.SpecialCondition");
+		HashSet<string> vague = new HashSet<string>(StringComparer.Ordinal) { L("KillConditions.OnCertainKills") };
 		int labels = 0;
 		List<string> lines = new List<string>();
 		foreach (int id in ContentSamples.NpcsByNetId.Keys.OrderBy((int x) => x))
@@ -624,23 +626,20 @@ public sealed partial class RecipeBookSystem
 			{
 				continue;
 			}
-			foreach (DropRateInfo rate in rates.Where((DropRateInfo r) => ContentSamples.ItemsByType.TryGetValue(r.itemId, out Item item) && !item.IsAir && !BookKillConditions.OtherNpcs(r, id)))
+			foreach (DropRateInfo rate in rates.Where((DropRateInfo r) => ContentSamples.ItemsByType.TryGetValue(r.itemId, out Item item) && !item.IsAir && !BookKillConditions.OtherNpcs(r, id) && !BookProgressionSources.HiddenFromUI(r)))
 			{
 				bool otherMode = false;
 				List<(IItemDropRuleCondition Condition, string Label)> said = (rate.conditions ?? new List<IItemDropRuleCondition>()).Select((IItemDropRuleCondition c) => (c, LootConditionLabel(c, ref otherMode))).Where(((IItemDropRuleCondition, string Label) x) => !string.IsNullOrEmpty(x.Label)).ToList();
-				if (otherMode)
-				{
-					continue;
-				}
 				labels += said.Count;
-				foreach ((IItemDropRuleCondition condition, string label) in said.Where(((IItemDropRuleCondition, string Label) x) => vague.Contains(x.Label) || (x.Label.StartsWith(notMet[0], StringComparison.Ordinal) && x.Label.EndsWith(notMet[1], StringComparison.Ordinal))))
+				foreach ((IItemDropRuleCondition condition, string label) in said.Where(((IItemDropRuleCondition, string Label) x) => all || vague.Contains(x.Label) || x.Label.Contains(special, StringComparison.Ordinal) || (x.Label.StartsWith(notMet[0], StringComparison.Ordinal) && x.Label.EndsWith(notMet[1], StringComparison.Ordinal))))
 				{
-					lines.Add(string.Join('\t', id, Lang.GetNPCNameValue(id), ContentSamples.ItemsByType[rate.itemId].Name, label, BookKillConditions.Describe(condition)));
+					lines.Add(string.Join('\t', id, Lang.GetNPCNameValue(id), ContentSamples.ItemsByType[rate.itemId].Name, otherMode ? "other" : "here", label, BookKillConditions.Describe(condition)));
 				}
 			}
 		}
 		LootNpc = keep;
-		return lines.Distinct().Prepend($"kill conditions: {lines.Distinct().Count()} vague of {labels} condition labels on mobs' own loot in this world (expert={Main.expertMode}, master={Main.masterMode})");
+		List<string> listed = lines.Distinct().ToList();
+		return listed.Prepend($"kill conditions: {listed.Count} {(all ? "listed" : "vague")} of {labels} condition labels on mobs' own loot, {listed.Count((string l) => l.Split('\t')[3] == "other")} of them on another world's rows (expert={Main.expertMode}, master={Main.masterMode})");
 	}
 
 	private static List<BookEnemyLoot> ReadLoot(IEnumerable<IItemDropRule> rules)
@@ -660,8 +659,9 @@ public sealed partial class RecipeBookSystem
 			}
 			foreach (DropRateInfo rate in rates)
 			{
-				// A drop of another mob sharing these rules (an Exo Mech's trophy on the others) is not this one's.
-				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir || BookKillConditions.OtherNpcs(rate, LootNpc))
+				// A drop of another mob sharing these rules (an Exo Mech's trophy on the others) is not this one's, and one the
+				// game's Bestiary hides is not listed either.
+				if (!ContentSamples.ItemsByType.TryGetValue(rate.itemId, out var item) || item.IsAir || BookKillConditions.OtherNpcs(rate, LootNpc) || BookProgressionSources.HiddenFromUI(rate))
 				{
 					continue;
 				}
@@ -910,11 +910,11 @@ public sealed partial class RecipeBookSystem
 		if (hover)
 		{
 			// The item's own tooltip; under it what the row cuts short: every rule with its full conditions (a bag's row:
-			// the bag's, then the boss's own Classic ones).
+			// the bag's, then the boss's own Classic ones as another world's).
 			string rules = (varies || loot.Bag > 0 || loot.Rules[0].Conditions.Length > 0) ? (EnemyLootTooltip(loot.Rules) + "\n") : "";
 			if (loot.Bag > 0)
 			{
-				rules += EnemyLootTooltip(loot.Reports.Where((BookEnemyDrop r) => r.OtherMode)) + "\n";
+				rules += EnemyLootTooltip(loot.Reports.Where((BookEnemyDrop r) => r.OtherMode), L("Bestiary.NotInThisWorld") + " · ") + "\n";
 			}
 			HoverItemRow(item, (loot.OtherWorld ? (L("Bestiary.NotInThisWorld") + "\n") : "") + ((bag.Length > 0) ? (bag + "\n") : "") + rules + KillConditionNote(loot.Rules.Select((BookEnemyDrop r) => r.Conditions)) + L("Bestiary.ClickTheItemSCard"));
 		}

@@ -934,6 +934,11 @@ internal static class BookProgression
 	// is remembered in modeBlocked.
 	private static int DropFloor(DropRateInfo rate, Item drop, HashSet<int> modeBlocked = null)
 	{
+		// What the game's Bestiary hides, How to Get does not list either (BookProgressionSources.HiddenFromUI).
+		if (BookProgressionSources.HiddenFromUI(rate))
+		{
+			return -1;
+		}
 		int floor = 0;
 		foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 		{

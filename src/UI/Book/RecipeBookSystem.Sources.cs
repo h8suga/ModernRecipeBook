@@ -164,8 +164,9 @@ public sealed partial class RecipeBookSystem
 	private static BookAcquisitionEntry DropEntry(BookItemSource s)
 	{
 		DropRateInfo rate = s.Rate.Value;
-		// As on the mob's card (ReadLoot): another mob's drop that shares these rules is no source of this mob.
-		if (s.Kind == BookAcquisitionKind.Drop && BookKillConditions.OtherNpcs(rate, s.Npc))
+		// As on the mob's card (ReadLoot): another mob's drop that shares these rules is no source of this mob, and what the
+		// game's Bestiary hides is no source shown.
+		if ((s.Kind == BookAcquisitionKind.Drop && BookKillConditions.OtherNpcs(rate, s.Npc)) || BookProgressionSources.HiddenFromUI(rate))
 		{
 			return null;
 		}
