@@ -45,7 +45,7 @@ BookServerConfig: {
 
 	NearbyStorage: {
 		Label: Хранилища рядом
-		Tooltip: Книга показывает, считает и крафтит из сундуков и Magic Storage в радиусе.
+		Tooltip: Книга показывает и считает то, что лежит в сундуках и Magic Storage в радиусе, и создаёт из этого предметы.
 	}
 
 	NearbyRadius: {

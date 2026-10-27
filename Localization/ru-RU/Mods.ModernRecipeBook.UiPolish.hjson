@@ -1,0 +1,22 @@
+ClickMaterialsHoldRightUntrack: ЛКМ — материалы · держать ПКМ — не отслеживать
+MoreOpenTracking: ещё {0} · клик — показать все
+OpenTrackingWithAllMaterials: Открыть вкладку «Отслеживание»: там все материалы
+ArmorSetNameOf: "{0} броня {1}"
+ArmorSetOf: Броня {0}
+ArmorSetFromPiece: "{0} + {1}"
+KeyCtrlShiftTab: Ctrl+Shift+Tab
+PreviousTab: Предыдущая вкладка
+KeyMouseWheel: Колесо мыши
+ScrollUnderTheCursor: Листать под курсором
+SectionTRACKERCARDS: КАРТОЧКИ ЦЕЛЕЙ · ИНВЕНТАРЬ ОТКРЫТ
+KeyLMBOnACard: ЛКМ по карточке
+ShowItsMaterials: Показать материалы
+KeyDragTheTitle: Тянуть заголовок
+MoveTheCards: Переместить карточки
+KeyShiftLMBInGrid: Shift+ЛКМ, сетка
+KeyMenuArrowsEnter: ↑ ↓ · Enter
+MoveTickInAMenu: Выбор и отметка в меню
+KeyCtrlQ: Ctrl+Q
+KeyCtrlR: Ctrl+R
+KeyMouse3OnACell: Mouse3 по ячейке
+OpenItsCard: Открыть карточку

@@ -18,6 +18,13 @@ internal static class BookTrackerRules
 
 	internal const int MaxMaterialLines = 8;
 
+	// Half a second of held right-click untracks a card.
+	internal const int UntrackHoldTicks = 30;
+
+	// Vanilla's chat lines sit at 88, screenHeight - 58 - n * 21 for its 10 shown lines (RemadeChatMonitor.DrawChat,
+	// _showCount = 10), so the topmost starts 247 px above the bottom; the cards' default spot ends just above it.
+	internal const int ChatClearance = 256;
+
 	internal static bool CanAdd(int count, bool duplicate, bool resourcesOnly = false)
 	{
 		if (count >= 0 && (resourcesOnly || count < 5))
@@ -65,12 +72,20 @@ internal static class BookTrackerRules
 		return -1;
 	}
 
+	// The last line of an expanded goal whose materials do not all fit: "+N more".
+	internal static bool OnMoreLine(float y, int index, int expanded, int expandedMaterials)
+	{
+		return index == expanded && expandedMaterials > MaxMaterialLines && y >= GoalTop(index, expanded, expandedMaterials) + GoalHeight + (MaxMaterialLines - 1) * MaterialHeight;
+	}
+
 	internal static BookGeometry PanelLayoutHeight(int panelHeight, int width, int height, bool custom, float x, float y, int sizePercent = 100, float uiScale = 1f)
 	{
 		float scale = Math.Max(0.01f, Math.Min((float)Math.Clamp(sizePercent, 60, 150) / 100f / Math.Max(0.1f, uiScale), Math.Min(((float)width - 32f) / 300f, ((float)height - 100f) / (float)panelHeight)));
 		float travelX = Math.Max(0f, (float)width - 32f - 300f * scale);
 		float travelY = Math.Max(0f, (float)height - 32f - (float)panelHeight * scale);
-		return new BookGeometry(16f + travelX * (custom ? BookUiState.NormalizePosition(x) : 0f), 16f + travelY * (custom ? BookUiState.NormalizePosition(y) : 1f), scale);
+		// Not moved yet: the left edge, above the chat lines.
+		float top = custom ? (16f + travelY * BookUiState.NormalizePosition(y)) : Math.Max(16f, (float)height - ChatClearance - (float)panelHeight * scale);
+		return new BookGeometry(16f + travelX * (custom ? BookUiState.NormalizePosition(x) : 0f), top, scale);
 	}
 
 	internal static (float X, float Y) Position(float left, float top, int panelHeight, int width, int height, float scale)

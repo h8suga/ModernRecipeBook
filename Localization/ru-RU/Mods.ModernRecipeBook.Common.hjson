@@ -6,7 +6,7 @@ ExpertMaster: Эксперт / Мастер
 Classic: Обычный
 Master: Мастер
 NotMaster: Не Мастер
-Crafting: Крафт
+Crafting: Создание
 Drop: Добыча
 Container: Контейнер
 Shop: Магазин
@@ -44,14 +44,14 @@ Close: Закрыть
 CloseEsc: Закрыть · Esc
 PreviousPgUp: Назад · PgUp
 NextPgDn: Дальше · PgDn
-SetDefense: Защита сета: {0}
+SetDefense: Защита комплекта: {0}
 Defense: Защита: {0}
-Set: Сет: {0}
+Set: Комплект: {0}
 WithoutAccessoriesAndBuffs: Без аксессуаров и баффов
 Pieces: Части: {0}
-ModdedSetBonusNotCounted: Бонус модового сета не учтён
-SetBonus: "{0}, бонус сета +{1}"
-SetBonus2: Бонус сета
+ModdedSetBonusNotCounted: Бонус модового комплекта не учтён
+SetBonus: "{0}, бонус комплекта +{1}"
+SetBonus2: Бонус комплекта
 ClickNextVariant: Клик: следующий вариант
 ClickShowThisPiece: Клик: показать эту часть
 Max: Макс
@@ -62,15 +62,12 @@ Track: Отслеживать
 ThisItemHasNoRecipe: У предмета нет рецепта
 StopShowingItOnScreenAlt: Больше не показывать на экране · Alt+T
 ShowItsMaterialsOnScreenAlt: Показывать материалы на экране · Alt+T
-UntrackSet: Снять сет
-TrackSet: Весь сет
-UntrackAllThreePieces: Не отслеживать весь сет
+UntrackSet: Убрать комплект
+TrackSet: Весь комплект
+UntrackAllThreePieces: Не отслеживать весь комплект
 TrackAllThreePiecesAsOne: Отслеживать три части одной целью
 TRACKING: ОТСЛЕЖИВАНИЕ · {0}
 DragToMove: Перетащите, чтобы переместить
-ClickMaterialsRightClickUntrack: ЛКМ — материалы · ПКМ — не отслеживать
-MoreCtrl: +{0} ещё · Ctrl+{1}
-ArmorSet: Комплект брони
 StartsOnItsOwnOrWith: Начинается сам или от предмета: {0}
 StartsOnItsOwn: Начинается сам
 FromCalamitySEventTables: Из таблиц события Calamity
@@ -121,9 +118,9 @@ TRACKED: ОТСЛЕЖИВАЕТСЯ · {0}
 ClearAll: Очистить всё?
 Clear: Очистить
 ClickAgainToUntrackEverything: Нажмите ещё раз, чтобы убрать все цели
-UntrackEverything: Не отслеживать ничего
-Crafts: крафтов
-Crafts2: Крафтов: {0}
+UntrackEverything: Убрать все цели
+Crafts: изготовлений
+Crafts2: Можно создать: {0}
 HowToGet2: Где взять: {0}
 INGREDIENTS: ИНГРЕДИЕНТЫ
 STATION: СТАНЦИЯ
@@ -142,19 +139,19 @@ NoStationNeeded: Станция не нужна
 Condition: Условие
 NoMaterials: Без материалов
 DepositAll: Сложить всё
-QuickStack: Быстрый стак
+QuickStack: Быстрая стопка
 Restock: Пополнить
-QuickStackToNearbyChestsAnd: Сложить в сундуки и хранилища рядом · Ctrl+Q
-AlsoIntoEveryCountedStorageRemote: И в каждое учтённое хранилище, удалённое тоже, если в нём уже есть такой предмет
-QuickStackToNearbyChestsCtrl: Сложить в сундуки рядом · Ctrl+Q
-TopUpInventoryStacksFromNearby: Дополнить стопки в инвентаре из того, что рядом · Ctrl+R
-DepositToNearbyStorage: Сложить в хранилища рядом
+QuickStackToNearbyChestsAnd: Быстрая стопка в сундуки и хранилища рядом · Ctrl+Q
+AlsoIntoEveryCountedStorageRemote: А также в каждое учтённое хранилище, даже удалённое, где такой предмет уже есть
+QuickStackToNearbyChestsCtrl: Быстрая стопка в сундуки рядом · Ctrl+Q
+TopUpInventoryStacksFromNearby: Пополнить стопки в инвентаре из сундуков и хранилищ рядом · Ctrl+R
+DepositToNearbyStorage: Сложить в сундуки и хранилища рядом
 NothingNearbyToDepositInto: Рядом некуда складывать
-DepositToNearbyStorageExceptHotbar: Сложить в хранилища рядом, кроме панели и избранного
-OntoMatchingStacksFirstThenMagic: Сначала к таким же, потом Magic Storage, потом сундук
-OntoMatchingStacksFirstThenA: Сначала к таким же, потом в свободный сундук
+DepositToNearbyStorageExceptHotbar: Сложить в сундуки и хранилища рядом, кроме панели быстрого доступа и избранного
+OntoMatchingStacksFirstThenMagic: Сначала к таким же стопкам, затем в Magic Storage, затем в свободный сундук
+OntoMatchingStacksFirstThenA: Сначала к таким же стопкам, затем в свободный сундук
 NotAvailableOnThisServer: Недоступно на этом сервере
-NearbyStorageIsOff: Хранилища рядом выключены
+NearbyStorageIsOff: Хранилища рядом: выключено
 TheServerKeepsInventoriesItself: Сервер сам хранит инвентари
 TheHostTurnedItOff: Хост выключил эту функцию
 TurnItOnInTheMod: Включите в настройках мода
@@ -165,10 +162,9 @@ Nearby: Рядом
 MagicStorageSupportIsOffSee: Связь с Magic Storage отключена (client.log)
 NoItemSelected: Предмет не выбран
 ClickAnItemInTheGrid: Нажмите на предмет в сетке
-Taking: Забираю…
-RefreshF5: Перечитать · F5
+Taking: Перенос…
+RefreshF5: Обновить · F5
 CtrlClickTrashAltClickFavorite: Ctrl+клик — в корзину · Alt+клик — в избранное
-AllSources: Все источники
 F1AllKeyboardShortcuts: F1 · Все сочетания клавиш
 DragToMoveTheWindow: Перетащите, чтобы переместить окно
 Categories: Категории
@@ -191,7 +187,7 @@ HiddenByTheTraitsFilter: Скрыто фильтром свойств
 UntickSomeTraitsUnderTraitsOn: Снимите часть отметок в «Свойствах» слева
 HiddenByTheClassFilter: Скрыто фильтром класса
 PickAllClassesAboveTheCategories: Нажмите «Все классы» над категориями
-NothingToCraftRightNow: Сейчас ничего не создать
+NothingToCraftRightNow: Сейчас нечего создать
 TurnOffCraftableToShowEverything: Выключите «Можно создать», чтобы показать всё
 HiddenByTheStationFilter: Скрыто фильтром станций
 OpenTheStationFilterAndPick: Откройте фильтр станций и выберите «Показать все»
@@ -199,7 +195,7 @@ NothingFound: Ничего не найдено
 CtrlBackspaceResetsFilters: Ctrl+Backspace сбрасывает фильтры
 NearbyContainersAreEmpty: Рядом всё пусто
 NothingNearby: Рядом ничего нет
-NoCraftsYet: Пока нет крафтов
+NoCraftsYet: Пока ничего не создано
 ItemsYouCraftWillAppearHere: Здесь появится то, что вы создадите
 RecipesFromHistoryArenTLoaded: Рецепты из истории не загружены
 EnableTheModsThatAddThem: Включите моды, которые их добавляют
@@ -209,13 +205,13 @@ Mobs: Мобов: {0}
 Recent: Недавние: {0}/{1}
 Recipes: Рецептов: {0}
 TextMatches: по тексту: {0}
-ReadingItemText: читаю тексты предметов: {0}%
+ReadingItemText: чтение текстов предметов: {0}%
 UnknownStage: этап неизвестен: {0}
 PreviousPagePgUp: Предыдущая страница · PgUp
 NextPagePgDn: Следующая страница · PgDn
 NothingSelected: Ничего не выбрано
 PickAnItemOnTheLeft: Выберите предмет слева
-NoCraftingRecipe: Нет рецепта крафта
+NoCraftingRecipe: Нет рецепта
 GetItFromLootShopsFishing: Добыча, магазины, рыбалка и другое
 AllSources2: Все источники: {0}
 RemoveFromFavoritesAltF: Убрать из избранного · Alt+F
@@ -254,19 +250,19 @@ Tracking: Отслеживание
 Shortcuts: Горячие клавиши
 CloseEscOrF1: Закрыть · Esc или F1
 HoverAnyButtonItsTooltipShows: Наведите на кнопку — в подсказке есть её клавиша
-ArmorSetName: Комплект: {0}
+ArmorSetName: "{0} броня"
 NearbyStorageHint: Здесь появятся сундуки и хранилища в радиусе {0} {^0:блока;блоков;блоков}
 NoRecipeFor: Нет рецепта: {0}
 TooManyMaterialsForOneGoal: Слишком много материалов для одной цели
 CardsHoldGoalsTip: В карточках до 5 целей · Ctrl+{0} — список
 NoLongerTracked: Больше не отслеживается
 CardsHoldFiveGoals: В карточках до 5 целей. Уберите одну или включите компактный вид.
-TrackingTheSet: Сет отслеживается
+TrackingTheSet: Комплект отслеживается
 TrackingItem: Отслеживается: {0}
 ClickOpenAlternative: Клик: открыть «{0}»
 ConditionMet: "{0} · выполнено"
 ConditionNotMetYet: "{0} · пока не выполнено"
-MoreLines: +{0} ещё
+MoreLines: ещё {0}
 OrSeparator: " или "
 HaveNeed: Есть {0}, нужно {1}
 CraftTimes: Создать ×{0}
