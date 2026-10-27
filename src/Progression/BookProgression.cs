@@ -327,7 +327,7 @@ internal static class BookProgression
 		List<BookProgressionRules.Route> routes = new List<BookProgressionRules.Route>();
 		HashSet<int> modeItems = new HashSet<int>();
 		HashSet<int> modeRecipes = new HashSet<int>();
-		HashSet<int> sourced = AddDropSources(routes, floors, modeItems, Seed);
+		HashSet<int> sourced = AddDropSources(routes, floors, modeItems, recipesByItem, Seed);
 		// Calamity's boss-locked world generation loot waits for its boss, not for its rarity tier.
 		foreach (BookItemSource chest in BookItemSources.CalamityGatedWorldgen())
 		{
@@ -703,7 +703,7 @@ internal static class BookProgression
 	// Drops of bosses seed their step directly; drops of other NPCs the NPC's step (curated, spawn gate, or what it
 	// always drops), else the item's rarity tier; bag, crate and present contents become routes from the container.
 	// Returns every item a placed NPC or a container drops, so the raw-item pass leaves those to the graph.
-	private static HashSet<int> AddDropSources(List<BookProgressionRules.Route> routes, IReadOnlyDictionary<int, int> floors, HashSet<int> modeItems, Action<int, int, string, int> seed)
+	private static HashSet<int> AddDropSources(List<BookProgressionRules.Route> routes, IReadOnlyDictionary<int, int> floors, HashSet<int> modeItems, Dictionary<int, List<int>> recipesByItem, Action<int, int, string, int> seed)
 	{
 		HashSet<int> sourced = new HashSet<int>();
 		int sourceKey = -1;
