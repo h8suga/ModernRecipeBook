@@ -111,14 +111,16 @@ internal static class BookRewardSources
 
 	// Placeholders ---------------------------------------------------------------------------------------------
 
-	// Vanilla items nothing creates: the coloured presents of old (openable, but no code or rule makes one) and the
-	// Lunatic Cultist's bag (no NPC rule drops it, Calamity's neither).
-	private static readonly HashSet<int> NeverCreated = new HashSet<int> { ItemID.BluePresent, ItemID.GreenPresent, ItemID.YellowPresent, ItemID.CultistBossBag };
+	// Vanilla items nothing creates: the coloured presents of old (openable, but no code or rule makes one), the
+	// Lunatic Cultist's bag (no NPC rule drops it, Calamity's neither) and the Bone Block (no recipe, rule, shimmer or
+	// world generation places tile 194 or gives item 766; Calamity's neither).
+	private static readonly HashSet<int> NeverCreated = new HashSet<int> { ItemID.BluePresent, ItemID.GreenPresent, ItemID.YellowPresent, ItemID.CultistBossBag, ItemID.BoneBlock };
 
-	// Magic Storage's own unobtainable items: the Tiny Storage Unit has no recipe and no tier upgrades into it
+	// Mods' own unobtainable items. Magic Storage: the Tiny Storage Unit has no recipe and no tier upgrades into it
 	// (TierTiny), the Creative Storage Unit no recipe; its config, error and shimmer icons are items in the
-	// MagicStorage.Items.*Display namespaces.
-	private static readonly HashSet<string> HiddenModItems = new HashSet<string>(StringComparer.Ordinal) { "MagicStorage/StorageUnitTiny", "MagicStorage/CreativeStorageUnit" };
+	// MagicStorage.Items.*Display namespaces. The music mods: two boxes with no track (MusicBox.Obtainable false, no
+	// MusicLoader.AddMusicBox), so no blank box records them.
+	private static readonly HashSet<string> HiddenModItems = new HashSet<string>(StringComparer.Ordinal) { "MagicStorage/StorageUnitTiny", "MagicStorage/CreativeStorageUnit", "CalamityModMusic/BossRushTier5MusicBox", "UnCalamityModMusic/PumpkinMoonMusicBox" };
 
 	private static HashSet<int> unclaimedBanners;
 

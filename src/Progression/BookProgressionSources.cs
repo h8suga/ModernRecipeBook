@@ -706,10 +706,11 @@ internal static class BookProgressionSources
 	// another world's rule (NotExpert in Expert) and loot that waits for a boss (ShowItemDropInUI.WhenConditionSatisfied).
 	// So a drop is left out of the card, How to Get and the stages when one of its conditions answers false for good
 	// (ShowItemDropInUI.Never; Calamity's "ui: false", a bool its CanShowItemDropInUI returns: Morshu's loot, Bohldohr's NO,
-	// Supreme Calamitas's Coldheart Icicle) or is neither of those.
+	// Supreme Calamitas's Coldheart Icicle) or is neither of those. A rule only another world has is listed anyway, as that
+	// world's (Bohldohr's NO needs a Zenith world): it is no source here, and the progression marks it so (DropFloor).
 	internal static bool HiddenFromUI(DropRateInfo rate)
 	{
-		return rate.conditions?.Any(HiddenFromUI) ?? false;
+		return (rate.conditions?.Any(HiddenFromUI) ?? false) && !rate.conditions.Any(ModeBlocked);
 	}
 
 	private static bool HiddenFromUI(IItemDropRuleCondition condition)

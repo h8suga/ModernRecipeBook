@@ -327,7 +327,7 @@ internal static class BookProgression
 		List<BookProgressionRules.Route> routes = new List<BookProgressionRules.Route>();
 		HashSet<int> modeItems = new HashSet<int>();
 		HashSet<int> modeRecipes = new HashSet<int>();
-		HashSet<int> sourced = AddDropSources(routes, floors, modeItems, recipesByItem, Seed);
+		HashSet<int> sourced = AddDropSources(routes, floors, modeItems, Seed);
 		// Calamity's boss-locked world generation loot waits for its boss, not for its rarity tier.
 		foreach (BookItemSource chest in BookItemSources.CalamityGatedWorldgen())
 		{
@@ -337,13 +337,21 @@ internal static class BookProgression
 		AddMining(all, routes, sourced);
 		AddFishing(routes, sourced, Seed);
 		AddGrown(sourced, Seed);
-		// Raw items: nothing crafts them and no known source drops them, so their rarity tier is the best guess.
+		// Raw items: nothing crafts them and no known source drops them, so their rarity tier is the best guess. What only
+		// another difficulty or seed gives (Levi in Death mode, the Zenith world's Lava Chicken Broth) is no guess but
+		// unavailable here.
 		foreach (Item item in all)
 		{
-			if (!recipesByItem.ContainsKey(item.type) && !sourced.Contains(item.type))
+			if (recipesByItem.ContainsKey(item.type) || sourced.Contains(item.type) || modeItems.Contains(item.type))
 			{
-				Seed(item.type, BookSteps.Of(BookProgressionSources.RarityStage(item)), "rarity");
+				continue;
 			}
+			if (OnlyOtherWorlds(item.type))
+			{
+				modeItems.Add(item.type);
+				continue;
+			}
+			Seed(item.type, BookSteps.Of(BookProgressionSources.RarityStage(item)), "rarity");
 		}
 		Dictionary<int, int[]> stationIndex = (from i in all
 			where i.createTile >= 0
@@ -570,6 +578,14 @@ internal static class BookProgression
 		}
 	}
 
+	// Every source How to Get shows for the item is a drop or container rule that fails in this world (a difficulty, a seed
+	// or an other-world lambda, BookProgressionSources.WorldGate): How to Get's "Not in this world" rows.
+	private static bool OnlyOtherWorlds(int type)
+	{
+		List<BookItemSource> shown = BookItemSources.For(type).Where((BookItemSource s) => s.Rate is not DropRateInfo rate || !BookProgressionSources.HiddenFromUI(rate)).ToList();
+		return shown.Count > 0 && shown.All((BookItemSource s) => s.Rate is DropRateInfo rate && (rate.conditions?.Any((IItemDropRuleCondition c) => BookProgressionSources.WorldGate(c) == false) ?? false));
+	}
+
 	// What grows in the world once a boss is down and has no tile item of its own: Life Fruit after a mechanical boss
 	// (WorldGen.hardUpdateWorld).
 	private static readonly (string Item, string Term)[] GrownItems = { ("LifeFruit", "mechs:any") };
@@ -687,7 +703,7 @@ internal static class BookProgression
 	// Drops of bosses seed their step directly; drops of other NPCs the NPC's step (curated, spawn gate, or what it
 	// always drops), else the item's rarity tier; bag, crate and present contents become routes from the container.
 	// Returns every item a placed NPC or a container drops, so the raw-item pass leaves those to the graph.
-	private static HashSet<int> AddDropSources(List<BookProgressionRules.Route> routes, IReadOnlyDictionary<int, int> floors, HashSet<int> modeItems, Dictionary<int, List<int>> recipesByItem, Action<int, int, string, int> seed)
+	private static HashSet<int> AddDropSources(List<BookProgressionRules.Route> routes, IReadOnlyDictionary<int, int> floors, HashSet<int> modeItems, Action<int, int, string, int> seed)
 	{
 		HashSet<int> sourced = new HashSet<int>();
 		int sourceKey = -1;
@@ -729,9 +745,12 @@ internal static class BookProgression
 						seed(rate.itemId, Max(step, floor), source, mob.NetId);
 						continue;
 					}
+					// Sourced: the raw-item pass would guess the rarity again without the drop's own floor (Bloodstone and
+					// the Guidelight of Oblivion from post-Providence Crag mobs the tables cannot place).
 					int tier = BookSteps.Of(BookProgressionSources.RarityStage(drop));
 					if (tier >= 0)
 					{
+						sourced.Add(rate.itemId);
 						seed(rate.itemId, Max(tier, floor), "rarity", 0);
 					}
 				}
@@ -759,6 +778,7 @@ internal static class BookProgression
 					int tier3 = BookSteps.Of(BookProgressionSources.RarityStage(drop3));
 					if (floor3 >= 0 && tier3 >= 0)
 					{
+						sourced.Add(rate3.itemId);
 						seed(rate3.itemId, Max(tier3, floor3), "rarity", 0);
 					}
 				}
@@ -779,14 +799,9 @@ internal static class BookProgression
 					}
 					sourced.Add(rate2.itemId);
 					routes.Add(new BookProgressionRules.Route(sourceKey--, rate2.itemId, floor2, new int[1][] { new int[1] { pair2.Key } }, Source: "drop:" + ItemName(pair2.Value)));
-					// Crate, present and lock box loot is loot that chests, fishing and enemies give too, which no
-					// database lists. Boss bag contents are the boss's own (masks are Blue but post-boss), and what has
-					// a recipe (Calamity's geodes hold bars) is placed by it, not guessed.
-					int tier2 = BookSteps.Of(BookProgressionSources.RarityStage(drop2));
-					if (!ItemID.Sets.BossBag[pair2.Key] && !recipesByItem.ContainsKey(rate2.itemId) && tier2 >= 0)
-					{
-						seed(rate2.itemId, Max(tier2, floor2), "rarity", 0);
-					}
+					// The container is the way, never a rarity guess for its loot: the Necromantic Geode's Bloodstone waits for
+					// Providence, the Golden Lock Box for the Dungeon. Chests that hold the same items are curated sources of
+					// their own.
 				}
 				// Shimmer (the Aether exists from world generation; late transmutations are curated floors).
 				int shimmered = own.Shimmer;
