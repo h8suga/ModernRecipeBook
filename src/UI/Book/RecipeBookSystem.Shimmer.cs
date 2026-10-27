@@ -199,11 +199,12 @@ public sealed partial class RecipeBookSystem
 		}
 		int decrafting = BookMagicStorage.DecraftingItem;
 		string how = L("ShimmerCard.HowItWorks", ItemName(decrafting));
-		if (!BookShimmer.InReach || reason == L("Shimmer.NoInterface") || reason == L("Shimmer.NeedsMagicStorage"))
+		BookShimmer.Why why = BookShimmer.WhyNot(plan.Item);
+		if (!BookShimmer.InReach || why is BookShimmer.Why.NoInterface or BookShimmer.Why.NoMagicStorage)
 		{
 			return (Linked(L("ShimmerCard.NeedsInterface", ItemName(decrafting)), LinkNames.None, new[] { (ItemName(decrafting), ItemLink(decrafting)) }), how);
 		}
-		if (reason == L("Shimmer.NoneInNetwork"))
+		if (why == BookShimmer.Why.NoneInNetwork)
 		{
 			return (Plain(L("ShimmerCard.NoneStored")), how);
 		}

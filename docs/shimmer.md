@@ -3,7 +3,8 @@
 Owner: «я скрафтил шиммер акцесс ячейку и не могу юзать в книге шиммер) а ты говорил фулл адаптировано меджик сторейдж».
 Asked where: «Везде» — the item card, How to Get and the quick search.
 
-Magic Storage's **Decrafting Interface** (`MagicStorage/DecraftingAccess`, made by shimmering a Crafting Interface) is a
+Magic Storage's decrafting interface, the **Storage Aether Interface** (`MagicStorage/DecraftingAccess`, RU «Интерфейс
+Хранения Эфира», made by shimmering a Crafting Interface) is a
 network component whose window shimmers items stored in the network. The book does the same from its own UI: the item
 comes out of the network, shimmers as the liquid would, and the results go back into that network.
 
@@ -66,9 +67,17 @@ The answer `NearbyShimmered` (status, item, used, spilled, results by type) beco
 
 ## UI
 
-- **Item card**: a Shimmer tab beside Recipe / Used in / Contents, for every item with a plan.
-- **How to Get**: a Shimmer button on "shimmer from X" rows.
-- **Quick search**: Shimmer and Shimmer All actions on item rows.
+- **Item card** (`RecipeBookSystem.Shimmer.cs`): a Shimmer mode beside Recipe / Used in / Contents, offered for every
+  item with a plan. A lead line per kind, the results as the card's ingredient rows (links, item tooltips), the batch
+  bar (x1/x5/x10/Max in units) and the Shimmer button in the Craft button's place; Shift+click shimmers all. When it
+  cannot, the reason takes the batch bar's place, the boss and the Storage Aether Interface as links. Without a network
+  with that interface in reach the mode still shows what the item turns into.
+- **How to Get**: a compact Shimmer button on a "shimmer from X" row with a single source item (click one unit,
+  Shift+click all); a row that stands for several items ("N items" decraft) has none, the button would shimmer what the
+  row does not name.
+- **Quick search**: a Shimmer action on item rows and in the preview, offered only when it can be done now (as Craft is);
+  Shift+click shimmers all. One button, so an item that can also be crafted keeps Link in Chat in the preview's 11 places.
+- Reasons come from `BookShimmer.WhyNot` (an enum) and `Reason` (its words, the interface by Magic Storage's own name).
 
 ## Stand checks
 

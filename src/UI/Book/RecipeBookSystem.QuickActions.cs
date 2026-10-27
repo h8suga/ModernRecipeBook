@@ -354,8 +354,9 @@ public sealed partial class RecipeBookSystem
 			}
 			if (QuickShimmers(type))
 			{
+				// One button: Shift+click shimmers all (QuickSearch), as on the row and in How to Get; a second one would push
+				// Link in Chat out of the preview's 11 places for an item that can also be crafted.
 				actions.Add(QuickAction.Shimmer);
-				actions.Add(QuickAction.ShimmerAll);
 			}
 			if (QuickRecipe(type) != null || row.Kind == QuickKind.Goal)
 			{
@@ -527,7 +528,8 @@ public sealed partial class RecipeBookSystem
 		string into = plan.What switch
 		{
 			BookShimmer.Kind.CoinLuck => L("Shimmer.CoinLuck"),
-			BookShimmer.Kind.Critter or BookShimmer.Kind.TownSlime => L("Shimmer.Released", Lang.GetNPCNameValue(plan.Npc)),
+			BookShimmer.Kind.Critter => L("Shimmer.Released", Lang.GetNPCNameValue(plan.Npc)),
+			BookShimmer.Kind.TownSlime => L("Shimmer.Arrived", Lang.GetNPCNameValue(plan.Npc)),
 			_ => string.Join(", ", plan.Results.Take(3).Select(((int Type, int Stack) r) => Lang.GetItemNameValue(r.Type) + " ×" + Count((long)r.Stack * units))) + ((plan.Results.Count > 3) ? (" " + L("Shimmer.More", plan.Results.Count - 3)) : "")
 		};
 		return Lang.GetItemNameValue(type) + " ×" + Count(items) + " → " + into;

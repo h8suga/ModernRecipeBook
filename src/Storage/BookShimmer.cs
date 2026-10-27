@@ -240,49 +240,82 @@ internal static class BookShimmer
 		return (name.Length > 0) ? name : Lang.GetNPCNameValue(plan.GateNpc);
 	}
 
-	// Why the item cannot be shimmered from the book now, or "" when it can.
-	internal static string Reason(int type)
+	// Why the item cannot be shimmered from the book now (None: it can), for the UI to word or link it; Reason words it.
+	internal enum Why : byte
+	{
+		None,
+		DoesNotShimmer,
+		Locked,
+		NoMagicStorage,
+		StorageOff,
+		Pending,
+		NoInterface,
+		NoneInNetwork,
+		NeedsUnit,
+		CantRightNow
+	}
+
+	internal static Why WhyNot(int type)
 	{
 		Plan plan = For(type);
 		if (plan == null)
 		{
-			return L("Shimmer.DoesNotShimmer");
+			return Why.DoesNotShimmer;
 		}
 		if (!plan.Ready)
 		{
-			return (plan.GateNpc > 0) ? L("Shimmer.AfterBoss", GateName(plan)) : L("Shimmer.NotNow");
+			return Why.Locked;
 		}
 		if (!BookMagicStorage.Installed || !BookMagicStorage.Shimmers || !BookMagicStorage.Writable)
 		{
-			return L("Shimmer.NeedsMagicStorage");
+			return Why.NoMagicStorage;
 		}
 		if (!BookSources.Enabled)
 		{
-			return L("Shimmer.StorageOff");
+			return Why.StorageOff;
 		}
 		if (Pending)
 		{
-			return L("Shimmer.Shimmering");
+			return Why.Pending;
 		}
 		(BookMagicStorage.Network network, long count) = Best(type);
 		if (network == null)
 		{
-			return L("Shimmer.NoInterface");
+			return Why.NoInterface;
 		}
 		if (count <= 0)
 		{
-			return L("Shimmer.NoneInNetwork");
+			return Why.NoneInNetwork;
 		}
 		if (count < plan.Unit)
 		{
-			return L("Shimmer.NeedsUnit", plan.Unit);
+			return Why.NeedsUnit;
 		}
 		Player player = Main.LocalPlayer;
-		if (!player.active || player.dead || player.ghost)
+		return (!player.active || player.dead || player.ghost) ? Why.CantRightNow : Why.None;
+	}
+
+	// The Decrafting Interface by the name Magic Storage gives it in the language shown ("Storage Aether Interface" in
+	// 0.7), which the reasons name.
+	internal static string InterfaceName => (BookMagicStorage.DecraftingItem > 0) ? Lang.GetItemNameValue(BookMagicStorage.DecraftingItem) : "Decrafting Interface";
+
+	// Why the item cannot be shimmered from the book now, or "" when it can.
+	internal static string Reason(int type)
+	{
+		Plan plan = For(type);
+		return WhyNot(type) switch
 		{
-			return L("Shimmer.CantRightNow");
-		}
-		return "";
+			Why.None => "",
+			Why.DoesNotShimmer => L("Shimmer.DoesNotShimmer"),
+			Why.Locked => (plan.GateNpc > 0) ? L("Shimmer.AfterBoss", GateName(plan)) : L("Shimmer.NotNow"),
+			Why.NoMagicStorage => L("Shimmer.NeedsMagicStorage", InterfaceName),
+			Why.StorageOff => L("Shimmer.StorageOff"),
+			Why.Pending => L("Shimmer.Shimmering"),
+			Why.NoInterface => L("Shimmer.NoInterface", InterfaceName),
+			Why.NoneInNetwork => L("Shimmer.NoneInNetwork", InterfaceName),
+			Why.NeedsUnit => L("Shimmer.NeedsUnit", plan.Unit),
+			_ => L("Shimmer.CantRightNow")
+		};
 	}
 
 	// Shimmers up to `items` of the type (rounded down to whole units) in the best network. The result is the card's
@@ -398,7 +431,8 @@ internal static class BookShimmer
 			string what = plan?.What switch
 			{
 				Kind.CoinLuck => L("Shimmer.CoinLuck"),
-				Kind.Critter or Kind.TownSlime => L("Shimmer.Released", Lang.GetNPCNameValue(plan.Npc)),
+				Kind.Critter => L("Shimmer.Released", Lang.GetNPCNameValue(plan.Npc)),
+				Kind.TownSlime => L("Shimmer.Arrived", Lang.GetNPCNameValue(plan.Npc)),
 				_ => Items(results)
 			};
 			string line = L("Shimmer.Done", done, Lang.GetItemNameValue(type), what);

@@ -3,11 +3,11 @@
 DoesNotShimmer: Doesn't change in Shimmer
 AfterBoss: Shimmers after {0}
 NotNow: Doesn't shimmer in this world yet
-NeedsMagicStorage: Needs a Magic Storage network with a Decrafting Interface
+NeedsMagicStorage: Needs a Magic Storage network with a {0}
 StorageOff: Nearby storage is off on this server
 Shimmering: Shimmering…
-NoInterface: No Decrafting Interface in reach
-NoneInNetwork: None in a network with a Decrafting Interface
+NoInterface: No {0} in reach
+NoneInNetwork: None in a network with a {0}
 NeedsUnit: Shimmers {0} at a time
 CantRightNow: Can't shimmer right now
 TooFast: Too fast, wait a moment
@@ -15,6 +15,7 @@ SomethingChanged: Shimmer cancelled: something changed
 NothingShimmered: Nothing was shimmered
 CoinLuck: coin luck
 Released: "{0} released"
+Arrived: "{0} arrives"
 Done: Shimmered {0} {1}: {2}
 Spilled: "{0} at your feet, storage full"
 Partly: not all of it

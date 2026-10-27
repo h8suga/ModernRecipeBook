@@ -304,9 +304,10 @@ Magic Storage is fully integrated: the book uses Magic Storage's own members and
 - The **Changed** sort puts what was just stored, taken or crafted with first, whoever moved it, you or another
   player. The times are kept per character and world.
 - On a server the server checks the same rules itself and moves the items.
-- **Shimmer** through a **Decrafting Interface**: every item that changes in Shimmer has a Shimmer tab on its card with
-  what it turns into, by the game's own rules (and Calamity's). With a Decrafting Interface in a network in reach, the
-  card, How to Get and the quick search shimmer it straight from that network, and the results go back into it.
+- **Shimmer** through the **Storage Aether Interface** (Magic Storage's decrafting interface): every item that changes in
+  Shimmer has a Shimmer tab on its card with what it turns into, by the game's own rules (and Calamity's). With that
+  interface in a network in reach, the card, How to Get and the quick search shimmer it straight from the network, and
+  the results go back into it.
 
 <p align="center">
 <img src="docs/screenshots/storage-remote.png" width="60%" alt="A remote network through Portable Access">
