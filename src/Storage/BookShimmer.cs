@@ -177,6 +177,10 @@ internal static class BookShimmer
 		return (best, Math.Max(0, most));
 	}
 
+	// A counted network with a Decrafting Interface is in reach: the UI offers shimmer buttons only then, so a world
+	// without one shows no buttons that could never work.
+	internal static bool InReach => BookSources.ShimmerNetworks(0).Any();
+
 	// How many items one shimmer can take now (whole units, at most MaxItems); 0 when Reason says why not.
 	internal static int Max(int type)
 	{
