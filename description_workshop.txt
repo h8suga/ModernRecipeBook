@@ -6,6 +6,8 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 [h2]Highlights[/h2]
 [list]
 [*][b]Six tabs in one window[/b]: Items, Recipes, Bestiary, Storage, Recent crafts and Tracking.
+[*][b]Ctrl+F searches everything[/b] from anywhere in the game: items, storage, recipes, the Bestiary, bosses and goals, by name, by what a thing is ("buff", "wings") and by descriptions, with a one-click Craft or Take on every row.
+[*][b]Everything is a link[/b]: every boss, mob, biome, item, mod and stage the book names opens where it lives, and Back returns.
 [*][b]How to Get[/b] for any item: recipes, drops, bags, crates, shops, fishing, shimmer and the world itself, with the drop chances of your world's difficulty and seed.
 [*][b]It knows where you are in the game[/b]: every item, recipe and mob has the boss it waits for, and "Before: <boss>" shows exactly what you can get right now. "Next boss" follows your world by itself.
 [*][b]Craft from everything around you[/b]: inventory, chests, banks and Magic Storage, even a network far away.
@@ -46,7 +48,7 @@ English and Russian, including everything the book writes about items, sources a
 [/list]
 
 [h2]На русском[/h2]
-Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском. Открывается на колёсико мыши (Mouse3). Показывает, где взять любой предмет и после какого босса он доступен, крафтит из сундуков и Magic Storage рядом (даже из удалённой сети), полностью поддерживает Calamity и Magic Storage и работает в мультиплеере. Подробности и скриншоты — на [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]GitHub[/url].
+Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском. Открывается на колёсико мыши (Mouse3). Показывает, где взять любой предмет и после какого босса он доступен, крафтит из сундуков и Magic Storage рядом (даже из удалённой сети), полностью поддерживает Calamity и Magic Storage и работает в мультиплеере. Ctrl+F из любого места игры ищет по всему сразу (по названию, по смыслу вроде «баф» или «крылья» и по описаниям) с кнопками «Создать» и «Взять» в строке, а каждое имя в книге — ссылка. Подробности и скриншоты — на [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]GitHub[/url].
 
 [hr][/hr]
 Free software under the [url=https://github.com/h8suga/ModernRecipeBook/blob/main/LICENSE]GNU GPL v3.0[/url]. Made by h8suga; psychological1nstability laid the foundation of the mod.

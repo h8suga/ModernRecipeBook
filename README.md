@@ -34,6 +34,8 @@ it right now from what I have*.
 - [Features](#features)
   - [Six tabs](#six-tabs)
   - [Search, categories and favorites](#search-categories-and-favorites)
+  - [Quick search (Ctrl+F)](#quick-search-ctrlf)
+  - [Links everywhere](#links-everywhere)
   - [Sorting](#sorting)
   - [Progression: stages and "Before: boss"](#progression-stages-and-before-boss)
   - [Class buttons and weapon traits](#class-buttons-and-weapon-traits)
@@ -79,6 +81,8 @@ all here. Forks and pull requests are welcome.
 - **Crafts from everything around you**: inventory, chests, banks and Magic Storage, even a network far away.
 - **Fully integrated with Magic Storage and Calamity**, read from their own code.
 - **Hover anything** that stands for an item to read its own tooltip; every count says where it comes from.
+- **Everything is a link**: every boss, mob, item, biome, mod and stage the book names opens where it lives, and
+  **Ctrl+F** searches all of it from anywhere in the game, with Craft and Take one click away.
 - **Every filter stays** until you change it, per tab, and Back/Forward walk through everything you did.
 - **Multiplayer-ready**, fast (heavy data is built in small steps while the book is open), fully in English and
   Russian, and **translatable** into any language like Calamity.
@@ -93,7 +97,7 @@ all here. Forks and pull requests are welcome.
 | **Recipes** | Every recipe, one row per recipe; recipes that differ in one ingredient are one |
 | **Bestiary** | Every mob of the game and its mods, with drops, spawns and stats |
 | **Storage** | Everything in your nearby chests, banks and Magic Storage networks |
-| **Recent** | What you crafted lately |
+| **Recent** | What you crafted lately, how many and when |
 | **Tracking** | The items and armor sets you follow, with the materials still missing |
 
 Ctrl+1…6 opens a tab, Ctrl+Tab goes to the next one.
@@ -115,6 +119,31 @@ Ctrl+1…6 opens a tab, Ctrl+Tab goes to the next one.
   book closes, not when you jump to another item. Ctrl+Backspace clears the open tab.
 
 <p align="center"><img src="docs/screenshots/search-text.png" width="80%" alt="Searching the items' own text"></p>
+
+### Quick search (Ctrl+F)
+
+Ctrl+F anywhere in the game, with the book open or not, opens one search over everything the book knows:
+
+- **items, Storage, recipes, the Bestiary, bosses** ("Before: X"), **tracked goals, categories and mods**, grouped by
+  kind; the chips under the field (Tab) narrow it to one of them;
+- by **name** in your language, in English or by ID; by **what a thing is**: a category ("buff", "wings"), the buff it
+  gives, a trait or a class; and by **descriptions** and Bestiary texts, below the name matches;
+- the book's **links** under a match: who drops it, which bag holds it, what a boss drops;
+- a **one-click action** on every row: Craft, Take from storage, Track or Open. The preview on the right shows what
+  you have, what you can craft, the first sources and every action, with the card's keys (Ctrl+Enter, Alt+T, Alt+F,
+  Alt+G, Alt+U);
+- **">"** lists the book's commands: Deposit All, Restock, Craftable now, Before the next boss and more.
+
+<p align="center"><img src="docs/screenshots/quick-search.png" width="80%" alt="Quick search with a Craft button"></p>
+
+### Links everywhere
+
+Every boss, mob, biome, event, item, mod, stage, trait and goal the book names is a link: hover it to see where it
+goes, click to open it, Back to return. A mob's stage, biome, spawns and the bosses in its loot conditions; an item's
+stage, mod, recipe conditions and the members of "Any Iron Bar"; How to Get's sellers, Angler, rods and pickaxes; the
+tracker and the Tracking tab; the Storage tab's banks, networks and Portable Access.
+
+<p align="center"><img src="docs/screenshots/links.png" width="60%" alt="A boss in a loot condition is a link"></p>
 
 ### Sorting
 
@@ -444,7 +473,7 @@ that item.
 | Alt+T | Track |
 | Alt+F | Favorite |
 | Alt+G | How to Get |
-| Alt+U | Recipe · Used in (on a mob: Loot · Stats) |
+| Alt+U | Recipe · Used in · Contents (on a mob: Loot · Stats) |
 | LMB | Open an ingredient |
 | Shift+LMB | Where it's used |
 | Alt+LMB | Favorite in the grid |
@@ -452,7 +481,7 @@ that item.
 
 | Finding things | |
 |---|---|
-| Ctrl+F | Search |
+| Ctrl+F | Quick search, anywhere in the game |
 | Ctrl+Backspace | Reset filters |
 | Alt+1…5 | Stage (5: before the next boss) |
 | F5 | Refresh |
