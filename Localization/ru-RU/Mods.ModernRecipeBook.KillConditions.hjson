@@ -1,0 +1,28 @@
+OnCertainKills: Не с каждого убийства
+DependsOnTheKill: Зависит от того, как погиб моб, а не от прогресса мира.
+WhileSupercharged: Пока усилен
+IfItBlowsItselfUp: Если взорвётся
+ForTheWorthySummon: Если призвана в мире For the Worthy
+BloodMoonNotFromStatue: Кровавая луна, не из статуи
+InBag: Источник: {0}
+AlreadyPast: "{0} · уже позади"
+Mechdusa: Только с Мехдузы
+CorruptionClassic: Мир с Порчей, обычный
+CrimsonClassic: Мир с Багрянцем, обычный
+InTheSlimeItLifts: Внутри слизня, которого он несёт
+DuringLunarEvents: Во время Лунных событий
+NotDuringLunarEvents: Не во время Лунных событий
+Revengeance: Режим мести
+WithoutRevengeance: Без режима мести
+Death: Режим смерти
+WithoutDeath: Без режима смерти
+WithSeed: Сид «{0}»
+WithoutSeed: Без сида «{0}»
+PumpkinMoonWave15: Тыквенная луна, с 15-й волны
+FrostMoonWave15: Морозная луна, с 15-й волны
+SeedBeforeHardmode: Сид «{0}», до хардмода
+SeedInHardmode: Сид «{0}», в хардмоде
+FirstKill: Только за первое убийство
+NotUsedYet: Пока не использовано: {0}
+NotCarried: Если у вас нет: {0}
+EitherEvilBoss: "{0} или {1}"

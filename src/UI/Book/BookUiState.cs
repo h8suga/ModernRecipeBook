@@ -8,7 +8,8 @@ internal sealed class BookUiState
 {
 	// 5: the global class filter. 6: per-tab excluded stations. 7: Storage's own stage filter. 8: per-tab Craftable.
 	// 9: "Before: <boss>" (stage filter 4, the boss's key; 5 is the unknown stage) and the global traits filter.
-	internal const int CurrentVersion = 9;
+	// 10: the item card's mode by name (CardMode: Recipe, Used in, Contents) instead of the UsedInMode bool.
+	internal const int CurrentVersion = 10;
 
 	// Search, mod, category, favorites and sort belong to one tab and stay until the player changes them;
 	// the stage filter is shared by every tab but Storage, which has its own.
@@ -87,7 +88,7 @@ internal sealed class BookUiState
 
 	internal bool FavoritesOnly;
 
-	internal bool UsedInMode;
+	internal BookCardMode CardMode;
 
 	internal bool UsedInCraftableOnly;
 
@@ -141,7 +142,7 @@ internal sealed class BookUiState
 		bookUiState.ClassFilter = ((Array.IndexOf(BookItemClasses.Buttons, (BookClass)ClassFilter) >= 0) ? ClassFilter : 0);
 		bookUiState.TraitFilter = TraitFilter & BookItemTraits.KnownMask;
 		bookUiState.FavoritesOnly = FavoritesOnly;
-		bookUiState.UsedInMode = UsedInMode;
+		bookUiState.CardMode = (Enum.IsDefined(typeof(BookCardMode), CardMode) ? CardMode : BookCardMode.Recipe);
 		bookUiState.UsedInCraftableOnly = UsedInCraftableOnly;
 		bookUiState.SortMode = (Enum.IsDefined(typeof(BookSortMode), SortMode) ? SortMode : BookSortMode.Name);
 		bookUiState.SortDescending = SortDescending;

@@ -87,8 +87,12 @@ internal static class BookRewardSources
 		(ItemID.MinecartPowerup, ItemID.MinecartMech), (ItemID.GasTrap, ItemID.UsedGasTrap)
 	};
 
-	// Item.GetShimmered's own cases, ahead of ItemID.Sets.ShimmerTransformToItem: these only once Moon Lord is down.
-	private static readonly (int From, int To)[] MoonLordShimmers = { (ItemID.RodofDiscord, ItemID.RodOfHarmony), (ItemID.Clentaminator, ItemID.Clentaminator2), (ItemID.BottomlessBucket, ItemID.BottomlessShimmerBucket), (ItemID.BottomlessShimmerBucket, ItemID.BottomlessBucket) };
+	// Item.GetShimmered's own cases, ahead of ItemID.Sets.ShimmerTransformToItem: these only once Moon Lord is down. A
+	// Luminite Brick, Moon Lord's too, turns into the space brick of the moon's phase (Item.cs:49685-49702), the only
+	// way to get one.
+	private static readonly (int From, int To)[] MoonLordShimmers = { (ItemID.RodofDiscord, ItemID.RodOfHarmony), (ItemID.Clentaminator, ItemID.Clentaminator2), (ItemID.BottomlessBucket, ItemID.BottomlessShimmerBucket), (ItemID.BottomlessShimmerBucket, ItemID.BottomlessBucket),
+		(ItemID.LunarBrick, ItemID.LunarRustBrick), (ItemID.LunarBrick, ItemID.DarkCelestialBrick), (ItemID.LunarBrick, ItemID.AstraBrick), (ItemID.LunarBrick, ItemID.CosmicEmberBrick),
+		(ItemID.LunarBrick, ItemID.CryocoreBrick), (ItemID.LunarBrick, ItemID.MercuryBrick), (ItemID.LunarBrick, ItemID.StarRoyaleBrick), (ItemID.LunarBrick, ItemID.HeavenforgeBrick) };
 
 	// Player.ApplyWilsonBeard: equipped as an accessory, the beard grows after 43200 ticks, 1 in 540 each tick after.
 	private static readonly (int From, int To)[] Beards = { (ItemID.WilsonBeardShort, ItemID.WilsonBeardLong), (ItemID.WilsonBeardLong, ItemID.WilsonBeardMagnificent) };
@@ -111,14 +115,16 @@ internal static class BookRewardSources
 
 	// Placeholders ---------------------------------------------------------------------------------------------
 
-	// Vanilla items nothing creates: the coloured presents of old (openable, but no code or rule makes one) and the
-	// Lunatic Cultist's bag (no NPC rule drops it, Calamity's neither).
-	private static readonly HashSet<int> NeverCreated = new HashSet<int> { ItemID.BluePresent, ItemID.GreenPresent, ItemID.YellowPresent, ItemID.CultistBossBag };
+	// Vanilla items nothing creates: the coloured presents of old (openable, but no code or rule makes one), the
+	// Lunatic Cultist's bag (no NPC rule drops it, Calamity's neither) and the Bone Block (no recipe, rule, shimmer or
+	// world generation places tile 194 or gives item 766; Calamity's neither).
+	private static readonly HashSet<int> NeverCreated = new HashSet<int> { ItemID.BluePresent, ItemID.GreenPresent, ItemID.YellowPresent, ItemID.CultistBossBag, ItemID.BoneBlock };
 
-	// Magic Storage's own unobtainable items: the Tiny Storage Unit has no recipe and no tier upgrades into it
+	// Mods' own unobtainable items. Magic Storage: the Tiny Storage Unit has no recipe and no tier upgrades into it
 	// (TierTiny), the Creative Storage Unit no recipe; its config, error and shimmer icons are items in the
-	// MagicStorage.Items.*Display namespaces.
-	private static readonly HashSet<string> HiddenModItems = new HashSet<string>(StringComparer.Ordinal) { "MagicStorage/StorageUnitTiny", "MagicStorage/CreativeStorageUnit" };
+	// MagicStorage.Items.*Display namespaces. The music mods: two boxes with no track (MusicBox.Obtainable false, no
+	// MusicLoader.AddMusicBox), so no blank box records them.
+	private static readonly HashSet<string> HiddenModItems = new HashSet<string>(StringComparer.Ordinal) { "MagicStorage/StorageUnitTiny", "MagicStorage/CreativeStorageUnit", "CalamityModMusic/BossRushTier5MusicBox", "UnCalamityModMusic/PumpkinMoonMusicBox" };
 
 	private static HashSet<int> unclaimedBanners;
 
@@ -413,7 +419,7 @@ internal static class BookRewardSources
 		};
 		BookAcquisitionEntry Row(string name, string body, BookAcquisitionKind kind, string label, string rate = "", int item = 0, int npc = 0, int tile = -1)
 		{
-			return new BookAcquisitionEntry(name, body, kind, rate, "×1", item, npc, label.Length > 0, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY);
+			return new BookAcquisitionEntry(name, body, kind, rate, "×1", item, npc, label.Length > 0, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY, SourceItem: item, Mentions: BookCodeSources.Mentions(s));
 		}
 	}
 
@@ -475,7 +481,9 @@ internal static class BookRewardSources
 			break;
 		}
 		string text = string.Join(" · ", label);
-		return new BookAcquisitionEntry(Lang.GetNPCNameValue(NPCID.Angler), body, BookAcquisitionKind.Quest, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), 0, NPCID.Angler, text.Length > 0, -1, s.Owner, text);
+		// The Bumblebee Tuna a honey reward is for is a link on the row (RecipeBookSystem.Links).
+		BookMention[] mentions = (s.Note == "honey") ? new[] { new BookMention(Name(ItemID.BumblebeeTuna), ItemID.BumblebeeTuna) } : null;
+		return new BookAcquisitionEntry(Lang.GetNPCNameValue(NPCID.Angler), body, BookAcquisitionKind.Quest, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), 0, NPCID.Angler, text.Length > 0, -1, s.Owner, text, Mentions: mentions);
 	}
 
 	internal static string KindName(BookAcquisitionKind kind)

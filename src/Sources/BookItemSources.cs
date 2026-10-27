@@ -32,8 +32,14 @@ internal sealed record BookItemSource(BookAcquisitionKind Kind, int Item)
 
 	internal string Owner { get; init; } = "Terraria";
 
-	// Drops and containers: the report as the game's drop UI computes it.
+	// Drops and containers: the report as the game's drop UI computes it, and the place of its rule among the mob's or
+	// the container's rules (BookEnemyDrop.Rule).
 	internal DropRateInfo? Rate { get; init; }
+
+	internal int Rule { get; init; }
+
+	// The report is a second drop of an item on top of the first (BookEnemyRules.OnTop).
+	internal bool OnTop { get; init; }
 
 	internal AbstractNPCShop Shop { get; init; }
 
@@ -76,28 +82,17 @@ internal static class BookItemSources
 
 	// Murasama-style curated sources ------------------------------------------------------------------
 
-	// Loot Calamity 2.2.4 puts into chests and structures at world generation (Draedon labs, underground
-	// shrines, Brimstone Crag, Vernal Pass; not the Astral shrine, which comes with the hardmode meteor) plus objects
-	// that drop themselves when mined: lab machines, the Onyx Excavator of the cavern lab (OnyxExcavatorTile in the
-	// Arsenal_Lab_Onyx schematic) and the Crag's broken pylon (BrimstoneCrag: CragsPylonBrokenTile). All of it can be
-	// picked up before hardmode.
-	internal static readonly HashSet<string> CalamityWorldgenItems = Set("BloodyMary CoastalDemonfish CorruptionEffigy CrimsonEffigy CyanSeekingMechanism DraedonsLogHell DraedonsLogJungle DraedonsLogPlanetoid DraedonsLogSnowBiome DraedonsLogSunkenSea DubiousPlating EncryptedSchematicHell EncryptedSchematicIce EncryptedSchematicJungle EncryptedSchematicPlanetoid EncryptedSchematicSunkenSea FellerofEvergreens FrozenCube FungalSymbiote GladiatorsLocket GreenSeekingMechanism HadalStew LabSeekingMechanism LuxorsGift MysteriousCircuitry OddMushroom PlasmaDriveCore PrismShard RedSeekingMechanism SlagfireDouser SlurperPole SpelunkersAmulet SulphurskinPotion SuspiciousScrap Terminus TrinketofChi UnstableGraniteCore VoidTorch WhiteSeekingMechanism YellowSeekingMechanism PowerCellFactoryItem ChargingStationItem OnyxExcavatorKey CragsPylon");
-
-	// World generation loot that waits for a boss, with no other source: the Astral Chest AstralChestGeneration puts
-	// in the Dungeon opens after Astrum Aureus (AstralChestLocked.UnlockChest), and only then can the emptied chest itself
-	// be broken (Chest.CanDestroyChest); the Hell lab's Murasama lies there from the start but only swings after the
-	// Devourer of Gods (Murasama.CanUseItem). Item, place, chest icon, gate.
-	internal static readonly (string Item, string Place, string Icon, string Gate)[] CalamityGatedWorldgenItems =
-	{
-		("HeavenfallenStardisk", "AstralChest", "AstralChest", "CalamityMod/AstrumAureus"),
-		("AstralChest", "AstralChest", "AstralChest", "CalamityMod/AstrumAureus"),
-		("Murasama", "HellLab", "AgedSecurityChest", "CalamityMod/DevourerofGodsHead")
-	};
+	// Objects Calamity 2.2.4's world generation places that drop themselves when mined: lab machines, the Onyx Excavator of
+	// the cavern lab (OnyxExcavatorTile in the Arsenal_Lab_Onyx schematic) and the Crag's broken pylon (BrimstoneCrag:
+	// CragsPylonBrokenTile), all there before hardmode (what lies in its chests is BookChestLoot's).
+	internal static readonly HashSet<string> CalamityWorldgenItems = Set("PowerCellFactoryItem ChargingStationItem OnyxExcavatorKey CragsPylon");
 
 	// Vanilla items found in the world from the start: blocks, ores, gems, plants and the commonest monster
-	// materials. How to Get explains most of them through their tiles; the list keeps a generic "found in
-	// the world" row for the rest.
-	internal static readonly HashSet<string> VanillaWorldItems = Set("Wood BorealWood RichMahogany Ebonwood Shadewood PalmWood AshWood Bamboo StoneBlock DirtBlock ClayBlock SandBlock EbonsandBlock CrimsandBlock MudBlock SnowBlock IceBlock SiltBlock SlushBlock DesertFossil Cobweb Gel FallenStar Acorn CopperOre TinOre IronOre LeadOre SilverOre TungstenOre GoldOre PlatinumOre DemoniteOre CrimtaneOre Meteorite Hellstone Obsidian SturdyFossil Amethyst Topaz Sapphire Emerald Ruby Diamond Amber Mushroom GlowingMushroom Daybloom Moonglow Blinkroot Deathweed Waterleaf Fireblossom Shiverthorn GrassSeeds JungleGrassSeeds MushroomGrassSeeds CorruptSeeds CrimsonSeeds AshGrassSeeds VileMushroom ViciousMushroom Bone RottenChunk Vertebrae JungleSpores Stinger Vine Lens BlackLens AntlionMandible SharkFin Feather");
+	// materials. Also what world generation places that has a later recipe or crate besides: the desert's Sandstone
+	// and Hardened Sand (DesertHive), the beach's Coral and shell piles (WorldGen.cs:15980-15990) and the Living Loom
+	// in the living trees' rooms (GrowLivingTreePassageRoom). How to Get explains most of them through their tiles;
+	// the list keeps a generic "found in the world" row for the rest.
+	internal static readonly HashSet<string> VanillaWorldItems = Set("Wood BorealWood RichMahogany Ebonwood Shadewood PalmWood AshWood Bamboo StoneBlock DirtBlock ClayBlock SandBlock EbonsandBlock CrimsandBlock MudBlock SnowBlock IceBlock SiltBlock SlushBlock DesertFossil Cobweb Gel FallenStar Acorn CopperOre TinOre IronOre LeadOre SilverOre TungstenOre GoldOre PlatinumOre DemoniteOre CrimtaneOre Meteorite Hellstone Obsidian SturdyFossil Amethyst Topaz Sapphire Emerald Ruby Diamond Amber Mushroom GlowingMushroom Daybloom Moonglow Blinkroot Deathweed Waterleaf Fireblossom Shiverthorn GrassSeeds JungleGrassSeeds MushroomGrassSeeds CorruptSeeds CrimsonSeeds AshGrassSeeds VileMushroom ViciousMushroom Bone RottenChunk Vertebrae JungleSpores Stinger Vine Lens BlackLens AntlionMandible SharkFin Feather Sandstone HardenedSand Coral Seashell Starfish LivingLoom");
 
 	// Player.GetDyeTraderReward: what the Dye Trader gives for a Strange Plant, by the gate in that method.
 	internal static readonly DyeTrade[] DyeTraderRewards =
@@ -142,6 +137,9 @@ internal static class BookItemSources
 
 	internal static List<(int From, int To)> Conversions { get; private set; } = new List<(int, int)>();
 
+	// Items whose loot is a swap (FindLootSwaps).
+	private static HashSet<int> LootSwaps = new HashSet<int>();
+
 	internal static List<(int Machine, int Product, int Ticks)> Machines { get; private set; } = new List<(int, int, int)>();
 
 	// Treasure bags that roll the developer and patron sets (boss bags that are not pre-hardmode-like), and what they give.
@@ -166,6 +164,7 @@ internal static class BookItemSources
 		GlobalReports = new List<DropRateInfo>();
 		Items = new List<ItemRoutes>();
 		Conversions = new List<(int, int)>();
+		LootSwaps = new HashSet<int>();
 		Machines = new List<(int, int, int)>();
 		HardmodeBags = Array.Empty<int>();
 		DevSetChances = new Dictionary<int, float>();
@@ -174,6 +173,8 @@ internal static class BookItemSources
 		byItem = new Dictionary<int, List<BookItemSource>>();
 		ReadErrors = 0;
 		BookWorldSources.Clear();
+		BookKillConditions.Clear();
+		NotCondition.Clear();
 	}
 
 	internal static void EnsureBuilt()
@@ -216,19 +217,6 @@ internal static class BookItemSources
 		return item.ModItem?.Mod.Name == "CalamityMod" && CalamityWorldgenItems.Contains(item.ModItem.Name);
 	}
 
-	// CalamityGatedWorldgenItems as sources: Where names the place, Note the gate ("boss:CalamityMod/AstrumAureus").
-	internal static IEnumerable<BookItemSource> CalamityGatedWorldgen()
-	{
-		foreach (var (name, place, icon, gate) in CalamityGatedWorldgenItems)
-		{
-			if (ModContent.TryFind("CalamityMod", name, out ModItem item))
-			{
-				int chest = ModContent.TryFind("CalamityMod", icon, out ModItem iconItem) ? iconItem.Type : ItemID.Chest;
-				yield return new BookItemSource(BookAcquisitionKind.Chest, item.Type) { From = chest, Owner = "CalamityMod", Where = new[] { place }, Note = "boss:" + gate };
-			}
-		}
-	}
-
 	private static void Build()
 	{
 		foreach (KeyValuePair<int, NPC> pair in ContentSamples.NpcsByNetId)
@@ -253,13 +241,14 @@ internal static class BookItemSources
 		List<IItemDropRule> global = Main.ItemDropsDB.GetRulesForNPCID(NPCID.BlueSlime, includeGlobalDrops: true).Except(specific).ToList();
 		GlobalReports = Reports(global);
 		Display(global, (DropRateInfo rate) => new BookItemSource(BookAcquisitionKind.Drop, rate.itemId) { Owner = "<global>", Rate = rate });
+		LootSwaps = FindLootSwaps();
 		foreach (KeyValuePair<int, Item> pair in ContentSamples.ItemsByType)
 		{
 			if (pair.Value == null || pair.Value.IsAir)
 			{
 				continue;
 			}
-			List<IItemDropRule> rules = Main.ItemDropsDB.GetRulesForItemID(pair.Key);
+			List<IItemDropRule> rules = LootSwaps.Contains(pair.Key) ? new List<IItemDropRule>() : Main.ItemDropsDB.GetRulesForItemID(pair.Key);
 			// Shimmer (the Aether exists from world generation; late transmutations are curated stage floors).
 			int shimmered = ItemID.Sets.ShimmerTransformToItem[pair.Key];
 			if (rules.Count > 0 || shimmered > 0)
@@ -310,23 +299,24 @@ internal static class BookItemSources
 		Index();
 		void Display(List<IItemDropRule> rules, Func<DropRateInfo, BookItemSource> make)
 		{
-			foreach (IItemDropRule rule in rules)
+			for (int index = 0; index < rules.Count; index++)
 			{
 				List<DropRateInfo> rates = new List<DropRateInfo>();
 				try
 				{
-					rule.ReportDroprates(rates, new DropRateInfoChainFeed(1f));
+					ReportShown(rules[index], rates, new DropRateInfoChainFeed(1f));
 				}
 				catch (Exception)
 				{
 					ReadErrors++;
 					continue;
 				}
-				foreach (DropRateInfo rate in rates)
+				bool[] onTop = BookEnemyRules.OnTop(rules[index], rates);
+				for (int i = 0; i < rates.Count; i++)
 				{
-					if (rate.itemId > 0)
+					if (rates[i].itemId > 0)
 					{
-						Add(make(rate));
+						Add(make(rates[i]) with { Rule = index, OnTop = onTop[i] });
 					}
 				}
 			}
@@ -400,10 +390,6 @@ internal static class BookItemSources
 		{
 			Add(new BookItemSource(BookAcquisitionKind.Chest, item.type) { From = item.type, Owner = "CalamityMod" });
 		}
-		foreach (BookItemSource source in CalamityGatedWorldgen())
-		{
-			Add(source);
-		}
 		foreach (BookItemSource source in BookWorldSources.CatalogueSources())
 		{
 			Add(source);
@@ -412,6 +398,31 @@ internal static class BookItemSources
 		{
 			Add(source);
 		}
+	}
+
+	// Two items whose only loot is each other, whole: an inventory swap the game registers as item loot (Capricorn Hooves
+	// and Tail, ItemDropDatabase.RegisterCapricorns; the swap itself is ItemSlot.TryItemSwap, a Use row of
+	// BookRewardSources). Neither is a container: no Contents tab, no Container row, no route.
+	private static HashSet<int> FindLootSwaps()
+	{
+		Dictionary<int, int> only = new Dictionary<int, int>();
+		foreach (int type in ContentSamples.ItemsByType.Keys)
+		{
+			List<IItemDropRule> rules = Main.ItemDropsDB.GetRulesForItemID(type);
+			List<DropRateInfo> rates = rules.Count > 0 ? Reports(rules) : null;
+			if (rates is [DropRateInfo rate] && rate.dropRate >= 1f && rate.stackMin == 1 && rate.stackMax == 1 && (rate.conditions?.Count ?? 0) == 0)
+			{
+				only[type] = rate.itemId;
+			}
+		}
+		return only.Where((KeyValuePair<int, int> pair) => pair.Key != pair.Value && only.GetValueOrDefault(pair.Value) == pair.Key).Select((KeyValuePair<int, int> pair) => pair.Key).ToHashSet();
+	}
+
+	// A container that is really a swap (FindLootSwaps).
+	internal static bool IsLootSwap(int type)
+	{
+		EnsureBuilt();
+		return LootSwaps.Contains(type);
 	}
 
 	// Chance per opened bag of every developer and patron set item (VanillaDevSets and tModLoader's own sets, whose items
@@ -453,14 +464,31 @@ internal static class BookItemSources
 		list.Add(source);
 	}
 
-	// A drop rule condition that holds when another does not: the failed-condition branch of a LeadingConditionRule.
+	// A drop rule condition that holds when another does not: the failed-condition branch of a LeadingConditionRule. One
+	// per condition (Of), so the stages, How to Get and the Bestiary card read the same object and the probe's answer.
 	internal sealed class NotCondition : IItemDropRuleCondition
 	{
 		internal readonly IItemDropRuleCondition Inner;
 
-		internal NotCondition(IItemDropRuleCondition inner)
+		private static Dictionary<IItemDropRuleCondition, NotCondition> made = new Dictionary<IItemDropRuleCondition, NotCondition>(ReferenceEqualityComparer.Instance);
+
+		private NotCondition(IItemDropRuleCondition inner)
 		{
 			Inner = inner;
+		}
+
+		internal static NotCondition Of(IItemDropRuleCondition inner)
+		{
+			if (!made.TryGetValue(inner, out NotCondition not))
+			{
+				not = made[inner] = new NotCondition(inner);
+			}
+			return not;
+		}
+
+		internal static void Clear()
+		{
+			made = new Dictionary<IItemDropRuleCondition, NotCondition>(ReferenceEqualityComparer.Instance);
 		}
 
 		public bool CanDrop(DropAttemptInfo info)
@@ -468,9 +496,10 @@ internal static class BookItemSources
 			return !Inner.CanDrop(info);
 		}
 
+		// As the game shows the branch, reported under the condition itself (LeadingConditionRule.ReportDroprates).
 		public bool CanShowItemDropInUI()
 		{
-			return true;
+			return Inner.CanShowItemDropInUI();
 		}
 
 		public string GetConditionDescription()
@@ -514,7 +543,7 @@ internal static class BookItemSources
 					foreach (DropRateInfo entry in branch)
 					{
 						DropRateInfo gated = entry;
-						gated.AddCondition(failed ? new NotCondition(leading.condition) : leading.condition);
+						gated.AddCondition(failed ? NotCondition.Of(leading.condition) : leading.condition);
 						rates.Add(gated);
 					}
 				}
@@ -531,6 +560,59 @@ internal static class BookItemSources
 				Report(entry, rates);
 			}
 			Chains.ReportDroprates(rule.ChainedRules, 1f, rates, new DropRateInfoChainFeed(1f));
+		}
+	}
+
+	// What How to Get and the Bestiary card list: the game's own report (chances as the drop UI computes them), except that
+	// a LeadingConditionRule's failed-condition branch carries the condition's negation, as in Reports (Nova's Starblight
+	// Soot drops when it does not blow itself up); a rule at 0% is none (Calamity "removes" vanilla's hardmode ores from
+	// crates and the Sky Crate's and Goodie Bag's items by setting chanceNumerator = 0, CalamityGlobalItemLoot); and a boss
+	// bag's money is one row from the least to the most it gives.
+	internal static void ReportShown(IItemDropRule rule, List<DropRateInfo> rates, DropRateInfoChainFeed feed)
+	{
+		Shown(rule, rates, feed);
+		rates.RemoveAll((DropRateInfo r) => r.dropRate <= 0f);
+	}
+
+	private static void Shown(IItemDropRule rule, List<DropRateInfo> rates, DropRateInfoChainFeed feed)
+	{
+		// ItemDropRule.CoinsBasedOnNPCValue reports the boss's coin value in coins, but CoinsRule.TryDroppingItem drops it
+		// times 0.8 to 1.2 plus up to four bonuses of 0.1, 0.2, 0.3 and 0.4: 0.8 to 2.2 times, in the coin its least reaches.
+		if (rule is CoinsRule { withRandomBonus: true } coins)
+		{
+			long least = (long)(coins.value * 0.8), most = (long)(coins.value * 2.2);
+			(int coin, long worth) = least >= 1000000 ? (ItemID.PlatinumCoin, 1000000L) : (least >= 10000 ? (ItemID.GoldCoin, 10000L) : (least >= 100 ? (ItemID.SilverCoin, 100L) : (ItemID.CopperCoin, 1L)));
+			rates.Add(new DropRateInfo(coin, (int)(least / worth), (int)Math.Max(1L, most / worth), feed.parentDroprateChance, feed.conditions));
+			Chains.ReportDroprates(coins.ChainedRules, 1f, rates, feed);
+			return;
+		}
+		if (rule is not LeadingConditionRule leading)
+		{
+			rule.ReportDroprates(rates, feed);
+			return;
+		}
+		// As LeadingConditionRule.ReportDroprates: every branch with the rule's chance of 1.
+		foreach (IItemDropRuleChainAttempt chain in leading.ChainedRules)
+		{
+			DropRateInfoChainFeed branch = feed.With(1f);
+			if (chain is Chains.TryIfDoesntFillConditions failed)
+			{
+				if (!failed.hideLootReport)
+				{
+					branch.AddCondition(NotCondition.Of(leading.condition));
+					Shown(failed.RuleToChain, rates, branch);
+				}
+				continue;
+			}
+			branch.AddCondition(leading.condition);
+			if (chain is Chains.TryIfSucceeded { hideLootReport: false } succeeded)
+			{
+				Shown(succeeded.RuleToChain, rates, branch);
+			}
+			else
+			{
+				chain.ReportDroprates(1f, rates, branch);
+			}
 		}
 	}
 

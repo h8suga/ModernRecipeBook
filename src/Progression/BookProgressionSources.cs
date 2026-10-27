@@ -67,7 +67,7 @@ internal static class BookProgressionSources
 	// October 2026) matched to Calamity 2.2.4 internal names. Vanilla NPCs not listed appear before hardmode.
 	private static readonly HashSet<string> VanillaHardmodeNpcs = Set("BloodJelly Frankenstein FungoFish Ghost AncientCultistSquidhead AncientDoom AncientLight AnglerFish AngryNimbus AngryTrapper Arapaima ArmoredSkeleton ArmoredViking BigMimicCorruption BigMimicCrimson BigMimicHallow BigMimicJungle BlackRecluse BlackRecluseWall BloodEelBody BloodEelHead BloodEelTail BloodFeeder BloodMummy BloodNautilus BloodSquid BoneLee BrainScrambler Butcher ChaosElemental ChatteringTeethBomb Clinger Clown Corruptor CorruptSlime CreatureFromTheDeep Crimslime CrimsonAxe CultistArcherBlue CultistArcherWhite CultistBoss CultistBossClone CultistDevote CultistDragonBody1 CultistDragonBody2 CultistDragonBody3 CultistDragonBody4 CultistDragonHead CultistDragonTail CursedHammer Cyborg DarkMummy DD2Betsy DD2DrakinT2 DD2DrakinT3 DD2KoboldFlyerT2 DD2KoboldFlyerT3 DD2KoboldWalkerT2 DD2KoboldWalkerT3 DD2LightningBugT3 DD2OgreT2 DD2OgreT3 DD2WitherBeastT2 DD2WitherBeastT3 DeadlySphere DemonTaxCollector Derpling DesertBeast DesertDjinn DesertGhoul DesertGhoulCorruption DesertGhoulCrimson DesertGhoulHallow DesertLamiaDark DesertLamiaLight DesertScorpionWalk DesertScorpionWall DetonatingBubble DiabolistRed DiabolistWhite DiggerBody DiggerHead DiggerTail DrManFly DukeFishron DuneSplicerBody DuneSplicerHead DuneSplicerTail DungeonSpirit ElfArcher ElfCopter EmpressButterfly EnchantedSword Everscream Eyezor FloatyGross Flocko Fritz Gastropod GiantBat GiantCursedSkull GiantFlyingFox GiantFungiBulb GiantTortoise GigaZapper GingerbreadMan GoblinShark GoblinSummoner Golem GrayGrunt GreenJellyfish HallowBoss HeadlessHorseman Hellhound Herpling HoppinJack IceElemental IceGolem IceMimic IceQueen IceTortoise IchorSticker IcyMerman IlluminantBat IlluminantSlime JungleCreeper JungleCreeperWall Krampus Lavabat LightMummy LightningBug LunarTowerNebula LunarTowerSolar LunarTowerStardust LunarTowerVortex MartianDrone MartianEngineer MartianOfficer MartianProbe MartianSaucer MartianSaucerCannon MartianSaucerCore MartianSaucerTurret MartianTurret MartianWalker Medusa Mimic MisterStabby MoonLordFreeEye MoonLordHead MoonLordLeechBlob MossHornet Moth Mothron MothronSpawn MourningWood Mummy Nailhead NebulaBeast NebulaBrain NebulaHeadcrab NebulaSoldier Necromancer NecromancerArmored Nutcracker NutcrackerSpinning Paladin Parrot PigronCorruption PigronCrimson PigronHallow Pirate PirateCaptain PirateCorsair PirateCrossbower PirateDeadeye PirateDeckhand PirateGhost PirateShip PirateShipCannon Pixie Plantera Poltergeist PossessedArmor PresentMimic Princess Probe Psycho Pumpking PumpkingBlade QueenSlimeBoss QueenSlimeMinionPurple RaggedCaster RaggedCasterOpenCoat RainbowSlime RayGunner Reaper RedDevil Retinazer RockGolem RuneWizard SandElemental SandShark SandsharkCorrupt SandsharkCrimson SandsharkHallow SantaClaus SantaNK1 Scarecrow1 Scarecrow10 Scarecrow2 Scarecrow3 Scarecrow4 Scarecrow5 Scarecrow6 Scarecrow7 Scarecrow8 Scarecrow9 Scutlix ScutlixRider SeekerBody SeekerHead SeekerTail ShadowFlameApparition Sharkron Sharkron2 SkeletonArcher SkeletonSniper SkeletronPrime Slimer SnowBalla SnowmanGangsta SolarCorite SolarCrawltipedeBody SolarCrawltipedeHead SolarCrawltipedeTail SolarDrakomire SolarDrakomireRider SolarFlare SolarGoop SolarSolenian SolarSpearman SolarSroller Spazmatism Splinterling StardustCellBig StardustJellyfishBig StardustSoldier StardustSpiderBig StardustWormHead Steampunker SwampThing TaxCollector TheDestroyer TheDestroyerBody TheDestroyerTail ThePossessed ToxicSludge Truffle TruffleWorm TruffleWormDigger Unicorn Vampire VampireBat VortexHornet VortexHornetQueen VortexLarva VortexRifleman VortexSoldier WanderingEye Werewolf Wizard Wolf Wraith WyvernBody WyvernBody2 WyvernBody3 WyvernHead WyvernLegs WyvernTail Yeti ZombieElf ZombieElfBeard ZombieElfGirl");
 
-	private static readonly HashSet<string> CalamityHardmodeNpcs = Set("AnthozoanCrab AquaticAberration AquaticScourgeBody AquaticScourgeBodyAlt AquaticScourgeHead AquaticScourgeTail Archmage Aries Astraglomerate AstralachneaGround AstralachneaWall AstralProbe AstralSlime AstrumAureus AstrumDeusBody AstrumDeusHead AstrumDeusTail Atlas AureusSpawn AuroraSpirit BelchingCoral BlindedAngler Bohldohr Brimling BrimstoneElemental CalamitasClone ChaoticPuffer CloudElemental CragmawMire CrawlerCrystal Cryogen Cryon CryoSlime EarthElemental Eidolist FlakCrab FusionFeeder GiantSquid GreatSandShark GulperEelBody GulperEelBodyAlt GulperEelHead GulperEelTail Hadarian IceClasper InfernalCongealment IrradiatedSlime Mantis MantisShrimp Melter Nova OarfishBody OarfishHead OarfishTail Orthocera OverloadedSoldier PerennialSlime PestilentSlime PlaguebringerGoliath PlaguebringerMiniboss PlagueCharger PlagueChargerLarge Plagueshell RavagerBody RavagerClawLeft RavagerClawRight RavagerHead RavagerHead2 RavagerLegLeft RavagerLegRight RenegadeWarlock SeaSerpent1 SeaSerpent2 SeaSerpent3 SeaSerpent4 SeaSerpent5 ShockstormShuttle SightseerCollider SightseerSpitter StellarCulex SulphurousSkater Trilobite Twinkler Viruling");
+	private static readonly HashSet<string> CalamityHardmodeNpcs = Set("AnthozoanCrab AquaticAberration AquaticScourgeBody AquaticScourgeBodyAlt AquaticScourgeHead AquaticScourgeTail Archmage Aries Astraglomerate Glomerling AstralachneaGround AstralachneaWall AstralProbe AstralSlime AstrumAureus AstrumDeusBody AstrumDeusHead AstrumDeusTail Atlas AureusSpawn AuroraSpirit BelchingCoral BlindedAngler Bohldohr Brimling BrimstoneElemental CalamitasClone ChaoticPuffer CloudElemental CragmawMire CrawlerCrystal Cryogen Cryon CryoSlime EarthElemental Eidolist FlakCrab FusionFeeder GiantSquid GreatSandShark GulperEelBody GulperEelBodyAlt GulperEelHead GulperEelTail Hadarian IceClasper InfernalCongealment IrradiatedSlime Mantis MantisShrimp Melter Nova OarfishBody OarfishHead OarfishTail Orthocera OverloadedSoldier PerennialSlime PestilentSlime PlaguebringerGoliath PlaguebringerMiniboss PlagueCharger PlagueChargerLarge Plagueshell RavagerBody RavagerClawLeft RavagerClawRight RavagerHead RavagerHead2 RavagerLegLeft RavagerLegRight RenegadeWarlock SeaSerpent1 SeaSerpent2 SeaSerpent3 SeaSerpent4 SeaSerpent5 ShockstormShuttle SightseerCollider SightseerSpitter StellarCulex SulphurousSkater Trilobite Twinkler Viruling");
 
 	private static readonly HashSet<string> CalamityPostNpcs = Set("Bloatfish BloodwormFleeing BloodwormNormal BloomSlime BobbitWormHead BobbitWormSegment BrimstoneWitch CeaselessVoid ColossalSquid DevourerofGodsBody DevourerofGodsHead DevourerofGodsTail DraconicSwarmer Dragonfolly EidolonWyrmBody EidolonWyrmBodyAlt EidolonWyrmHead EidolonWyrmTail GammaSlime ImpiousImmolator Mauler NuclearTerror OldDuke PhantomSpirit PhantomSpiritL PhantomSpiritM PhantomSpiritS Polterghast PolterPhantom PrimordialWyrmBody PrimordialWyrmBodyAlt PrimordialWyrmHead PrimordialWyrmTail ProfanedEnergyBody ProfanedEnergyLantern Providence ReaperShark ScornEater SepulcherArm SepulcherBody SepulcherBodyEnergyBall SepulcherHead SepulcherTail Signus SoulSeeker SoulSeekerSupreme StormWeaverBody StormWeaverHead StormWeaverTail SupremeCalamitas THELORDE WildBumblebirb Yharon");
 
@@ -106,16 +106,18 @@ internal static class BookProgressionSources
 		(BookStage.PostHardmode, "Drops.DownedGuard=CalamityMod/ProfanedGuardianCommander Drops.DownedBirb=CalamityMod/Dragonfolly Drops.DownedProv=CalamityMod/Providence Drops.DownedSig=CalamityMod/Signus Drops.DownedSW=CalamityMod/StormWeaverHead Drops.DownedCV=CalamityMod/CeaselessVoid Drops.DownedPolter=CalamityMod/Polterghast Drops.DownedOD=CalamityMod/OldDuke Drops.DownedDoG=CalamityMod/DevourerofGodsHead Drops.DownedYharon=CalamityMod/Yharon Drops.DownedExos=CalamityMod/Draedon Drops.DownedSCal=CalamityMod/SupremeCalamitas Drops.DownedAEW=CalamityMod/SupremeCalamitas"));
 
 	// Vanilla item drop rule conditions (Terraria.GameContent.ItemDropRules.Conditions) that gate a drop to
-	// hardmode, with the boss where they name one. Every other vanilla condition (difficulty, world evil, seeds,
-	// statues, seasons) adds nothing.
-	private static readonly Dictionary<string, (string Term, BookStage Stage)> HardmodeDropConditions = Terms((BookStage.Hardmode, "IsHardmode=Hardmode DownedAllMechBosses=mechs:all DownedPlantera=Plantera FirstTimeKillingPlantera=Plantera MechanicalBossesDummyCondition=Hardmode BeatAnyMechBoss=mechs:any MechdusaKill=Hardmode PirateMap=Hardmode SoulOfLight=Hardmode SoulOfNight=Hardmode LivingFlames=Hardmode HallowKeyCondition=Hardmode JungleKeyCondition=Hardmode CorruptKeyCondition=Hardmode CrimsonKeyCondition=Hardmode FrozenKeyCondition=Hardmode DesertKeyCondition=Hardmode YoyosAmarok=Hardmode YoyosYelets=Hardmode YoyosKraken=Hardmode YoyosHelFire=Hardmode IsPumpkinMoon=Plantera FrostMoonDropGatingChance=Plantera PumpkinMoonDropGatingChance=Plantera FrostMoonDropGateForTrophies=Plantera PumpkinMoonDropGateForTrophies=Plantera FromCertainWaveAndAbove=Plantera RemixSeedHardmode=Hardmode EmpressOfLightIsGenuinelyEnraged=HallowBoss"));
+	// hardmode, with the boss where they name one. The yoyos' conditions read flags in CanDrop: Cascade after Skeletron
+	// (NPC.downedBoss3, and only before hardmode), Yelets after any mechanical boss, Kraken after Plantera. Every other
+	// vanilla condition (difficulty, world evil, seeds, statues, seasons) adds nothing.
+	private static readonly Dictionary<string, (string Term, BookStage Stage)> HardmodeDropConditions = Terms((BookStage.PreHardmode, "YoyoCascade=SkeletronHead"), (BookStage.Hardmode, "IsHardmode=Hardmode DownedAllMechBosses=mechs:all DownedPlantera=Plantera FirstTimeKillingPlantera=Plantera MechanicalBossesDummyCondition=Hardmode BeatAnyMechBoss=mechs:any MechdusaKill=Hardmode PirateMap=Hardmode SoulOfLight=Hardmode SoulOfNight=Hardmode LivingFlames=Hardmode HallowKeyCondition=Hardmode JungleKeyCondition=Hardmode CorruptKeyCondition=Hardmode CrimsonKeyCondition=Hardmode FrozenKeyCondition=Hardmode DesertKeyCondition=Hardmode YoyosAmarok=Hardmode YoyosYelets=mechs:any YoyosKraken=Plantera YoyosHelFire=Hardmode IsPumpkinMoon=Plantera FrostMoonDropGatingChance=Plantera PumpkinMoonDropGatingChance=Plantera FrostMoonDropGateForTrophies=Plantera PumpkinMoonDropGateForTrophies=Plantera FromCertainWaveAndAbove=Plantera RemixSeedHardmode=Hardmode EmpressOfLightIsGenuinelyEnraged=HallowBoss"));
 
 	// Vanilla NPCs that come after a particular boss: the Dungeon's after Skeletron (until then NPC.SpawnNPC sends only
 	// the Dungeon Guardian at a player inside), the post-Plantera Dungeon and the Temple (its key drops from Plantera); the
 	// Solar Eclipse after any mechanical boss, its Reaper after all three and the rest of it after Plantera
 	// (NPC.SpawnNPC); the Pumpkin and Frost Moons (their medallions need Ectoplasm); Martian Madness (the probe waits for
-	// Golem); town NPCs by Main.UpdateTime_SpawnTownNPCs. The Lunar Events and the Old One's Army tiers go by name
-	// (NpcTerm).
+	// Golem); town NPCs by Main.UpdateTime_SpawnTownNPCs; the Lunatic Devotees and Cultist Archers once Golem and Skeletron
+	// are down (CultistRitual.CheckRitual: hardMode, downedGolemBoss, downedBoss3). The Lunar Events and the Old One's Army
+	// tiers go by name (NpcTerm).
 	private static readonly Dictionary<string, (string Term, BookStage Stage)> VanillaNpcTerms = Terms(
 		(BookStage.PreHardmode, "Dryad=EyeofCthulhu;EaterofWorldsHead;SkeletronHead DD2Bartender=EaterofWorldsHead WitchDoctor=QueenBee Clothier=SkeletronHead Mechanic=SkeletronHead AngryBones=SkeletronHead AngryBonesBig=SkeletronHead AngryBonesBigMuscle=SkeletronHead AngryBonesBigHelmet=SkeletronHead DarkCaster=SkeletronHead CursedSkull=SkeletronHead DungeonSlime=SkeletronHead"),
 		(BookStage.Hardmode, "DungeonSpirit=Plantera RustyArmoredBonesAxe=Plantera RustyArmoredBonesFlail=Plantera RustyArmoredBonesSword=Plantera RustyArmoredBonesSwordNoArmor=Plantera BlueArmoredBones=Plantera BlueArmoredBonesMace=Plantera BlueArmoredBonesNoPants=Plantera BlueArmoredBonesSword=Plantera HellArmoredBones=Plantera HellArmoredBonesSpikeShield=Plantera HellArmoredBonesMace=Plantera HellArmoredBonesSword=Plantera RaggedCaster=Plantera RaggedCasterOpenCoat=Plantera Necromancer=Plantera NecromancerArmored=Plantera DiabolistRed=Plantera DiabolistWhite=Plantera SkeletonCommando=Plantera SkeletonSniper=Plantera TacticalSkeleton=Plantera Paladin=Plantera GiantCursedSkull=Plantera BoneLee=Plantera "
@@ -124,7 +126,20 @@ internal static class BookProgressionSources
 			+ "Scarecrow1=Plantera Scarecrow2=Plantera Scarecrow3=Plantera Scarecrow4=Plantera Scarecrow5=Plantera Scarecrow6=Plantera Scarecrow7=Plantera Scarecrow8=Plantera Scarecrow9=Plantera Scarecrow10=Plantera Splinterling=Plantera Hellhound=Plantera Poltergeist=Plantera HeadlessHorseman=Plantera MourningWood=Plantera Pumpking=Plantera PumpkingBlade=Plantera "
 			+ "ZombieElf=Plantera ZombieElfBeard=Plantera ZombieElfGirl=Plantera ElfArcher=Plantera GingerbreadMan=Plantera Nutcracker=Plantera NutcrackerSpinning=Plantera Yeti=Plantera ElfCopter=Plantera Krampus=Plantera Flocko=Plantera Everscream=Plantera SantaNK1=Plantera IceQueen=Plantera PresentMimic=Plantera "
 			+ "MartianProbe=Golem BrainScrambler=Golem GrayGrunt=Golem RayGunner=Golem MartianOfficer=Golem MartianEngineer=Golem MartianTurret=Golem MartianDrone=Golem GigaZapper=Golem ScutlixRider=Golem Scutlix=Golem MartianWalker=Golem MartianSaucer=Golem MartianSaucerCannon=Golem MartianSaucerTurret=Golem MartianSaucerCore=Golem "
-			+ "Steampunker=mechs:any Cyborg=Plantera"));
+			+ "Steampunker=mechs:any Cyborg=Plantera CultistDevote=Golem CultistArcherBlue=Golem CultistArcherWhite=Golem"));
+
+	// A vanilla boss's minions and loose parts, which only exist in its fight, as the boss's step: the Eye's servants
+	// (NPC.cs:14964), the Brain's Creepers (:27227), the Wall's Hungry and Leech (:20456, :20783, :86256) and eyes,
+	// Skeletron's hands (:16486), the Destroyer's Probes (:14583), Prime's arms (:22410-22426), Plantera's hooks and
+	// tentacles (:26572, :26831), Golem's fists and free head (:14307-14309, :83836), Duke Fishron's Sharkrons and bubbles
+	// (:43567), the Queen Slime's minions, the Lunatic Cultist's dragons, visions, clones and lights (:58482-58784) and
+	// Moon Lord's True Eyes and leech clots.
+	private static readonly Dictionary<string, string> VanillaMinions = Pairs("ServantofCthulhu=EyeofCthulhu Creeper=EaterofWorldsHead TheHungry=Hardmode TheHungryII=Hardmode LeechHead=Hardmode LeechBody=Hardmode LeechTail=Hardmode WallofFleshEye=Hardmode SkeletronHand=SkeletronHead Probe=TheDestroyer PrimeCannon=SkeletronPrime PrimeSaw=SkeletronPrime PrimeVice=SkeletronPrime PrimeLaser=SkeletronPrime PlanterasHook=Plantera PlanterasTentacle=Plantera GolemFistLeft=Golem GolemFistRight=Golem GolemHeadFree=Golem Sharkron=DukeFishron Sharkron2=DukeFishron DetonatingBubble=DukeFishron QueenSlimeMinionBlue=QueenSlimeBoss QueenSlimeMinionPink=QueenSlimeBoss QueenSlimeMinionPurple=QueenSlimeBoss CultistDragonHead=CultistBoss CultistDragonBody1=CultistBoss CultistDragonBody2=CultistBoss CultistDragonBody3=CultistBoss CultistDragonBody4=CultistBoss CultistDragonTail=CultistBoss AncientCultistSquidhead=CultistBoss CultistBossClone=CultistBoss AncientLight=CultistBoss AncientDoom=CultistBoss MoonLordFreeEye=PostHardmode MoonLordLeechBlob=PostHardmode");
+
+	// A mod boss's minions: the mod's NPC types the boss's own class names through ModContent.NPCType<T>() (Signus's
+	// Cosmic Lanterns and Mines, Supreme Calamitas's brothers and Sepulcher, Astrum Aureus's spawn), by the earliest boss
+	// that names one. Read once (BookSteps' NPCs are fixed after loading).
+	private static Dictionary<int, int> modMinions;
 
 	// Calamity's town NPCs (CanTownNPCSpawn): the Archmage after Cryogen, the Sea King after the Desert Scourge and
 	// the Giant Clam, the Brimstone Witch after Supreme Calamitas. The Bohldohr lives in the Jungle Temple
@@ -221,6 +236,11 @@ internal static class BookProgressionSources
 		{
 			return step;
 		}
+		step = MinionStep(type);
+		if (step >= 0)
+		{
+			return step;
+		}
 		BookStage stage = NpcStage(type);
 		ModNPC modNpc = NPCLoader.GetNPC(type);
 		string term = NpcTerm(modNpc, type, out BookStage termStage);
@@ -233,6 +253,60 @@ internal static class BookProgressionSources
 			return Step(AcidRainTerms[rain.Tier], stage == BookStage.Unknown ? BookStage.PreHardmode : stage);
 		}
 		return BookSteps.Of(stage);
+	}
+
+	// The step of the boss whose fight a minion belongs to (VanillaMinions, ModMinions); -1 for any other NPC. A mod NPC
+	// that also spawns on its own (the spawn probe saw it: the Hive Mind's Dank Creepers roam the Corruption) or with the
+	// Acid Rain is none.
+	internal static int MinionStep(int type)
+	{
+		ModNPC modNpc = NPCLoader.GetNPC(type);
+		if (modNpc == null)
+		{
+			return NPCID.Search.TryGetName(type, out string name) && VanillaMinions.TryGetValue(name, out string boss) ? BookSteps.Resolve(boss) : -1;
+		}
+		return BookSpawnGates.Of(type) == null && BookBestiary.AcidRainOf(type) == null && ModMinions().TryGetValue(type, out int step) ? step : -1;
+	}
+
+	private static Dictionary<int, int> ModMinions()
+	{
+		if (modMinions != null)
+		{
+			return modMinions;
+		}
+		modMinions = new Dictionary<int, int>();
+		MethodInfo npcType = typeof(ModContent).GetMethods(BindingFlags.Public | BindingFlags.Static).First((MethodInfo m) => m.Name == nameof(ModContent.NPCType) && m.IsGenericMethodDefinition);
+		Dictionary<Type, int> types = new Dictionary<Type, int>();
+		foreach (ModNPC npc in ModContent.GetContent<ModNPC>())
+		{
+			types.TryAdd(npc.GetType(), npc.Type);
+		}
+		for (int k = 1; k < BookSteps.All.Count; k++)
+		{
+			foreach (int boss in BookSteps.All[k].Npcs)
+			{
+				if (NPCLoader.GetNPC(boss) is not ModNPC modBoss)
+				{
+					continue;
+				}
+				foreach (MethodInfo method in Methods(modBoss.GetType()))
+				{
+					foreach ((System.Reflection.Emit.OpCode _, MemberInfo member) in BookItemTraits.IlMembers(method, (System.Reflection.Emit.OpCode op) => op == System.Reflection.Emit.OpCodes.Call))
+					{
+						if (member is MethodInfo { IsGenericMethod: true } call && call.GetGenericMethodDefinition() == npcType && types.TryGetValue(call.GetGenericArguments()[0], out int minion) && BookSteps.Npc(minion) < 0 && BookSteps.MiniBoss(minion) < 0 && !ContentSamples.NpcsByNetId[minion].townNPC)
+						{
+							modMinions[minion] = Math.Min(modMinions.GetValueOrDefault(minion, k), k);
+						}
+					}
+				}
+			}
+		}
+		return modMinions;
+		// A class's own methods and those of its nested types (lambdas, local closures).
+		static IEnumerable<MethodInfo> Methods(Type type)
+		{
+			return type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly).Concat(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic).SelectMany(Methods));
+		}
 	}
 
 	private static string NpcTerm(ModNPC modNpc, int type, out BookStage stage)
@@ -336,10 +410,94 @@ internal static class BookProgressionSources
 	// (BookSpawnGates.ProbeSteps): their step, or -2 for a condition that waits for something else than progression.
 	private static Dictionary<object, int> probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
 
+	// Opaque drop conditions no progression of this world meets, by what does: the step one comes before (true with
+	// nothing down, false from that step on: Calamity's "!NPC.downedBoss2" Ashen Stalactite), or the other world one
+	// belongs to (OtherWorlds: Supreme Calamitas's Levi in Death mode).
+	private static Dictionary<object, int> before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+
+	private static Dictionary<object, (string Key, string Arg)[]> otherWorld = new Dictionary<object, (string, string)[]>(ReferenceEqualityComparer.Instance);
+
 	internal static void Clear()
 	{
 		calamityDropGates = null;
 		probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		otherWorld = new Dictionary<object, (string, string)[]>(ReferenceEqualityComparer.Instance);
+	}
+
+	// The secret seeds by the Main flag each sets, as the seed is typed (UIWorldCreation.ProcessSeed; the drunk world's
+	// is its date).
+	private static readonly (string Field, string Seed)[] Seeds = { ("drunkWorld", "05162020"), ("getGoodWorld", "for the worthy"), ("tenthAnniversaryWorld", "celebrationmk10"), ("dontStarveWorld", "the constant"), ("notTheBeesWorld", "not the bees"), ("remixWorld", "don't dig up"), ("noTrapsWorld", "no traps"), ("zenithWorld", "get fixed boi") };
+
+	// Vanilla's seed drop conditions, which have no text of their own: the seed and whether they need it (true) or its
+	// absence (false); the remix seed's two split by hardmode (Conditions.RemixSeedEasymode/Hardmode).
+	private static readonly Dictionary<string, (string Field, bool With, string Key)> VanillaSeedConditions = new Dictionary<string, (string, bool, string)>(StringComparer.Ordinal)
+	{
+		["RemixSeed"] = ("remixWorld", true, null), ["NotRemixSeed"] = ("remixWorld", false, null),
+		["RemixSeedEasymode"] = ("remixWorld", true, "KillConditions.SeedBeforeHardmode"), ["RemixSeedHardmode"] = ("remixWorld", true, "KillConditions.SeedInHardmode"),
+		["TenthAnniversaryIsUp"] = ("tenthAnniversaryWorld", true, null), ["TenthAnniversaryIsNotUp"] = ("tenthAnniversaryWorld", false, null),
+		["DontStarveIsUp"] = ("dontStarveWorld", true, null), ["DontStarveIsNotUp"] = ("dontStarveWorld", false, null),
+		["DrunkWorldIsUp"] = ("drunkWorld", true, null), ["DrunkWorldIsNotUp"] = ("drunkWorld", false, null),
+		["ForTheWorthyIsUp"] = ("getGoodWorld", true, null), ["ForTheWorthyIsNotUp"] = ("getGoodWorld", false, null),
+		["BeesSeed"] = ("notTheBeesWorld", true, null), ["NotBeesSeed"] = ("notTheBeesWorld", false, null),
+		["NoTrapsSeed"] = ("noTrapsWorld", true, null), ["NotNoTrapsSeed"] = ("noTrapsWorld", false, null),
+		["ZenithSeedIsUp"] = ("zenithWorld", true, null), ["ZenithSeedIsNotUp"] = ("zenithWorld", false, null)
+	};
+
+	// The label of a vanilla seed condition (key and the seed), null for any other.
+	internal static (string Key, string Arg)? SeedLabel(IItemDropRuleCondition condition)
+	{
+		if (condition == null || condition.GetType().Assembly != typeof(Main).Assembly || !VanillaSeedConditions.TryGetValue(condition.GetType().Name, out var seed))
+		{
+			return null;
+		}
+		string name = Seeds.First(((string Field, string Seed) s) => s.Field == seed.Field).Seed;
+		return (seed.Key ?? (seed.With ? "KillConditions.WithSeed" : "KillConditions.WithoutSeed"), name);
+	}
+
+	// The worlds an opaque drop condition (a mod's lambda reading Main.expertMode, a seed flag or Calamity's difficulty)
+	// is asked in besides this one, one flag at a time and each put back: the other difficulties (Main.GameMode),
+	// Calamity's Revengeance and Death (CalamityWorld.revenge and .death), every seed flipped, single player or
+	// multiplayer (Calamity's StarterBag and AbyssalTreasure: Main.netMode == 1), the world's copper or tin (StarterBag:
+	// WorldGen.SavedOreTiers.Copper == 166), its evil outside a drunk world (StuffedFish: !WorldGen.crimson; a drunk world
+	// turns it over every dawn, EventGate) and a Hardcore character (DevourerofGodsBag's Cosmic Plushie:
+	// info.player.difficulty == 2). Each with the label of what the condition then needs.
+	private static List<(Action Apply, Action Restore, string Key, string Arg)> OtherWorlds()
+	{
+		List<(Action, Action, string, string)> worlds = new List<(Action, Action, string, string)>();
+		int mode = Main.GameMode;
+		foreach ((int other, string key) in new[] { ((int)GameModeID.Normal, "Common.Classic"), ((int)GameModeID.Expert, "Common.ExpertMaster"), ((int)GameModeID.Master, "Common.Master") })
+		{
+			if (other != mode)
+			{
+				worlds.Add((() => Main.GameMode = other, () => Main.GameMode = mode, key, null));
+			}
+		}
+		Type calamity = ModLoader.TryGetMod("CalamityMod", out Mod mod) ? mod.Code.GetType("CalamityMod.World.CalamityWorld") : null;
+		IEnumerable<(FieldInfo Field, string On, string Off, string Arg)> flags = new[] { ("revenge", "KillConditions.Revengeance", "KillConditions.WithoutRevengeance"), ("death", "KillConditions.Death", "KillConditions.WithoutDeath") }
+			.Select(((string Name, string On, string Off) x) => (calamity?.GetField(x.Name, BindingFlags.Public | BindingFlags.Static), x.On, x.Off, (string)null))
+			.Concat(Seeds.Select(((string Field, string Seed) x) => (typeof(Main).GetField(x.Field, BindingFlags.Public | BindingFlags.Static), "KillConditions.WithSeed", "KillConditions.WithoutSeed", x.Seed)));
+		foreach ((FieldInfo field, string on, string off, string arg) in flags)
+		{
+			if (field?.FieldType == typeof(bool) && field.GetValue(null) is bool now)
+			{
+				worlds.Add((() => field.SetValue(null, !now), () => field.SetValue(null, now), now ? off : on, arg));
+			}
+		}
+		int net = Main.netMode;
+		worlds.Add((() => Main.netMode = net == NetmodeID.MultiplayerClient ? NetmodeID.SinglePlayer : NetmodeID.MultiplayerClient, () => Main.netMode = net, net == NetmodeID.MultiplayerClient ? "BestiaryLoot.InSinglePlayer" : "BestiaryLoot.InMultiplayer", null));
+		int copper = WorldGen.SavedOreTiers.Copper;
+		int otherCopper = copper == TileID.Tin ? TileID.Copper : TileID.Tin;
+		worlds.Add((() => WorldGen.SavedOreTiers.Copper = otherCopper, () => WorldGen.SavedOreTiers.Copper = copper, otherCopper == TileID.Tin ? "BestiaryLoot.TinWorld" : "BestiaryLoot.CopperWorld", null));
+		if (!Main.drunkWorld)
+		{
+			bool crimson = WorldGen.crimson;
+			worlds.Add((() => WorldGen.crimson = !crimson, () => WorldGen.crimson = crimson, crimson ? "BestiaryLoot.CorruptionWorld" : "BestiaryLoot.CrimsonWorld", null));
+		}
+		Player player = Main.LocalPlayer;
+		byte difficulty = player.difficulty;
+		worlds.Add((() => player.difficulty = difficulty == PlayerDifficultyID.Hardcore ? PlayerDifficultyID.SoftCore : PlayerDifficultyID.Hardcore, () => player.difficulty = difficulty, difficulty == PlayerDifficultyID.Hardcore ? "BestiaryLoot.NotHardcoreCharacter" : "BestiaryLoot.HardcoreCharacter", null));
+		return worlds;
 	}
 
 	// Probes every condition the tables cannot read: drop conditions with a sample of the NPC that drops them (bags
@@ -347,26 +505,22 @@ internal static class BookProgressionSources
 	internal static int ProbeOpaque(IEnumerable<(IItemDropRuleCondition Condition, NPC Npc)> drops, IEnumerable<Condition> conditions)
 	{
 		probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		otherWorld = new Dictionary<object, (string, string)[]>(ReferenceEqualityComparer.Instance);
 		List<object> keys = new List<object>();
 		List<Func<bool>> tests = new List<Func<bool>>();
 		HashSet<object> seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
 		foreach ((IItemDropRuleCondition condition, NPC npc) in drops)
 		{
-			if (condition != null && seen.Add(condition) && DropConditionStep(condition) == null)
+			if (condition != null && seen.Add(condition) && ReadDropConditionStep(condition) == null)
 			{
-				DropAttemptInfo info = new DropAttemptInfo
-				{
-					player = Main.LocalPlayer,
-					npc = npc ?? new NPC(),
-					IsExpertMode = Main.expertMode,
-					IsMasterMode = Main.masterMode,
-					IsInSimulation = true,
-					rng = Main.rand
-				};
+				// Built at each call: a flipped difficulty is read from the attempt too (IsExpertMode).
+				NPC sample = npc ?? new NPC();
 				keys.Add(condition);
-				tests.Add(() => condition.CanDrop(info));
+				tests.Add(() => condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, npc = sample, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand }));
 			}
 		}
+		int drop = keys.Count;
 		foreach (Condition condition in conditions)
 		{
 			if (condition != null && seen.Add(condition) && ConditionStep(condition) == null)
@@ -383,7 +537,168 @@ internal static class BookProgressionSources
 			probed[keys[i]] = step < 0 ? -2 : step;
 			placed += step >= 0 ? 1 : 0;
 		}
+		// The drop conditions no step of this world opens: a step they come before (the negation's answer, when the
+		// condition itself held with nothing down), else the first other world in which some step opens them or they
+		// hold before one.
+		List<int> left = Enumerable.Range(0, drop).Where((int i) => answers[i] == null).ToList();
+		string[] negations = BookSpawnGates.ProbeSteps(left.Select((int i) => (Func<bool>)(() => !tests[i]())).ToList());
+		for (int n = 0; n < left.Count; n++)
+		{
+			if (!string.IsNullOrEmpty(negations[n]) && BookSteps.Resolve(negations[n]) is int step && step > 0)
+			{
+				before[keys[left[n]]] = step;
+			}
+		}
+		left = left.Where((int i) => !before.ContainsKey(keys[i])).ToList();
+		// One flip at a time, then two together for what is left (Death mode and a Hardcore character).
+		List<(Action Apply, Action Restore, string Key, string Arg)> worlds = OtherWorlds();
+		IEnumerable<int[]> flips = Enumerable.Range(0, worlds.Count).Select((int a) => new[] { a })
+			.Concat(Enumerable.Range(0, worlds.Count).SelectMany((int a) => Enumerable.Range(a + 1, worlds.Count - a - 1).Select((int b) => new[] { a, b })));
+		foreach (int[] flip in flips)
+		{
+			if (left.Count == 0)
+			{
+				break;
+			}
+			string[] there, thereBefore;
+			try
+			{
+				foreach (int w in flip)
+				{
+					worlds[w].Apply();
+				}
+				List<Func<bool>> asked = left.Select((int i) => tests[i]).ToList();
+				there = BookSpawnGates.ProbeSteps(asked);
+				thereBefore = BookSpawnGates.ProbeSteps(asked.Select((Func<bool> test) => (Func<bool>)(() => !test())).ToList());
+			}
+			finally
+			{
+				foreach (int w in Enumerable.Reverse(flip))
+				{
+					worlds[w].Restore();
+				}
+			}
+			for (int n = 0; n < left.Count; n++)
+			{
+				if (there[n] != null || !string.IsNullOrEmpty(thereBefore[n]))
+				{
+					otherWorld[keys[left[n]]] = flip.Select((int w) => (worlds[w].Key, worlds[w].Arg)).ToArray();
+				}
+			}
+			left = left.Where((int i) => !otherWorld.ContainsKey(keys[i])).ToList();
+		}
 		return placed;
+	}
+
+	// World events a drop lambda may wait for, asked with the flag on and off and put back: the label of the state it
+	// needs, null when no event changes it. Calamity's Eidolist drops its Eidolon Tablet only while no Lunar Event is on
+	// (Eidolist.ModifyNPCLoot: "!NPC.LunarApocalypseIsUp").
+	// So is a drunk world's evil, which it turns over every dawn (Main.UpdateTime_StartDay): Calamity's StuffedFish gives
+	// Corrupt Seeds (AddIf "!WorldGen.crimson") on its Corruption days.
+	private static readonly (FieldInfo Flag, string On, string Off)[] Events = { (typeof(NPC).GetField(nameof(NPC.LunarApocalypseIsUp)), "KillConditions.DuringLunarEvents", "KillConditions.NotDuringLunarEvents") };
+
+	private static readonly (FieldInfo Flag, string On, string Off) DrunkEvil = (typeof(WorldGen).GetField(nameof(WorldGen.crimson)), "BestiaryLoot.OnCrimsonDays", "BestiaryLoot.OnCorruptionDays");
+
+	internal static string EventGate(Func<bool> holds)
+	{
+		foreach ((FieldInfo flag, string on, string off) in Main.drunkWorld ? Events.Append(DrunkEvil) : Events)
+		{
+			object now = flag.GetValue(null);
+			bool withOn, withOff;
+			try
+			{
+				flag.SetValue(null, true);
+				withOn = holds();
+				flag.SetValue(null, false);
+				withOff = holds();
+			}
+			finally
+			{
+				flag.SetValue(null, now);
+			}
+			if (withOn != withOff)
+			{
+				return withOn ? on : off;
+			}
+		}
+		return null;
+	}
+
+	// The step an opaque drop condition comes before (BookSpawnGates' probe of its negation), else 0.
+	internal static int BeforeStep(IItemDropRuleCondition condition)
+	{
+		return condition != null && before.TryGetValue(condition, out int step) ? step : 0;
+	}
+
+	// The other world an opaque drop condition belongs to, as the label keys and arguments of what it needs (one flip, or
+	// two together); null for this world's.
+	internal static (string Key, string Arg)[] OtherWorldOf(IItemDropRuleCondition condition)
+	{
+		return condition != null && otherWorld.TryGetValue(condition, out var world) ? world : null;
+	}
+
+	// Whether only the world's progression decides a drop condition, so that asking it now says whether it holds in this
+	// world now: a step it comes before (BeforeStep), one the tables or the probe found (a probed mod lambda, a wrapped
+	// Condition the tables know, Calamity's ore gates), vanilla's boss flags, and the failed branch of any of them. Not a
+	// gate whose answer also needs the kill, the player's place, a season or a moon's wave (keys, souls, Halloween, the
+	// moons' wave odds: their Conditions.*.CanDrop ask !info.IsInSimulation or roll).
+	internal static bool FollowsProgression(IItemDropRuleCondition condition)
+	{
+		if (condition == null || BeforeStep(condition) > 0 || CalamityDropGate(condition) != null)
+		{
+			return true;
+		}
+		if (condition is BookItemSources.NotCondition not)
+		{
+			return Probed(not) != null || FollowsProgression(not.Inner);
+		}
+		if (condition is SimpleItemDropRuleCondition simple)
+		{
+			string key = WrappedKey(simple);
+			bool known = key != null && (VanillaConditions.ContainsKey(key) || (key.StartsWith(CalamityConditionPrefix, StringComparison.Ordinal) && CalamityConditions.TryGetValue(key.Substring(CalamityConditionPrefix.Length), out var calamity) && calamity.Term.Length > 0));
+			return known || Probed(condition) != null;
+		}
+		if (condition.GetType().Assembly == typeof(Main).Assembly)
+		{
+			return condition.GetType().Name is "IsHardmode" or "DownedAllMechBosses" or "DownedPlantera" or "FirstTimeKillingPlantera" or "BeatAnyMechBoss";
+		}
+		return Probed(condition) != null;
+	}
+
+	// Calamity's ore gates as their mechanical-boss term ("mechs:any", "mechs:two", "mechs:all": DropHelper.MythrilCondition,
+	// AdamantiteCondition, HallowedBarsCondition read NPC.downedMechBossAny or two or three of the flags), also through
+	// the failed branch (negated); null for any other condition and with the Early Hardmode Progression Rework off.
+	internal static string MechGate(IItemDropRuleCondition condition, out bool negated)
+	{
+		negated = condition is BookItemSources.NotCondition;
+		string gate = CalamityDropGate(condition is BookItemSources.NotCondition not ? not.Inner : condition);
+		return string.IsNullOrEmpty(gate) ? null : gate;
+	}
+
+	// A seed Condition.ToDropCondition wraps (Calamity's DropHelper.GFB: "Conditions.WorldZenith"; NotRemix:
+	// "Conditions.WorldNotRemix"; Terraria.Condition keys them "Conditions.World[Not]<seed>") as the seed typed and
+	// whether it needs it; null for any other key.
+	internal static (string Seed, bool With)? WrappedSeed(string key)
+	{
+		if (key == null || !key.StartsWith("Conditions.World", StringComparison.Ordinal))
+		{
+			return null;
+		}
+		string name = key.Substring("Conditions.World".Length);
+		bool with = name == "NotTheBees" || !name.StartsWith("Not", StringComparison.Ordinal);
+		string field = (with ? name : name.Substring(3)) switch
+		{
+			"Drunk" => "drunkWorld",
+			"Remix" => "remixWorld",
+			"NotTheBees" => "notTheBeesWorld",
+			"ForTheWorthy" => "getGoodWorld",
+			"Anniversary" => "tenthAnniversaryWorld",
+			"DontStarve" => "dontStarveWorld",
+			"NoTraps" => "noTrapsWorld",
+			"Zenith" => "zenithWorld",
+			_ => null
+		};
+		return field == null ? null : (Seeds.First(((string Field, string Seed) s) => s.Field == field).Seed, with);
 	}
 
 	private static int? Probed(object condition)
@@ -458,7 +773,7 @@ internal static class BookProgressionSources
 	}
 
 	// "NPCName.Pirate" or "Mods.CalamityMod.NPCs.<category...>.SeaKing.DisplayName" back to the NPC type.
-	private static int? NpcFromNameKey(string key)
+	internal static int? NpcFromNameKey(string key)
 	{
 		if (key == null)
 		{
@@ -505,8 +820,15 @@ internal static class BookProgressionSources
 	}
 
 	// Same for item drop rule conditions. Condition.ToDropCondition wraps a recipe-style Condition (Calamity
-	// uses it for Zenith-world and Revengeance drops), which is read by its key.
+	// uses it for Zenith-world and Revengeance drops), which is read by its key. A condition that tests the dying NPC
+	// (BookKillConditions: Astrum Deus's split worms) is no progression gate unless the probe found one in it too, and
+	// neither is one that comes before a step (BeforeStep): both are there from the start.
 	internal static int? DropConditionStep(IItemDropRuleCondition condition)
+	{
+		return ReadDropConditionStep(condition) ?? (BookKillConditions.TestsNpc(condition) || BeforeStep(condition) > 0 ? 0 : null);
+	}
+
+	private static int? ReadDropConditionStep(IItemDropRuleCondition condition)
 	{
 		if (condition == null)
 		{
@@ -548,22 +870,79 @@ internal static class BookProgressionSources
 		return key != null && ModeConditions.Contains(key) && !isMet();
 	}
 
-	internal static bool ModeBlocked(IItemDropRuleCondition condition)
+	// Vanilla's Bestiary leaves out a drop any of whose conditions answers CanShowItemDropInUI false
+	// (ItemDropBestiaryInfoElement.ShouldShowItem). The book lists on purpose what that hides only while it does not hold:
+	// another world's rule (NotExpert in Expert) and loot that waits for a boss (ShowItemDropInUI.WhenConditionSatisfied).
+	// So a drop is left out of the card, How to Get and the stages when one of its conditions answers false for good
+	// (ShowItemDropInUI.Never; Calamity's "ui: false", a bool its CanShowItemDropInUI returns: Morshu's loot, Bohldohr's NO,
+	// Supreme Calamitas's Coldheart Icicle) or is neither of those. A rule only another world has is listed anyway, as that
+	// world's (Bohldohr's NO needs a Zenith world): it is no source here, and the progression marks it so (DropFloor).
+	internal static bool HiddenFromUI(DropRateInfo rate)
 	{
-		return ModeGate(condition) == false;
+		return (rate.conditions?.Any(HiddenFromUI) ?? false) && !rate.conditions.Any(ModeBlocked);
 	}
 
-	// Drop conditions that read only the world's seed, which never changes: judged by asking them.
-	private static readonly HashSet<string> SeedGates = Set("DontStarveIsUp DontStarveIsNotUp DrunkWorldIsUp DrunkWorldIsNotUp ForTheWorthyIsUp ForTheWorthyIsNotUp TenthAnniversaryIsUp TenthAnniversaryIsNotUp ZenithSeedIsUp ZenithSeedIsNotUp BeesSeed NotBeesSeed NoTrapsSeed NotNoTrapsSeed RemixSeed NotRemixSeed");
+	private static bool HiddenFromUI(IItemDropRuleCondition condition)
+	{
+		try
+		{
+			if (condition is BookItemSources.NotCondition not)
+			{
+				return HiddenFromUI(not.Inner);
+			}
+			if (condition == null || condition.CanShowItemDropInUI())
+			{
+				return false;
+			}
+			if (condition is SimpleItemDropRuleCondition { ShowItemDropInUI: ShowItemDropInUI.Never })
+			{
+				return true;
+			}
+			// An answer made of the condition's own fields only (no call, no static flag) never changes.
+			MethodInfo show = condition.GetType().GetMethod(nameof(IItemDropRuleCondition.CanShowItemDropInUI), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, Type.EmptyTypes);
+			if (show != null && BookItemTraits.IlMembers(show, (System.Reflection.Emit.OpCode _) => true).All(((System.Reflection.Emit.OpCode Op, MemberInfo Member) x) => x.Member is FieldInfo { IsStatic: false }))
+			{
+				return true;
+			}
+			// Vanilla's own answers that change are all this world's difficulty, seed or evil (Conditions.NotExpert,
+			// IsCrimson... ), which the book reads itself, even where it cannot fix them (the evil of a drunk world).
+			return condition.GetType().Assembly != typeof(Main).Assembly && WorldGate(condition) == null && !(DropConditionStep(condition) > 0);
+		}
+		catch (Exception)
+		{
+			return false;
+		}
+	}
+
+	// A difficulty gate this world fails, or an opaque condition only another world meets (OtherWorldOf).
+	internal static bool ModeBlocked(IItemDropRuleCondition condition)
+	{
+		return ModeGate(condition) == false || OtherWorldOf(condition) != null;
+	}
+
+	// Drop conditions that read only the world's seed, which never changes, or its evil and difficulty (the Eye of
+	// Cthulhu's ore and seeds, in Classic and in its bag; EitherEvil in a drunk world): judged by asking them.
+	private static readonly HashSet<string> SeedGates = Set("DontStarveIsUp DontStarveIsNotUp DrunkWorldIsUp DrunkWorldIsNotUp ForTheWorthyIsUp ForTheWorthyIsNotUp TenthAnniversaryIsUp TenthAnniversaryIsNotUp ZenithSeedIsUp ZenithSeedIsNotUp BeesSeed NotBeesSeed NoTrapsSeed NotNoTrapsSeed RemixSeed NotRemixSeed IsCorruption IsCrimson IsCorruptionAndNotExpert IsCrimsonAndNotExpert");
 
 	// For the loot lists: whether a condition fixed for this world (difficulty or seed) holds; null when it is not fixed.
-	// The remix seed's hardmode/pre-hardmode drops fail outside a remix world and are a hardmode condition inside one.
-	// Progression keeps its own reading of seeds (DropConditionStep).
+	// The remix seed's hardmode/pre-hardmode drops fail outside a remix world and are a hardmode condition inside one, and
+	// so does Mechdusa's kill outside a remix For the Worthy world (Conditions.MechdusaKill). An opaque condition only
+	// another world meets (OtherWorldOf) fails here too. Progression keeps its own reading of seeds (DropConditionStep).
 	internal static bool? WorldGate(IItemDropRuleCondition condition)
 	{
 		if (ModeGate(condition) is bool mode)
 		{
 			return mode;
+		}
+		if (OtherWorldOf(condition) != null)
+		{
+			return false;
+		}
+		// A seed or the world's evil wrapped by Condition.ToDropCondition (Calamity's DropHelper.Remix, NotRemix and GFB;
+		// Condition.RemixWorld and its kin are keyed "Conditions.World...").
+		if (condition is SimpleItemDropRuleCondition simple && WrappedKey(simple) is string key && key.StartsWith("Conditions.World", StringComparison.Ordinal))
+		{
+			return key is "Conditions.WorldCrimson" or "Conditions.WorldCorrupt" ? EitherEvil(simple.Predicate) : simple.Predicate();
 		}
 		if (condition == null || condition.GetType().Assembly != typeof(Main).Assembly)
 		{
@@ -572,9 +951,34 @@ internal static class BookProgressionSources
 		string name = condition.GetType().Name;
 		if (SeedGates.Contains(name))
 		{
-			return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, IsInSimulation = true, rng = Main.rand });
+			Func<bool> holds = () => condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, IsInSimulation = true, rng = Main.rand });
+			return name.Contains("Corruption", StringComparison.Ordinal) || name.Contains("Crimson", StringComparison.Ordinal) ? EitherEvil(holds) : holds();
 		}
-		return (name is "RemixSeedEasymode" or "RemixSeedHardmode") && !Main.remixWorld ? false : null;
+		return ((name is "RemixSeedEasymode" or "RemixSeedHardmode") && !Main.remixWorld) || (name == "MechdusaKill" && !(Main.remixWorld && Main.getGoodWorld)) ? false : null;
+	}
+
+	// A condition on the world's evil: fixed outside a drunk world. A drunk world has both evils and turns WorldGen.crimson
+	// over every dawn (Main.UpdateTime_StartDay), so there it is a gate only when both evils agree (Classic loot in Expert).
+	private static bool? EitherEvil(Func<bool> holds)
+	{
+		if (!Main.drunkWorld)
+		{
+			return holds();
+		}
+		bool now = WorldGen.crimson;
+		bool crimson, corrupt;
+		try
+		{
+			WorldGen.crimson = true;
+			crimson = holds();
+			WorldGen.crimson = false;
+			corrupt = holds();
+		}
+		finally
+		{
+			WorldGen.crimson = now;
+		}
+		return crimson == corrupt ? crimson : null;
 	}
 
 	// Whether a drop condition that is a difficulty gate holds in the current world; null when it is no difficulty gate.
@@ -616,7 +1020,7 @@ internal static class BookProgressionSources
 	}
 
 	// The description is the "Drops: {0}" template; the wrapped Condition's text is its first argument.
-	private static string WrappedKey(SimpleItemDropRuleCondition simple)
+	internal static string WrappedKey(SimpleItemDropRuleCondition simple)
 	{
 		return ((simple.Description?.BoundArgs?.FirstOrDefault() as LocalizedText) ?? simple.Description)?.Key;
 	}
@@ -624,6 +1028,12 @@ internal static class BookProgressionSources
 	private static HashSet<string> Set(string names)
 	{
 		return new HashSet<string>(names.Split(' ', StringSplitOptions.RemoveEmptyEntries), StringComparer.Ordinal);
+	}
+
+	// "name=value name=value".
+	private static Dictionary<string, string> Pairs(string pairs)
+	{
+		return pairs.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select((string p) => p.Split('=')).ToDictionary((string[] p) => p[0], (string[] p) => p[1], StringComparer.Ordinal);
 	}
 
 	private static Dictionary<string, BookStage> Stages(string pre, string hard, string post)

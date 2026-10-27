@@ -3,6 +3,118 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.18.0 — 2026-10-27
+
+### Added
+- The item card of anything with loot of its own (boss Treasure Bags, fishing crates, presents, Calamity's bags and
+  geodes) gets a third mode, **Contents**: what it holds, with the same rows, chances, conditions and hover as the
+  mob card's loot. A Treasure Bag on a mob card and a Container row in How to Get open it straight on its Contents.
+- The item card's header names the item's category after its mod ("Terraria · Weapons › Whips"): what the item is,
+  the most specific sidebar category, with its group when there is room (a long mod name shortens first). Clicking a part
+  of the path opens Items on that category with the search cleared and every other filter kept, the item still selected;
+  Back returns.
+- How to Get: every row that stands for an item opens that item's card (what shimmers or turns into it, the machine,
+  what a trade takes, the chest it lies in); a container still opens on its Contents. Tracked goals' ingredient and
+  station rows open their item too.
+- How to Get knows what world generation puts in chests, vanilla's and Calamity's (labs, shrines, Abyss, Astral,
+  Sulphurous Sea, Crag, Vernal Pass…): 299 items get a chest row with chance and stack per chest, boss and key. The Herb
+  Bag reads "Surface chests 16.67% ×1–4" and "Draedon's lab in the sky 100% ×12–17".
+- How to Get: Defender Medals from the Old One's Army's waves, the potions every boss leaves when it dies, Calamity's
+  Greed Pot ores, Novae Slag and Celestial Remains in an Extractinator, shaken Astral trees, Sulphurous Pots, and
+  shimmer decrafting (one row per material). Lock boxes name their key; Capricorn Hooves and Tail are a swap, not a
+  container.
+- Stages: container loot no longer gets a rarity guess (Bloodstone and Supreme Healing Potion after Providence, the
+  Golden Lock Box after Skeletron, Defender Medals from the Eater of Worlds on); what only another difficulty or seed
+  gives (Levi, NO, Coldheart Icicle, Lava Chicken Broth) is "Not in this mode"; Bone Block and two unobtainable music
+  boxes leave the catalogue.
+- Mob cards: "Spawns" says how a mob comes (a boss's summon, "During Signus's fight", "During Celestial Pillars", "Any
+  time"; the Divine Swine "Sky"); boss minions, the Lunatic Devotees and the Old One's Army sit at the right stage, and
+  "Before: Moon Lord" shows Moon Lord.
+- **Quick search**: Ctrl+F anywhere (or the new unbound "Search Everything" key) opens a command palette over items,
+  storage, recipes, Bestiary entries, bosses ("Before: X"), tracked goals, categories and mods, grouped by kind, with
+  scope chips (Tab), the typed words marked, clickable category paths and the book's own links (who drops it, which bag
+  holds it, a mob's notable loot). It finds items by what they are (a category such as "buff" or «крылья», the buff
+  they give, a trait, a class) and by their descriptions and Bestiary texts, below the name matches; English names and
+  IDs work in any language. Every row has a one-click action (Craft, Take, Track, Open; Ctrl+Enter, Alt+T, Alt+F,
+  Alt+G, Alt+U as on the card), the preview shows the selected result with all its actions, and ">" lists the book's
+  commands. Ctrl+F leaves Smart Cursor as it was, and no key pressed in the search reaches the game.
+- **Links everywhere**: every boss, mob, biome, event, item, mod, stage, trait and goal the book names is a link with a
+  hover and a tip, and Back returns: a mob card's stage, biome, spawns, kind, mod, banner and the bosses and bags in
+  its loot conditions; an item card's stage and mod, recipe conditions, the members of "Any Iron Bar", its traits;
+  How to Get's sellers, Angler, rods, pickaxes and music tracks; tracker and Tracking goals, their conditions and set
+  parts; Active Stations' icons; the crafted-item message. Shift+Click on a stage menu boss opens its card, and an
+  empty Used In offers "Show all stages".
+- Boss cards list what the boss leaves on death (potions, hearts) as in How to Get, and Developer set rows list their
+  bags.
+- Storage tab: banks, Magic Storage networks, the carried Portable Access and the stack's mod are links to their cards
+  (or the mod filter); the summary names the banks ("1 storage · Safe, Piggy Bank +1"), and Restock and coin results
+  link the items they name. A card opened from Storage (Mouse3 on a cell, the panel's stack) opens on Recipe, Contents
+  or How to Get instead of Used in.
+- Recent cells show how many the recipe made and when ("Crafted ×6 · 5 min ago").
+- Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
+  Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
+  fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
+  range Deposit All also empties the coin slots, works with no other storage around, and Magic Storage's own Deposit All
+  sends coins to the Piggy Bank first.
+
+### Fixed
+- No drop condition reads "Special condition" any more:
+  - a condition that tests the kill itself (Astrum Deus's split worms, the last Exo Mech, a supercharged Wulfrum
+    robot) says nothing when a normal kill meets it, and otherwise what the kill needs ("While supercharged");
+  - rules of another difficulty, Revengeance/Death or seed say which ("Not in this world · Death mode"), loot that
+    drops only before a boss reads "Before: Eater of Worlds", a boss's own first-kill loot reads "Only the first
+    kill", and gates the world meets say nothing.
+- Loot rows show the rule that applies in your world now: no more "Varies by condition" where the world already
+  decides. Rules that both roll are added up (Moon Lord's bag weapons 48.28% ×1–2, Tempest Staff 47.34%), and How to Get
+  shows the same numbers as the mob card.
+- Drops of another difficulty or seed, and ones your world is already past (first kills, "until a boss" drops,
+  mechanical-boss summons after the boss is beaten), fold into one "Not in this world" row. "Any enemy" lists only the
+  drops that mob can actually give.
+- Clearer condition texts ("Until Polterghast", "After any two mechanical bosses", the Pumpkin and Frost Moon odds by
+  wave). Zero-chance rules are gone, boss-bag coins show their range, mobs that share a name but drop different loot get
+  separate How to Get rows, and the Aquatic Scourge is listed as a boss.
+- In Expert and Master worlds a boss's Classic-only loot is listed as coming from its Treasure Bag ("In Treasure Bag
+  (Empress of Light)", with the bag's chance) on the mob card and in How to Get; the hover marks the boss's own
+  Classic chance as not in this world.
+- Drops of a rule's failed branch (Nova's Starblight Soot, the Caustic Croaker Staff before Aquatic Scourge) are
+  listed under the right condition.
+- Drops the game's Bestiary hides for good (Calamity's hidden drops such as the Coldheart Icicle) are hidden in the
+  card, How to Get and stages too; Windy Balloon kites say they come from the slime they lift.
+- In a drunk world the evil boss step reads "Eater of Worlds or Brain of Cthulhu", and both evils' loot counts as
+  this world's.
+- The mob card no longer shows the previous world's loot after you enter a world of another difficulty.
+- Tracked goals that are already ready when you track them stay on screen; only a goal completed while tracked fades out,
+  2.6 s after completion, whether the book is open or not.
+- Tracker cards take the mouse only with the inventory open (a right-click aims minions through them), untrack with a
+  held right-click, start above the chat, and "+N more" opens the Tracking tab.
+- F1 lists every gesture where it works; Alt+U cycles Recipe / Used In / Contents; Russian set goals are named
+  («Святая броня») and the Russian texts use the game's and Magic Storage's terms.
+- Multiplayer: a Restock or take that lands during Quick Stack no longer destroys the items; a friend can use a Magic
+  Storage network with a password; leaving with Magic Storage's window open no longer makes that network the next
+  player's; items in flight go back before the server's last save; a Void Bag no longer locks Quick Stack.
+- Storage tab: a cell and its panel count that cell's prefix; the panel's item opens its card and takes a held item;
+  Restock says what it took; station rows say Nearby, Interface or Not nearby; Recent records crafts made in Magic
+  Storage's window. With the book closed, a storage change costs about 60 µs instead of 2 ms.
+- The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
+  Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
+- Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
+- Calamity's first-kill loot always reads "Only the first kill" in the book's language and folds into "already past"
+  once it no longer drops: Astrum Deus's lore items after Deus, Dreadnautilus's Blood Moon lore, the Brain of
+  Cthulhu's Corruption lore. Before, they showed Calamity's English text as this world's loot.
+- A drop that only follows another of the same item is part of its row: Abyssal and Sulphuric Treasure's Healing
+  Potion reads "12.86% ×1–2" instead of "Varies by condition" (in Expert one more at 1/3 after the first).
+- Fishing rows show their gates again ("with Wulfrum Fishing Pole", "By day", "Hardmode", "In lava").
+- Ctrl+Backspace resets the filters while you type in the search too, as "Nothing found · Ctrl+Backspace resets
+  filters" says.
+- Stages: a crafted item is never placed before its own recipe (Solar Sink after the Lunatic Cultist, Cactus Bookcase
+  after Skeletron, Pumpkin Moon Medallion after Plantera, Zenith Throne after Yharon); rarity only guesses for items
+  with no source the book can open.
+- Stages: Cascade waits for Skeletron, Yelets for a mechanical boss, Kraken for Plantera; Sandstone, Hardened Sand,
+  Coral, shells and the Living Loom (and their furniture) are there from the start, the space bricks come after Moon
+  Lord by shimmering Luminite Bricks.
+- Stage hints name chests, structures, quests and events instead of "no source found", and global loot as "drop: Any
+  enemy".
+
 ## 1.17.1 — 2026-10-26
 
 ### Fixed

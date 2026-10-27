@@ -3,7 +3,7 @@ WeaponTraits: Weapon traits
 TickTraitsOnlyWeaponsThatHave: Tick traits: only weapons that have all of them stay
 Hidden: Hidden: {0}
 ReadingItemDescriptions: Reading item descriptions… {0}%
-ShowAll: Show all
+ShowAll: Show All
 UntickEveryTrait: Untick every trait
 NothingIsTicked: Nothing is ticked
 ListedItemsWithIt: Listed items with it: {0}

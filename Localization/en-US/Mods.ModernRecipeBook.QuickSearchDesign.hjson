@@ -1,0 +1,127 @@
+Placeholder: Search items, mobs, bosses, buffs, categories…
+PlaceholderScoped: Search {0}…
+Results: "{0} {^0:result;results}"
+ScopeAll: All
+ScopeBosses: Bosses
+ScopeCategories: Categories
+ScopeTip: Show only {0} · Tab, Shift+Tab
+Scope: scope
+KeyTab: Tab
+KeyArrows: ↑ ↓
+Select: Select
+EmptyHint: Names, English names and IDs · what an item is (buff, wings, homing) · descriptions · > for commands
+NothingFoundHint: Try the English name, a category (potions, wings) or a buff
+SearchBestiary: Search the Bestiary tab
+SearchEverything: Search everything: {0}
+AllInStorage: All {0} on the Storage tab
+AllInRecipes: All {0} on the Recipes tab
+WhyCategory: in {0}
+WhyBuff: gives {0}
+WhyTrait: trait: {0}
+WhyClass: class: {0}
+InStorage: You have {0}
+CanCraft: Can craft ×{0}
+Tracked: Tracked · {0}%
+Favorite: ★ Favorite
+GoalProgress: "{0}% · crafts {1}"
+Description: Description
+SetBonus: Set bonus: {0}
+Flavor: Bestiary
+Loot: Loot
+NoLoot: No loot in this world
+MobStats: Life {0} · Defense {1} · Damage {2}
+Crafted: Crafted at {0}
+ByHand: Crafted by hand
+StageTip: Lists everything this world can get before {0}: the book's stage filter.
+ModTip: Opens Items (or the Bestiary) with only {0}.
+TipsTitle: Search the whole book
+TipNames: Type a name: an item, a mob, a boss, a category or a mod. English names and IDs work in any language.
+TipConcepts: Type what an item is: a category (buff, wings, whips), the buff it gives (Ironskin), a trait (homing) or a class (summon).
+TipDescriptions: Three letters or more also search item descriptions and the Bestiary's texts, below the name matches.
+TipCommands: Type > for the book's commands: Deposit All, Quick Stack, the tabs, Help, Settings.
+ActionLoot: Open card
+ActionStats: Stats
+ActionOpenGoal: Open on Tracking
+ActionOpenStorage: Open on Storage
+ActionFilter: Filter by stage
+ActionRun: Run
+ActionTake: Take
+ActionDeposit: Deposit
+ActionUnfavorite: Unfavorite
+ActionContents: Contents
+ActionChat: Link in chat
+ActionSummonCraft: Craft {0}
+ActionSummonHowToGet: How to Get {0}
+ActionSummonTrack: Track {0}
+TipCraft: Shift+click or {0}: craft the most
+TipTake: A stack to the inventory · right click: one
+TipDeposit: Puts its stacks from the inventory into nearby storage (the hotbar and favorites stay).
+TipChat: Opens the chat with the item's link.
+TipBeforeBoss: The stage filter: everything this world can get by then.
+CommandsTitle: Commands
+CommandsHint: commands
+NoCommand: No command “{0}”
+NoCommandHint: Type > alone to list them all
+CommandDepositAll: Deposit All
+CommandDepositAllTip: Your inventory into nearby storage, as the Storage tab's button.
+CommandQuickStack: Quick Stack
+CommandQuickStackTip: What nearby storage already holds goes there.
+CommandRestock: Restock
+CommandRestockTip: Tops up your inventory's stacks from nearby storage.
+CommandRefresh: Refresh
+CommandRefreshTip: Reads storage, recipes and what can be crafted again.
+CommandClearFilters: Clear filters
+CommandClearFiltersTip: The search, mod, category and toggles go; the stage and class stay.
+CommandTabItems: Open Items
+CommandTabRecipes: Open Recipes
+CommandTabBestiary: Open the Bestiary
+CommandTabStorage: Open Storage
+CommandTabRecent: Open Recent
+CommandTabTracking: Open Tracking
+CommandTabTip: The book on {0}.
+CommandTrackerStyle: Switch tracker style
+CommandTrackerStyleToCards: Now compact lines; switches to goal cards.
+CommandTrackerStyleToCompact: Now goal cards; switches to compact lines.
+TrackerCompact: The tracker shows compact lines
+TrackerCards: The tracker shows goal cards
+CommandHelp: Help
+CommandHelpTip: Every key of the book.
+CommandSettings: Settings
+CommandSettingsTip: The mod's settings.
+CommandUntrackAll: Untrack all
+CommandUntrackAllTip: "{0} {^0:goal;goals} · Enter twice"
+CommandUntrackAllArmed: Press Enter again to untrack {0} {^0:goal;goals}
+CommandBeforeNextBoss: Before the next boss
+CommandBeforeNextBossTip: Everything you can get before {0}: what to prepare for the fight.
+CommandNextBoss: Next boss's card
+CommandNextBossTip: The boss you fight next: its loot, life and how to summon it.
+CommandCraftableNow: Craftable now
+CommandCraftableNowTip: Items with the Craftable filter: what your inventory and storage make right now.
+CommandFavorites: Favorites
+CommandFavoritesTip: Items with only your favorites.
+CommandSummoner: Summoner items
+CommandSummonerTip: Items with the Summoner class: minions, whips, sentries, armor and accessories.
+SynonymsBuffs: buff, buffs, buff potion
+SynonymsPotions: potion, potions, pots
+SynonymsHealing: heal, healing, heal potion
+SynonymsWings: wing, wings
+SynonymsMinions: minion, minions, summon staff
+SynonymsWhips: whip, whips
+SynonymsSentries: sentry, sentries, turret
+SynonymsStations: station, stations, crafting station
+SynonymsOres: ore, ores
+SynonymsBars: bar, bars, ingot
+SynonymsAccessories: acc, accessory, accessories
+SynonymsArmor: armor, armour, armor set
+SynonymsHooks: hook, grapple, grappling hook
+SynonymsMounts: mount, mounts
+SynonymsPets: pet, pets
+SynonymsBossSummons: summon item, boss summon
+SynonymsBags: bag, bags, treasure bag
+SynonymsPicks: pick, pickaxe, drill
+SynonymsFood: food, well fed
+SynonymsAmmo: ammo, ammunition
+KeyCtrlQ: Ctrl+Q
+KeyCtrlR: Ctrl+R
+ShortcutInBook: In the book:
+Stats: Stats

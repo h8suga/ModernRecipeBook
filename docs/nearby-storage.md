@@ -38,7 +38,7 @@ MS 0.7.0.11 loaded); everything else is **[code]**, read in the files cited.
 | MS adapter | Rewritten: no MS UI session is ever opened by the book. It reads hearts, units and Crafting Interface stations and withdraws server-side through `TEStorageHeart.Withdraw`. |
 | Vanilla crafting column | Not built. Section 6 says what it would take. |
 | Radius | `BookServerConfig.NearbyRadius` (10–50, default 30) tiles, circle from the player centre to the container centre. `NearbyStorage` switches the whole feature. The host decides in MP. |
-| Deposit (owner, after review) | The Storage tab is one big chest, as in vanilla: Shift+click an inventory item puts the whole stack in; an item on the cursor dropped onto the grid goes in; Deposit All works like a chest's. Placement: onto matching stacks first (nearest container that holds the item: chest or Magic Storage), then the nearest Magic Storage network, then the nearest chest with a free slot; the rest stays with the player. Banks are not targets. No deposit hotkeys (§4.9). |
+| Deposit (owner, after review) | The Storage tab is one big chest, as in vanilla: Shift+click an inventory item puts the whole stack in; an item on the cursor dropped onto the grid goes in; Deposit All works like a chest's. Placement: onto matching stacks first (nearest container that holds the item: chest or Magic Storage), then the nearest Magic Storage network, then the nearest chest with a free slot; the rest stays with the player. Banks are not targets, except that coins go to the Piggy Bank first when it is available (1.18, §4.9). No deposit hotkeys (§4.9). |
 | Results and stations (owner) | Crafted items always go to the inventory, and the room check covers them. Stations: vanilla adjacency plus Crafting Interface stations only; placed stations in the radius do not count. |
 
 ---
@@ -59,7 +59,7 @@ MS 0.7.0.11 loaded); everything else is **[code]**, read in the files cited.
 | V8 | The server's msg 31 handler checks neither distance nor lock; only `FindChest` and `UsingChest == -1`. Opening a rigged chest fires wiring. | `TML:Terraria/MessageBuffer.cs:1894-1925` |
 | V9 | `Chest.IsLocked(x, y)` covers vanilla locked frames and modded tiles via `TileLoader.IsLockedChest`. `UsingChest(i)` returns the first active player with `chest == i`. `Main.chest` has 8,000 entries; a chest has 40 slots. | `TML:Terraria/Chest.cs:324-352, 708-721, 82`; `TML:Terraria/Main.cs:1250, 1989`; `TML:Terraria.ModLoader/TileLoader.cs:1585-1588` |
 | V10 | Vanilla quick stack: 600 px from the chest centre `(x*16+16, y*16+16)`; skips locked chests and chests in use; banks are tile 29 → −2, 97 → −3, 463 → −4, 491 → −5. On MP the server does it (msg 85 → `Chest.ServerPlaceItem`). | `TML:Terraria/Player.cs:20109-20234, 20148-20164`; `TML:Terraria/Chest.cs:368-458` |
-| V11 | Money Trough / Chester open the Piggy Bank (−2), the Void Lens projectile opens the Void Vault (−5); they only count as the open container. The Void Bag counts while it is in slots 0..57. | `TML:Terraria/Projectile.cs:68392-68406`; `TML:Terraria/Player.cs:20097-20107` |
+| V11 | Money Trough / Chester open the Piggy Bank (−2), the Void Lens projectile opens the Void Vault (−5); `Player.QuickStackAllChests` reaches them like bank tiles, measured to the nearest point of the hitbox, whoever owns them. The Void Bag counts while it is in slots 0..57. | `TML:Terraria/Projectile.cs:68392-68406`; `TML:Terraria/Player.cs:20036-20056, 20097-20129` |
 | V12 | `Player.GetItem` returns the leftover. Order: ammo slots, occupied slots, hotbar, empty slots, Void Vault. | `TML:Terraria/Player.cs:35589-35663` |
 | V13 | `Item.IsTheSameAs` is internal (type + netID, prefix ignored); mods compare `type` themselves. `ItemLoader.CanStack` refuses different prefixes. | `TML:Terraria/Item.cs:51536-51543`; `TML:Terraria.ModLoader/ItemLoader.cs:1892-1907` |
 | V14 | Server packets are processed on the main thread (`Netplay.UpdateServerInMainThread` → `CheckBytes`), so one handler call is atomic against other packets and world updates. | `TML:Terraria/Netplay.cs:82-91, 872` |
@@ -78,9 +78,9 @@ MS 0.7.0.11 loaded); everything else is **[code]**, read in the files cited.
 | M3 | `TEStorageHeart.GetStoredItems()` = all items of all units, including inactive units and remote units, and the Creative Storage Unit, which yields every item type at max stack. Module items are not included. | `MS:MagicStorage.Components/TEStorageHeart.cs:169-190`; `MS:MagicStorage.Components/TECreativeStorageUnit.cs:31-68` |
 | M4 | Server withdraw = `TEStorageHeart.Withdraw(Item lookFor, bool keepOneIfFavorite)`. It is prefix-exact, broadcasts unit updates, and checks only `SecuritySystem.AccessibleFromContext` (no range check). MS's own client packet ends up in exactly this call. | `MS:MagicStorage.Components/TEStorageHeart.cs:238-379, 766-806`; `MS:MagicStorage.Components/TEStorageUnit.cs:181-258` |
 | M5 | MS's client-side result handler assumes an open MS session: `heart = StoragePlayer.LocalPlayer.GetStorageHeart()`, then `heart.netcodeUpdate = true` throws when no session is open (swallowed, V16). Using MS's client withdraw packet without a session therefore relies on a swallowed exception. | `MS:MagicStorage/NetHelper.cs:393-474` (lines 429, 472) |
-| M6 | Security: `SecuritySystem.CanPlayerAccessImmediately(Player, int networkID)` is public and works on the server. The access context is a `ref struct`, which reflection cannot use. A heart's network id is the internal field `TEStorageComponent.assignedNetwork`. | `MS:MagicStorage.Common.Systems/SecuritySystem.cs:104-131, 268-283, 1117-1134`; `MS:MagicStorage.Components/TEStorageComponent.cs:35, 49-52` |
+| M6 | Security: `SecuritySystem.CanPlayerAccessImmediately(Player, int networkID)` is public and works on the server. The access context is a `ref struct`, which reflection cannot use; outside one, `AccessibleFromContext` checks the static `accessingPlayer`, which is 0, so a call made without one runs as player 0 whoever asked. The book sets that field around its withdraws and deposits to the player they are for, as `AccessContext.Use` does (-1 for a restore). A heart's network id is the internal field `TEStorageComponent.assignedNetwork`. | `MS:MagicStorage.Common.Systems/SecuritySystem.cs:104-131, 268-283, 1117-1134`; `MS:MagicStorage.Components/TEStorageComponent.cs:35, 49-52` |
 | M7 | MS crafting stations live in `TECraftingAccess.stations` (≤ 45 items, synced to clients). MS turns them into `adjTile`, water, lava, honey, shimmer, alchemy and graveyard flags; Snow Biome Emulator and Biome Globe add zones. It applies them by swapping `player.adjTile` and the flags around its own checks and restoring them afterwards. | `MS:MagicStorage.Components/TECraftingAccess.cs:55, 315-335`; `MS:MagicStorage/CraftingGUI.cs:233-294, 2251-2355, 2694-2740` |
-| M8 | The heart a client has open is known to the server: opening locks it (`LockOnCurrentClient` → msg `ClientLockStorageHeart`), and the server stores `clientUsingHeart[player]`. (The player byte comes from the packet, not from the sender.) | `MS:MagicStorage.Components/TEStorageHeart.cs:89, 157-167`; `MS:MagicStorage/NetHelper.cs:1308-1339` |
+| M8 | The heart a client has open is known to the server: opening locks it (`LockOnCurrentClient` → msg `ClientLockStorageHeart`), and the server stores `clientUsingHeart[player]`. (The player byte comes from the packet, not from the sender.) The server never clears it when that client leaves (its disconnect hook reads client-only state, `MS:MagicStorage/StoragePlayer.cs:211-214`), so the book clears the slot's flags itself when the slot gets a new player. | `MS:MagicStorage.Components/TEStorageHeart.cs:89, 157-167`; `MS:MagicStorage/NetHelper.cs:1308-1339` |
 | M9 | A session stays open only while the player is within `lastTileRange` of the access point, the inventory is open and no chest/sign/NPC is open. Remote sessions (Portable Access, Remote Access) follow MS's own reach rule. | `MS:MagicStorage/StoragePlayer.cs:224-263`; `MS:MagicStorage.Items/PortableAccess.cs:101-127` |
 | M10 | MS already extends vanilla quick stack to nearby networks (IL edit on `Player.QuickStackAllChests`). | `MS:MagicStorage.Edits/QuickStackILEdit.cs:40, 109-130` |
 | M11 | `NetHelper.SendRefreshNetworkItems(Point16, bool, IEnumerable<int>)` and `AuditSystem.ReportItemWithdraw(int, TEStorageHeart, Item)` are public static, so a server-side withdraw can refresh viewers and be audited like MS's own. | `MS:MagicStorage/NetHelper.cs:476-501`; `MS:MagicStorage.Common.Systems.Auditing/AuditSystem.cs:339` |
@@ -125,7 +125,7 @@ MS 0.7.0.11 loaded); everything else is **[code]**, read in the files cited.
 | Inventory 0..57 | `player.inventory` | Recipe.Create / the player | no (counts only) |
 | Open container | `Main.chest[player.chest]` (fresh while open, V7) or `bank..bank4` | client, as vanilla (msg 32 for world chests, V3) | yes, "Open chest" or the bank's name |
 | Void Vault via carried Void Bag | `bank4` when `useVoidBag() && chest != -5` | client | yes, "Void Vault" |
-| Banks in radius | `bank` (29), `bank2` (97), `bank3` (463), `bank4` (491); tile scan on the client | client (player-owned data; synced by vanilla msg 5, V3) | yes, by item name |
+| Banks in radius | `bank` (29), `bank2` (97), `bank3` (463), `bank4` (491); tile scan on the client, plus the Money Trough, Chester and Void Lens projectiles (V11) | client (player-owned data; synced by vanilla msg 5, V3) | yes, by item name |
 | World chests and dressers in radius | single player: `Main.chest` via the local scan. MP: the server-pushed mirror (§4.3). | server | yes, "Chests ×N" |
 | MS networks in radius | client copies of hearts/units (M1, M2) | server via `TEStorageHeart.Withdraw` (M4) | yes, "Magic Storage" (×N) |
 | MS network open in MS's window | `StoragePlayer.LocalPlayer.GetStorageHeart()` | server (validated by `clientUsingHeart`, M8) | yes, same group |
@@ -181,7 +181,7 @@ Nothing does: there is one set.
 | Chest open by another player | **no**, not shown, never modified | its owner's client is authoritative for it while open (V7, msg 32 is client→server). It is counted in "Not counted: 1 in use" so the player knows why it is missing. |
 | Chest the player has open | yes, as the open container | client data, counted once (§2.1) |
 | Piggy Bank, Safe, Defender's Forge, Void Vault tiles | yes, when any tile of it is in radius | player-owned arrays; no server involvement |
-| Money Trough, Chester, Void Lens projectiles | only while opened | vanilla rule (V11) |
+| Money Trough, Chester, Void Lens projectiles | yes, as their bank, when the nearest point of the hitbox is in radius (1.18) | vanilla quick stack's rule (V11) |
 | Void Bag | while carried | vanilla rule (V1) |
 | MS network | yes, when its Storage Heart, Storage Access, Crafting Interface or Remote Access tile is in radius, it is the network the player has open in MS, or a bound Portable Access the player carries reaches it by MS's own rules (§5.7) | the player must have access (M6); password networks are "Not counted: 1 password" |
 
@@ -314,11 +314,13 @@ In order, all on the main thread (V14):
 | Moment | Outcome |
 |---|---|
 | Client leaves before the server handles the `Pull` | Nothing was taken. |
-| Server took the items; client leaves before applying `Give` | No `Ack` arrives. In `PostUpdateEverything` (main thread; V15 forbids doing it in `PlayerDisconnect`) the server sees `!Main.player[p].active` with entries in flight. Each stack goes back to its origin: the same chest if it still exists at x,y (stack onto an equal item, else an empty slot), or the heart via `heart.DepositItem`. Leftover is dropped as a world item at the origin with `Item.NewItem` (`TML:Terraria/Item.cs:51785-51832`). |
+| Server took the items; client leaves before applying `Give` | No `Ack` arrives. In `PostUpdateEverything` (main thread; V15 forbids doing it in `PlayerDisconnect`) the server sees `!Main.player[p].active`, or a new `Player` object in the slot (`RemoteClient.Reset`; no update runs while a server's only player is away), with entries in flight. Each stack goes back to its origin: the same chest if it still exists at x,y and nobody has it open (stack onto an equal item, else an empty slot), or the heart via `heart.DepositItem`. Leftover, and what belongs in a chest another player has open, is dropped as a world item at the origin with `Item.NewItem` (`TML:Terraria/Item.cs:51785-51832`). |
 | Client applied `Give` and the `Ack` reached the server | The entry is dropped; the items are the client's. |
 | Client applied `Give`, then crashed before the `Ack` was processed | Restored, and the client's unsaved inventory is lost with the crash, so there is still exactly one copy. |
 | Client applied `Give` and quit cleanly within one server frame (≈ RTT/2 + 16 ms) of receiving it | Theoretical duplicate. A human Save & Exit takes longer than that, so this is accepted. |
-| Server shuts down with entries in flight | On `OnWorldUnload` the server restores them first (worst case is the duplicate case above). |
+| `Give` arrives after Save & Exit began (`Main.gameMenu`, the player is being saved on another thread) | Not applied and not acknowledged: restored as above when the player leaves. |
+| `Give` arrives while vanilla's Quick Stack has slots locked | Kept until the lock is over, then applied and acknowledged: while any slot is locked the server's copy of a slot replaces the client's (V6), so an item put there would be overwritten. Takes and Restock wait for the lock too. |
+| Server shuts down with entries in flight | The server restores them right before its last `WorldFile.SaveWorld`, which runs before `OnWorldUnload` (`TML:Terraria/Main.cs:6019-6024`), so the save has them; an open chest takes them then too (worst case is the duplicate case above). |
 
 A malicious client could withhold `Ack` and leave to duplicate a pull. Without SSC a client can already edit its own inventory freely (V6), so this adds no new capability; with SSC pulls are off.
 
@@ -348,7 +350,7 @@ A malicious client could withhold `Ack` and leave to duplicate a pull. Without S
 | Shift+click an inventory, coin or ammo slot | the whole stack into the chest; never a favorite (`ItemSlot.cs:387-424` sets cursor 9 only for `!favorited`; `OverrideLeftClick` runs `PlayerLoader.ShiftClickSlot` first, `:572`) | the whole stack into nearby storage, through `ModPlayer.ShiftClickSlot`; same contexts (0, 1, 2), same favorite rule, the same "into the chest" cursor (`HoverSlot` sets `Main.cursorOverride = 9`) |
 | Left click a chest slot holding an item | the cursor stack goes into the slot; a favorite loses its mark (`ItemSlot.cs:958-961`) | the cursor stack dropped anywhere on the grid goes in; the mark is cleared the same way |
 | Right click a chest slot with an item held | takes one from the slot to the cursor, never puts one in (`ItemSlot.cs:1383-1420`) | right click stays "take one"; nothing put in |
-| Deposit All | slots 10..49 except favorites; coins from every slot only into a container that already has coins (`Terraria.UI/ChestUI.cs:456-500, 1025-1110`) | the same slot set and the same coin condition (coins are not exchanged into higher coins) |
+| Deposit All | slots 10..49 except favorites; coins from every slot only into a container that already has coins (`Terraria.UI/ChestUI.cs:456-500, 1025-1110`) | the same slot set and the same coin condition (coins are not exchanged into higher coins); with the Piggy Bank available the coin slots always go, and coins go to the bank first (below) |
 
 A player with a chest of their own open uses that chest (vanilla's path); the book's Shift+click steps aside.
 With a Magic Storage window open, MS's own `ShiftClickSlot` runs first (it loads first) and deposits into that
@@ -363,6 +365,16 @@ network. There are no deposit hotkeys (owner: «Ctrl+D отдельной ком
 Chests follow the pull rules: in range (server position + slack), not locked, open by nobody. Banks are not
 targets: a player does not expect items to land in a Piggy Bank they did not open.
 
+**Coins first into the Piggy Bank** (owner, 1.18: «сделай, чтобы деньги всегда кидались сначала в свинку, а не в
+хранилище, если свинка доступна»). Before a deposit is sent (`BookSources.SendDeposit`, the one funnel of Shift+click,
+the dropped cursor stack and Deposit All), its common coins join the Piggy Bank's own coins when the bank is
+available: open (`player.chest == -2`), or a Piggy Bank tile, Money Trough or Chester within the radius. They are
+combined into the fewest stacks as `ChestUI.MoveCoins` combines them (`BookSourceRules.CombineCoins`; each kind back
+into a slot that held it first); what does not fit goes on to the placement rule above. With the Piggy Bank alone (no chest, no network) Deposit All, Shift+click and the dropped stack take only coins, and what does not fit stays with the player. Deposit All takes the coin slots for the bank alone when no container holds coins (vanilla's rule): with the bank full, their share of the remainder goes back into the coin slots, combined, so the value is kept and the slots hold only coins. The bank is the player's own
+data: the client changes it, vanilla syncs it (V3). Magic Storage's own Deposit All (`StorageGUI.TryDepositAll`)
+gets the same step through a hook (`BookMagicStorage.DepositAllCoinsFirst`) for the coins it would take from rows
+10..49; a missing member leaves MS's button as it was.
+
 **Multiplayer.** As in MS's own deposit (`MS:MagicStorage.Components/TEStorageHeart.cs:693-703`), the items leave
 the client's slots when it sends them; the server places them and returns the leftover in a `Give`. One handler
 call does it all (V14). An exception keeps what was already placed (it is in storage) and returns the rest. A
@@ -374,15 +386,15 @@ and Magic Storage's own sync carry the change to every client.
 The Storage tab's Quick Stack (and Ctrl+Q) first runs vanilla's `Player.QuickStackAllChests`, as before: nearby chests and banks, plus Magic Storage's own hook for networks near the player. Then it quick-stacks into every network the book counts, the remote ones reached through a carried Portable Access included. Vanilla's inventory button is left alone: the owner uses the book's.
 
 **Rules (vanilla's quick stack).**
-- **Slots.** The main inventory 10..49 and, while a Void Bag is in use, its 40 slots. Never the hotbar, coins, favorites or a Magic Storage locator (`BookMagicStorage.IsLocator`).
+- **Slots.** The main inventory 10..49 and, while a Void Bag is in use, its 40 slots. Never the hotbar, coins, favorites, a Magic Storage locator (`BookMagicStorage.IsLocator`) or the Void Bag itself: gone, it would take its Void Vault slots out of use on the server.
 - **Targets.** An item goes only into a counted network that already holds its type, nearest first. What does not fit stays in its slot. There is no fallback to another network or to a free chest slot, unlike Deposit (§4.9).
 - **Nothing extra while off.** With nearby storage off, or no counted network, only vanilla's part runs.
 
 **Multiplayer, done like vanilla's own quick stack** (`MessageID.QuickStackChests` 85 → `Chest.ServerPlaceItem`): the server works on its copy of the inventory and sends each slot back.
 1. The client waits until vanilla's round trip is over. Until the server has sent back every slot vanilla locked, `HasLockedInventory` stays true; once it is false, the client ignores server slot updates for its own player.
-2. It locks the slots whose type a counted network holds (`inventoryChestStack`, `disableVoidBag` for the last Void Bag slot) and sends `NearbyQuickStack`.
+2. It sends the slots whose type a counted network holds (vanilla message 5, as vanilla does before message 85: a pickup this tick has not reached the server yet), locks them (`inventoryChestStack`, `disableVoidBag` for the last Void Bag slot) and sends `NearbyQuickStack`.
 3. The server checks the rate limit, finds networks as for a pull (the carried Portable Access checked again on the server, §5.7) and applies the rules above to its copy. Favorites are not synced to the server, so for them the client's slot list decides, as with vanilla's message 85.
-4. It sends every listed slot back, changed or not, which unlocks them, then `NearbyStacked`.
+4. It sends every listed slot back, changed or not, Void Vault slots too, which unlocks them, then `NearbyStacked`.
 
 Nothing travels as an item, so nothing can be doubled or lost on the way. Single player calls the same function directly.
 
@@ -670,6 +682,8 @@ The off states name the config option. Its label belongs to `feature/server-side
 |---|---|---|
 | Deposit All button | Deposit All | Сложить всё |
 | Deposit All tooltip | Deposit to nearby storage, except hotbar and favorites<br>Onto matching stacks first, then Magic Storage, then a free chest | Сложить в хранилища рядом, кроме панели и избранного<br>Сначала к таким же, потом Magic Storage, потом сундук |
+| with the Piggy Bank available, third line | Coins go to the Piggy Bank first, including the coin slots | Монеты сначала идут в копилку, в том числе из ячеек для монет |
+| only the Piggy Bank available (no chest, no network) | Deposit coins to the Piggy Bank, except hotbar and favorites<br>Coin slots included; nowhere nearby for the rest | Сложить монеты в копилку, кроме панели и избранного<br>Включая ячейки для монет; остальное рядом сложить некуда |
 | without Magic Storage installed | …<br>Onto matching stacks first, then a free chest | …<br>Сначала к таким же, потом в свободный сундук |
 | nothing to deposit into | Deposit to nearby storage<br>Nothing nearby to deposit into | Сложить в хранилища рядом<br>Рядом некуда складывать |
 | Storage cell tooltip, last line | Shift+Click an inventory item or drop it here: put into storage | Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище |
@@ -691,6 +705,13 @@ The off states name the config option. Its label belongs to `feature/server-side
 | quick stack | Stacked into nearby chests | Сложено в сундуки рядом |
 | deposit done | Stored nearby | Сложено рядом |
 | deposit, no room for all | Nearby storage is full: 50 left | Рядом нет места: осталось 50 |
+| only coins, all into the Piggy Bank | Coins went to the Piggy Bank | Монеты ушли в копилку |
+| only the Piggy Bank: coins in, other items stay | Coins banked; nowhere for the rest | Монеты в копилке, остальное некуда |
+| the Piggy Bank filled up, the rest stays with the player | Piggy Bank full; the rest stays with you | Копилка полна, остальное — при вас |
+| deposit done, coins in the Piggy Bank | Stored nearby, coins in the Piggy Bank | Сложено рядом, монеты в копилке |
+| deposit done, the Piggy Bank filled up | Stored nearby; the Piggy Bank is full | Сложено рядом, копилка полна |
+| no room for all, coins in the Piggy Bank | Coins in the Piggy Bank; 50 left | Монеты в копилке; осталось 50 |
+| no room for all, the Piggy Bank filled up | No room anywhere: 50 left | Нигде нет места: осталось 50 |
 | deposit, nothing to put into | Nothing nearby to deposit into | Рядом некуда складывать |
 | Deposit All, nothing to move | Nothing to deposit | Нечего складывать |
 

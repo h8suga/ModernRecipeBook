@@ -36,6 +36,7 @@ public sealed partial class RecipeBookSystem
 				AcquisitionReadErrors++;
 			}
 		}
+		FromBags(entries);
 		// Natural rows that read the same (acorns from treetops, dirt from every grass) are one row naming
 		// every place; How to Get lists the world's sources first.
 		return (from p in entries.Select((BookAcquisitionEntry e, int i) => (Entry: e, Index: i))
@@ -47,6 +48,28 @@ public sealed partial class RecipeBookSystem
 				Name = string.Join(", ", g.SelectMany((BookAcquisitionEntry x) => x.Name.Split(", ")).Distinct()),
 				Body = string.Join("\n", g.Select((BookAcquisitionEntry x) => x.Body).Where((string b) => b.Length > 0).Distinct())
 			})).ToList();
+	}
+
+	// As the mob's card (RecipeBookSystem.Bestiary FromBags): in Expert and Master a boss's Classic-only drop comes out of
+	// the Treasure Bag it drops instead, so the boss's row takes every rule of the bag for it, named after the bag (the
+	// group adds them up as the card does: the Terrarian's two Moon Lord bag rules, BookAcquisitionGroup.Pick).
+	private static void FromBags(List<BookAcquisitionEntry> entries)
+	{
+		List<BookAcquisitionEntry> bags = entries.Where((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Container && !e.OtherMode && ItemID.Sets.BossBag[e.ItemType]).ToList();
+		foreach (int npc in entries.Where((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Drop && e.NpcNetId != 0 && bags.Count > 0).GroupBy((BookAcquisitionEntry e) => e.NpcNetId).Where((IGrouping<int, BookAcquisitionEntry> g) => g.All((BookAcquisitionEntry e) => e.OtherMode)).Select((IGrouping<int, BookAcquisitionEntry> g) => g.Key).ToList())
+		{
+			int bag = bags.Select((BookAcquisitionEntry b) => b.ItemType).FirstOrDefault((int b) => BookItemSources.For(b).Any((BookItemSource s) => s.Kind == BookAcquisitionKind.Drop && s.Npc == npc && DropEntry(s) is { OtherMode: false }));
+			if (bag == 0)
+			{
+				continue;
+			}
+			BookAcquisitionEntry drop = entries.First((BookAcquisitionEntry e) => e.Kind == BookAcquisitionKind.Drop && e.NpcNetId == npc);
+			entries.InsertRange(entries.IndexOf(drop), bags.Where((BookAcquisitionEntry b) => b.ItemType == bag).Select((BookAcquisitionEntry b) =>
+			{
+				string label = L("KillConditions.InBag", ItemName(bag)) + (b.ConditionLabel.Length > 0 ? " · " + b.ConditionLabel : "");
+				return drop with { Chance = b.Chance, Amount = b.Amount, Body = label, ConditionLabel = label, Conditional = true, ReportKey = b.ReportKey, OtherMode = false, Drop = b.Drop, Mentions = b.Mentions };
+			}).ToList());
+		}
 	}
 
 	// A title naming more than three places keeps the first three and a count; the tooltip lists them all.
@@ -93,7 +116,7 @@ public sealed partial class RecipeBookSystem
 		case BookAcquisitionKind.Shop:
 		{
 			string[] conditions = s.Entry.Conditions.Select(ConditionName).ToArray();
-			return new BookAcquisitionEntry(Lang.GetNPCNameValue(s.Npc), string.Join("; ", conditions), BookAcquisitionKind.Shop, "", "", 0, s.Npc, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), s.Shop.Name);
+			return new BookAcquisitionEntry(Lang.GetNPCNameValue(s.Npc), string.Join("; ", conditions), BookAcquisitionKind.Shop, "", "", 0, s.Npc, conditions.Length != 0, -1, "Terraria", string.Join("; ", conditions), s.Shop.Name, Mentions: ConditionMentions(s.Entry.Conditions));
 		}
 		case BookAcquisitionKind.Banner:
 			return new BookAcquisitionEntry(NpcName(s.Npc), "", s.Kind, "", "×1", 0, s.Npc, false, -1, s.Owner, string.Format(L("HowToGet.Every0Kills"), s.NoteValue));
@@ -101,37 +124,33 @@ public sealed partial class RecipeBookSystem
 			return new BookAcquisitionEntry(NpcName(s.Npc), "", s.Kind, "", "×1", 0, s.Npc, false, -1, s.Owner);
 		case BookAcquisitionKind.Shimmer:
 		case BookAcquisitionKind.Use:
-			return new BookAcquisitionEntry(ItemName(s.From), "", s.Kind, "", "×1", s.From, 0, false, -1, s.Owner);
+			return new BookAcquisitionEntry(ItemName(s.From), "", s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, SourceItem: s.From);
 		case BookAcquisitionKind.Machine:
 		{
 			string seconds = (s.NoteValue / 60f).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture);
 			int keeps = ContentSamples.ItemsByType[s.Item].maxStack;
-			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.MachineMakesOneEvery", seconds, keeps), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.OneEverySeconds", seconds));
+			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.MachineMakesOneEvery", seconds, keeps), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.OneEverySeconds", seconds), SourceItem: s.From);
 		}
 		case BookAcquisitionKind.DevSet:
 			// Bags exist in Expert and Master only.
 			return new BookAcquisitionEntry(L("HowToGet.HardmodeBossBags"), L("HowToGet.DevSetFromBags"), s.Kind, BookAcquisitionRules.Chance(s.Chance), "×1", s.From, 0, true, -1, s.Owner, L("HowToGet.WithItsWholeSet"), OtherMode: !Main.expertMode);
 		case BookAcquisitionKind.Record:
-			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.WhileItsTrackPlays"));
+		{
+			// "while its track plays · Astrum Deus": where the track plays, each a link (TrackMentions).
+			BookMention[] track = TrackMentions(s.Item);
+			string label = L("HowToGet.WhileItsTrackPlays") + string.Concat(track.Select((BookMention m) => " · " + m.Text));
+			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, label, SourceItem: s.From, Mentions: track);
+		}
 		case BookAcquisitionKind.Trade:
 		{
 			string gate = GateText(s.Note);
-			string label = L("HowToGet.For", ItemName(s.FromAny.FirstOrDefault())) + (gate.Length > 0 ? " · " + gate : "");
-			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label);
+			int price = s.FromAny.FirstOrDefault();
+			string label = L("HowToGet.For", ItemName(price)) + (gate.Length > 0 ? " · " + gate : "");
+			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label, SourceItem: price);
 		}
-		case BookAcquisitionKind.Chest:
-		{
-			if (s.Where.Length == 0)
-			{
-				return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
-			}
-			// A chest that waits for a boss (BookItemSources.CalamityGatedWorldgenItems): its place, and the boss.
-			string boss = NpcTypeName(s.Note.Substring(5));
-			(string place, string body) = s.Where[0] == "AstralChest"
-				? (L("HowToGet.ChestAstralChest"), L("HowToGet.ChestAstralChestBody", boss))
-				: (L("HowToGet.ChestHellLab"), L("HowToGet.ChestHellLabBody", boss));
-			return new BookAcquisitionEntry(place, body, s.Kind, "", "", s.From, 0, true, -1, s.Owner, GateText(s.Note));
-		}
+		// Calamity's mined lab machines and pylon (BookItemSources.CalamityWorldgenItems); chest loot is BookChestLoot's.
+		case BookAcquisitionKind.Chest when s.Where.Length == 0:
+			return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
 		case BookAcquisitionKind.Fishing:
 			return FishingEntry(s);
 		default:
@@ -142,42 +161,50 @@ public sealed partial class RecipeBookSystem
 	private static BookAcquisitionEntry DropEntry(BookItemSource s)
 	{
 		DropRateInfo rate = s.Rate.Value;
+		// As on the mob's card (ReadLoot): another mob's drop that shares these rules is no source of this mob, and what the
+		// game's Bestiary hides is no source shown.
+		if ((s.Kind == BookAcquisitionKind.Drop && BookKillConditions.OtherNpcs(rate, s.Npc)) || BookProgressionSources.HiddenFromUI(rate))
+		{
+			return null;
+		}
 		List<string> conditions = new List<string>();
 		List<string> conditionKeys = new List<string>();
-		List<string> shortConditions = new List<string>();
+		List<BookMention> mentions = new List<BookMention>();
 		bool otherMode = false;
+		bool past = false;
+		bool? now = true;
 		foreach (IItemDropRuleCondition condition in rate.conditions ?? new List<IItemDropRuleCondition>())
 		{
 			conditionKeys.Add(condition?.GetType().AssemblyQualifiedName ?? "<null>");
 			try
 			{
-				// As the Bestiary reads it (ReadLoot): a met difficulty or seed gate is no condition in this world.
-				bool? gate = BookProgressionSources.WorldGate(condition);
-				otherMode |= gate == false;
-				if (gate == true)
+				// Worded as on the mob's card (LootCondition): a met difficulty or seed gate, or a test of the dying mob its
+				// normal kill meets, says nothing.
+				LootWord word = LootCondition(condition, s.Npc, rate.itemId);
+				otherMode |= word.OtherMode;
+				past |= word.Past;
+				now = BookEnemyRules.Both(now, word.Now);
+				if (!string.IsNullOrEmpty(word.Label))
 				{
-					continue;
+					conditions.Add(word.Label);
 				}
-				// Vanilla's difficulty conditions without a text of their own get their word.
-				string description = condition.GetConditionDescription();
-				if (string.IsNullOrWhiteSpace(description))
+				if (word.Target is BookMention target)
 				{
-					description = DropConditionLabel(condition, "");
+					mentions.Add(target);
 				}
-				string full = string.IsNullOrWhiteSpace(description) ? HiddenConditionLabel(condition, s.Npc) : description;
-				conditions.Add(full);
-				shortConditions.Add(DropConditionLabel(condition, full));
 			}
 			catch (Exception)
 			{
-				string unavailable = L("HowToGet.UnknownCondition");
-				conditions.Add(unavailable);
-				shortConditions.Add(unavailable);
+				conditions.Add(L("HowToGet.UnknownCondition"));
+				now = null;
 				AcquisitionReadErrors++;
 			}
 		}
 		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? L("HowToGet.AnyEnemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
-		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))), OtherMode: otherMode);
+		string label = string.Join("; ", conditions.Distinct());
+		string key = string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal));
+		BookEnemyDrop drop = new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, label, key, otherMode, past, now, s.Rule, mentions.ToArray(), s.OnTop);
+		return new BookAcquisitionEntry(name, label, s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, label, BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, key), OtherMode: otherMode || past, SourceItem: s.Kind == BookAcquisitionKind.Container ? s.From : 0, Drop: drop, Mentions: mentions.ToArray());
 	}
 
 	private static BookAcquisitionEntry FishingEntry(BookItemSource s)
@@ -186,7 +213,8 @@ public sealed partial class RecipeBookSystem
 		if (s.Note == "quest")
 		{
 			string where = QuestCatchLine(s.Item);
-			return new BookAcquisitionEntry(where.Length > 0 ? where : L("HowToGet.AnglerQuest"), L("HowToGet.CaughtOnlyWhileTheAnglerAsks"), s.Kind, "", "×1", ItemID.WoodFishingPole, 0, true, -1, s.Owner, L("HowToGet.AnglerQuest2"));
+			BookMention[] angler = { new BookMention(L("HowToGet.AnglerQuest2"), Npc: NPCID.Angler), new BookMention(L("HowToGet.AnglerQuest"), Npc: NPCID.Angler) };
+			return new BookAcquisitionEntry(where.Length > 0 ? where : L("HowToGet.AnglerQuest"), L("HowToGet.CaughtOnlyWhileTheAnglerAsks"), s.Kind, "", "×1", ItemID.WoodFishingPole, 0, true, -1, s.Owner, L("HowToGet.AnglerQuest2"), Mentions: angler);
 		}
 		List<string> parts = new List<string>();
 		string tier = TierText(note[0]);
@@ -199,7 +227,7 @@ public sealed partial class RecipeBookSystem
 			parts.Add(GateText(gate));
 		}
 		string label = string.Join(" · ", parts.Where((string p) => p.Length > 0));
-		return new BookAcquisitionEntry(WhereText(s.Where), "", s.Kind, "", "×1", ItemID.WoodFishingPole, 0, label.Length > 0, -1, s.Owner, label);
+		return new BookAcquisitionEntry(WhereText(s.Where), "", s.Kind, "", "×1", ItemID.WoodFishingPole, 0, label.Length > 0, -1, s.Owner, label, Mentions: GateMentions(note.Length > 1 ? note[1] : ""));
 	}
 
 	// Plants, trees, mining and world finds: the title says where, the detail what to do and when.
@@ -249,9 +277,16 @@ public sealed partial class RecipeBookSystem
 		{
 			parts.Insert(0, L("HowToGet.OnGrass"));
 		}
+		List<BookMention> mentions = new List<BookMention>();
 		if (s.NoteValue > 0)
 		{
-			parts.Add(L("HowToGet.Pickaxe", s.NoteValue));
+			// The pickaxe power names the first pickaxe that has it.
+			string pickaxe = L("HowToGet.Pickaxe", s.NoteValue);
+			parts.Add(pickaxe);
+			if (FirstPickaxe(s.NoteValue) is int first and > 0)
+			{
+				mentions.Add(new BookMention(pickaxe, first, Lead: L("Links.FirstPickaxe", s.NoteValue, ItemName(first))));
+			}
 		}
 		// The ground goes in the tooltip, unless the detail already says "on grass".
 		if (s.Grounds.Length > 0 && s.Kind == BookAcquisitionKind.Plant && (herb || !grass))
@@ -269,7 +304,7 @@ public sealed partial class RecipeBookSystem
 		int icon = acorn ? ItemID.Acorn : (s.Tile < 0 ? s.From : 0);
 		int tile = acorn ? -1 : (s.Tile == TileID.MatureHerbs ? TileID.BloomingHerbs : s.Tile);
 		string label = string.Join(" · ", parts.Where((string p) => !string.IsNullOrEmpty(p)));
-		return new BookAcquisitionEntry(where, body, s.Kind, chance, amount, icon, 0, false, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY);
+		return new BookAcquisitionEntry(where, body, s.Kind, chance, amount, icon, 0, false, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY, Mentions: mentions.Concat(GateMentions(s.Note)).ToArray());
 	}
 
 	// "Bestiary_Biomes.Jungle" through the game's localization, "CalamityMod/SunkenSeaBiome" through the ModBiome.
@@ -320,6 +355,121 @@ public sealed partial class RecipeBookSystem
 			"junk" => L("HowToGet.JunkInSmallPonds"),
 			_ => ""
 		};
+	}
+
+	// Where a modded music box's track plays, from the slot MusicLoader registered for it (itemToMusic): the NPCs whose
+	// theme it is (ModNPC.Music; or a scene effect's for its NPC, as Calamity plays its bosses' themes:
+	// BaseMusicSceneEffect.NPCType, AstrumDeusMusicScene) and the biomes' (ModBiome.Music), those with a Bestiary card or
+	// category. Vanilla picks its music in code (Main.UpdateAudio_DecideOnNewMusic), with nothing to read per box: its
+	// boxes name none.
+	private static BookMention[] TrackMentions(int box)
+	{
+		if (typeof(MusicLoader).GetField("itemToMusic", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.GetValue(null) is not Dictionary<int, int> boxes || !boxes.TryGetValue(box, out int slot) || !TrackPlaces().TryGetValue(slot, out List<(int Npc, ModBiome Biome)> places))
+		{
+			return Array.Empty<BookMention>();
+		}
+		// A boss its mod names "???" until it shows itself names nothing yet.
+		return places.Select(((int Npc, ModBiome Biome) p) => (p.Biome != null) ? new BookMention(p.Biome.DisplayName.Value, Place: BiomeTag(p.Biome)) : new BookMention(Lang.GetNPCNameValue(p.Npc), Npc: p.Npc)).Where((BookMention m) => m.Text.Any(char.IsLetter)).DistinctBy((BookMention m) => m.Text).Take(3).ToArray();
+	}
+
+	// Every music slot a mod plays somewhere with a place in the book: read once per load, as some scene effects' Music
+	// getters throw outside their scene (SceneMusic).
+	private static Dictionary<int, List<(int Npc, ModBiome Biome)>> trackPlaces;
+
+	private static Dictionary<int, List<(int Npc, ModBiome Biome)>> TrackPlaces()
+	{
+		if (trackPlaces != null)
+		{
+			return trackPlaces;
+		}
+		BookBestiary.EnsureBuilt();
+		trackPlaces = new Dictionary<int, List<(int, ModBiome)>>();
+		foreach (NPC npc in ContentSamples.NpcsByNetId.Values.Where((NPC n) => n.ModNPC != null && n.ModNPC.Music > 0))
+		{
+			Add(npc.ModNPC.Music, npc.netID, null);
+		}
+		foreach (ModSceneEffect scene in ModContent.GetContent<ModSceneEffect>())
+		{
+			int music = SceneMusic(scene);
+			if (music <= 0)
+			{
+				continue;
+			}
+			if (scene is ModBiome biome)
+			{
+				Add(music, 0, biome);
+			}
+			else if (SceneNpc(scene) is int type and > 0)
+			{
+				Add(music, type, null);
+			}
+		}
+		return trackPlaces;
+		void Add(int music, int npc, ModBiome biome)
+		{
+			if ((biome != null) ? (BookBestiary.FindTag(BiomeTag(biome)) == null) : (BookBestiary.IndexOf(npc) < 0))
+			{
+				return;
+			}
+			if (!trackPlaces.TryGetValue(music, out List<(int, ModBiome)> list))
+			{
+				list = trackPlaces[music] = new List<(int, ModBiome)>();
+			}
+			list.Add((npc, biome));
+		}
+	}
+
+	// A mod biome's Bestiary category (BookBestiary: "biome:<mod>/<its name's key>").
+	private static string BiomeTag(ModBiome biome)
+	{
+		return "biome:" + biome.Mod.Name + "/" + biome.DisplayName.Key;
+	}
+
+	// A mod's scene music can read the world or the player; one that throws plays nothing here.
+	private static int SceneMusic(ModSceneEffect scene)
+	{
+		try
+		{
+			return scene.Music;
+		}
+		catch (Exception)
+		{
+			return -1;
+		}
+	}
+
+	// The NPC a scene effect plays its music for, when it names one (Calamity's BaseMusicSceneEffect.NPCType); else null.
+	private static int? SceneNpc(ModSceneEffect scene)
+	{
+		try
+		{
+			return scene.GetType().GetProperty("NPCType")?.GetValue(scene) as int?;
+		}
+		catch (Exception)
+		{
+			return null;
+		}
+	}
+
+	// The items a gate names (GateText): the rod a catch needs, the item it takes; their links on the row.
+	private static BookMention[] GateMentions(string gates)
+	{
+		List<BookMention> mentions = new List<BookMention>();
+		foreach (string gate in gates.Split(',', StringSplitOptions.RemoveEmptyEntries))
+		{
+			int item = gate.StartsWith("needs:", StringComparison.Ordinal) && int.TryParse(gate.Substring(6), out int needs) ? needs : (gate.StartsWith("rod:", StringComparison.Ordinal) && ModContent.TryFind(gate.Substring(4), out ModItem rod) ? rod.Type : 0);
+			if (item > 0)
+			{
+				mentions.Add(new BookMention(ItemName(item), item));
+			}
+		}
+		return mentions.ToArray();
+	}
+
+	// What recipe or shop conditions name (ConditionMention), each under its own text.
+	private static BookMention[] ConditionMentions(IEnumerable<Condition> conditions)
+	{
+		return conditions.Select(ConditionMention).Where((BookMention? m) => m.HasValue).Select((BookMention? m) => m.Value).ToArray();
 	}
 
 	// Gates of fishing rows, trades and boss-spawned ores.

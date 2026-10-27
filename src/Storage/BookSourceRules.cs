@@ -5,8 +5,9 @@ using Microsoft.Xna.Framework;
 namespace ModernRecipeBook.Storage;
 
 // Pure rules of the nearby-storage feature (docs/nearby-storage.md): what is in range, which bank a tile opens, how
-// many inventory slots incoming stacks need, the Russian plural. The stand runs the self-check:
-// stand.ps1 c call p=ModernRecipeBook.BookSourceRules.SelfCheck
+// many inventory slots incoming stacks need, how coins combine in a bank, the Russian plural. The stand runs the
+// self-check:
+// stand.ps1 c call p=ModernRecipeBook.Storage.BookSourceRules.SelfCheck
 internal static class BookSourceRules
 {
 	// Pull and deposit validation on the server allow this much more than the radius: the player keeps moving while
@@ -102,6 +103,37 @@ internal static class BookSourceRules
 		return cursor - Math.Min(cursor, maxStack - slot);
 	}
 
+	// Coins combined into the fewest stacks, as ChestUI.MoveCoins combines a chest's coins with the inventory's
+	// (Terraria.UI/ChestUI.cs:1025-1110): every 100 of a coin make one of the next, platinum stays platinum in stacks of
+	// its max stack. `coins` and `maxStack` go copper, silver, gold, platinum; `slots` is how many stacks fit. Returns the
+	// stacks, highest first; what does not fit is in `rest` per kind, worth exactly the difference.
+	internal static List<(int Kind, int Stack)> CombineCoins(IReadOnlyList<long> coins, IReadOnlyList<int> maxStack, int slots, out long[] rest)
+	{
+		long value = 0;
+		for (int kind = 3; kind >= 0; kind--)
+		{
+			value = value * 100 + coins[kind];
+		}
+		rest = new long[4] { value % 100, value / 100 % 100, value / 10000 % 100, value / 1000000 };
+		List<(int, int)> stacks = new List<(int, int)>();
+		for (int kind = 3; kind >= 0; kind--)
+		{
+			int max = Math.Max(1, maxStack[kind]);
+			while (rest[kind] > 0 && stacks.Count < slots)
+			{
+				int n = (int)Math.Min(rest[kind], max);
+				stacks.Add((kind, n));
+				rest[kind] -= n;
+			}
+		}
+		return stacks;
+	}
+
+	internal static long CoinValue(IReadOnlyList<long> coins)
+	{
+		return coins[0] + coins[1] * 100 + coins[2] * 10000 + coins[3] * 1000000;
+	}
+
 	internal static string SelfCheck()
 	{
 		List<string> failures = new List<string>();
@@ -174,6 +206,33 @@ internal static class BookSourceRules
 			new Incoming(5, 0, 3L, 9999),
 			new Incoming(5, 0, 4L, 9999)
 		}) == 0, "room: a new stack takes later items of its kind");
+
+		// Coins into a bank: carried into the fewest stacks, the value kept to the copper.
+		int[] coinMax = new int[4] { 100, 100, 100, 9999 };
+		long Worth(List<(int Kind, int Stack)> stacks, long[] rest)
+		{
+			long[] placed = new long[4];
+			foreach ((int kind, int stack) in stacks)
+			{
+				placed[kind] += stack;
+			}
+			return CoinValue(placed) + CoinValue(rest);
+		}
+		List<(int Kind, int Stack)> combined = CombineCoins(new long[4] { 150, 99, 0, 0 }, coinMax, 40, out long[] left);
+		Expect(combined.Count == 2 && combined[0] == (2, 1) && combined[1] == (0, 50) && CoinValue(left) == 0, "coins: 150 copper and 99 silver carry into 1 gold and 50 copper");
+		combined = CombineCoins(new long[4] { 0, 0, 0, 25000 }, coinMax, 40, out left);
+		Expect(combined.Count == 3 && combined[0] == (3, 9999) && combined[1] == (3, 9999) && combined[2] == (3, 5002) && CoinValue(left) == 0, "coins: platinum in max stacks");
+		combined = CombineCoins(new long[4] { 0, 0, 100, 9999 }, coinMax, 40, out left);
+		Expect(combined.Count == 2 && combined[0] == (3, 9999) && combined[1] == (3, 1), "coins: a carry past a full platinum stack starts another");
+		combined = CombineCoins(new long[4] { 5, 0, 0, 1 }, coinMax, 1, out left);
+		Expect(combined.Count == 1 && combined[0] == (3, 1) && left[0] == 5 && CoinValue(left) == 5, "coins: a full bank leaves the rest, lowest coins first");
+		combined = CombineCoins(new long[4] { 7, 3, 0, 0 }, coinMax, 0, out left);
+		Expect(combined.Count == 0 && left[0] == 7 && left[1] == 3, "coins: no slot leaves everything");
+		foreach (int slots in new int[3] { 0, 2, 40 })
+		{
+			long[] coins = new long[4] { 12345, 678, 91, 30000 };
+			Expect(Worth(CombineCoins(coins, coinMax, slots, out left), left) == CoinValue(coins), "coins: value kept with " + slots + " slots");
+		}
 		return (failures.Count == 0) ? "ok" : string.Join("; ", failures);
 	}
 }

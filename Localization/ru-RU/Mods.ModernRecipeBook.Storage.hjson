@@ -3,11 +3,11 @@ OpenChest: Открытый сундук: {0}
 NothingNearby: Рядом ничего нет
 Network: Сеть {0}
 OpenChest2: Открытый сундук
-NotCounted: Не учтены: {0}
+NotCounted: Не учтено: {0}
 UnlimitedNotInTheTotal: "{0}: без предела, в сумму не входит"
-Cells: Ячейки: {0}
+Cells: Слоты: {0}
 SetByTheHost: "{0} · задаёт хост"
-ViaPortableAccess: через Portable Access
+ViaPortableAccess: через портативный доступ
 ViaTheMagicStorageWindow: через окно Magic Storage
 PortableCraftingAccess: Портативный доступ к созданию
 PortableAccess: Портативный доступ
@@ -19,38 +19,37 @@ LockedChestsAndChestsAnotherPlayer: Запертые сундуки и сунд�
 AStorageWithAPasswordCounts: Хранилище с паролем учтётся, когда вы войдёте в его сеть в Magic Storage.
 APortableAccessInYourInventory: Портативный доступ в инвентаре учитывается по правилам Magic Storage: в пределах его дальности от хранилища или у пилона, если и у хранилища есть пилон.
 Inventory2: инвентарь
-From: Откуда: {0}
+From: Источники: {0}
 NoLongerNearby: Этого уже нет рядом
 InventoryFull: Инвентарь полон
-TakenToInventory: Забрано в инвентарь
-ClickTakeRightClickTakeOne: Клик — взять · ПКМ — одну · Shift+клик — в инвентарь
-StacksToppedUp: Стопки пополнены
+TakenToInventory: Перенесено в инвентарь
+ClickTakeRightClickTakeOne: Клик: взять · ПКМ: одну · Shift+клик: в инвентарь
 NothingToTopUp: Нечего пополнять
 StackedIntoNearbyChests: Сложено в сундуки рядом
 TooFastWaitAMoment: Слишком часто: подождите
-NearbyStorageIsOff: Хранилища рядом выключены
+NearbyStorageIsOff: Хранилища рядом: выключено
 StackedIntoNearbyChestsNoRoom: Сложено в сундуки рядом · в хранилище нет места
-ShiftClickAnInventoryItemOr: Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище
+ShiftClickAnInventoryItemOr: Shift+клик по предмету в инвентаре или положите его сюда — в хранилище
 NothingNearbyToDepositInto: Рядом некуда складывать
 NothingToDeposit: Нечего складывать
 InventoryFullRestOnCursor: Инвентарь полон: остаток на курсоре
 StoredNearby: Сложено рядом
-NoReplyFromTheServerTry: Сервер не отвечает: повторите
+NoReplyFromTheServerTry: Сервер не ответил, попробуйте ещё раз
 CountChests: "{0} {^0:сундук;сундука;сундуков}"
 CountStorages: "{0} {^0:хранилище;хранилища;хранилищ}"
 CountRemoteStorages: "{0} {^0:удалённое хранилище;удалённых хранилища;удалённых хранилищ}"
-CountBanks: "{0} {^0:банк;банка;банков}"
-CountInactiveUnits: "{0} {^0:неактивный блок хранения;неактивных блока хранения;неактивных блоков хранения}"
+CountBanks: "{0} {^0:личный банк;личных банка;личных банков}"
+CountInactiveUnits: "{0} {^0:отключённая ячейка хранилища;отключённые ячейки хранилища;отключённых ячеек хранилища}"
 WithinTiles: В радиусе {0} {^0:блока;блоков;блоков}
-CountLocked: "{0} {^0:заперт;заперты;заперты}"
-CountInUse: "{0} {^0:занят;заняты;заняты}"
+CountLocked: "{0} {^0:запертый сундук;запертых сундука;запертых сундуков}"
+CountInUse: "{0} {^0:сундук;сундука;сундуков} у другого игрока"
 StackedRemote: Сложено в удалённое хранилище: {0}
 StackedSomeRemote: Сложено в хранилище: {0} · в удалённое: {1}
 StackedLocal: Сложено в хранилище: {0}
 UsedOfTotal: "{0} из {1}"
 RemoteNetwork: "{0} (удалённо)"
 RemoteHow: Удалённо {0}
-CountPassword: "{0} с паролем"
+CountPassword: "{0} {^0:хранилище;хранилища;хранилищ} с паролем"
 TookOfRestGone: Взято {0} из {1}: остального уже нет
 NearbyStorageFullLeft: Рядом нет места: осталось {0}
 ChestsCount: Сундуки: {0}

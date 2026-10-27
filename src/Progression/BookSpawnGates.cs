@@ -33,13 +33,15 @@ internal static class BookSpawnGates
 	// A place the probe stands in: its name (a key of RecipeBookSystem.PlaceName or a ModBiome), the name the card
 	// groups it under, its height and the tile under the spawn point. Traits: the Player.Zone* flags and mods' biomes
 	// ("Mod/Biome") that hold there, "sea" (by the world's edge, where the ocean is), "water" (tried in water too),
-	// "sky", "temple" and "cave" (NPCSpawnInfo's Sky, Lihzahrd and DesertCave).
+	// "sky", "temple", "cave", "granite", "marble" and "spider" (NPCSpawnInfo's Sky, Lihzahrd, DesertCave, Granite, Marble
+	// and SpiderCave).
 	internal sealed record Place(string Key, string Family, Layer Height, int Tile, string Traits);
 
-	// A gated mob: what it waits for, the stage of the step after which it first spawns, where it may spawn once
-	// everything is open, and what every try that worked had in common (Day null: day and night both work). Each term
-	// is one requirement: one way or several (";"), a way being one step's boss (Steps' first word) or several
-	// together ("+"), "?" for a way the probe could not name; or "mechs:any", "mechs:two", "mechs:all".
+	// A mob the probe saw spawn: what it waits for (no term: open from the start), the stage of the step after which it
+	// first spawns, where it may spawn once everything is open, and what every try that worked had in common (Day null:
+	// day and night both work). Each term is one requirement: one way or several (";"), a way being one step's boss
+	// (Steps' first word) or several together ("+"), "?" for a way the probe could not name; or "mechs:any", "mechs:two",
+	// "mechs:all".
 	internal sealed record Gate(string[] Terms, BookStage Stage, Place[] Places, bool? Day, bool Rain, bool Water);
 
 	private static readonly HashSet<string> Mechs = new HashSet<string>(StringComparer.Ordinal) { "Enemies.TheTwins", "TheDestroyer", "SkeletronPrime" };
@@ -120,6 +122,13 @@ internal static class BookSpawnGates
 		new Place("Crimson", "Crimson", Layer.Surface, TileID.CrimsonGrass, "ZoneCrimson"),
 		new Place("Hallow", "Hallow", Layer.Surface, TileID.HallowedGrass, "ZoneHallow"),
 		new Place("Sky", "Sky", Layer.Space, TileID.Cloud, "sky"),
+		// The caves NPC.SpawnNPC tells by flag (granite and marble tiles or walls, the spider nest's wall 62) and the
+		// mushroom biome (ZoneGlowshroom); a mob that needs them was never seen spawning.
+		new Place("Granite", "Underground", Layer.Rock, TileID.Granite, "ZoneGranite granite"),
+		new Place("Marble", "Underground", Layer.Rock, TileID.Marble, "ZoneMarble marble"),
+		new Place("SpiderNest", "Underground", Layer.Rock, TileID.Stone, "spider"),
+		new Place("SurfaceMushroom", "SurfaceMushroom", Layer.Surface, TileID.MushroomGrass, "ZoneGlowshroom"),
+		new Place("UndergroundMushroom", "UndergroundMushroom", Layer.Rock, TileID.MushroomGrass, "ZoneGlowshroom"),
 		// Calamity's biomes as CalamityPlayer reads them (Player.InModBiome): the Sunken Sea is any of its parts, the
 		// Astral Infection's three places are named after its Bestiary categories.
 		new Place("CalamityMod/SulphurousSeaBiome", "CalamityMod/SulphurousSeaBiome", Layer.Surface, TileID.Sand, "CalamityMod/SulphurousSeaBiome sea water"),
@@ -439,7 +448,10 @@ internal static class BookSpawnGates
 				PlayerFloorY = y,
 				Sky = traits.Contains("sky"),
 				Lihzahrd = traits.Contains("temple"),
-				DesertCave = traits.Contains("cave")
+				DesertCave = traits.Contains("cave"),
+				Granite = traits.Contains("granite"),
+				Marble = traits.Contains("marble"),
+				SpiderCave = traits.Contains("spider")
 			};
 			stands.Add((place, p, info, traits.Contains("water") ? 8 : 4));
 		}
@@ -563,7 +575,7 @@ internal static class BookSpawnGates
 		}
 		for (int i = 0; i < npcs.Count; i++)
 		{
-			if (state[i] < 0)
+			if (state[i] < Ungated)
 			{
 				continue;
 			}
@@ -580,17 +592,19 @@ internal static class BookSpawnGates
 			// Variant v is bit v: the day ones are 0, 2, 4, 6 (0x55), the rainy ones 2, 3, 6, 7 (0xCC), the wet ones 4-7 (0xF0).
 			bool day = (variants & 0x55) != 0, night = (variants & 0xAA) != 0;
 			// Terms in step order: the required steps, then the gate's own one when it is not simply required (the
-			// mechanical bosses' word, or its other ways; "?" when none of them was found).
+			// mechanical bosses' word, or its other ways; "?" when none of them was found). A mob open from the start has
+			// none, but where and when it spawns are its spawn code's all the same (the Divine Swine only in the sky,
+			// DivineSwine.SpawnChance: spawnInfo.Sky).
 			int gate = state[i];
 			bool byMech = mechs.Contains(gate);
-			List<(int Order, string Term, BookStage Stage)> terms = (from k in required[i]
+			List<(int Order, string Term, BookStage Stage)> terms = (from k in required[i] ?? new List<int>()
 				where !byMech || !mechs.Contains(k)
 				select (k, steps[k].Boss, steps[k].Stage)).ToList();
 			if (byMech)
 			{
 				terms.Add((gate, MechTerm(mechSets[i], mechs.Select((int k) => steps[k].Boss).ToArray()) ?? (steps[gate].Boss + ";?"), BookStage.Hardmode));
 			}
-			else if (!required[i].Contains(gate))
+			else if (gate != Ungated && !required[i].Contains(gate))
 			{
 				// A later boss is no other way past Hardmode or Moon Lord: beating it means the world is there already
 				// (Eidolist's "hardmode or Calamitas Clone" is just hardmode).
@@ -611,9 +625,9 @@ internal static class BookSpawnGates
 			{
 				terms.RemoveAll(t => t.Term == "Hardmode");
 			}
-			gates[npcs[i].Type] = new Gate(terms.OrderBy(t => t.Order).Select(t => t.Term).ToArray(), steps[gate].Stage, places.ToArray(), (day == night) ? null : day, (variants & ~0xCC) == 0, (variants & ~0xF0) == 0);
+			gates[npcs[i].Type] = new Gate(terms.OrderBy(t => t.Order).Select(t => t.Term).ToArray(), (gate == Ungated) ? BookStage.PreHardmode : steps[gate].Stage, places.ToArray(), (day == night) ? null : day, (variants & ~0xCC) == 0, (variants & ~0xF0) == 0);
 		}
-		Summary = $"Spawn gate audit ({timer.ElapsedMilliseconds} ms): probed {npcs.Count} NPCs in {stands.Count} places over {steps.Count} steps; {gates.Count} got a gate ({several} of them one way of several), {state.Count((int s) => s == Ungated)} open from the start, {errors} errors ({inconsistent} inconsistent).";
+		Summary = $"Spawn gate audit ({timer.ElapsedMilliseconds} ms): probed {npcs.Count} NPCs in {stands.Count} places over {steps.Count} steps; {gates.Values.Count((Gate g) => g.Terms.Length > 0)} got a gate ({several} of them one way of several), {state.Count((int s) => s == Ungated)} open from the start, {errors} errors ({inconsistent} inconsistent).";
 		mod.Logger.Info(Summary);
 		void Open(Func<int, bool> on, bool rest)
 		{

@@ -1,0 +1,33 @@
+EmptyTitle: Search the whole book
+NothingFound: Nothing found for “{0}”
+SearchDescriptions: Search item descriptions on the Items tab
+AllInItems: All {0} on the Items tab
+AllInBestiary: All {0} in the Bestiary
+More: "{0} more"
+AllSources: All ways to get it: {0} · How to Get
+AllLoot: All loot: {0} · mob card
+DroppedBy: Dropped by {0}
+FoundIn: Found in {0}
+Drops: Drops {0}
+BadgeItem: Item
+BadgeMob: Mob
+BadgeBoss: Boss
+BadgeStage: Stage
+BadgeCategory: Category
+BadgeMod: Mod
+GroupStages: Before a boss
+GroupItemCategories: Item categories
+GroupMobCategories: Bestiary categories
+GroupMods: Mods
+GroupOpened: Opened recently
+GroupCrafted: Crafted recently
+GroupSeen: Seen recently
+ItemCount: "{0} {^0:item;items}"
+MobCount: "{0} {^0:mob;mobs}"
+Id: ID {0}
+KeyEnter: Enter
+Open: Open
+Close: Close
+EnglishLoading: Reading English names…
+FieldTip: Search this tab · Ctrl+F searches the whole book
+HelpSearchEverything: Search all, anywhere

@@ -1,4 +1,3 @@
-InTheChest: in the chest
 BreakTheChest: break the chest
 MineIt: mine it
 CutWith: cut with {0}
@@ -9,7 +8,6 @@ UndergroundChests: Underground chests
 GoldChestBody: Gold Chests stand in underground caves, cabins and pyramids from world creation; empty one and break it with a pickaxe
 JungleChests: Jungle chests
 IvyChestBody: These chests stand in jungle shrines and living mahogany trees from world creation; empty one and break it with a pickaxe
-JungleChestsBody: In the chests of jungle shrines and living mahogany trees below the cavern layer, from world creation
 SpiderCaves: Spider caves
 WebCoveredChestBody: These chests stand in spider caves from world creation; empty one and break it with a pickaxe
 WebSlingerBody: Every web-covered chest in the spider caves holds one from world creation
@@ -19,16 +17,12 @@ TrappedChests: Trapped chests underground
 DeadMansChestBody: A few underground Gold Chests become this one, wired to dart traps, boulders and explosives; disarm the traps, empty it and break it with a pickaxe
 DeadMansSweaterBody: One trapped chest in three holds it from world creation
 IceChests: Ice biome chests
-IceChestsBody: In the chests of the underground ice biome below the cavern layer, from world creation
 DesertChests: Underground desert chests
-DesertChestsBody: In the chests of the underground desert below the cavern layer, from world creation
 LivingTrees: Living tree chests
 LivingTreesBody: In the chest of the room under a living tree, from world creation
 MushroomChests: Mushroom biome chests
 MushroomChestsBody: In the chests of mushroom biome cabins, from world creation
-MushroomSetBody: In the chests of mushroom biome cabins, the whole set together: 1 chest in 3 above the cavern layer, 1 in 2 below it
 AnyChests: Any chest
-MoonLordLegsBody: In a drunk world (seed 05162020), 1 chest in 15 gets one when the world is made
 Caves: Underground caves
 DartTrapBody: Dart traps wait in underground caves and by trapped chests, wired to pressure plates; break one with a pickaxe
 LavaCaves: Caverns near the lava

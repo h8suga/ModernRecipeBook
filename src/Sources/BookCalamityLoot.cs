@@ -49,6 +49,12 @@ internal static class BookCalamityLoot
 		return Rows().Select(r => r.Source);
 	}
 
+	// The kind of the item's row here, for the stage chain's last word.
+	internal static BookAcquisitionKind? KindOf(int item)
+	{
+		return Sources().FirstOrDefault((BookItemSource s) => s.Item == item)?.Kind;
+	}
+
 	internal static IEnumerable<(int Item, int Step, string Why)> Steps()
 	{
 		return from r in Rows()
@@ -93,7 +99,7 @@ internal static class BookCalamityLoot
 		case "enchant":
 		{
 			string curse = Language.GetTextValue("Mods.CalamityMod.UI.Exhumed.DisplayName"), boss = BossName("SupremeCalamitas");
-			return new BookAcquisitionEntry(ItemName(s.From), L("CalamityLoot.EnchantBody", Lang.GetNPCNameValue(s.Npc), ItemName(s.From), curse, boss, ItemName(ItemID.DiscountCard)), BookAcquisitionKind.Enchant, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.EnchantLabel", curse, boss));
+			return new BookAcquisitionEntry(ItemName(s.From), L("CalamityLoot.EnchantBody", Lang.GetNPCNameValue(s.Npc), ItemName(s.From), curse, boss, ItemName(ItemID.DiscountCard)), BookAcquisitionKind.Enchant, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.EnchantLabel", curse, boss), SourceItem: s.From);
 		}
 		case "catch":
 			return new BookAcquisitionEntry(Lang.GetNPCNameValue(s.Npc), L("CalamityLoot.RareCatchBody", s.NoteValue), BookAcquisitionKind.Catch, BookAcquisitionRules.Chance(s.Chance), "×1", 0, s.Npc, true, -1, s.Owner, L("CalamityLoot.RareCatchLabel"));
@@ -103,18 +109,18 @@ internal static class BookCalamityLoot
 			return new BookAcquisitionEntry(L("CalamityLoot.AbyssChests"), L("CalamityLoot.AbyssChestsBody", boss), BookAcquisitionKind.Chest, "", "×1", s.Item, 0, true, -1, s.Owner, L("Common.After", boss));
 		}
 		case "blender":
-			return new BookAcquisitionEntry(ItemName(s.From), L("CalamityLoot.BlenderBody", Lang.GetBuffName(BuffID.WellFed2), Lang.GetBuffName(BuffID.WellFed3), ItemName(ItemType("QualitySlop")), ItemName(ItemType("DisgustingSlop"))), BookAcquisitionKind.Use, "", "×1", s.From, 0, false, -1, s.Owner, L("CalamityLoot.BlenderLabel"));
+			return new BookAcquisitionEntry(ItemName(s.From), L("CalamityLoot.BlenderBody", Lang.GetBuffName(BuffID.WellFed2), Lang.GetBuffName(BuffID.WellFed3), ItemName(ItemType("QualitySlop")), ItemName(ItemType("DisgustingSlop"))), BookAcquisitionKind.Use, "", "×1", s.From, 0, false, -1, s.Owner, L("CalamityLoot.BlenderLabel"), SourceItem: s.From);
 		case "altar":
 		{
 			string altar = Lang.GetMapObjectName(MapHelper.TileToLookup(TileID.DemonAltar, WorldGen.crimson ? 1 : 0));
-			return new BookAcquisitionEntry(ItemName(s.From), L("CalamityLoot.AltarBody", altar), BookAcquisitionKind.Use, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.AltarLabel", altar));
+			return new BookAcquisitionEntry(ItemName(s.From), L("CalamityLoot.AltarBody", altar), BookAcquisitionKind.Use, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.AltarLabel", altar), SourceItem: s.From);
 		}
 		case "starter":
 			return new BookAcquisitionEntry(L("CalamityLoot.NewCharacter"), L("CalamityLoot.NewCharacterBody"), BookAcquisitionKind.Gift, "", "×1", s.Item, 0, false, -1, s.Owner);
 		case "bossrush":
-			return new BookAcquisitionEntry(L("CalamityLoot.BossRush"), L("CalamityLoot.BossRushBody", ItemName(s.From)), BookAcquisitionKind.Gift, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.BossRushLabel"));
+			return new BookAcquisitionEntry(L("CalamityLoot.BossRush"), L("CalamityLoot.BossRushBody", ItemName(s.From)), BookAcquisitionKind.Gift, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.BossRushLabel"), SourceItem: s.From);
 		case "wulfrum":
-			return new BookAcquisitionEntry(L("CalamityLoot.WulfrumArmor"), L("CalamityLoot.WulfrumBody", ItemName(s.FromAny[0]), ItemName(s.FromAny[1]), ItemName(s.FromAny[2])), BookAcquisitionKind.SetBonus, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.WulfrumLabel"));
+			return new BookAcquisitionEntry(L("CalamityLoot.WulfrumArmor"), L("CalamityLoot.WulfrumBody", ItemName(s.FromAny[0]), ItemName(s.FromAny[1]), ItemName(s.FromAny[2])), BookAcquisitionKind.SetBonus, "", "×1", s.From, 0, true, -1, s.Owner, L("CalamityLoot.WulfrumLabel"), SourceItem: s.From);
 		}
 		return null;
 	}

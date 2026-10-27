@@ -119,6 +119,10 @@ internal static class BookSteps
 	// Where the modded bosses came from: "Calamity" (its own registration), "table" (the built-in rows) or "" (none).
 	internal static string Source { get; private set; } = "";
 
+	// Calamity's calls to Boss Checklist as they arrived (LogBoss, LogMiniBoss, LogEvent): BookBossInfo reads their spawn
+	// items and texts when Boss Checklist itself is not loaded.
+	internal static List<object[]> CalamityLogs { get; private set; } = new List<object[]>();
+
 	// The Wall of Flesh's and Moon Lord's steps: the stage buckets' edges.
 	internal static int HardmodeStep { get; private set; } = 1;
 
@@ -141,6 +145,7 @@ internal static class BookSteps
 		byKey = new Dictionary<string, int>(StringComparer.Ordinal);
 		built = false;
 		Source = "";
+		CalamityLogs = new List<object[]>();
 	}
 
 	internal static void EnsureBuilt()
@@ -227,7 +232,8 @@ internal static class BookSteps
 		{
 			("Terraria", "TheTwins") => () => Language.GetTextValue("Enemies.TheTwins"),
 			("Terraria", "MoonLord") => () => Language.GetTextValue("Enemies.MoonLord"),
-			("Terraria", "EaterofWorldsHead") => () => Lang.GetNPCNameValue(WorldGen.crimson ? NPCID.BrainofCthulhu : NPCID.EaterofWorldsHead),
+			// The world evil's boss; a drunk world has both evils and turns WorldGen.crimson over every dawn (Main.UpdateTime_StartDay).
+			("Terraria", "EaterofWorldsHead") => () => Main.drunkWorld || Main.zenithWorld ? L("KillConditions.EitherEvilBoss", Lang.GetNPCNameValue(NPCID.EaterofWorldsHead), Lang.GetNPCNameValue(NPCID.BrainofCthulhu)) : Lang.GetNPCNameValue(WorldGen.crimson ? NPCID.BrainofCthulhu : NPCID.EaterofWorldsHead),
 			("Terraria", _) => () => Lang.GetNPCNameValue(npcs[0]),
 			_ => () => Language.GetTextValue("Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName") is string text && text != "Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName" ? text : Lang.GetNPCNameValue(npcs[0])
 		};
@@ -250,6 +256,7 @@ internal static class BookSteps
 			return null;
 		}
 		List<object[]> logged = ModernRecipeBook.CaptureBossLogs(() => register.Invoke(null, new object[] { ModContent.GetInstance<ModernRecipeBook>(), calamity }));
+		CalamityLogs = logged;
 		List<(float, Step)> list = new List<(float, Step)>();
 		foreach (object[] args in logged.Where((object[] a) => (string)a[0] == "LogBoss"))
 		{
@@ -383,10 +390,11 @@ internal static class BookSteps
 		return npc != null && MiniBosses.TryGetValue(npc.Mod.Name + "/" + npc.Name, out string after) ? Resolve(after) : -1;
 	}
 
-	// A spawn gate's step: every requirement met (the latest), each the earliest of its ways.
+	// A spawn gate's step: every requirement met (the latest), each the earliest of its ways. A mob open from the start has
+	// no gate (its step comes from its drops, as for a mob the probe never saw).
 	internal static int Gate(BookSpawnGates.Gate gate)
 	{
-		if (gate == null)
+		if (gate == null || gate.Terms.Length == 0)
 		{
 			return -1;
 		}

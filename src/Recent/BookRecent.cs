@@ -14,13 +14,24 @@ internal static class BookRecent
 
 	internal static int Version => Main.LocalPlayer?.GetModPlayer<BookPlayer>().RecentRecipes.Version ?? 0;
 
-	internal static void Record(Recipe recipe)
+	// made: how many of the recipe's item the craft gave (0 for something else it handed out).
+	internal static void Record(Recipe recipe, long made)
 	{
 		if (recipe != null && recipe.createItem != null && !recipe.createItem.IsAir && !Main.gameMenu && Main.LocalPlayer != null)
 		{
 			string key = Key(recipe);
-			Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Record(key);
+			Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Record(key, made);
 		}
+	}
+
+	// A Recent cell (a recipe group's representative, BookRecipeVariants): what its recipes made, the last time any did.
+	internal static (long Made, long Ticks) Stats(int representative)
+	{
+		if (Main.gameMenu || Main.LocalPlayer == null)
+		{
+			return (0, 0);
+		}
+		return Main.LocalPlayer.GetModPlayer<BookPlayer>().RecentRecipes.Stats((string key) => CurrentRecipes.TryGetValue(key, out int index) && BookRecipeVariants.Representative(index) == representative);
 	}
 
 	internal static void RefreshIndex()

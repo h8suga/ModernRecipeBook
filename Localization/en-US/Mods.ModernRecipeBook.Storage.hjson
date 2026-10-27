@@ -24,7 +24,6 @@ NoLongerNearby: No longer nearby
 InventoryFull: Inventory full
 TakenToInventory: Taken to inventory
 ClickTakeRightClickTakeOne: Click: take · Right-click: take one · Shift+Click: to inventory
-StacksToppedUp: Stacks topped up
 NothingToTopUp: Nothing to top up
 StackedIntoNearbyChests: Stacked into nearby chests
 TooFastWaitAMoment: Too fast: wait a moment
@@ -44,13 +43,13 @@ CountInactiveUnits: "{0} {^0:inactive storage unit;inactive storage units}"
 WithinTiles: Within {0} {^0:tile;tiles}
 CountLocked: "{0} locked"
 CountInUse: "{0} in use"
-StackedRemote: Stacked {0} items into remote storage
-StackedSomeRemote: Stacked {0} items · {1} into remote storage
-StackedLocal: Stacked {0} items into storage
+StackedRemote: Stacked {0} {^0:item;items} into remote storage
+StackedSomeRemote: Stacked {0} {^0:item;items} · {1} into remote storage
+StackedLocal: Stacked {0} {^0:item;items} into storage
 UsedOfTotal: "{0} / {1}"
 RemoteNetwork: "{0} (remote)"
 RemoteHow: Remote {0}
-CountPassword: "{0} password"
+CountPassword: "{0} with a password"
 TookOfRestGone: Took {0} of {1}: the rest is gone
 NearbyStorageFullLeft: Nearby storage is full: {0} left
 ChestsCount: Chests: {0}

@@ -14,8 +14,10 @@ internal static class BookCurated
 	{
 		foreach (BookItemSource source in BookStructures.Sources()) yield return source;
 		foreach (BookItemSource source in BookWorldLoot.Sources()) yield return source;
+		foreach (BookItemSource source in BookChestLoot.Sources()) yield return source;
 		foreach (BookItemSource source in BookCalamityLoot.Sources()) yield return source;
 		foreach (BookItemSource source in BookRewardSources.Sources()) yield return source;
+		foreach (BookItemSource source in BookCodeSources.Sources()) yield return source;
 	}
 
 	// An item available from that step on (BookSteps index), with the reason the progression audit shows.
@@ -23,8 +25,10 @@ internal static class BookCurated
 	{
 		foreach (var step in BookStructures.Steps()) yield return step;
 		foreach (var step in BookWorldLoot.Steps()) yield return step;
+		foreach (var step in BookChestLoot.Steps()) yield return step;
 		foreach (var step in BookCalamityLoot.Steps()) yield return step;
 		foreach (var step in BookRewardSources.Steps()) yield return step;
+		foreach (var step in BookCodeSources.Steps()) yield return step;
 	}
 
 	// An item that comes from any of each input group (one of every inner array), never before Floor.
@@ -32,13 +36,15 @@ internal static class BookCurated
 	{
 		foreach (var route in BookStructures.Routes()) yield return route;
 		foreach (var route in BookWorldLoot.Routes()) yield return route;
+		foreach (var route in BookChestLoot.Routes()) yield return route;
 		foreach (var route in BookCalamityLoot.Routes()) yield return route;
 		foreach (var route in BookRewardSources.Routes()) yield return route;
+		foreach (var route in BookCodeSources.Routes()) yield return route;
 	}
 
 	internal static BookAcquisitionEntry Entry(BookItemSource s)
 	{
-		return BookStructures.Entry(s) ?? BookWorldLoot.Entry(s) ?? BookCalamityLoot.Entry(s) ?? BookRewardSources.Entry(s);
+		return BookStructures.Entry(s) ?? BookWorldLoot.Entry(s) ?? BookChestLoot.Entry(s) ?? BookCalamityLoot.Entry(s) ?? BookRewardSources.Entry(s) ?? BookCodeSources.Entry(s);
 	}
 
 	// The kind's word on a How to Get row ("Chest", "Quest"), for the areas' own kinds; null for any other kind.

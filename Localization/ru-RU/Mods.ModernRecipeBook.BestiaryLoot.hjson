@@ -1,0 +1,32 @@
+Until: До: {0}
+HardmodeUntil: Хардмод, до: {0}
+AfterMoonLord: После Лунного лорда
+AfterTheFirstKill: Со второго убийства
+AfterAnyMechanicalBoss: После любого механического босса
+AfterTwoMechanicalBosses: После любых двух механических боссов
+AfterAllMechanicalBosses: После всех трёх механических боссов
+UntilAnyMechanicalBoss: До первого механического босса
+UntilTwoMechanicalBosses: До второго механического босса
+UntilAllMechanicalBosses: До третьего механического босса
+WaveOddsToEveryKill: 1 из {0} на 1-й волне, с {1}-й волны — каждый раз
+WaveOdds: 1 из {0} на 1-й волне, 1 из {1} на {2}-й
+EveryKill: каждый раз
+OneIn: 1 из {0}
+Wave: Волна {0}: {1}
+Waves: Волны {0}–{1}: {2}
+ForCharacterNamed: Персонажу по имени {0}
+RulesRollSeparately: Действуют {0} {^0:правило;правила;правил}, и каждое бросается отдельно: шанс — хотя бы одного, количество складывается
+NotInThisWorldCount: Не в этом мире · {0}
+NotInThisWorldTip: Добыча другой сложности или сида и та, время которой в этом мире уже прошло
+InSinglePlayer: В одиночной игре
+InMultiplayer: В сетевой игре
+TinWorld: Мир с оловом
+CopperWorld: Мир с медью
+CrimsonWorld: Мир с Багрянцем
+CorruptionWorld: Мир с Порчей
+HardcoreCharacter: Хардкорный персонаж
+NotHardcoreCharacter: Не хардкорный персонаж
+OnCrimsonDays: В дни Багрянца в пьяном мире
+OnCorruptionDays: В дни Порчи в пьяном мире
+NameTier: "{0} (уровень {1})"
+NameVariant: "{0} (вариант {1})"

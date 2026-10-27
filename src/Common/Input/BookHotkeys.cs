@@ -8,7 +8,6 @@ internal static class BookHotkeys
 	{
 		None,
 		Help,
-		Search,
 		Tab1,
 		Tab2,
 		Tab3,
@@ -65,10 +64,6 @@ internal static class BookHotkeys
 		}
 		if (ctrl && !alt)
 		{
-			if (Press(Keys.F))
-			{
-				return Action.Search;
-			}
 			// Ctrl+N opens the N-th visible tab, the number its tooltip shows.
 			if (Press(Keys.D1))
 			{
@@ -102,6 +97,11 @@ internal static class BookHotkeys
 				}
 				return Action.PreviousTab;
 			}
+			// Works while typing too: "Nothing found · Ctrl+Backspace resets filters" shows with the search field focused.
+			if (!menu && Press(Keys.Back))
+			{
+				return Action.ResetFilters;
+			}
 		}
 		if (typing | blocked | menu)
 		{
@@ -109,10 +109,6 @@ internal static class BookHotkeys
 		}
 		if (ctrl && !alt)
 		{
-			if (Press(Keys.Back))
-			{
-				return Action.ResetFilters;
-			}
 			if (Press(Keys.Enter))
 			{
 				return storage ? (shift ? Action.None : Action.TakeSelected) : (shift ? Action.CraftMax : Action.Craft);
@@ -229,5 +225,14 @@ internal static class BookHotkeys
 			}
 			return false;
 		}
+	}
+
+	// Ctrl+F, the quick search: anywhere in the game, the book open or not (RecipeBookSystem.UpdateQuickSearch decides
+	// where it may open). Ctrl+Shift+F counts too; with Alt it is not the chord.
+	internal static bool QuickSearch(KeyboardState keys, KeyboardState previous)
+	{
+		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
+		bool alt = keys.IsKeyDown(Keys.LeftAlt) || keys.IsKeyDown(Keys.RightAlt);
+		return ctrl && !alt && keys.IsKeyDown(Keys.F) && !previous.IsKeyDown(Keys.F);
 	}
 }

@@ -1,0 +1,127 @@
+Placeholder: Предметы, мобы, боссы, баффы, категории…
+PlaceholderScoped: Поиск: {0}…
+Results: "{0} {^0:результат;результата;результатов}"
+ScopeAll: Всё
+ScopeBosses: Боссы
+ScopeCategories: Категории
+ScopeTip: Показать только: {0} · Tab, Shift+Tab
+Scope: раздел
+KeyTab: Tab
+KeyArrows: ↑ ↓
+Select: Выбор
+EmptyHint: Названия, английские названия и ID · что это за предмет (баф, крылья, самонаведение) · описания · > для команд
+NothingFoundHint: Попробуйте английское название, категорию (зелья, крылья) или бафф
+SearchBestiary: Искать на вкладке «Бестиарий»
+SearchEverything: Искать везде: {0}
+AllInStorage: Все {0} на вкладке «Хранилище»
+AllInRecipes: Все {0} на вкладке «Рецепты»
+WhyCategory: в категории: {0}
+WhyBuff: даёт: {0}
+WhyTrait: свойство: {0}
+WhyClass: класс: {0}
+InStorage: У вас: {0}
+CanCraft: Можно создать ×{0}
+Tracked: Отслеживается · {0}%
+Favorite: ★ В избранном
+GoalProgress: "{0}% · создать {1}"
+Description: Описание
+SetBonus: Бонус комплекта: {0}
+Flavor: Бестиарий
+Loot: Добыча
+NoLoot: В этом мире без добычи
+MobStats: Здоровье {0} · Защита {1} · Урон {2}
+Crafted: Создаётся: {0}
+ByHand: Создаётся без станка
+StageTip: Всё, что в этом мире можно добыть до босса «{0}»: фильтр этапа книги.
+ModTip: Откроет «Предметы» (или бестиарий) только с модом «{0}».
+TipsTitle: Поиск по всей книге
+TipNames: Введите название предмета, моба, босса, категории или мода. Английские названия и ID работают на любом языке.
+TipConcepts: Или что это за предмет: категорию (баф, крылья, кнуты), бафф, который он даёт (Железная кожа), свойство (самонаведение) или класс (призыв).
+TipDescriptions: От трёх букв ищутся и описания предметов, и тексты бестиария — ниже совпадений по названию.
+TipCommands: Введите > для команд книги: «Сложить всё», «Быстро разложить», вкладки, справка, настройки.
+ActionLoot: Открыть карточку
+ActionStats: Характеристики
+ActionOpenGoal: Открыть в «Отслеживании»
+ActionOpenStorage: Открыть в «Хранилище»
+ActionFilter: Фильтр этапа
+ActionRun: Выполнить
+ActionTake: Взять
+ActionDeposit: Сложить
+ActionUnfavorite: Убрать из избранного
+ActionContents: Содержимое
+ActionChat: Ссылка в чат
+ActionSummonCraft: Создать: {0}
+ActionSummonHowToGet: Где взять: {0}
+ActionSummonTrack: Отслеживать: {0}
+TipCraft: Shift+клик или {0} — создать сколько можно
+TipTake: Стопку в инвентарь · правый клик — по одному
+TipDeposit: Сложит его стопки из инвентаря в ближнее хранилище (хотбар и избранное остаются).
+TipChat: Откроет чат со ссылкой на предмет.
+TipBeforeBoss: Фильтр этапа: всё, что в этом мире можно добыть к этому времени.
+CommandsTitle: Команды
+CommandsHint: команды
+NoCommand: Команды «{0}» нет
+NoCommandHint: Введите один > — покажутся все
+CommandDepositAll: Сложить всё
+CommandDepositAllTip: Инвентарь в ближнее хранилище, как кнопка вкладки «Хранилище».
+CommandQuickStack: Быстро разложить
+CommandQuickStackTip: То, что уже лежит в ближнем хранилище, отправится туда.
+CommandRestock: Пополнить
+CommandRestockTip: Дополнит стопки в инвентаре из ближнего хранилища.
+CommandRefresh: Обновить
+CommandRefreshTip: Заново прочитает хранилище, рецепты и то, что можно создать.
+CommandClearFilters: Сбросить фильтры
+CommandClearFiltersTip: Поиск, мод, категория и переключатели сбросятся; этап и класс останутся.
+CommandTabItems: Открыть «Предметы»
+CommandTabRecipes: Открыть «Рецепты»
+CommandTabBestiary: Открыть бестиарий
+CommandTabStorage: Открыть «Хранилище»
+CommandTabRecent: Открыть «Недавнее»
+CommandTabTracking: Открыть «Отслеживание»
+CommandTabTip: Книга на вкладке «{0}».
+CommandTrackerStyle: Сменить вид трекера
+CommandTrackerStyleToCards: Сейчас компактные строки; переключит на карточки целей.
+CommandTrackerStyleToCompact: Сейчас карточки целей; переключит на компактные строки.
+TrackerCompact: Трекер показывает компактные строки
+TrackerCards: Трекер показывает карточки целей
+CommandHelp: Справка
+CommandHelpTip: Все клавиши книги.
+CommandSettings: Настройки
+CommandSettingsTip: Настройки мода.
+CommandUntrackAll: Снять всё с отслеживания
+CommandUntrackAllTip: "{0} {^0:цель;цели;целей} · Enter дважды"
+CommandUntrackAllArmed: Нажмите Enter ещё раз, чтобы снять {0} {^0:цель;цели;целей}
+CommandBeforeNextBoss: До следующего босса
+CommandBeforeNextBossTip: Всё, что можно добыть до босса «{0}»: к чему готовиться.
+CommandNextBoss: Карточка следующего босса
+CommandNextBossTip: Босс, с которым драться дальше: добыча, здоровье и как его призвать.
+CommandCraftableNow: Можно создать сейчас
+CommandCraftableNowTip: «Предметы» с фильтром «Можно создать»: что получится из инвентаря и хранилища прямо сейчас.
+CommandFavorites: Избранное
+CommandFavoritesTip: «Предметы» только с избранным.
+CommandSummoner: Предметы призывателя
+CommandSummonerTip: «Предметы» с классом «Призыв»: миньоны, кнуты, турели, броня и аксессуары.
+SynonymsBuffs: баф, бафф, бафы, баффы, усиление, buff, buffs
+SynonymsPotions: зелье, зелья, банки, potion, potions
+SynonymsHealing: хилка, хилки, лечение, heal, healing
+SynonymsWings: крылья, крылышки, wings
+SynonymsMinions: миньон, миньоны, посох призыва, minion, minions
+SynonymsWhips: кнут, кнуты, хлыст, хлысты, whip, whips
+SynonymsSentries: турель, турели, сентри, sentry, sentries
+SynonymsStations: станок, станки, верстаки, станции, station, stations
+SynonymsOres: руда, руды, ore, ores
+SynonymsBars: слиток, слитки, bar, bars
+SynonymsAccessories: акс, аксы, аксессуар, accessory, accessories
+SynonymsArmor: броня, сет, сеты, armor, armor set
+SynonymsHooks: крюк, крюки, хук, hook, grapple
+SynonymsMounts: маунт, маунты, ездовые, mount, mounts
+SynonymsPets: пет, петы, питомец, pet, pets
+SynonymsBossSummons: призыв босса, вызов босса, boss summon
+SynonymsBags: мешок, мешки, сумка, bag, treasure bag
+SynonymsPicks: кирка, бур, pickaxe, drill
+SynonymsFood: еда, сытость, food, well fed
+SynonymsAmmo: патроны, боеприпасы, ammo
+KeyCtrlQ: Ctrl+Q
+KeyCtrlR: Ctrl+R
+ShortcutInBook: В книге:
+Stats: Характеристики

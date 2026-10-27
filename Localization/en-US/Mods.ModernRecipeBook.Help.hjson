@@ -32,22 +32,21 @@ Favorite: Favorite
 KeyAltG: Alt+G
 HowToGet: How to Get
 KeyAltU: Alt+U
-RecipeUsedIn: Recipe · Used in
+RecipeUsedIn: Recipe → Used In → …
 MobLootStats: Mob: Loot · Stats
 KeyLMB: LMB
 OpenAnIngredient: Open an ingredient
 KeyShiftLMB: Shift+LMB
-WhereItSUsed: Where it's used
+WhereItSUsed: Open on Used In
 KeyAltLMB: Alt+LMB
 FavoriteInTheGrid: Favorite in the grid
 KeyMouse3: Mouse3
 LookUpItemOrMob: Look up item or mob
 KeyCtrlF: Ctrl+F
-Search: Search
 KeyCtrlBackspace: Ctrl+Backspace
-ResetFilters: Reset filters
+ResetFilters: Clear search and filters
 KeyAlt15: Alt+1…5
-Stage5BeforeTheNextBoss: Stage · 5: before the next boss
+Stage5BeforeTheNextBoss: Stage (5: next boss)
 KeyClassButtons: Class buttons
 FilterByClass: Filter by class
 KeyF5: F5
@@ -59,11 +58,9 @@ StackToInventory: Stack to inventory
 KeyCtrlLMB: Ctrl+LMB
 ToTheTrash: To the trash
 SelectedToInventory: Selected to inventory
-KeyCtrlQCtrlR: Ctrl+Q · Ctrl+R
-QuickStackRestock: Quick stack · restock
 KeyShiftLMBInInv: Shift+LMB in inv.
 PutAStackIn: Put a stack in
-KeyLMBHoldingItem: LMB holding item
+KeyLMBHoldingItem: LMB off the cells
 PutTheHeldItemIn: Put the held item in
 SectionMOVINGAROUND: MOVING AROUND
 SectionFULLMAPMOUSE3REBINDABLE: FULL MAP · MOUSE3 REBINDABLE

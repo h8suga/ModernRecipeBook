@@ -575,6 +575,12 @@ internal static class BookItemTraits
 
 	private static bool Scan(MethodInfo method, FieldInfo field, MethodInfo call)
 	{
+		return IlMembers(method, (OpCode op) => op == OpCodes.Stfld || (call != null && (op == OpCodes.Call || op == OpCodes.Callvirt))).Any(((OpCode Op, MemberInfo Member) x) => x.Op == OpCodes.Stfld ? x.Member == field : x.Member == call);
+	}
+
+	// The fields and methods a method's IL names, for the opcodes asked (BookKillConditions reads drop predicates with it).
+	internal static IEnumerable<(OpCode Op, MemberInfo Member)> IlMembers(MethodInfo method, Func<OpCode, bool> wanted)
+	{
 		byte[] il;
 		try
 		{
@@ -582,51 +588,101 @@ internal static class BookItemTraits
 		}
 		catch
 		{
-			return false;
+			yield break;
 		}
 		if (il == null)
 		{
-			return false;
+			yield break;
 		}
 		if (!opsReady)
 		{
 			ReadOpCodes();
 		}
 		Module module = method.Module;
-		Type[] typeArguments = method.DeclaringType.IsGenericType ? method.DeclaringType.GetGenericArguments() : null;
+		Type[] typeArguments = (method.DeclaringType?.IsGenericType ?? false) ? method.DeclaringType.GetGenericArguments() : null;
 		Type[] methodArguments = method.IsGenericMethod ? method.GetGenericArguments() : null;
 		int i = 0;
 		while (i < il.Length)
 		{
 			OpCode op = (il[i] == 0xFE && i + 1 < il.Length) ? TwoByteOps[il[++i]] : OneByteOps[il[i]];
 			i++;
-			int size = op.OperandType switch
-			{
-				OperandType.InlineNone => 0,
-				OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
-				OperandType.InlineVar => 2,
-				OperandType.InlineI8 or OperandType.InlineR => 8,
-				OperandType.InlineSwitch => (i + 4 <= il.Length) ? (4 + 4 * BitConverter.ToInt32(il, i)) : 4,
-				_ => 4
-			};
-			if (i + 4 <= il.Length && (op == OpCodes.Stfld || (call != null && (op == OpCodes.Call || op == OpCodes.Callvirt))))
+			int size = OperandSize(op, il, i);
+			if (i + 4 <= il.Length && (op.OperandType is OperandType.InlineField or OperandType.InlineMethod) && wanted(op))
 			{
 				int token = BitConverter.ToInt32(il, i);
+				MemberInfo member = null;
 				try
 				{
-					if (op == OpCodes.Stfld ? (module.ResolveField(token, typeArguments, methodArguments) == field) : (module.ResolveMethod(token, typeArguments, methodArguments) == call))
-					{
-						return true;
-					}
+					member = op.OperandType == OperandType.InlineField ? module.ResolveField(token, typeArguments, methodArguments) : module.ResolveMethod(token, typeArguments, methodArguments);
 				}
 				catch
 				{
 					// A token the generic context cannot resolve: not ours.
 				}
+				if (member != null)
+				{
+					yield return (op, member);
+				}
 			}
 			i += size;
 		}
-		return false;
+	}
+
+	// The string literals a method's IL loads (ldstr): StarterBag's player names (BookKillConditions).
+	internal static IEnumerable<string> IlStrings(MethodInfo method)
+	{
+		byte[] il;
+		try
+		{
+			il = method.GetMethodBody()?.GetILAsByteArray();
+		}
+		catch
+		{
+			yield break;
+		}
+		if (il == null)
+		{
+			yield break;
+		}
+		if (!opsReady)
+		{
+			ReadOpCodes();
+		}
+		int i = 0;
+		while (i < il.Length)
+		{
+			OpCode op = (il[i] == 0xFE && i + 1 < il.Length) ? TwoByteOps[il[++i]] : OneByteOps[il[i]];
+			i++;
+			string text = null;
+			if (op.OperandType == OperandType.InlineString && i + 4 <= il.Length)
+			{
+				try
+				{
+					text = method.Module.ResolveString(BitConverter.ToInt32(il, i));
+				}
+				catch
+				{
+				}
+			}
+			if (text != null)
+			{
+				yield return text;
+			}
+			i += OperandSize(op, il, i);
+		}
+	}
+
+	private static int OperandSize(OpCode op, byte[] il, int i)
+	{
+		return op.OperandType switch
+		{
+			OperandType.InlineNone => 0,
+			OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+			OperandType.InlineVar => 2,
+			OperandType.InlineI8 or OperandType.InlineR => 8,
+			OperandType.InlineSwitch => (i + 4 <= il.Length) ? (4 + 4 * BitConverter.ToInt32(il, i)) : 4,
+			_ => 4
+		};
 	}
 
 	private static void ReadDescriptions(double budgetMs)
@@ -690,8 +746,7 @@ internal static class BookItemTraits
 		string own = null;
 		if (other && english != null)
 		{
-			string key = (sample.ModItem != null) ? sample.ModItem.Tooltip.Key : ("ItemTooltip." + ItemID.Search.GetName(type));
-			english.TryGetValue(key, out own);
+			english.TryGetValue(EnglishKey(sample), out own);
 		}
 		bool ownInEnglish = own != null && !Placeholder.IsMatch(own);
 		// What the game shows (a tooltip line may hold several lines: Calamity joins its own), and what mods add to it.
@@ -704,6 +759,22 @@ internal static class BookItemTraits
 		{
 			Apply(type, own.Split('\n').ToList(), Source.EnglishDescription);
 		}
+	}
+
+	private static string EnglishKey(Item sample)
+	{
+		return (sample.ModItem != null) ? sample.ModItem.Tooltip.Key : ("ItemTooltip." + ItemID.Search.GetName(sample.type));
+	}
+
+	// The item's own description in English while the game runs in another language (the quick search matches a Latin
+	// query against it); null in English, before it is read, or when it is only placeholders.
+	internal static string EnglishTooltip(Item sample)
+	{
+		if (english == null || Language.ActiveCulture.Name.StartsWith("en", StringComparison.Ordinal) || !english.TryGetValue(EnglishKey(sample), out string own))
+		{
+			return null;
+		}
+		return Placeholder.IsMatch(own) ? null : own;
 	}
 
 	private static readonly Regex Placeholder = new Regex("\\[[A-Z][A-Z0-9_]*\\]", RegexOptions.CultureInvariant);

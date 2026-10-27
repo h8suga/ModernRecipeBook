@@ -38,7 +38,10 @@ public sealed class BookMagicStorage : ModSystem
 
 		internal bool ViaWindow;
 
-		internal bool ViaCarried;
+		// The carried Portable Access that reaches it (its item type; 0 none): the radius line names it, a link to its card.
+		internal int Carrier;
+
+		internal bool ViaCarried => Carrier > 0;
 
 		internal bool Remote => !Nearby;
 	}
@@ -95,6 +98,9 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static int BiomeGlobe = -1;
 
+	// The Storage Heart item: a network's link in the Storage tab opens its card (0 when MS has none by that name).
+	internal static int HeartItem { get; private set; }
+
 	private static Type UnitType;
 
 	private static PropertyInfo CapacityOf;
@@ -146,6 +152,8 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static FieldInfo UsingOf;
 
+	private static FieldInfo AccessingOf;
+
 	private static MethodInfo RefreshOf;
 
 	private static MethodInfo AuditWithdrawOf;
@@ -169,6 +177,13 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static PropertyInfo ActorProperty;
 
+	// MS's own Deposit All puts coins into the Piggy Bank first (DepositAllCoinsFirst).
+	private static bool CoinsFirst;
+
+	private static MethodInfo GuiHeart;
+
+	private static MethodInfo HasItemOf;
+
 	private static bool Hooked;
 
 	internal static string FailureText { get; private set; } = "";
@@ -186,6 +201,7 @@ public sealed class BookMagicStorage : ModSystem
 		CanHide = !Main.dedServ && Readable && TryBind("hide", BindHiding);
 		Countable = !Main.dedServ && Readable && TryBind("cells", BindCells);
 		Portable = Readable && TryBind("portable", BindPortable);
+		CoinsFirst = !Main.dedServ && Readable && TryBind("coins", BindCoins);
 		if (CanHide)
 		{
 			On_UserInterface.Update += UpdateNativeInterface;
@@ -257,6 +273,7 @@ public sealed class BookMagicStorage : ModSystem
 		CraftingTile = Owner.TryFind<ModTile>("CraftingAccess", out var crafting) ? crafting.Type : -1;
 		SnowEmulator = Owner.TryFind<ModItem>("SnowBiomeEmulator", out var snow) ? snow.Type : -1;
 		BiomeGlobe = Owner.TryFind<ModItem>("BiomeGlobe", out var globe) ? globe.Type : -1;
+		HeartItem = Owner.TryFind<ModItem>("StorageHeart", out var heart) ? heart.Type : 0;
 	}
 
 	private static void BindCells()
@@ -284,10 +301,44 @@ public sealed class BookMagicStorage : ModSystem
 		WithdrawOf = Method(HeartType, "Withdraw", typeof(Item), typeof(bool));
 		DepositOf = Method(HeartType, "DepositItem", typeof(Item));
 		UsingOf = Field(HeartType, "clientUsingHeart");
+		AccessingOf = Field(Get("Common.Systems.SecuritySystem"), "accessingPlayer");
 		RefreshOf = Method(Get("NetHelper"), "SendRefreshNetworkItems", typeof(Point16), typeof(bool), typeof(IEnumerable<int>));
 		Type audit = Get("Common.Systems.Auditing.AuditSystem");
 		AuditWithdrawOf = Method(audit, "ReportItemWithdraw", typeof(int), HeartType, typeof(Item));
 		AuditDepositOf = Method(audit, "ReportItemDeposit", typeof(int), HeartType, typeof(Item));
+	}
+
+	// The hook goes in last, so a member that is missing leaves MS's button untouched. tModLoader removes it on unload.
+	private static void BindCoins()
+	{
+		Type storageGui = Get("StorageGUI");
+		MethodInfo depositAll = Method(storageGui, "TryDepositAll", typeof(bool));
+		GuiHeart = Method(storageGui, "GetHeart");
+		HasItemOf = Method(HeartType, "HasItem", typeof(Item), typeof(Player), typeof(bool));
+		MonoModHooks.Add(depositAll, DepositAllCoinsFirst);
+	}
+
+	// MS's own Deposit All (StorageGUI.TryDepositAll, MS:MagicStorage/StorageGUI.cs:448-484) takes rows 10..49 but
+	// favorites; in its quick-stack mode only the kinds the storage holds (TEStorageHeart.HasItem). The coins among them
+	// go to the Piggy Bank first when it is available (BookSources.BankInventoryCoins); what does not fit stays for MS.
+	private static bool DepositAllCoinsFirst(Func<bool, bool> orig, bool quickStack)
+	{
+		bool banked = false;
+		if (CoinsFirst)
+		{
+			try
+			{
+				object heart = GuiHeart.Invoke(null, null);
+				// HasItem checks security as a withdraw does (MS:MagicStorage.Components/TEStorageHeart.cs:1020-1024);
+				// MS asks it inside its own context.
+				banked = heart != null && BookSources.BankInventoryCoins((Item item) => !quickStack || As(Main.myPlayer, () => (bool)HasItemOf.Invoke(heart, new object[3] { item, Main.LocalPlayer, true })));
+			}
+			catch (Exception error)
+			{
+				Fail("coins", error);
+			}
+		}
+		return orig(quickStack) | banked;
 	}
 
 	private static void BindHiding()
@@ -330,19 +381,24 @@ public sealed class BookMagicStorage : ModSystem
 		{
 			Portable = false;
 		}
+		else if (group == "coins")
+		{
+			CoinsFirst = false;
+		}
 		else
 		{
 			CanHide = false;
 		}
 	}
 
-	// One pass over the tiles within `tiles` of the player: bank tiles (-2..-5, once each) and Magic Storage access
+	// One pass over the tiles within `tiles` of the player: banks (-2..-5, once each: their tiles and the projectiles that
+	// open them) and Magic Storage access
 	// tiles. Each heart is listed once with its nearest access tile; a heart the player may not use counts in
 	// `locked`. `stations` gets the station lists of counted Crafting Interfaces. The network the player has open in
 	// MS (or, on the server, has locked in MS) is added however far it is, and so is the network of each bound Portable
 	// Access the player carries when MS itself would open it from here (AddCarried); `carried` gets the ones that would
 	// not, with the reason.
-	internal static void Scan(Player player, int tiles, List<int> banks, List<Network> networks, List<List<Item>> stations, out int locked, List<(bool Crafting, CarriedSkip Why)> carried = null)
+	internal static void Scan(Player player, int tiles, List<int> banks, List<Network> networks, List<List<Item>> stations, out int locked, List<(int Type, bool Crafting, CarriedSkip Why)> carried = null)
 	{
 		carried?.Clear();
 		locked = 0;
@@ -390,6 +446,19 @@ public sealed class BookMagicStorage : ModSystem
 							}
 						}
 					}
+				}
+			}
+		}
+		// The Money Trough and Chester open the Piggy Bank, the Void Lens the Void Vault (Projectile.TryGetContainerIndex),
+		// and vanilla's quick stack reaches them like bank tiles, measured to the nearest point of the hitbox
+		// (TML:Terraria/Player.cs:20036-20056, 20115-20129). Anyone's: each opens the player's own bank.
+		if (banks != null)
+		{
+			foreach (Projectile projectile in Main.ActiveProjectiles)
+			{
+				if (projectile.TryGetContainerIndex(out int bank) && !banks.Contains(bank) && BookSourceRules.InRange(center, projectile.Hitbox.ClosestPointInRect(center), tiles))
+				{
+					banks.Add(bank);
 				}
 			}
 		}
@@ -442,7 +511,7 @@ public sealed class BookMagicStorage : ModSystem
 	// the storage (Utility.PlayerIsNearAccess, NearbyPylons, StorageSystemHasNearbyPylon); then MS's security. Its network
 	// ranks by the distance to the location, so networks in reach of the player stay first. A crafting one adds its
 	// interface's stations. On a multiplayer client a location whose tiles have not arrived is asked for once.
-	private static void AddCarried(Player player, List<Network> networks, List<List<Item>> stations, ref HashSet<object> refused, List<(bool Crafting, CarriedSkip Why)> carried)
+	private static void AddCarried(Player player, List<Network> networks, List<List<Item>> stations, ref HashSet<object> refused, List<(int Type, bool Crafting, CarriedSkip Why)> carried)
 	{
 		for (int slot = 0; slot < SentLocations.Length; slot++)
 		{
@@ -469,14 +538,14 @@ public sealed class BookMagicStorage : ModSystem
 			bool crafting = (bool)context[3];
 			if (!LocationLoaded(location))
 			{
-				carried?.Add((crafting, CarriedSkip.Loading));
+				carried?.Add((item.type, crafting, CarriedSkip.Loading));
 				continue;
 			}
 			Tile tile = Main.tile[location.X, location.Y];
 			object heart = (tile.HasTile && tile.TileType == (int)context[0] && tile.TileFrameX == 0 && tile.TileFrameY == 0) ? HeartFromAccess.Invoke(null, new object[1] { location }) : null;
 			if (heart == null)
 			{
-				carried?.Add((crafting, CarriedSkip.Missing));
+				carried?.Add((item.type, crafting, CarriedSkip.Missing));
 				continue;
 			}
 			object[] range = new object[2];
@@ -486,12 +555,12 @@ public sealed class BookMagicStorage : ModSystem
 			{
 				if (!((IEnumerable)PylonsNear.Invoke(null, new object[2] { player, playerRange })).GetEnumerator().MoveNext())
 				{
-					carried?.Add((crafting, CarriedSkip.OutOfRange));
+					carried?.Add((item.type, crafting, CarriedSkip.OutOfRange));
 					continue;
 				}
 				if (pylonRange >= 0 && !(bool)PylonNearStorage.Invoke(null, new object[3] { player, heart, pylonRange }))
 				{
-					carried?.Add((crafting, CarriedSkip.NoPylon));
+					carried?.Add((item.type, crafting, CarriedSkip.NoPylon));
 					continue;
 				}
 			}
@@ -502,7 +571,7 @@ public sealed class BookMagicStorage : ModSystem
 			}
 			Network network = Add(networks, heart);
 			network.Distance = Math.Min(network.Distance, Vector2.DistanceSquared(player.Center, location.ToWorldCoordinates(16f, 16f)));
-			network.ViaCarried = true;
+			network.Carrier = item.type;
 			if (crafting && stations != null && TileEntity.ByPosition.TryGetValue(location, out var entity) && CraftingType.IsInstanceOfType(entity) && StationsOf.GetValue(entity) is List<Item> list && !stations.Contains(list))
 			{
 				stations.Add(list);
@@ -696,16 +765,67 @@ public sealed class BookMagicStorage : ModSystem
 		return entity;
 	}
 
-	// Server and single player only. Prefix-exact, like MS's own withdraw (TEStorageUnit.WithdrawFromItemCollection).
-	internal static Item Withdraw(object heart, Item lookFor)
+	// MS checks a network's security against SecuritySystem.accessingPlayer, a static that is 0 outside an access context
+	// (MS:MagicStorage.Common.Systems/SecuritySystem.cs:118-127, 161, 1127-1133): a call outside one runs as player 0,
+	// whoever asked. The context is a ref struct reflection cannot use (M6), so the field is set around the call as
+	// AccessContext.Use sets it, to the player the operation is for, as MS's own packet handler does
+	// (MS:MagicStorage/NetHelper.cs:767). -1 checks nobody (AccessibleFromContext).
+	private static T As<T>(int player, Func<T> call)
 	{
-		return (Item)WithdrawOf.Invoke(heart, new object[2] { lookFor, false });
+		if (AccessingOf == null)
+		{
+			return call();
+		}
+		object before = AccessingOf.GetValue(null);
+		AccessingOf.SetValue(null, player);
+		try
+		{
+			return call();
+		}
+		finally
+		{
+			AccessingOf.SetValue(null, before);
+		}
 	}
 
-	// Leaves what did not fit in `item`.
-	internal static void Deposit(object heart, Item item)
+	// Server and single player only, as `player`. Prefix-exact, like MS's own withdraw
+	// (TEStorageUnit.WithdrawFromItemCollection).
+	internal static Item Withdraw(object heart, Item lookFor, int player)
 	{
-		DepositOf.Invoke(heart, new object[1] { item });
+		return As(player, () => (Item)WithdrawOf.Invoke(heart, new object[2] { lookFor, false }));
+	}
+
+	// Leaves what did not fit in `item`. A restore passes -1: the items go back where they came from, and the player
+	// they were for may have left.
+	internal static void Deposit(object heart, Item item, int player)
+	{
+		As(player, () => DepositOf.Invoke(heart, new object[1] { item }));
+	}
+
+	// Server: MS clears a heart's "window open" flag when the client says so or the heart is mined
+	// (MS:MagicStorage.Components/StorageHeart.cs:83); its disconnect hook reads the client's own state, which the server
+	// does not have (MS:MagicStorage/StoragePlayer.cs:211-214). A player who left with the window open would leave the
+	// flag to whoever takes the slot next, and AddSession would count that heart as theirs from anywhere.
+	internal static void ForgetSession(int player)
+	{
+		if (UsingOf == null)
+		{
+			return;
+		}
+		try
+		{
+			foreach (TileEntity entity in TileEntity.ByID.Values)
+			{
+				if (HeartType.IsInstanceOfType(entity) && UsingOf.GetValue(entity) is bool[] users && player < users.Length)
+				{
+					users[player] = false;
+				}
+			}
+		}
+		catch (Exception error)
+		{
+			Fail("write", error);
+		}
 	}
 
 	// Viewers' MS windows refresh and the server's MS audit log records the player, as for MS's own operations
@@ -974,8 +1094,8 @@ public sealed class BookMagicStorage : ModSystem
 		}
 	}
 
-	// Stand: c call p=ModernRecipeBook.BookMagicStorage.AddStation a=<x> a=<y> a=<item type> puts a station item into the
-	// Crafting Interface whose top-left tile is (x, y), as MS's station slots do.
+	// Stand: c call p=ModernRecipeBook.Storage.BookMagicStorage.AddStation a=<x> a=<y> a=<item type> puts a station item
+	// into the Crafting Interface whose top-left tile is (x, y), as MS's station slots do.
 	internal static string AddStation(int x, int y, int type)
 	{
 		if (!Readable || !TileEntity.ByPosition.TryGetValue(new Point16(x, y), out var entity) || !CraftingType.IsInstanceOfType(entity))
@@ -995,7 +1115,7 @@ public sealed class BookMagicStorage : ModSystem
 			On_ItemSlot.LeftClick_ItemArray_int_int -= BlockLeftClick;
 			On_ItemSlot.RightClick_ItemArray_int_int -= BlockRightClick;
 		}
-		Hooked = Installed = Readable = Writable = CanHide = Countable = Portable = false;
+		Hooked = Installed = Readable = Writable = CanHide = Countable = Portable = CoinsFirst = false;
 		SectionsAsked.Clear();
 		Owner = null;
 		SavedTiles = null;

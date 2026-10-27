@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.GameContent;
@@ -29,7 +30,7 @@ public sealed class BookTooltipShortcut : GlobalItem
 		Item cell = RecipeBookSystem.StorageHover;
 		if (cell != null && RecipeBookSystem.Open && item.type == cell.type && item.prefix == cell.prefix)
 		{
-			string where = BookSources.Breakdown(item.type);
+			string where = BookSources.Breakdown(cell);
 			if (where.Length > 0)
 			{
 				tooltips.Add(new TooltipLine(Mod, "NearbySources", where)
@@ -41,9 +42,22 @@ public sealed class BookTooltipShortcut : GlobalItem
 			{
 				OverrideColor = new Color(150, 165, 155)
 			});
+			tooltips.Add(new TooltipLine(Mod, "NearbyMore", BookSources.MoreHint)
+			{
+				OverrideColor = new Color(150, 165, 155)
+			});
 			tooltips.Add(new TooltipLine(Mod, "NearbyDeposit", BookSources.DepositHint)
 			{
 				OverrideColor = new Color(150, 165, 155)
+			});
+		}
+		// A Recent cell: how many its recipe made and when it last did (BookRecentHistory; crafts before 1.18 have neither).
+		int recent = RecipeBookSystem.RecentHover;
+		if (recent >= 0 && RecipeBookSystem.Open && item.type == Main.recipe[recent].createItem.type && BookRecent.Stats(recent) is (long made and > 0, long ticks))
+		{
+			tooltips.Add(new TooltipLine(Mod, "RecentCrafted", L("StorageLinks.RecentCrafted", made.ToString("N0", CultureInfo.CurrentCulture), BookMobEncounters.Ago(ticks)))
+			{
+				OverrideColor = new Color(170, 200, 180)
 			});
 		}
 		// A card list row: its counts and click hint under the item's own lines.

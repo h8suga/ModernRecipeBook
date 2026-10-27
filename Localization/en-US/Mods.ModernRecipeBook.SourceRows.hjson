@@ -1,0 +1,99 @@
+SurfaceBody: In the wooden chests just under the surface and in the chests of desert pyramids, from world creation
+Pyramid: Pyramid treasure rooms
+PyramidBody: Each desert pyramid hides one Gold Chest in its treasure room, from world creation
+UndergroundBody: In every chest between the surface and the cavern layer, from world creation: Gold Chests of caves and cabins, biome chests, sky island and Dungeon chests
+UndergroundGoldBody: In the Gold Chests of caves and cabins between the surface and the cavern layer, from world creation
+Cavern: Cavern chests
+CavernBody: In every chest from the cavern layer down to the Underworld, from world creation: Gold Chests of caves and cabins, biome chests, temple and Dungeon chests
+CavernGoldBody: In the Gold Chests of caves and cabins from the cavern layer down to the Underworld, from world creation
+Deep: Underworld chests
+DeepBody: In the Shadow Chests of the Underworld and the few Gold Chests just above it, from world creation
+DeepGoldBody: In the few Gold Chests just above the Underworld, from world creation
+Shadow: Shadow Chests in the Underworld
+ShadowBody: In the ruined houses of the Underworld, locked since the world was made: a {1} opens them
+IceBody: In the Frozen Chests of the underground ice biome and its cabins, from world creation
+DesertBody: In the Sandstone Chests of the underground desert and its houses, from world creation
+JungleShrine: Jungle shrines
+JungleShrineBody: In the Ivy Chest of each jungle shrine, from world creation
+Mahogany: Living mahogany trees
+MahoganyBody: In the Ivy Chest inside each living mahogany tree of the underground jungle, from world creation
+WaterBody: In the Water Chests that lie under water across the world, from world creation
+OceanCave: Ocean cave
+OceanCaveBody: Some worlds have a cave by the ocean with one Water Chest, from world creation
+SkyBody: In the Skyware Chest of each sky island house, from world creation
+Temple: Lihzahrd Chests
+TempleBody: In the chests of the Jungle Temple, from world creation; its door opens with the {1}, which {0} drops
+DungeonGoldBody: In the Dungeon's rooms, locked since the world was made: a {1} opens them, and the Dungeon lets you in once {0} is defeated
+DungeonWoodenBody: In the wooden chests of the Dungeon's rooms, from world creation; the Dungeon lets you in once {0} is defeated
+BiomeChests: Dungeon: Biome Chests
+BiomeChestsBody: The Dungeon's Biome Chests, locked since the world was made: each opens with its own key, and only once {0} is defeated
+DrunkBody: In a drunk world (seed 05162020), in any chest that holds something, when the world is made
+Workshop: Rusted workshops
+WorkshopBody: Draedon's small workshops in the deep caverns, several per world with one chest each, from world creation
+Outpost: Research outposts
+OutpostBody: Draedon's research outposts in the deep caverns, a few per world with one chest each, from world creation
+HellLabBody: Draedon's laboratory in the Underworld has two chests, from world creation
+SunkenLab: Draedon's lab by the Sunken Sea
+IceLab: Draedon's lab in the ice biome
+PlagueLab: Draedon's lab in the jungle
+PlanetoidLab: Draedon's lab in the sky
+CavernLab: Draedon's lab in the caverns
+LabBody: One laboratory per world with two chests, from world creation
+CorruptionShrine: Corruption shrine
+CrimsonShrine: Crimson shrine
+DesertShrine: Desert shrine
+GraniteShrine: Granite shrine
+IceShrine: Ice shrine
+MarbleShrine: Marble shrine
+MushroomShrine: Mushroom shrine
+SurfaceShrine: Surface shrine
+AbyssShrine: Abyss shrine
+ShimmerShrine: Shimmer shrine
+ShrineBody: A hidden shrine with one chest, one per world, from world creation
+AbyssShrineBody: A Void Chest at the bottom of the Abyss, one per world, from world creation
+AbyssChestsBody: In the locked chests on the islands of the Abyss, from world creation; they open once {0} is defeated
+Sulphur: Rusty chests of the Sulphurous Sea
+SulphurBody: Four Rusty Chests by and under the Sulphurous Sea, from world creation
+Crag: Brimstone Crag bridge
+CragBody: Two Ashen Chests on the bridge over the Brimstone Crag, from world creation
+Honey: Honey chests
+HoneyBody: In the Honey Chests of the Giant Hive in the underground jungle and of the mud planetoids in the sky, from world creation
+MudPlanet: Mud planetoids
+MudPlanetBody: Some mud planetoids in the sky hold a Water Chest, from world creation
+Vernal: Vernal Pass
+VernalBody: Five Ivy Chests in the Vernal Pass by the Jungle Temple, from world creation
+MechanicShed: Mechanic's shed
+MechanicShedBody: A shed on the surface of the snow biome with one chest, from world creation
+Archive: Forsaken Archive
+ArchiveBody: Two chests in a hidden library of the Dungeon, from world creation; the Dungeon lets you in once {0} is defeated
+EvilIsland: Sky island of the other evil
+EvilIslandBody: A sky island of the evil your world lacks, with one chest, from world creation
+SkyHouses: The first {0} sky island houses each hold a different one of these, any further house one of them at random
+InPlaceOfEye: Calamity puts it in place of the {0} in wooden, rich mahogany, ivy, ice, Lihzahrd, granite, marble, sandstone and trapped chests
+EyeKept: With Calamity only water, web-covered and Biome Chests keep it; the others get other loot in its place
+PerChest: Chance and amount per chest
+WorldOre: Only in a world with this ore: each world has one ore of each pair
+OneChest: Only one of its chests holds it
+OtherChests: Each of its other chests holds one of these
+AboveCaverns: Only in those above the cavern layer
+InCaverns: Only in those in the cavern layer
+BelowLava: Only in those below the lava line
+GoldOnly: Only in their Gold Chests, the Dungeon's locked ones too
+WholeSet: The whole set comes together
+InTurn: The chests take these in turn, so a world with few of them can lack one
+UpperDesert: Only in the upper part of the underground desert
+LowerDesert: Only in its deeper part
+ClickChestCard: Click: the {0}'s card
+SummonedWith: Summoned with {0}
+FromBossChecklist: From Boss Checklist
+FromBossRegistration: From the mod's entry for Boss Checklist
+WhereSummoned: Wherever it is summoned
+DuringFight: During {0}'s fight
+WhereItsBossFights: Wherever {0} is fought
+During: During {0}
+CultistRitual: Outside the Dungeon, while the cultists hold their ritual
+MovesIn: Moves into a free house
+AnyTime: Any time
+WhereTheEventIs: Wherever the event is
+FromBossCode: From the boss's own code
+FromGameCode: From the game's code
