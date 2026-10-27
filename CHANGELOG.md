@@ -13,6 +13,15 @@ patch for fixes, minor for features.
   the most specific sidebar category, with its group when there is room (a long mod name shortens first). Clicking a part
   of the path opens Items on that category with the search cleared and every other filter kept, the item still selected;
   Back returns.
+- How to Get: every row that stands for an item opens that item's card (what shimmers or turns into it, the machine,
+  what a trade takes, the chest it lies in); a container still opens on its Contents. Tracked goals' ingredient and
+  station rows open their item too.
+- How to Get knows what world generation puts in chests, vanilla's and Calamity's (labs, shrines, Abyss, Astral,
+  Sulphurous Sea, Crag, Vernal Pass…): 299 items get a chest row with chance and stack per chest, boss and key. The Herb
+  Bag reads "Surface chests 16.67% ×1–4" and "Draedon's lab in the sky 100% ×12–17".
+- Mob cards: "Spawns" says how a mob comes (a boss's summon, "During Signus's fight", "During Celestial Pillars", "Any
+  time"; the Divine Swine "Sky"); boss minions, the Lunatic Devotees and the Old One's Army sit at the right stage, and
+  "Before: Moon Lord" shows Moon Lord.
 - Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
   Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
   fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
