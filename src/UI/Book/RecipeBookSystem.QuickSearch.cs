@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using ReLogic.Content;
 using Terraria;
-using Terraria.GameContent;
+using Terraria.GameContent.Bestiary;
 using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
@@ -17,10 +18,12 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace ModernRecipeBook.UI.Book;
 
 // Quick search: Ctrl+F anywhere (or the "Search Everything" key) opens one field over the game or the book that finds
-// items, Bestiary entries, "Before: <boss>" stages, item and Bestiary categories and mods at once, grouped by kind, and
-// opens a pick where it lives, through the book's history (docs/quick-search.md). The index is built once per language
-// and world; a keystroke ranks it (BookQuickRank). Direct matches carry the book's own links under them: an item the
-// mobs and bags How to Get names for it, a mob the loot its card lists.
+// items, Bestiary entries, "Before: <boss>" stages, item and Bestiary categories, mods and tracked goals at once, grouped
+// by kind, and opens a pick where it lives, through the book's history (docs/quick-search.md). Items are found by their
+// names, then by what they are (a category, the buff they give, a trait, a class), then by their description; scopes
+// narrow the list to one tab's view (Storage, Recipes, Tracking...). The index is built once per language and world; a
+// keystroke ranks it (BookQuickRank). Drawing: RecipeBookSystem.QuickPalette.cs; the row and preview actions and the ">"
+// commands: RecipeBookSystem.QuickActions.cs.
 public sealed partial class RecipeBookSystem
 {
 	private enum QuickKind
@@ -32,11 +35,14 @@ public sealed partial class RecipeBookSystem
 		ItemCategory,
 		MobCategory,
 		Mod,
+		Goal,
+		Command,
 		ShowAll,
-		TextSearch
+		TextSearch,
+		AllScopes
 	}
 
-	// The order on a tie; the last three list recent things while the field is empty.
+	// The order on a tie. Storage, Recipes and Bosses list only in their scope; the last four list while the field is empty.
 	private enum QuickGroup
 	{
 		Items,
@@ -45,9 +51,28 @@ public sealed partial class RecipeBookSystem
 		ItemCategories,
 		MobCategories,
 		Mods,
+		Goals,
+		Storage,
+		Recipes,
+		Bosses,
+		Commands,
+		Tracked,
 		Opened,
 		Crafted,
 		Seen
+	}
+
+	// The chips under the field: All, then one per tab view of the results (Tab / Shift+Tab, a click).
+	private enum QuickScope
+	{
+		All,
+		Items,
+		Storage,
+		Recipes,
+		Bestiary,
+		Bosses,
+		Tracking,
+		Categories
 	}
 
 	// A row under a direct match.
@@ -61,13 +86,36 @@ public sealed partial class RecipeBookSystem
 		AllLoot
 	}
 
-	// Id: item type, Bestiary index, step, category or tag index, QuickMods index. Count: a header's, a "show all" row's or
-	// an "all sources" row's total. Hint: why it matched when not by its name (the English name, an ID).
-	private readonly record struct QuickRow(QuickKind Kind, QuickGroup Group, int Id, QuickLink Link = QuickLink.None, int Count = 0, string Hint = "");
+	// Why a row is listed: its name (Hint: the English name, an ID, the internal name when the name itself did not
+	// match), what it is (Hint: "Gives: Ironskin", "In Potions › Buff potions") or its description (Hint: the line).
+	private enum QuickWhy
+	{
+		Name,
+		Concept,
+		Description
+	}
+
+	// Id: item type, Bestiary index, step, category or tag index, QuickMods index, TrackedGoals index, QuickCommand. Count:
+	// a header's, a "show all" row's or an "all sources" row's total.
+	private readonly record struct QuickRow(QuickKind Kind, QuickGroup Group, int Id, QuickLink Link = QuickLink.None, int Count = 0, string Hint = "", QuickWhy Why = QuickWhy.Name);
 
 	// Fields are normalized: the name, the English name ("" when the same or unknown), then an internal name, the ID and
-	// the mod. Weight ranks equal matches: how much the item is used, a met mob, a big category.
-	private sealed record QuickEntry(QuickKind Kind, int Id, string[] Fields, int Weight, string English, string Internal);
+	// the mod. All joins them, so most entries are passed over with one IndexOf. Weight ranks equal matches: how much the
+	// item is used, a met mob, a big category.
+	private sealed record QuickEntry(QuickKind Kind, int Id, string[] Fields, int Weight, string English, string Internal, string All);
+
+	private enum QuickConceptKind
+	{
+		Category,
+		MobCategory,
+		Buff,
+		Trait,
+		Class
+	}
+
+	// What an item is, found by name: a sidebar category (with its short forms, QuickSynonyms), the buff it gives, a
+	// trait, a class. Members: item types, mob indexes for a Bestiary category. Why: the row's reason.
+	private sealed record QuickConcept(QuickConceptKind Kind, int Id, string[] Fields, int[] Members, string Why);
 
 	internal static bool QuickSearchOpen { get; private set; }
 
@@ -88,6 +136,8 @@ public sealed partial class RecipeBookSystem
 
 	private static bool QuickLastLeft;
 
+	private static bool QuickLastRight;
+
 	private static int QuickLastWheel;
 
 	private static Vector2 QuickLastMouse;
@@ -96,11 +146,19 @@ public sealed partial class RecipeBookSystem
 
 	private static int QuickRepeatTicks;
 
-	private static float QuickAppear;
+	private static long QuickOpenedAt;
+
+	private static QuickScope QuickScopeShown;
+
+	// Matches per scope, counted on every pass whatever the scope.
+	private static readonly int[] QuickScopeCounts = new int[8];
 
 	private static readonly List<QuickRow> QuickRows = new List<QuickRow>();
 
 	private static int QuickSelected = -1;
+
+	// Updates the selection has rested: the preview reads its sources once it has (QuickLinkDelay).
+	private static int QuickSelectedAge;
 
 	private static int QuickScroll;
 
@@ -111,6 +169,18 @@ public sealed partial class RecipeBookSystem
 
 	private static readonly List<QuickEntry> QuickIndex = new List<QuickEntry>();
 
+	// The index position of every item type and Bestiary entry (-1: not listed), for concept members.
+	private static int[] QuickItemEntry = Array.Empty<int>();
+
+	private static int[] QuickMobEntry = Array.Empty<int>();
+
+	// Per Bestiary index: its flavor text, normalized and as shown.
+	private static (string Text, string Shown)[] QuickFlavor = Array.Empty<(string, string)>();
+
+	private static readonly List<QuickConcept> QuickConcepts = new List<QuickConcept>();
+
+	private static (string Culture, int Items, int Version, bool English) QuickConceptKey;
+
 	private static readonly List<string> QuickMods = new List<string>();
 
 	// What category and mod rows say after their name, counted with the index rather than every frame.
@@ -119,6 +189,9 @@ public sealed partial class RecipeBookSystem
 	private static readonly Dictionary<string, (int Items, int Mobs)> QuickModSizes = new Dictionary<string, (int, int)>(StringComparer.Ordinal);
 
 	private static (string Culture, int Items, int Mobs, int Steps, int Categories, bool English) QuickIndexKey;
+
+	// Per item type: it has a recipe (the Recipes scope lists it).
+	private static bool[] QuickHasRecipe = Array.Empty<bool>();
 
 	private static readonly Dictionary<(QuickKind, int), List<QuickRow>> QuickLinks = new Dictionary<(QuickKind, int), List<QuickRow>>();
 
@@ -130,8 +203,34 @@ public sealed partial class RecipeBookSystem
 
 	private const int QuickLinkDelay = 8;
 
+	// One pass's matches by index position: the rank (QuickTier), the pass that set it, the concept that listed it.
+	private static int[] QuickRank = Array.Empty<int>();
+
+	private static int[] QuickStamp = Array.Empty<int>();
+
+	private static int[] QuickConceptOf = Array.Empty<int>();
+
+	private static int QuickPass;
+
+	private static readonly List<int> QuickHits = new List<int>();
+
+	// The last pass's terms and what it read: typing on (the same terms, the last one longer, or one more) can only
+	// narrow it, so the next pass reads only its matches.
+	private static string[] QuickHitTerms = Array.Empty<string>();
+
+	private static (bool Texts, bool English, int Index) QuickHitMode;
+
+	private static readonly List<int> QuickCandidates = new List<int>();
+
 	// Picks from the quick search this session, newest first: what the empty field offers.
 	private static readonly List<(QuickKind Kind, int Id, string Key)> QuickOpened = new List<(QuickKind, int, string)>();
+
+	// Read when the field opens: crafted or seen lately, and obtainable before the next boss, rank a little higher.
+	private static readonly HashSet<int> QuickRecentItems = new HashSet<int>();
+
+	private static readonly HashSet<int> QuickRecentMobs = new HashSet<int>();
+
+	private static bool[] QuickStageNow = Array.Empty<bool>();
 
 	private static readonly Dictionary<string, Asset<Texture2D>> QuickModIcons = new Dictionary<string, Asset<Texture2D>>(StringComparer.Ordinal);
 
@@ -148,19 +247,31 @@ public sealed partial class RecipeBookSystem
 
 	internal static double QuickSearchMaxMs { get; private set; }
 
-	private static readonly int[] QuickCaps = { 5, 4, 3, 3, 3, 2 };
+	// Rows per group in All: Items, Bestiary, stages, item and Bestiary categories, mods, goals.
+	private static readonly int[] QuickCaps = { 5, 4, 3, 3, 3, 2, 3 };
+
+	// Rows a scope lists before "All N on the tab".
+	private const int QuickScopeCap = 60;
 
 	private const int QuickLinkCap = 3;
 
 	private const int QuickRecentCap = 8;
 
-	private static BookRect QuickPanel => new BookRect(200f, 44f, 720f, 608f);
+	// Rank tiers (QuickRank): a name (a word of it starts with the query, or better; an ID, an internal name or a mod),
+	// what the entry is, a name that only contains the query, then the description. BookQuickRank's score is added within.
+	private const int QuickStrongName = 48;
 
-	private static BookRect QuickField => new BookRect(QuickPanel.X + 16f, QuickPanel.Y + 16f, QuickPanel.Width - 32f, 44f);
+	private const int QuickConceptTier = 32;
 
-	private static BookRect QuickClear => new BookRect(QuickField.X + QuickField.Width - 38f, QuickField.Y + 8f, 28f, 28f);
+	private const int QuickWeakName = 16;
 
-	private static BookRect QuickList => new BookRect(QuickPanel.X + 12f, QuickPanel.Y + 72f, QuickPanel.Width - 24f, QuickPanel.Height - 72f - 48f);
+	private const int QuickDescribed = 1;
+
+	// The tiles vanilla gives a buff for a right click (Player.TileInteractionsUse): Crystal Ball, Slice of Cake, War Table,
+	// Sharpening Station, Bewitching Table, Ammo Box. Their items are found by the buff's name.
+	private static readonly (int Tile, int Buff)[] QuickBuffTiles = { (TileID.CrystalBall, BuffID.Clairvoyance), (TileID.SliceOfCake, BuffID.SugarRush), (TileID.WarTable, BuffID.WarTable), (TileID.SharpeningStation, BuffID.Sharpened), (TileID.BewitchingTable, BuffID.Bewitched), (TileID.AmmoBox, BuffID.AmmoBox) };
+
+	private static readonly FieldInfo QuickFlavorKey = typeof(FlavorTextBestiaryInfoElement).GetField("_key", BindingFlags.Instance | BindingFlags.NonPublic);
 
 	// The "Search Everything" key (BookPlayer.ProcessTriggers): opens on the next UI update, as Ctrl+F does.
 	internal static void RequestQuickSearch()
@@ -215,9 +326,23 @@ public sealed partial class RecipeBookSystem
 			return false;
 		}
 		WarmQuickPaths();
+		// The book's update does not run under the popup: what can be crafted now, the description texts and the
+		// traits still follow, so the rows' marks and the description matches are those of this moment.
+		BookCrafting.Refresh();
+		bool texts = DescriptionsReady;
+		WarmDescriptions();
+		UpdateTraits();
+		if (!texts && DescriptionsReady && QuickQuery.Length > 0)
+		{
+			RunQuickSearch();
+		}
 		if (QuickLinksPending && ++QuickQueryAge >= QuickLinkDelay)
 		{
 			RefreshQuickLinks();
+		}
+		if (++QuickSelectedAge >= QuickLinkDelay)
+		{
+			ReadQuickPreview();
 		}
 		HandleQuickInput(keys);
 		return QuickSearchOpen;
@@ -229,6 +354,11 @@ public sealed partial class RecipeBookSystem
 		QuickRow? selected = (QuickSelected >= 0 && QuickSelected < QuickRows.Count) ? QuickRows[QuickSelected] : null;
 		int scroll = QuickScroll;
 		RunQuickSearch(linkReads: 1);
+		KeepQuickSelection(selected, scroll);
+	}
+
+	private static void KeepQuickSelection(QuickRow? selected, int scroll)
+	{
 		int at = selected.HasValue ? QuickRows.IndexOf(selected.Value) : (-1);
 		if (at >= 0)
 		{
@@ -277,10 +407,14 @@ public sealed partial class RecipeBookSystem
 		HoldTextInput(QuickSearchOwner, value: true);
 		QuickLastKeys = Keyboard.GetState();
 		QuickLastLeft = Main.mouseLeft;
+		QuickLastRight = Main.mouseRight;
 		QuickLastWheel = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		QuickLastMouse = Main.MouseScreen;
 		QuickRepeatKey = Keys.None;
-		QuickAppear = 0f;
+		QuickOpenedAt = Stopwatch.GetTimestamp();
+		QuickStatusAt = 0;
+		ReadQuickBoosts();
+		QuickHitTerms = Array.Empty<string>();
 		RunQuickSearch();
 		QuickFrameMaxMs = (QuickSearchMaxMs = 0);
 	}
@@ -292,6 +426,7 @@ public sealed partial class RecipeBookSystem
 			return;
 		}
 		QuickSearchOpen = false;
+		QuickArmed = -1;
 		HoldTextInput(QuickSearchOwner, value: false);
 		// What is still held (the Esc or Enter that closed it, the clicking button) reaches the game only once let go:
 		// Esc would toggle the inventory, a held click swing the held item.
@@ -304,6 +439,47 @@ public sealed partial class RecipeBookSystem
 		}
 		Main.clrInput();
 		SyncInputEdges();
+	}
+
+	// Leaving a world: the index ranks met mobs and reads this world's loot, so it is built again in the next one.
+	private static void ResetQuickWorld()
+	{
+		QuickIndex.Clear();
+		QuickConcepts.Clear();
+		QuickConceptKey = default;
+		QuickLinks.Clear();
+		QuickFacts.Clear();
+		QuickContents.Clear();
+		QuickHitTerms = Array.Empty<string>();
+	}
+
+	// The crafts and sightings that boost a match a little, and what this world can get before its next boss.
+	private static void ReadQuickBoosts()
+	{
+		QuickRecentItems.Clear();
+		foreach (int index in BookRecent.ResolveRecipeIndexes().Take(24))
+		{
+			QuickRecentItems.Add(Main.recipe[index].createItem.type);
+		}
+		QuickRecentMobs.Clear();
+		foreach (string credit in SeenMobs.Newest.Take(24))
+		{
+			int index = BookBestiary.IndexOfCredit(credit);
+			if (index >= 0)
+			{
+				QuickRecentMobs.Add(index);
+			}
+		}
+		if (QuickStageNow.Length != ItemLoader.ItemCount)
+		{
+			QuickStageNow = new bool[ItemLoader.ItemCount];
+		}
+		int next = BookSteps.Next();
+		foreach (int type in AllItems)
+		{
+			int step = BookProgression.ItemStep(type);
+			QuickStageNow[type] = step >= 0 && (next < 0 || step < next);
+		}
 	}
 
 	private static void HandleQuickInput(KeyboardState keys)
@@ -319,6 +495,8 @@ public sealed partial class RecipeBookSystem
 		QuickLastKeys = keys;
 		bool lastLeft = QuickLastLeft;
 		QuickLastLeft = Main.mouseLeft;
+		bool lastRight = QuickLastRight;
+		QuickLastRight = Main.mouseRight;
 		int wheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 		int wheel = wheelValue - QuickLastWheel;
 		QuickLastWheel = wheelValue;
@@ -327,7 +505,7 @@ public sealed partial class RecipeBookSystem
 		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
 		bool shift = keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift);
 		bool alt = keys.IsKeyDown(Keys.LeftAlt) || keys.IsKeyDown(Keys.RightAlt);
-		// Esc closes it as the book's top layer; the query stays for next time.
+		// Esc closes it as the book's top layer; the query and the scope stay for next time.
 		if (Press(Keys.Escape))
 		{
 			CloseQuickSearch();
@@ -341,41 +519,114 @@ public sealed partial class RecipeBookSystem
 		{
 			SetQuickQuery("");
 		}
+		else if (QuickQuery.Length == 0 && QuickScopeShown != QuickScope.All && Press(Keys.Back))
+		{
+			// Backspace in an empty field takes the scope chip off, as a palette's filter token goes.
+			SetQuickScope(QuickScope.All);
+		}
 		if (Press(Keys.Left) || Press(Keys.Right) || Press(Keys.Home) || Press(Keys.End))
 		{
 			QuickAllSelected = false;
+		}
+		if (Press(Keys.Tab) && !ctrl && !alt && !QuickCommandMode)
+		{
+			CycleQuickScope(shift ? (-1) : 1);
 		}
 		int step = Repeat(Keys.Down) - Repeat(Keys.Up) + 8 * (Repeat(Keys.PageDown) - Repeat(Keys.PageUp));
 		if (step != 0)
 		{
 			MoveQuickSelection(step);
 		}
+		QuickRow? selected = (QuickSelected >= 0 && QuickSelected < QuickRows.Count) ? QuickRows[QuickSelected] : null;
 		if (Press(Keys.Enter) && !alt)
 		{
-			if (QuickSelected >= 0 && QuickSelected < QuickRows.Count)
+			if (selected.HasValue)
 			{
-				ActivateQuickRow(QuickRows[QuickSelected], shift, ctrl);
+				// Ctrl+Enter: the row's own action, as in the card (craft) and on Storage (take); Shift+Enter: Used in.
+				if (ctrl)
+				{
+					RunQuickAction(selected.Value, shift ? QuickAction.CraftMax : QuickPrimaryKeyAction(selected.Value));
+				}
+				else if (shift && QuickItemOf(selected.Value) > 0)
+				{
+					RunQuickAction(selected.Value, QuickAction.UsedIn);
+				}
+				else
+				{
+					ActivateQuickRow(selected.Value);
+				}
 			}
 			return;
 		}
+		// The card's chords on the selected row: Alt+T track, Alt+F favorite, Alt+G How to Get, Alt+U Used in (a mob's stats).
+		if (alt && !ctrl && !shift && selected.HasValue)
+		{
+			QuickAction chord = Press(Keys.T) ? QuickAction.Track : (Press(Keys.F) ? QuickAction.Favorite : (Press(Keys.G) ? QuickAction.HowToGet : (Press(Keys.U) ? QuickAction.UsedIn : QuickAction.None)));
+			if (chord != QuickAction.None)
+			{
+				BookPlayer.HoldNewKeys(keys, last);
+				RunQuickAction(selected.Value, (chord == QuickAction.UsedIn && selected.Value.Kind == QuickKind.Mob) ? QuickAction.Stats : chord);
+				return;
+			}
+		}
 		BookRect panel = QuickPanel;
 		int hovered = QuickRowAt();
-		if (moved && hovered >= 0)
+		if (moved && hovered >= 0 && hovered != QuickSelected)
 		{
-			QuickSelected = hovered;
+			SelectQuickRow(hovered);
 		}
-		if (wheel != 0 && panel.Contains(Mouse.X, Mouse.Y))
+		if (wheel != 0 && QuickList.Contains(Mouse.X, Mouse.Y))
 		{
 			QuickScroll = Math.Clamp(QuickScroll + ((wheel < 0) ? 3 : (-3)), 0, QuickMaxScroll());
 		}
-		if (!Main.mouseLeft || lastLeft)
+		bool click = Main.mouseLeft && !lastLeft;
+		bool rightClick = Main.mouseRight && !lastRight;
+		if (!click && !rightClick)
 		{
 			return;
 		}
 		if (!panel.Contains(Mouse.X, Mouse.Y))
 		{
-			CloseQuickSearch();
+			if (click)
+			{
+				CloseQuickSearch();
+			}
 			return;
+		}
+		// Buttons first: a row's own and the preview's; they never open the row under them.
+		foreach ((BookRect rect, QuickAction action, int row) in QuickButtons)
+		{
+			if (rect.Contains(Mouse.X, Mouse.Y) && row >= 0 && row < QuickRows.Count)
+			{
+				QuickAction run = action;
+				if (rightClick)
+				{
+					// Right click on Take takes one, as in the Storage grid.
+					if (action != QuickAction.Take)
+					{
+						return;
+					}
+					run = QuickAction.TakeOne;
+				}
+				else if (shift && action == QuickAction.Craft)
+				{
+					run = QuickAction.CraftMax;
+				}
+				RunQuickAction(QuickRows[row], run);
+				return;
+			}
+		}
+		if (!click)
+		{
+			return;
+		}
+		foreach ((BookRect rect, QuickScope scope) in QuickChips)
+		{
+			if (rect.Contains(Mouse.X, Mouse.Y))
+			{
+				SetQuickScope(scope);
+				return;
+			}
 		}
 		if (QuickQuery.Length > 0 && QuickClear.Contains(Mouse.X, Mouse.Y))
 		{
@@ -391,13 +642,21 @@ public sealed partial class RecipeBookSystem
 		{
 			if (rect.Contains(Mouse.X, Mouse.Y))
 			{
-				ActivateQuickRow(new QuickRow(mobs ? QuickKind.MobCategory : QuickKind.ItemCategory, mobs ? QuickGroup.MobCategories : QuickGroup.ItemCategories, category), shift: false, ctrl: false);
+				ActivateQuickRow(new QuickRow(mobs ? QuickKind.MobCategory : QuickKind.ItemCategory, mobs ? QuickGroup.MobCategories : QuickGroup.ItemCategories, category));
 				return;
 			}
 		}
 		if (hovered >= 0)
 		{
-			ActivateQuickRow(QuickRows[hovered], shift, ctrl);
+			QuickRow row = QuickRows[hovered];
+			if (shift && QuickItemOf(row) > 0)
+			{
+				RunQuickAction(row, QuickAction.UsedIn);
+			}
+			else
+			{
+				ActivateQuickRow(row);
+			}
 		}
 		bool Press(Keys key)
 		{
@@ -430,7 +689,44 @@ public sealed partial class RecipeBookSystem
 		QuickQuery = value;
 		QuickAllSelected = false;
 		QuickQueryAge = 0;
+		QuickArmed = -1;
 		RunQuickSearch();
+	}
+
+	// A ">" first lists the book's commands instead.
+	private static bool QuickCommandMode => QuickQuery.TrimStart().StartsWith(">", StringComparison.Ordinal);
+
+	private static void SetQuickScope(QuickScope scope)
+	{
+		if (scope == QuickScopeShown)
+		{
+			return;
+		}
+		QuickScopeShown = scope;
+		QuickExpanded.Clear();
+		RunQuickSearch();
+	}
+
+	// Tab / Shift+Tab: the next chip that lists something (All always does).
+	private static void CycleQuickScope(int direction)
+	{
+		int count = QuickScopeCounts.Length;
+		int at = (int)QuickScopeShown;
+		for (int i = 0; i < count; i++)
+		{
+			at = (at + direction + count) % count;
+			if (QuickScopeVisible((QuickScope)at))
+			{
+				SetQuickScope((QuickScope)at);
+				return;
+			}
+		}
+	}
+
+	// A chip shows while its scope finds something, and the one in use always; the empty field lists recent things in All.
+	private static bool QuickScopeVisible(QuickScope scope)
+	{
+		return scope == QuickScope.All || scope == QuickScopeShown || (QuickQuery.Trim().Length > 0 && QuickScopeCounts[(int)scope] > 0);
 	}
 
 	// The field reads typed text while drawing, as the book's search does (the IME takes text only then).
@@ -442,7 +738,7 @@ public sealed partial class RecipeBookSystem
 		KeyboardState keys = Keyboard.GetState();
 		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
 		// A selected query: what is typed replaces it; Ctrl+V pastes over it, Ctrl+C copies all of it.
-		string next = Main.GetInputText((QuickAllSelected && !ctrl) ? "" : QuickQuery).Replace("\r", "").Replace("\n", "");
+		string next = Main.GetInputText((QuickAllSelected && !ctrl) ? "" : QuickQuery).Replace("\r", "").Replace("\n", "").Replace("\t", "");
 		if (QuickAllSelected)
 		{
 			if (ctrl && next.Length > QuickQuery.Length && next.StartsWith(QuickQuery, StringComparison.Ordinal))
@@ -471,6 +767,7 @@ public sealed partial class RecipeBookSystem
 		(string, int, int, int, int, bool) key = (Language.ActiveCulture.Name, AllItems.Count, BookBestiary.Mobs.Count, BookSteps.All.Count, ItemCategoryList.Count, BookEnglishNames.Ready);
 		if (key == QuickIndexKey && QuickIndex.Count > 0)
 		{
+			EnsureQuickConcepts();
 			return;
 		}
 		long start = Stopwatch.GetTimestamp();
@@ -479,13 +776,22 @@ public sealed partial class RecipeBookSystem
 		QuickMods.Clear();
 		QuickModSizes.Clear();
 		QuickLinks.Clear();
+		QuickFacts.Clear();
+		QuickHitTerms = Array.Empty<string>();
 		Dictionary<string, string> modNames = new Dictionary<string, string>(StringComparer.Ordinal);
+		QuickItemEntry = Enumerable.Repeat(-1, ItemLoader.ItemCount).ToArray();
+		QuickMobEntry = Enumerable.Repeat(-1, BookBestiary.Mobs.Count).ToArray();
+		QuickHasRecipe = new bool[ItemLoader.ItemCount];
 		// How often an item is made or used in a recipe: Wood before Wood Fence for "wood".
 		int[] uses = new int[ItemLoader.ItemCount];
 		foreach (int index in All)
 		{
 			Recipe recipe = Main.recipe[index];
 			Use(recipe.createItem.type);
+			if (recipe.createItem.type > 0 && recipe.createItem.type < QuickHasRecipe.Length)
+			{
+				QuickHasRecipe[recipe.createItem.type] = true;
+			}
 			foreach (Item ingredient in recipe.requiredItem)
 			{
 				Use(ingredient.type);
@@ -498,8 +804,10 @@ public sealed partial class RecipeBookSystem
 			QuickModSizes[mod] = (QuickModSizes.GetValueOrDefault(mod).Items + 1, 0);
 			string internalName = item.ModItem?.Name ?? ItemID.Search.GetName(type) ?? "";
 			string english = EnglishOf(Lang.GetItemName(type).Key, item.Name);
-			QuickIndex.Add(new QuickEntry(QuickKind.Item, type, new string[5] { N(item.Name), N(english), N(BookQuickRank.Words(internalName)), type.ToString(CultureInfo.InvariantCulture), ModField(mod) }, Bucket(uses[type]), english, internalName));
+			QuickItemEntry[type] = QuickIndex.Count;
+			Add(QuickKind.Item, type, new string[5] { N(item.Name), N(english), N(BookQuickRank.Words(internalName)), type.ToString(CultureInfo.InvariantCulture), ModField(mod) }, Bucket(uses[type]), english, internalName);
 		}
+		QuickFlavor = new (string, string)[BookBestiary.Mobs.Count];
 		foreach (BookMob mob in BookBestiary.Mobs)
 		{
 			NPC npc = mob.Sample;
@@ -508,7 +816,10 @@ public sealed partial class RecipeBookSystem
 			string persistent = ContentSamples.NpcPersistentIdsByNetIds[mob.NetId];
 			string english = EnglishOf(Lang.GetNPCName(mob.NetId).Key, npc.FullName);
 			int weight = (MobMet(mob.NetId) ? 2 : 0) + ((mob.Kind is BookMobKind.Boss or BookMobKind.MiniBoss) ? 1 : 0);
-			QuickIndex.Add(new QuickEntry(QuickKind.Mob, mob.Index, new string[5] { N(npc.FullName), N(english), N(BookQuickRank.Words(persistent)), mob.NetId.ToString(CultureInfo.InvariantCulture), ModField(mob.Mod) }, weight, english, persistent));
+			QuickMobEntry[mob.Index] = QuickIndex.Count;
+			Add(QuickKind.Mob, mob.Index, new string[5] { N(npc.FullName), N(english), N(BookQuickRank.Words(persistent)), mob.NetId.ToString(CultureInfo.InvariantCulture), ModField(mob.Mod) }, weight, english, persistent);
+			string flavor = MobFlavor(mob.NetId);
+			QuickFlavor[mob.Index] = (N(flavor), flavor);
 		}
 		// A stage is found by the boss's name, the English one and its parts' names ("Ares" finds the Exo Mechs).
 		IReadOnlyList<BookSteps.Step> steps = BookSteps.All;
@@ -517,7 +828,7 @@ public sealed partial class RecipeBookSystem
 			int head = BookSteps.HeadNpc(k, out _);
 			string english = (head != 0) ? EnglishOf(Lang.GetNPCName(head).Key, BookSteps.Name(k)) : "";
 			string parts = string.Join(" ", steps[k].Npcs.Where(ContentSamples.NpcsByNetId.ContainsKey).Select((int npc) => Lang.GetNPCNameValue(npc)).Distinct());
-			QuickIndex.Add(new QuickEntry(QuickKind.Stage, k, new string[4] { N(BookSteps.Name(k)), N(english), N(parts), N(BookQuickRank.Words(steps[k].Key)) }, 0, english, ""));
+			Add(QuickKind.Stage, k, new string[4] { N(BookSteps.Name(k)), N(english), N(parts), N(BookQuickRank.Words(steps[k].Key)) }, 0, english, "");
 		}
 		int[] sizes = (QuickCategorySizes = new int[ItemCategoryList.Count]);
 		foreach (HashSet<int> matches in ItemCategories.Values)
@@ -529,7 +840,8 @@ public sealed partial class RecipeBookSystem
 		}
 		for (int c = 1; c < ItemCategoryList.Count; c++)
 		{
-			QuickIndex.Add(new QuickEntry(QuickKind.ItemCategory, c, new string[3] { N(ItemCategoryList[c].Label()), "", N(ItemCategoryList[c].Key) }, Bucket(sizes[c]), "", ItemCategoryList[c].Key));
+			BookCategory category = ItemCategoryList[c];
+			Add(QuickKind.ItemCategory, c, new string[4] { N(category.Label()), N(EnglishOf(category.LabelKey, category.Label())), N(category.Key), N(QuickSynonyms(category.Key)) }, Bucket(sizes[c]), "", category.Key);
 		}
 		for (int t = 0; t < BookBestiary.Tags.Count; t++)
 		{
@@ -540,13 +852,18 @@ public sealed partial class RecipeBookSystem
 			}
 			string label = BookBestiary.Label(tag);
 			string english = EnglishOf(tag.LabelKey, label);
-			QuickIndex.Add(new QuickEntry(QuickKind.MobCategory, t, new string[3] { N(label), N(english), N(BookQuickRank.Words(tag.Key)) }, Bucket(tag.Members.Count), english, ""));
+			Add(QuickKind.MobCategory, t, new string[3] { N(label), N(english), N(BookQuickRank.Words(tag.Key)) }, Bucket(tag.Members.Count), english, "");
 		}
 		QuickMods.AddRange(ItemMods.Concat(MobMods).Distinct());
 		for (int m = 0; m < QuickMods.Count; m++)
 		{
-			QuickIndex.Add(new QuickEntry(QuickKind.Mod, m, new string[3] { ModField(QuickMods[m]), "", N(BookQuickRank.Words(QuickMods[m])) }, Bucket(QuickModSizes.GetValueOrDefault(QuickMods[m]).Items), "", QuickMods[m]));
+			Add(QuickKind.Mod, m, new string[3] { ModField(QuickMods[m]), "", N(BookQuickRank.Words(QuickMods[m])) }, Bucket(QuickModSizes.GetValueOrDefault(QuickMods[m]).Items), "", QuickMods[m]);
 		}
+		QuickRank = new int[QuickIndex.Count];
+		QuickStamp = new int[QuickIndex.Count];
+		QuickConceptOf = new int[QuickIndex.Count];
+		QuickConceptKey = default;
+		EnsureQuickConcepts();
 		QuickIndexMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
 		void Use(int type)
 		{
@@ -563,13 +880,145 @@ public sealed partial class RecipeBookSystem
 			}
 			return name;
 		}
-		static string N(string value)
+		static void Add(QuickKind kind, int id, string[] fields, int weight, string english, string internalName)
 		{
-			return string.IsNullOrEmpty(value) ? "" : BookRules.SearchText(value);
+			QuickIndex.Add(new QuickEntry(kind, id, fields, weight, english, internalName, string.Join("\n", fields)));
 		}
 		static int Bucket(int count)
 		{
 			return Math.Min(6, (int)Math.Log2(1 + count));
+		}
+	}
+
+	private static string N(string value)
+	{
+		return string.IsNullOrEmpty(value) ? "" : BookRules.SearchText(value);
+	}
+
+	// The Bestiary's flavor text of a mob (its entry's FlavorTextBestiaryInfoElement), "" when it has none.
+	private static string MobFlavor(int netId)
+	{
+		try
+		{
+			foreach (IBestiaryInfoElement element in MobEntry(netId).Info)
+			{
+				if (element is FlavorTextBestiaryInfoElement flavor && QuickFlavorKey?.GetValue(flavor) is string key)
+				{
+					string text = Language.GetTextValue(key);
+					return (text == key) ? "" : BookRules.TagFree(text);
+				}
+			}
+		}
+		catch (Exception)
+		{
+		}
+		return "";
+	}
+
+	// Concepts follow the traits (read from the descriptions after the world loads) and the English labels, so they have
+	// their own key: a few ms, never the whole index again.
+	private static void EnsureQuickConcepts()
+	{
+		(string, int, int, bool) key = (Language.ActiveCulture.Name, AllItems.Count, BookItemTraits.Version + (BookItemTraits.Ready ? 1 << 20 : 0), BookEnglishNames.Ready);
+		if (key == QuickConceptKey && QuickConcepts.Count > 0)
+		{
+			return;
+		}
+		QuickConceptKey = key;
+		QuickConcepts.Clear();
+		QuickHitTerms = Array.Empty<string>();
+		List<int>[] categoryMembers = Enumerable.Range(0, ItemCategoryList.Count).Select((int _) => new List<int>()).ToArray();
+		Dictionary<int, List<int>> buffMembers = new Dictionary<int, List<int>>();
+		Dictionary<BookTrait, List<int>> traitMembers = new Dictionary<BookTrait, List<int>>();
+		Dictionary<BookClass, List<int>> classMembers = new Dictionary<BookClass, List<int>>();
+		foreach (int type in AllItems)
+		{
+			if (ItemCategories.TryGetValue(type, out HashSet<int> categories))
+			{
+				foreach (int c in categories)
+				{
+					categoryMembers[c].Add(type);
+				}
+			}
+			Item item = ContentSamples.ItemsByType[type];
+			if (item.buffType > 0)
+			{
+				Member(buffMembers, item.buffType, type);
+			}
+			foreach ((int tile, int buff) in QuickBuffTiles)
+			{
+				if (item.createTile == tile)
+				{
+					Member(buffMembers, buff, type);
+				}
+			}
+			BookTrait traits = BookItemTraits.Get(type);
+			for (BookTrait trait = BookTrait.Homing; trait <= BookTrait.Sentry; trait = (BookTrait)((int)trait << 1))
+			{
+				if ((traits & trait) != 0)
+				{
+					Member(traitMembers, trait, type);
+				}
+			}
+			BookClass classes = BookItemClasses.Get(type);
+			for (BookClass value = BookClass.Melee; value <= BookClass.Rogue; value = (BookClass)((int)value << 1))
+			{
+				if ((classes & value) != 0)
+				{
+					Member(classMembers, value, type);
+				}
+			}
+		}
+		// Not All items: it would list every item for "all".
+		for (int c = 1; c < ItemCategoryList.Count; c++)
+		{
+			BookCategory category = ItemCategoryList[c];
+			string label = category.Label();
+			QuickConcepts.Add(new QuickConcept(QuickConceptKind.Category, c, Words(label, EnglishOf(category.LabelKey, label), category.Key, QuickSynonyms(category.Key)), categoryMembers[c].ToArray(), L("QuickSearchDesign.WhyCategory", BookCategoryPath.Path(category, ItemCategoryList))));
+		}
+		for (int t = 0; t < BookBestiary.Tags.Count; t++)
+		{
+			BookBestiary.Tag tag = BookBestiary.Tags[t];
+			if (tag.Key is "all" || tag.Key == BookBestiary.RecentKey)
+			{
+				continue;
+			}
+			string label = BookBestiary.Label(tag);
+			QuickConcepts.Add(new QuickConcept(QuickConceptKind.MobCategory, t, Words(label, EnglishOf(tag.LabelKey, label)), tag.Members.ToArray(), L("QuickSearchDesign.WhyCategory", label)));
+		}
+		foreach ((int buff, List<int> members) in buffMembers)
+		{
+			string name = Lang.GetBuffName(buff);
+			if (string.IsNullOrWhiteSpace(name))
+			{
+				continue;
+			}
+			string englishKey = (buff < BuffID.Count) ? ("BuffName." + BuffID.Search.GetName(buff)) : (BuffLoader.GetBuff(buff)?.DisplayName.Key ?? "");
+			QuickConcepts.Add(new QuickConcept(QuickConceptKind.Buff, buff, Words(name, EnglishOf(englishKey, name)), members.ToArray(), L("QuickSearchDesign.WhyBuff", name)));
+		}
+		foreach ((BookTrait trait, List<int> members) in traitMembers)
+		{
+			string label = BookItemTraits.Label(trait);
+			QuickConcepts.Add(new QuickConcept(QuickConceptKind.Trait, (int)trait, Words(label, EnglishOf(KeyOf("Traits.") + "Name" + trait, label)), members.ToArray(), L("QuickSearchDesign.WhyTrait", label)));
+		}
+		foreach ((BookClass value, List<int> members) in classMembers)
+		{
+			string label = BookItemClasses.Label(value);
+			string labelKey = KeyOf("Classes.") + ((value == BookClass.Summon) ? "Summoner" : value.ToString());
+			QuickConcepts.Add(new QuickConcept(QuickConceptKind.Class, (int)value, Words(label, EnglishOf(labelKey, label)), members.ToArray(), L("QuickSearchDesign.WhyClass", label)));
+		}
+		static string[] Words(params string[] fields)
+		{
+			// A comma separates short forms ("buff, buffs"): each one is its own field, so each can start the query.
+			return fields.SelectMany((string field) => (field ?? "").Split(',')).Select((string field) => N(field.Trim())).Where((string field) => field.Length > 0).Distinct().ToArray();
+		}
+		static void Member<T>(Dictionary<T, List<int>> members, T key, int type)
+		{
+			if (!members.TryGetValue(key, out List<int> list))
+			{
+				list = (members[key] = new List<int>());
+			}
+			list.Add(type);
 		}
 	}
 
@@ -602,6 +1051,22 @@ public sealed partial class RecipeBookSystem
 
 	// Ranking -------------------------------------------------------------------------------------------------------
 
+	// The groups a scope lists; All lists the first seven, a few rows each.
+	private static bool QuickScopeLists(QuickScope scope, QuickGroup group)
+	{
+		return scope switch
+		{
+			QuickScope.All => group <= QuickGroup.Goals,
+			QuickScope.Items => group == QuickGroup.Items,
+			QuickScope.Storage => group == QuickGroup.Storage,
+			QuickScope.Recipes => group == QuickGroup.Recipes,
+			QuickScope.Bestiary => group == QuickGroup.Mobs,
+			QuickScope.Bosses => group is QuickGroup.Stages or QuickGroup.Bosses,
+			QuickScope.Tracking => group == QuickGroup.Goals,
+			_ => group is QuickGroup.ItemCategories or QuickGroup.MobCategories
+		};
+	}
+
 	// linkReads: how many matches may read their links now; the others wait (QuickLinksPending).
 	private static void RunQuickSearch(int linkReads = 0)
 	{
@@ -609,36 +1074,78 @@ public sealed partial class RecipeBookSystem
 		QuickLinksPending = false;
 		QuickRows.Clear();
 		QuickSegments.Clear();
+		QuickMarkCache.Clear();
 		QuickScroll = 0;
+		Array.Clear(QuickScopeCounts);
 		EnsureQuickIndex();
-		string[] terms = BookRules.SearchTerms(QuickQuery);
-		if (terms.Length == 0)
+		if (QuickCommandMode)
 		{
-			AddRecentRows();
+			AddCommandRows(QuickQuery.TrimStart().Substring(1));
 		}
 		else
 		{
-			string query = string.Join(" ", terms);
-			// Only the rows a group shows are kept in order: "i" matches thousands of items, and sorting them all took a
-			// frame's worth of time.
-			List<(QuickEntry Entry, int Score, int Weight)>[] found = new List<(QuickEntry, int, int)>[6];
-			int[] counts = new int[6];
-			for (int g = 0; g < found.Length; g++)
+			string[] terms = BookRules.SearchTerms(QuickQuery);
+			if (terms.Length == 0)
 			{
-				found[g] = new List<(QuickEntry, int, int)>();
+				AddRecentRows();
 			}
-			foreach (QuickEntry entry in QuickIndex)
+			else
 			{
-				int score = BookQuickRank.Score(query, terms, entry.Fields, 2);
-				if (score <= 0)
+				AddMatchRows(terms, ref linkReads);
+			}
+		}
+		QuickSelected = QuickRows.FindIndex((QuickRow row) => row.Kind != QuickKind.Header);
+		QuickSelectedAge = 0;
+		QuickSearchMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
+		QuickSearchMaxMs = Math.Max(QuickSearchMaxMs, QuickSearchMs);
+	}
+
+	private static void AddMatchRows(string[] terms, ref int linkReads)
+	{
+		string query = string.Join(" ", terms);
+		FindQuickMatches(query, terms);
+		// Only the rows a group shows are kept in order: "i" matches thousands of items, and sorting them all took a
+		// frame's worth of time. Every group counts, so each chip shows its number whatever the scope.
+		int groupCount = Enum.GetValues<QuickGroup>().Length;
+		List<(int Position, int Rank, int Weight)>[] found = new List<(int, int, int)>[groupCount];
+		int[] counts = new int[groupCount];
+		for (int g = 0; g < groupCount; g++)
+		{
+			found[g] = new List<(int, int, int)>();
+		}
+		QuickScope scope = QuickScopeShown;
+		foreach (int position in QuickHits)
+		{
+			QuickEntry entry = QuickIndex[position];
+			int rank = QuickRank[position];
+			int weight = QuickWeight(entry);
+			QuickGroup group = QuickGroupOf(entry.Kind);
+			Offer(group);
+			if (entry.Kind == QuickKind.Item)
+			{
+				if (QuickOwned(entry.Id) > 0)
 				{
-					continue;
+					Offer(QuickGroup.Storage);
 				}
-				int g = (int)QuickGroupOf(entry.Kind);
-				counts[g]++;
-				List<(QuickEntry Entry, int Score, int Weight)> best = found[g];
-				(QuickEntry, int, int) match = (entry, score, (entry.Kind == QuickKind.Stage) ? StageWeight(entry.Id) : entry.Weight);
-				int cap = QuickExpanded.Contains((QuickGroup)g) ? int.MaxValue : QuickCaps[g];
+				if (QuickHasRecipe[entry.Id])
+				{
+					Offer(QuickGroup.Recipes);
+				}
+			}
+			else if (entry.Kind == QuickKind.Mob && BookBestiary.Mobs[entry.Id].Kind == BookMobKind.Boss)
+			{
+				Offer(QuickGroup.Bosses);
+			}
+			void Offer(QuickGroup g)
+			{
+				counts[(int)g]++;
+				int cap = !QuickScopeLists(scope, g) ? 0 : (QuickExpanded.Contains(g) ? int.MaxValue : ((scope == QuickScope.All) ? QuickCaps[(int)g] : QuickScopeCap));
+				if (cap == 0)
+				{
+					return;
+				}
+				List<(int Position, int Rank, int Weight)> best = found[(int)g];
+				(int, int, int) match = (position, rank, weight);
 				int at = best.Count;
 				while (at > 0 && QuickOrder(match, best[at - 1]) < 0)
 				{
@@ -653,50 +1160,280 @@ public sealed partial class RecipeBookSystem
 					}
 				}
 			}
-			// Groups by their best match, the fixed order on a tie.
-			foreach (int g in from g in Enumerable.Range(0, found.Length)
-				where found[g].Count > 0
-				orderby found[g][0].Score descending, g
-				select g)
+		}
+		List<int> goals = QuickGoalMatches(query, terms);
+		counts[(int)QuickGroup.Goals] = goals.Count;
+		QuickScopeCounts[(int)QuickScope.All] = counts.Take((int)QuickGroup.Goals + 1).Sum();
+		QuickScopeCounts[(int)QuickScope.Items] = counts[(int)QuickGroup.Items];
+		QuickScopeCounts[(int)QuickScope.Storage] = counts[(int)QuickGroup.Storage];
+		QuickScopeCounts[(int)QuickScope.Recipes] = counts[(int)QuickGroup.Recipes];
+		QuickScopeCounts[(int)QuickScope.Bestiary] = counts[(int)QuickGroup.Mobs];
+		QuickScopeCounts[(int)QuickScope.Bosses] = counts[(int)QuickGroup.Stages] + counts[(int)QuickGroup.Bosses];
+		QuickScopeCounts[(int)QuickScope.Tracking] = goals.Count;
+		QuickScopeCounts[(int)QuickScope.Categories] = counts[(int)QuickGroup.ItemCategories] + counts[(int)QuickGroup.MobCategories];
+		// One group alone (a scope of one kind) needs no header: the chip names it.
+		int listed = Enumerable.Range(0, groupCount).Count((int g) => found[g].Count > 0 || (g == (int)QuickGroup.Goals && goals.Count > 0 && QuickScopeLists(scope, QuickGroup.Goals)));
+		bool headers = scope == QuickScope.All || listed > 1;
+		// Groups by their best match, the fixed order on a tie; goals (the player's own) after Items.
+		foreach (int g in from g in Enumerable.Range(0, groupCount)
+			where found[g].Count > 0
+			orderby found[g][0].Rank descending, g
+			select g)
+		{
+			QuickGroup group = (QuickGroup)g;
+			List<(int Position, int Rank, int Weight)> list = found[g];
+			if (headers)
 			{
-				QuickGroup group = (QuickGroup)g;
-				List<(QuickEntry Entry, int Score, int Weight)> list = found[g];
 				QuickRows.Add(new QuickRow(QuickKind.Header, group, 0, Count: counts[g]));
-				for (int i = 0; i < list.Count; i++)
+			}
+			for (int i = 0; i < list.Count; i++)
+			{
+				QuickEntry entry = QuickIndex[list[i].Position];
+				int rank = list[i].Rank;
+				QuickRows.Add(QuickMatchRow(entry, group, list[i].Position, rank, query, terms));
+				// Links only under a strong match (a name's words start with the query, or better), the first two items and
+				// the first mob, where the item and Bestiary groups list.
+				if (rank >= QuickStrongName + BookQuickRank.Value(BookQuickRank.WordPrefix, name: true) && group is QuickGroup.Items or QuickGroup.Mobs && ((entry.Kind == QuickKind.Item && i < 2) || (entry.Kind == QuickKind.Mob && i == 0)))
 				{
-					(QuickEntry entry, int score, _) = list[i];
-					QuickRows.Add(new QuickRow(entry.Kind, group, entry.Id, Hint: QuickHint(entry, query, terms)));
-					// Links only under a strong match (a name's words start with the query, or better), the first two items and
-					// the first mob.
-					bool strong = score >= BookQuickRank.Value(BookQuickRank.WordPrefix, name: true);
-					if (strong && ((entry.Kind == QuickKind.Item && i < 2) || (entry.Kind == QuickKind.Mob && i == 0)))
-					{
-						AddQuickLinks(entry.Kind, entry.Id, group, ref linkReads);
-					}
-				}
-				if (counts[g] > list.Count)
-				{
-					QuickRows.Add(new QuickRow(QuickKind.ShowAll, group, 0, Count: counts[g]));
+					AddQuickLinks(entry.Kind, entry.Id, group, ref linkReads);
 				}
 			}
-			if (QuickRows.Count == 0)
+			if (counts[g] > list.Count)
 			{
-				QuickRows.Add(new QuickRow(QuickKind.TextSearch, QuickGroup.Items, 0));
+				QuickRows.Add(new QuickRow(QuickKind.ShowAll, group, 0, Count: counts[g]));
+			}
+			if (g == (int)QuickGroup.Items && QuickScopeLists(scope, QuickGroup.Goals))
+			{
+				AddGoalRows(goals, headers, scope);
+				goals.Clear();
 			}
 		}
-		QuickSelected = QuickRows.FindIndex((QuickRow row) => row.Kind != QuickKind.Header);
-		QuickSearchMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-		QuickSearchMaxMs = Math.Max(QuickSearchMaxMs, QuickSearchMs);
+		AddGoalRows(goals, headers, scope);
+		if (QuickRows.Count == 0)
+		{
+			// Nothing here: the tabs' own searches (they also read item texts), and All when a scope hid the rest.
+			QuickRows.Add(new QuickRow(QuickKind.TextSearch, QuickGroup.Items, 0));
+			QuickRows.Add(new QuickRow(QuickKind.TextSearch, QuickGroup.Mobs, 0));
+			if (scope != QuickScope.All && QuickScopeCounts[(int)QuickScope.All] > 0)
+			{
+				QuickRows.Insert(0, new QuickRow(QuickKind.AllScopes, QuickGroup.Items, 0, Count: QuickScopeCounts[(int)QuickScope.All]));
+			}
+		}
+	}
+
+	private static void AddGoalRows(List<int> goals, bool headers, QuickScope scope)
+	{
+		if (goals.Count == 0 || !QuickScopeLists(scope, QuickGroup.Goals))
+		{
+			return;
+		}
+		if (headers)
+		{
+			QuickRows.Add(new QuickRow(QuickKind.Header, QuickGroup.Goals, 0, Count: goals.Count));
+		}
+		foreach (int goal in goals.Take((scope == QuickScope.All) ? QuickCaps[(int)QuickGroup.Goals] : QuickScopeCap))
+		{
+			QuickRows.Add(new QuickRow(QuickKind.Goal, QuickGroup.Goals, goal));
+		}
+	}
+
+	// Tracked goals whose item (or set) name matches.
+	private static List<int> QuickGoalMatches(string query, string[] terms)
+	{
+		List<int> goals = new List<int>();
+		for (int g = 0; g < TrackedGoals.Count; g++)
+		{
+			TrackedGoal goal = TrackedGoals[g];
+			string[] fields = goal.Parts.Select((Item part) => N(part.Name)).Prepend(N(GoalTitle(goal))).ToArray();
+			if (BookQuickRank.Score(query, terms, fields, fields.Length) > 0)
+			{
+				goals.Add(g);
+			}
+		}
+		return goals;
+	}
+
+	// Every match of a pass into QuickHits with its rank. Names, then what an item is (a concept's members), then the
+	// description: an entry keeps its best tier.
+	private static void FindQuickMatches(string query, string[] terms)
+	{
+		bool texts = query.Length >= 3;
+		bool english = texts && BookEnglishNames.Needed && query.All((char c) => c < 128);
+		(bool, bool, int) mode = (texts, english, QuickIndex.Count ^ (DescriptionsReady ? 1 << 30 : 0));
+		bool narrow = mode == QuickHitMode && QuickExtends(QuickHitTerms, terms);
+		QuickCandidates.Clear();
+		if (narrow)
+		{
+			QuickCandidates.AddRange(QuickHits);
+		}
+		QuickHitTerms = terms;
+		QuickHitMode = mode;
+		QuickHits.Clear();
+		QuickPass++;
+		string[] stems = terms.Select(BookQuickRank.Stem).ToArray();
+		int count = narrow ? QuickCandidates.Count : QuickIndex.Count;
+		for (int n = 0; n < count; n++)
+		{
+			int position = narrow ? QuickCandidates[n] : n;
+			QuickEntry entry = QuickIndex[position];
+			int rank = 0;
+			if (Contains(entry.All))
+			{
+				int score = BookQuickRank.Score(query, terms, entry.Fields, 2);
+				rank = (score <= 0) ? 0 : (((score >= BookQuickRank.Value(BookQuickRank.WordPrefix, name: false)) ? QuickStrongName : QuickWeakName) + score);
+			}
+			if (rank == 0 && texts && QuickDescribes(entry, terms, english))
+			{
+				rank = QuickDescribed;
+			}
+			if (rank > 0)
+			{
+				QuickRank[position] = rank;
+				QuickStamp[position] = QuickPass;
+				QuickConceptOf[position] = -1;
+				QuickHits.Add(position);
+			}
+		}
+		// What an item or mob is: every member of a concept the query names strongly (a word of it starts with each term),
+		// above a name that only contains the query.
+		if (query.Length < 2)
+		{
+			return;
+		}
+		for (int c = 0; c < QuickConcepts.Count; c++)
+		{
+			QuickConcept concept = QuickConcepts[c];
+			int score = BookQuickRank.Score(query, terms, concept.Fields, concept.Fields.Length);
+			if (score < BookQuickRank.Value(BookQuickRank.WordPrefix, name: true))
+			{
+				continue;
+			}
+			int rank = QuickConceptTier + score;
+			int[] entries = (concept.Kind == QuickConceptKind.MobCategory) ? QuickMobEntry : QuickItemEntry;
+			foreach (int member in concept.Members)
+			{
+				int position = (member >= 0 && member < entries.Length) ? entries[member] : (-1);
+				if (position < 0)
+				{
+					continue;
+				}
+				if (QuickStamp[position] != QuickPass)
+				{
+					QuickStamp[position] = QuickPass;
+					QuickRank[position] = rank;
+					QuickConceptOf[position] = c;
+					QuickHits.Add(position);
+				}
+				else if (QuickRank[position] < rank)
+				{
+					QuickRank[position] = rank;
+					QuickConceptOf[position] = c;
+				}
+			}
+		}
+		bool Contains(string all)
+		{
+			foreach (string stem in stems)
+			{
+				if (!all.Contains(stem, StringComparison.Ordinal))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
+	// The new terms can only find fewer: the same ones with the last one longer, or more of them.
+	private static bool QuickExtends(string[] before, string[] now)
+	{
+		if (before.Length == 0 || now.Length < before.Length)
+		{
+			return false;
+		}
+		for (int i = 0; i < before.Length - 1; i++)
+		{
+			if (now[i] != before[i])
+			{
+				return false;
+			}
+		}
+		return now[before.Length - 1].StartsWith(before[^1], StringComparison.Ordinal);
+	}
+
+	// An item's description (the Items tab's own text cache, ItemDescriptions) or a mob's flavor text; the English one too
+	// for a Latin query in another language.
+	private static bool QuickDescribes(QuickEntry entry, string[] terms, bool english)
+	{
+		if (entry.Kind == QuickKind.Item)
+		{
+			ItemText text = ItemTextOf(entry.Id);
+			return text != null && (BookQuickRank.Describes(text.Text, terms) || (english && BookQuickRank.Describes(text.English, terms)));
+		}
+		return entry.Kind == QuickKind.Mob && BookQuickRank.Describes(QuickFlavor[entry.Id].Text, terms);
+	}
+
+	// The weight plus a little for a recent craft or sighting and for what this world can get before its next boss.
+	private static int QuickWeight(QuickEntry entry)
+	{
+		return entry.Kind switch
+		{
+			QuickKind.Stage => StageWeight(entry.Id),
+			QuickKind.Item => entry.Weight + (QuickRecentItems.Contains(entry.Id) ? 1 : 0) + ((entry.Id < QuickStageNow.Length && QuickStageNow[entry.Id]) ? 1 : 0),
+			QuickKind.Mob => entry.Weight + (QuickRecentMobs.Contains(entry.Id) ? 1 : 0),
+			_ => entry.Weight
+		};
+	}
+
+	// A match's row: why it is listed when not by its name.
+	private static QuickRow QuickMatchRow(QuickEntry entry, QuickGroup group, int position, int rank, string query, string[] terms)
+	{
+		if (rank >= QuickConceptTier && rank < QuickStrongName && QuickConceptOf[position] >= 0)
+		{
+			return new QuickRow(entry.Kind, group, entry.Id, Hint: QuickConcepts[QuickConceptOf[position]].Why, Why: QuickWhy.Concept);
+		}
+		if (rank < QuickWeakName)
+		{
+			return new QuickRow(entry.Kind, group, entry.Id, Hint: QuickSnippet(entry, terms), Why: QuickWhy.Description);
+		}
+		return new QuickRow(entry.Kind, group, entry.Id, Hint: QuickHint(entry, query, terms));
+	}
+
+	// The line of the description that holds the typed words, cut to start a little before the first of them.
+	private static string QuickSnippet(QuickEntry entry, string[] terms)
+	{
+		string shown = "";
+		if (entry.Kind == QuickKind.Item)
+		{
+			ItemText text = ItemTextOf(entry.Id);
+			shown = (text == null) ? "" : (BookQuickRank.Describes(text.Text, terms) ? text.Shown : text.EnglishShown);
+		}
+		else if (entry.Kind == QuickKind.Mob)
+		{
+			shown = QuickFlavor[entry.Id].Shown;
+		}
+		string[] lines = shown.Split('\n');
+		string line = lines.FirstOrDefault((string l) => BookQuickRank.Describes(N(l), terms)) ?? lines.FirstOrDefault((string l) => BookQuickRank.Marks(l, terms).Count > 0) ?? lines[0];
+		List<(int Start, int Length)> marks = BookQuickRank.Marks(line, terms);
+		int at = (marks.Count == 0) ? 0 : marks[0].Start;
+		if (at > 24)
+		{
+			int cut = line.LastIndexOf(' ', at - 16);
+			line = "…" + line.Substring(Math.Max(0, cut + 1));
+		}
+		return line.Trim();
 	}
 
 	// Better first: the match, its weight, the shorter name, then a fixed order.
-	private static int QuickOrder((QuickEntry Entry, int Score, int Weight) a, (QuickEntry Entry, int Score, int Weight) b)
+	private static int QuickOrder((int Position, int Rank, int Weight) a, (int Position, int Rank, int Weight) b)
 	{
-		int order = b.Score.CompareTo(a.Score);
+		int order = b.Rank.CompareTo(a.Rank);
 		order = (order != 0) ? order : b.Weight.CompareTo(a.Weight);
-		order = (order != 0) ? order : a.Entry.Fields[0].Length.CompareTo(b.Entry.Fields[0].Length);
-		order = (order != 0) ? order : string.CompareOrdinal(a.Entry.Fields[0], b.Entry.Fields[0]);
-		return (order != 0) ? order : a.Entry.Id.CompareTo(b.Entry.Id);
+		QuickEntry x = QuickIndex[a.Position];
+		QuickEntry y = QuickIndex[b.Position];
+		order = (order != 0) ? order : x.Fields[0].Length.CompareTo(y.Fields[0].Length);
+		order = (order != 0) ? order : string.CompareOrdinal(x.Fields[0], y.Fields[0]);
+		return (order != 0) ? order : x.Id.CompareTo(y.Id);
 	}
 
 	// Why a row matched when its name did not: the English name, the ID typed in full, the internal name.
@@ -717,7 +1454,7 @@ public sealed partial class RecipeBookSystem
 		return (entry.Internal.Length > 0 && Has(entry.Fields[2])) ? entry.Internal : "";
 		bool Has(string field)
 		{
-			return terms.All((string term) => field.Contains(term, StringComparison.Ordinal));
+			return terms.All((string term) => field.Contains(BookQuickRank.Stem(term), StringComparison.Ordinal));
 		}
 	}
 
@@ -725,21 +1462,17 @@ public sealed partial class RecipeBookSystem
 	{
 		if (!QuickLinks.TryGetValue((kind, id), out List<QuickRow> links))
 		{
-			if (reads <= 0)
+			if (!QuickFacts.ContainsKey((kind, id)))
 			{
-				QuickLinksPending = true;
-				return;
+				if (reads <= 0)
+				{
+					QuickLinksPending = true;
+					return;
+				}
+				reads--;
 			}
-			reads--;
-			try
-			{
-				links = (kind == QuickKind.Item) ? ItemQuickLinks(id) : MobQuickLinks(id);
-			}
-			catch (Exception error)
-			{
-				links = new List<QuickRow>();
-				ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Quick search: the links of {kind} {id} could not be read.", error);
-			}
+			QuickFact facts = QuickFactsOf(kind, id);
+			links = (kind == QuickKind.Item) ? ItemQuickLinks(id, facts) : MobQuickLinks(id, facts);
 			QuickLinks[(kind, id)] = links;
 		}
 		foreach (QuickRow link in links)
@@ -748,15 +1481,120 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
-	// How to Get's own rows (SourceEntries, the Treasure Bag rule included): the bosses that drop it, the containers it
-	// is found in, then other mobs; another world's rows are left to How to Get itself.
-	private static List<QuickRow> ItemQuickLinks(int type)
+	// What the preview and the links show of an item or mob, read once: How to Get's own rows (SourceEntries, the Treasure
+	// Bag rule included) in link order, or the mob card's loot (its rules, the bag's in Expert) and its numbers.
+	private sealed record QuickFact(List<BookAcquisitionEntry> Sources, int SourceTotal, List<BookEnemyLoot> Loot, MobStats? Stats);
+
+	private static readonly Dictionary<(QuickKind, int), QuickFact> QuickFacts = new Dictionary<(QuickKind, int), QuickFact>();
+
+	private static QuickFact QuickFactsOf(QuickKind kind, int id)
+	{
+		if (QuickFacts.TryGetValue((kind, id), out QuickFact facts))
+		{
+			return facts;
+		}
+		try
+		{
+			facts = (kind == QuickKind.Item) ? ReadItemFacts(id) : ReadMobFacts(id);
+		}
+		catch (Exception error)
+		{
+			facts = new QuickFact(new List<BookAcquisitionEntry>(), 0, new List<BookEnemyLoot>(), null);
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Quick search: what {kind} {id} has could not be read.", error);
+		}
+		QuickFacts[(kind, id)] = facts;
+		return facts;
+	}
+
+	// The preview's facts, once the selection rests: one read per update, as the links.
+	private static void ReadQuickPreview()
+	{
+		if (QuickSelected < 0 || QuickSelected >= QuickRows.Count)
+		{
+			return;
+		}
+		(QuickKind kind, int id) = QuickFactKey(QuickRows[QuickSelected]);
+		if (kind != QuickKind.Header && !QuickFacts.ContainsKey((kind, id)))
+		{
+			QuickFactsOf(kind, id);
+		}
+	}
+
+	// The item or mob a row previews: a link previews where it points, a goal its item.
+	private static (QuickKind Kind, int Id) QuickFactKey(QuickRow row)
+	{
+		int item = QuickItemOf(row);
+		if (item > 0)
+		{
+			return (QuickKind.Item, item);
+		}
+		int mob = (row.Kind == QuickKind.Mob) ? row.Id : ((row.Kind == QuickKind.Stage) ? QuickStageMob(row.Id) : (-1));
+		return (mob >= 0) ? (QuickKind.Mob, mob) : (QuickKind.Header, 0);
+	}
+
+	// The Bestiary entry of a stage's boss (its map head's NPC), -1 when it has none.
+	private static int QuickStageMob(int step)
+	{
+		int npc = BookSteps.HeadNpc(step, out _);
+		return (npc != 0) ? BookBestiary.IndexOf(npc) : (-1);
+	}
+
+	private static QuickFact ReadItemFacts(int type)
 	{
 		List<BookAcquisitionEntry> entries = SourceEntries(type);
+		List<BookAcquisitionEntry> ordered = entries.Where((BookAcquisitionEntry e) => !e.OtherMode).Select((BookAcquisitionEntry e, int order) => (e, order)).OrderBy(((BookAcquisitionEntry e, int order) x) => LinkRank(x.e)).ThenBy(((BookAcquisitionEntry e, int order) x) => x.order).Select(((BookAcquisitionEntry e, int order) x) => x.e).ToList();
+		// Every How to Get row: the recipes (one per merged variant) and the sources.
+		return new QuickFact(ordered, BookRecipeVariants.For(type).Count + entries.Count, null, null);
+		static int LinkRank(BookAcquisitionEntry e)
+		{
+			if (e.Kind == BookAcquisitionKind.Container)
+			{
+				return 1;
+			}
+			int mob = (e.Kind == BookAcquisitionKind.Drop && e.NpcNetId != 0) ? BookBestiary.IndexOf(e.NpcNetId) : (-1);
+			return (mob < 0) ? 3 : ((BookBestiary.Mobs[mob].Kind == BookMobKind.Boss) ? 0 : 2);
+		}
+	}
+
+	// The mob card's own loot: what this world drops, the rarest first, a material after the weapons and accessories of
+	// its rarity (Moon Lord's Luminite after Meowmere), then the likeliest; its numbers once the Bestiary shows them.
+	private static QuickFact ReadMobFacts(int index)
+	{
+		BookMob mob = BookBestiary.Mobs[index];
+		int keep = LootNpc;
+		List<BookEnemyLoot> loot;
+		try
+		{
+			LootNpc = mob.NetId;
+			loot = OrderLoot(FromBags(ReadLoot(Main.ItemDropsDB.GetRulesForNPCID(mob.NetId, includeGlobalDrops: false))));
+		}
+		finally
+		{
+			LootNpc = keep;
+		}
+		List<BookEnemyLoot> shown = (from x in loot.Select((BookEnemyLoot l, int order) => (l, order))
+			where !x.l.OtherWorld && !ItemID.Sets.BossBag[x.l.ItemType]
+			orderby Notability(x.l.ItemType) descending, x.order
+			select x.l).ToList();
+		NPC sample = ContentSamples.NpcsByNetId[mob.NetId];
+		int kills = Main.BestiaryTracker.Kills.GetKillCount(ContentSamples.NpcBestiaryCreditIdsByNpcNetIds[mob.NetId]);
+		MobStats? stats = MobStatsUnlocked(mob.NetId, sample, kills) ? FreshMobStats(mob.NetId) : null;
+		return new QuickFact(null, loot.Count, shown, stats);
+		static int Notability(int type)
+		{
+			Item item = ContentSamples.ItemsByType[type];
+			return ((item.expert || item.master) ? 24 : (item.rare * 2)) + ((!item.material) ? 1 : 0);
+		}
+	}
+
+	// How to Get's rows as links: the bosses that drop it, the containers it is found in, then other mobs; another world's
+	// rows are left to How to Get itself.
+	private static List<QuickRow> ItemQuickLinks(int type, QuickFact facts)
+	{
 		List<QuickRow> links = new List<QuickRow>();
 		HashSet<int> mobs = new HashSet<int>();
 		HashSet<int> items = new HashSet<int>();
-		foreach (BookAcquisitionEntry entry in entries.Where((BookAcquisitionEntry e) => !e.OtherMode).Select((BookAcquisitionEntry e, int order) => (e, order)).OrderBy(((BookAcquisitionEntry e, int order) x) => LinkRank(x.e)).ThenBy(((BookAcquisitionEntry e, int order) x) => x.order).Select(((BookAcquisitionEntry e, int order) x) => x.e))
+		foreach (BookAcquisitionEntry entry in facts.Sources)
 		{
 			if (links.Count >= QuickLinkCap)
 			{
@@ -775,59 +1613,28 @@ public sealed partial class RecipeBookSystem
 				links.Add(new QuickRow(QuickKind.Item, QuickGroup.Items, entry.ItemType, QuickLink.FoundIn));
 			}
 		}
-		// Every How to Get row: the recipes (one per merged variant) and the sources.
-		int total = BookRecipeVariants.For(type).Count + entries.Count;
-		if (links.Count > 0 && total > links.Count)
+		if (links.Count > 0 && facts.SourceTotal > links.Count)
 		{
-			links.Add(new QuickRow(QuickKind.Item, QuickGroup.Items, type, QuickLink.AllSources, total));
+			links.Add(new QuickRow(QuickKind.Item, QuickGroup.Items, type, QuickLink.AllSources, facts.SourceTotal));
 		}
 		return links;
-		static int LinkRank(BookAcquisitionEntry e)
-		{
-			if (e.Kind == BookAcquisitionKind.Container)
-			{
-				return 1;
-			}
-			int mob = (e.Kind == BookAcquisitionKind.Drop && e.NpcNetId != 0) ? BookBestiary.IndexOf(e.NpcNetId) : (-1);
-			return (mob < 0) ? 3 : ((BookBestiary.Mobs[mob].Kind == BookMobKind.Boss) ? 0 : 2);
-		}
 	}
 
-	// The mob card's own loot (its rules, the Treasure Bag's in Expert): what this world drops, the rarest first, a material
-	// after the weapons and accessories of its rarity (Moon Lord's Luminite after Meowmere), then the likeliest.
-	private static List<QuickRow> MobQuickLinks(int index)
+	private static List<QuickRow> MobQuickLinks(int index, QuickFact facts)
 	{
-		BookMob mob = BookBestiary.Mobs[index];
-		int keep = LootNpc;
-		List<BookEnemyLoot> loot;
-		try
+		List<QuickRow> links = facts.Loot.Take(QuickLinkCap).Select((BookEnemyLoot l) => new QuickRow(QuickKind.Item, QuickGroup.Mobs, l.ItemType, QuickLink.Drops)).ToList();
+		if (links.Count > 0 && facts.SourceTotal > links.Count)
 		{
-			LootNpc = mob.NetId;
-			loot = OrderLoot(FromBags(ReadLoot(Main.ItemDropsDB.GetRulesForNPCID(mob.NetId, includeGlobalDrops: false))));
-		}
-		finally
-		{
-			LootNpc = keep;
-		}
-		List<QuickRow> links = (from x in loot.Select((BookEnemyLoot l, int order) => (l, order))
-			where !x.l.OtherWorld && !ItemID.Sets.BossBag[x.l.ItemType]
-			orderby Notability(x.l.ItemType) descending, x.order
-			select new QuickRow(QuickKind.Item, QuickGroup.Mobs, x.l.ItemType, QuickLink.Drops)).Take(QuickLinkCap).ToList();
-		if (links.Count > 0 && loot.Count > links.Count)
-		{
-			links.Add(new QuickRow(QuickKind.Mob, QuickGroup.Mobs, index, QuickLink.AllLoot, loot.Count));
+			links.Add(new QuickRow(QuickKind.Mob, QuickGroup.Mobs, index, QuickLink.AllLoot, facts.SourceTotal));
 		}
 		return links;
-		static int Notability(int type)
-		{
-			Item item = ContentSamples.ItemsByType[type];
-			return ((item.expert || item.master) ? 24 : (item.rare * 2)) + ((!item.material) ? 1 : 0);
-		}
 	}
 
-	// The empty field: picks from this session, then the latest crafts and the mobs seen last (both kept by the player).
+	// The empty field: tracked goals, picks from this session, then the latest crafts and the mobs seen last (both kept by
+	// the player).
 	private static void AddRecentRows()
 	{
+		Add(QuickGroup.Tracked, Enumerable.Range(0, Math.Min(3, TrackedGoals.Count)).Select((int g) => new QuickRow(QuickKind.Goal, QuickGroup.Tracked, g)).ToList());
 		List<QuickRow> opened = new List<QuickRow>();
 		foreach ((QuickKind kind, int id, string key) in QuickOpened)
 		{
@@ -882,14 +1689,25 @@ public sealed partial class RecipeBookSystem
 
 	// Opening a pick -------------------------------------------------------------------------------------------------
 
-	// Enter or a click. Shift: an item opens on Used in (as Shift+Click in the grid); Ctrl: on How to Get.
-	private static void ActivateQuickRow(QuickRow row, bool shift, bool ctrl)
+	// Enter or a click: the pick where it lives. An item opens on the scope's tab: Storage selects its stack, Recipes its
+	// recipe, else its card on Items; a goal opens on Tracking.
+	private static void ActivateQuickRow(QuickRow row)
 	{
 		if (row.Kind == QuickKind.Header)
 		{
 			return;
 		}
-		if (row.Kind == QuickKind.ShowAll && row.Group != QuickGroup.Items && row.Group != QuickGroup.Mobs)
+		if (row.Kind == QuickKind.Command)
+		{
+			RunQuickCommand((QuickCommand)row.Id);
+			return;
+		}
+		if (row.Kind == QuickKind.AllScopes)
+		{
+			SetQuickScope(QuickScope.All);
+			return;
+		}
+		if (row.Kind == QuickKind.ShowAll && row.Group is not (QuickGroup.Items or QuickGroup.Mobs or QuickGroup.Storage or QuickGroup.Recipes))
 		{
 			QuickExpanded.Add(row.Group);
 			int keep = QuickSelected;
@@ -900,39 +1718,34 @@ public sealed partial class RecipeBookSystem
 		}
 		if (row.Kind is QuickKind.Item or QuickKind.Mob or QuickKind.Stage or QuickKind.ItemCategory or QuickKind.MobCategory or QuickKind.Mod && row.Link is QuickLink.None or QuickLink.DroppedBy or QuickLink.FoundIn or QuickLink.Drops)
 		{
-			RememberQuickPick(row with { Link = QuickLink.None, Hint = "" });
+			RememberQuickPick(row with { Link = QuickLink.None, Hint = "", Why = QuickWhy.Name });
 		}
 		string query = QuickQuery;
-		CloseQuickSearch();
-		if (!Open)
-		{
-			Toggle();
-		}
-		CloseAcquisition();
-		SetTyping(value: false);
-		ModMenu = (SortMenu = (StageMenu = (StationMenu = (TraitMenu = (HelpOpen = false)))));
+		BeginQuickNavigation();
 		switch (row.Kind)
 		{
+			case QuickKind.Item when row.Link == QuickLink.AllSources:
+				QuickShowItem(row.Id, CardModeFor(row.Id));
+				OpenAcquisition(row.Id, null);
+				break;
+			case QuickKind.Item when row.Group == QuickGroup.Storage:
+				QuickShowStorage(row.Id);
+				break;
+			case QuickKind.Item when row.Group == QuickGroup.Recipes:
+				QuickShowRecipe(row.Id);
+				break;
 			case QuickKind.Item:
-				QuickShowItem(row.Id, (shift && row.Link != QuickLink.AllSources) ? BookCardMode.UsedIn : CardModeFor(row.Id));
-				if ((ctrl && !shift) || row.Link == QuickLink.AllSources)
-				{
-					OpenAcquisition(row.Id, null);
-				}
+				QuickShowItem(row.Id, CardModeFor(row.Id));
 				break;
 			case QuickKind.Mob:
 				ShowMob(row.Id, BookBestiary.Mobs[row.Id].NetId);
+				MobStatsMode = false;
+				break;
+			case QuickKind.Goal:
+				QuickShowGoal(row.Id);
 				break;
 			case QuickKind.Stage:
-				// The shared stage filter, on a tab that lists by stage (Storage keeps its own, Tracking has none).
-				if (StorageView || TrackingView)
-				{
-					SwitchTab(0);
-				}
-				StageFilter = BookStageFilter.BeforeBoss;
-				StageBoss = BookSteps.All[row.Id].Key;
-				Page = (DetailsPage = (Variant = 0));
-				ApplyFilters();
+				QuickStageFilter(row.Id);
 				break;
 			case QuickKind.ItemCategory:
 			case QuickKind.MobCategory:
@@ -953,11 +1766,43 @@ public sealed partial class RecipeBookSystem
 				break;
 			}
 			default:
-				// "All on the tab" and the description search: the tab's own search, which reads item texts too.
-				QuickTab((row.Group == QuickGroup.Mobs) ? 2 : 0, query);
+				// "All on the tab" and the descriptions search: the tab's own search, which reads item texts too.
+				QuickTab(row.Group switch
+				{
+					QuickGroup.Mobs => 2,
+					QuickGroup.Storage => 3,
+					QuickGroup.Recipes => 1,
+					_ => 0
+				}, query);
 				ApplyFilters();
 				break;
 		}
+	}
+
+	// A pick that navigates closes the field and opens the book there; the book's history keeps where it was.
+	private static void BeginQuickNavigation()
+	{
+		CloseQuickSearch();
+		if (!Open)
+		{
+			Toggle();
+		}
+		CloseAcquisition();
+		SetTyping(value: false);
+		ModMenu = (SortMenu = (StageMenu = (StationMenu = (TraitMenu = (HelpOpen = false)))));
+	}
+
+	// The shared stage filter "Before: <boss>", on a tab that lists by stage (Storage keeps its own, Tracking has none).
+	private static void QuickStageFilter(int step)
+	{
+		if (StorageView || TrackingView)
+		{
+			SwitchTab(0);
+		}
+		StageFilter = BookStageFilter.BeforeBoss;
+		StageBoss = BookSteps.All[step].Key;
+		Page = (DetailsPage = (Variant = 0));
+		ApplyFilters();
 	}
 
 	// Opens a tab for what a pick names, with its search set and the tab's other filters cleared as Ctrl+Backspace clears
@@ -968,11 +1813,9 @@ public sealed partial class RecipeBookSystem
 		{
 			SwitchTab(tab);
 		}
+		ResetFilters(apply: false);
 		Query = query;
-		ModFilter = "";
-		FavoritesOnly = (MetOnly = (CraftableOnly = false));
-		SetExcludedStations(Array.Empty<string>());
-		Category = (CategoryRow = (Page = (DetailsPage = 0)));
+		DetailsPage = 0;
 	}
 
 	// The item's card on Items: selected in the grid when the filters show it, else shown in the card (as a step).
@@ -996,21 +1839,64 @@ public sealed partial class RecipeBookSystem
 		Variant = (DetailsPage = 0);
 	}
 
+	// The Storage tab with the item's biggest stack selected, its search cleared so the grid shows it.
+	private static void QuickShowStorage(int type)
+	{
+		QuickTab(3, "");
+		ApplyFilters();
+		int stack = QuickStorageStack(type);
+		Selected = stack;
+		int position = Filtered.IndexOf(stack);
+		Page = (position < 0) ? 0 : (position / ActivePageSize);
+	}
+
+	// The Recipes tab on the item's recipe (the first variant's), where Craft is: its search set to the item's name, so
+	// the grid shows it among its own.
+	private static void QuickShowRecipe(int type)
+	{
+		List<BookRecipeVariants.Variant> variants = BookRecipeVariants.For(type);
+		if (variants.Count == 0)
+		{
+			QuickShowItem(type, BookCardMode.Recipe);
+			return;
+		}
+		QuickTab(1, ContentSamples.ItemsByType[type].Name);
+		ApplyFilters();
+		Selected = BookRecipeVariants.Representative(variants[0].Representative);
+		int position = Filtered.IndexOf(Selected);
+		Page = (position < 0) ? 0 : (position / ActivePageSize);
+	}
+
+	// The Tracking tab on the goal.
+	private static void QuickShowGoal(int goal)
+	{
+		if (goal < 0 || goal >= TrackedGoals.Count)
+		{
+			return;
+		}
+		SwitchTab(5);
+		TrackingSelection = TrackedGoals[goal];
+		Page = goal / BookGeometry.TrackingPageSize;
+	}
+
 	// Selection and scrolling ---------------------------------------------------------------------------------------
 
 	private static float QuickRowHeight(QuickRow row)
 	{
-		if (row.Kind == QuickKind.Header)
+		return row.Kind switch
 		{
-			return 28f;
-		}
-		return (row.Link != QuickLink.None || row.Kind == QuickKind.ShowAll) ? 30f : 38f;
+			QuickKind.Header => 30f,
+			QuickKind.ShowAll or QuickKind.TextSearch or QuickKind.AllScopes => 34f,
+			_ when row.Link != QuickLink.None => (row.Link is QuickLink.AllSources or QuickLink.AllLoot) ? 28f : 30f,
+			_ when row.Why == QuickWhy.Description => 52f,
+			_ => 42f
+		};
 	}
 
 	private static List<(int Row, BookRect Rect)> QuickVisible()
 	{
 		List<(int, BookRect)> visible = new List<(int, BookRect)>();
-		BookRect list = QuickList;
+		BookRect list = QuickListRows;
 		float y = list.Y;
 		for (int i = QuickScroll; i < QuickRows.Count; i++)
 		{
@@ -1019,7 +1905,7 @@ public sealed partial class RecipeBookSystem
 			{
 				break;
 			}
-			visible.Add((i, new BookRect(list.X, y, list.Width - 10f, height)));
+			visible.Add((i, new BookRect(list.X, y, list.Width, height)));
 			y += height;
 		}
 		return visible;
@@ -1027,7 +1913,7 @@ public sealed partial class RecipeBookSystem
 
 	private static int QuickMaxScroll()
 	{
-		float room = QuickList.Height;
+		float room = QuickListRows.Height;
 		int first = QuickRows.Count;
 		while (first > 0 && room >= QuickRowHeight(QuickRows[first - 1]))
 		{
@@ -1038,6 +1924,10 @@ public sealed partial class RecipeBookSystem
 
 	private static int QuickRowAt()
 	{
+		if (!QuickListRows.Contains(Mouse.X, Mouse.Y))
+		{
+			return -1;
+		}
 		foreach ((int row, BookRect rect) in QuickVisible())
 		{
 			if (rect.Contains(Mouse.X, Mouse.Y))
@@ -1046,6 +1936,16 @@ public sealed partial class RecipeBookSystem
 			}
 		}
 		return -1;
+	}
+
+	private static void SelectQuickRow(int row)
+	{
+		if (row != QuickSelected)
+		{
+			QuickSelected = row;
+			QuickSelectedAge = 0;
+			QuickArmed = -1;
+		}
 	}
 
 	private static void MoveQuickSelection(int step)
@@ -1065,7 +1965,7 @@ public sealed partial class RecipeBookSystem
 			}
 			at = next;
 		}
-		QuickSelected = at;
+		SelectQuickRow(at);
 		EnsureQuickVisible();
 	}
 
@@ -1088,419 +1988,47 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
-	// Drawing -------------------------------------------------------------------------------------------------------
-
-	// The book is closed: the popup stands over the game where the book would open, on a dimmed screen.
-	private static void DrawQuickSearchOverGame(SpriteBatch sb)
-	{
-		if (!QuickSearchOpen)
-		{
-			return;
-		}
-		Layout();
-		MouseOver = false;
-		QuickAppear = Math.Min(1f, QuickAppear + 0.15f);
-		sb.Draw(TextureAssets.MagicPixel.Value, new Rectangle(0, 0, Main.screenWidth * 2, Main.screenHeight * 2), BackdropVeil * (0.5f * QuickAppear));
-		DrawModal(sb, QuickAppear, DrawQuickSearch);
-	}
-
-	// Modal like Help: nothing under it hovers or shows a tooltip.
-	private static void DrawQuickSearch(SpriteBatch sb)
-	{
-		long start = Stopwatch.GetTimestamp();
-		PendingTip = null;
-		Main.HoverItem = new Item();
-		Main.hoverItemName = "";
-		Main.LocalPlayer.mouseInterface = true;
-		Main.LocalPlayer.cursorItemIconEnabled = false;
-		ReadQuickText();
-		BookRect panel = QuickPanel;
-		Box(sb, panel.X, panel.Y + 6f, panel.Width, panel.Height, new Color(0, 0, 0, 120), border: false, 14f);
-		Box(sb, panel, Surface, border: true, 12f);
-		DrawQuickField(sb);
-		DrawQuickRows(sb);
-		DrawQuickFooter(sb);
-		QuickFrameMs = (Stopwatch.GetTimestamp() - start) * 1000.0 / Stopwatch.Frequency;
-		QuickFrameMaxMs = Math.Max(QuickFrameMaxMs, QuickFrameMs);
-	}
-
-	private static void DrawQuickField(SpriteBatch sb)
-	{
-		BookRect field = QuickField;
-		Box(sb, field, new Color(35, 51, 40), border: true, 8f, Accent, 2);
-		Magnifier(sb, field.X + 22f, field.Y + field.Height / 2f, TextColor);
-		float textX = field.X + 44f;
-		float right = field.X + field.Width - 48f;
-		bool caret = (int)(Main.GlobalTimeWrappedHourly * 2f) % 2 == 0;
-		if (BookEnglishNames.Needed && !BookEnglishNames.Ready)
-		{
-			string reading = L("QuickSearch.EnglishLoading");
-			float width = TextWidth(reading, 0.8f) + 4f;
-			right -= width + 12f;
-			CenterLabel(sb, reading, right + 12f, field.Y + 10f, width, field.Height - 20f, Muted, 0.8f, rightAligned: true);
-		}
-		if (QuickQuery.Length == 0)
-		{
-			if (caret)
-			{
-				CenterLabel(sb, "|", textX - 2f, field.Y + 6f, 8f, field.Height - 12f, TextColor, 0.95f, rightAligned: false, leftAligned: true);
-			}
-			CenterLabel(sb, L("QuickSearch.Placeholder"), textX + 6f, field.Y + 6f, right - textX - 6f, field.Height - 12f, Muted, 0.95f, rightAligned: false, leftAligned: true, fitWidth: true);
-			return;
-		}
-		if (QuickAllSelected)
-		{
-			Box(sb, textX - 3f, field.Y + 9f, Math.Min(right - textX, TextWidth(QuickQuery, 0.95f)) + 6f, field.Height - 18f, Accent * 0.35f, border: false, 3f);
-		}
-		CenterLabel(sb, QuickQuery + ((!QuickAllSelected && caret) ? "|" : ""), textX, field.Y + 6f, right - textX, field.Height - 12f, TextColor, 0.95f, rightAligned: false, leftAligned: true);
-		BookRect clear = QuickClear;
-		bool over = clear.Contains(Mouse.X, Mouse.Y);
-		if (over)
-		{
-			Box(sb, clear, HoverFill, border: false, 6f);
-			MouseTip(L("Common.ClearSearch"));
-		}
-		Cross(sb, clear.X + clear.Width / 2f, clear.Y + clear.Height / 2f, 4f, over ? TextColor : Muted);
-	}
-
-	private static void DrawQuickRows(SpriteBatch sb)
-	{
-		QuickSegments.Clear();
-		QuickScroll = Math.Clamp(QuickScroll, 0, QuickMaxScroll());
-		BookRect list = QuickList;
-		List<(int Row, BookRect Rect)> visible = QuickVisible();
-		foreach ((int index, BookRect rect) in visible)
-		{
-			DrawQuickRow(sb, QuickRows[index], rect, index == QuickSelected);
-		}
-		if (QuickRows.Count == 0)
-		{
-			EmptyState(sb, list, L("QuickSearch.EmptyTitle"), L("QuickSearch.EmptyHint"));
-		}
-		else if (QuickRows[0].Kind == QuickKind.TextSearch)
-		{
-			EmptyState(sb, new BookRect(list.X, list.Y + 48f, list.Width, list.Height - 48f), L("QuickSearch.NothingFound", QuickQuery.Trim()), L("QuickSearch.NothingFoundHint"));
-		}
-		// A thin scroll bar when the rows do not fit, as the mod menu has.
-		int max = QuickMaxScroll();
-		if (max > 0)
-		{
-			float track = list.Height;
-			float thumb = Math.Max(24f, track * visible.Count / QuickRows.Count);
-			float x = list.X + list.Width - 4f;
-			Box(sb, x, list.Y, 3f, track, Raised, border: false, 1f);
-			Box(sb, x, list.Y + (track - thumb) * QuickScroll / max, 3f, thumb, Accent, border: false, 1f);
-		}
-	}
-
-	private static void DrawQuickRow(SpriteBatch sb, QuickRow row, BookRect rect, bool selected)
-	{
-		if (row.Kind == QuickKind.Header)
-		{
-			string title = QuickGroupName(row.Group) + ((row.Count > 0) ? (" · " + Count(row.Count)) : "");
-			SectionLabel(sb, title, rect.X + 8f, rect.Y + 6f, rect.Width - 16f);
-			return;
-		}
-		if (selected)
-		{
-			Box(sb, rect, SelectedFill, border: true, 6f, Accent, 2);
-		}
-		Color text = selected ? Accent : TextColor;
-		bool linked = row.Link != QuickLink.None;
-		if (linked)
-		{
-			// Under the match it belongs to: an elbow from the parent's icon.
-			Line(sb, rect.X + 22f, rect.Y - 4f, rect.X + 22f, rect.Y + rect.Height / 2f, Border, 1.5f);
-			Line(sb, rect.X + 22f, rect.Y + rect.Height / 2f, rect.X + 36f, rect.Y + rect.Height / 2f, Border, 1.5f);
-		}
-		if (row.Link is QuickLink.AllSources or QuickLink.AllLoot || row.Kind == QuickKind.ShowAll)
-		{
-			string more = row.Link switch
-			{
-				QuickLink.AllSources => L("QuickSearch.AllSources", Count(row.Count)),
-				QuickLink.AllLoot => L("QuickSearch.AllLoot", Count(row.Count)),
-				_ => row.Group switch
-				{
-					QuickGroup.Items => L("QuickSearch.AllInItems", Count(row.Count)),
-					QuickGroup.Mobs => L("QuickSearch.AllInBestiary", Count(row.Count)),
-					_ => L("QuickSearch.More", Count(row.Count - QuickCaps[(int)row.Group]))
-				}
-			};
-			float x = rect.X + (linked ? 44f : 48f);
-			float width = Math.Min(TextWidth(more, 0.85f) + 2f, rect.Width - (x - rect.X) - 24f);
-			CenterLabel(sb, more, x, rect.Y + 3f, width, rect.Height - 6f, Accent, 0.85f, rightAligned: false, leftAligned: true);
-			Chevron(sb, x + width + 10f, rect.Y + rect.Height / 2f, 3.5f, 3, Accent);
-			return;
-		}
-		float size = linked ? 22f : 28f;
-		BookRect icon = new BookRect(rect.X + (linked ? 44f : 8f), rect.Y + (rect.Height - size) / 2f, size, size);
-		DrawQuickIcon(sb, row, icon);
-		float left = icon.X + size + 10f;
-		float right = QuickBadge(sb, rect, QuickBadgeText(row), selected) - 12f;
-		float textSize = linked ? 0.85f : 0.9f;
-		string name = QuickRowName(row);
-		float nameWidth = Math.Max(0f, Math.Min(TextWidth(name, textSize) + 2f, right - left));
-		CenterLabel(sb, name, left, rect.Y + 4f, nameWidth, rect.Height - 8f, linked ? (selected ? Accent : Muted * 1.15f) : text, textSize, rightAligned: false, leftAligned: true);
-		float at = left + nameWidth;
-		string hint = row.Hint.Length > 0 ? row.Hint : QuickRowDetail(row);
-		if (hint.Length > 0 && right - at > 48f)
-		{
-			at = QuickSeparator(sb, "·", at, rect);
-			float width = Math.Min(TextWidth(hint, 0.8f) + 2f, right - at);
-			CenterLabel(sb, hint, at, rect.Y + 4f, width, rect.Height - 8f, Muted, 0.8f, rightAligned: false, leftAligned: true);
-			at += width;
-		}
-		if (linked || right - at <= 48f)
-		{
-			return;
-		}
-		// The item's place as its card names it (BookCategoryPath: group › category), a mob's kind and spawn tag; each
-		// step opens its category.
-		List<(string Label, int Category, bool Mobs)> path = new List<(string, int, bool)>();
-		if (row.Kind == QuickKind.Item)
-		{
-			path.AddRange(BookCategoryPath.Of(row.Id).Select((BookCategory c) => (c.Label(), ItemCategoryList.FindIndex((BookCategory listed) => listed.Key == c.Key), false)));
-		}
-		else if (row.Kind == QuickKind.Mob)
-		{
-			path.AddRange(BookMobCategoryPath.Of(row.Id).Select((BookBestiary.Tag t) => (BookBestiary.Label(t), BookBestiary.Tags.IndexOf(t), true)));
-		}
-		for (int i = 0; i < path.Count && right - at > 40f; i++)
-		{
-			at = QuickSeparator(sb, (i == 0 || path[i].Mobs) ? "·" : "›", at, rect);
-			float width = Math.Min(TextWidth(path[i].Label, 0.8f) + 2f, right - at);
-			BookRect segment = new BookRect(at, rect.Y + 6f, width, rect.Height - 12f);
-			bool over = segment.Contains(Mouse.X, Mouse.Y);
-			CenterLabel(sb, path[i].Label, at, rect.Y + 4f, width, rect.Height - 8f, over ? Accent : Muted, 0.8f, rightAligned: false, leftAligned: true);
-			if (over)
-			{
-				Line(sb, at, rect.Y + rect.Height - 9f, at + width - 2f, rect.Y + rect.Height - 9f, Accent, 1f);
-			}
-			if (path[i].Category >= 0)
-			{
-				QuickSegments.Add((segment, path[i].Category, path[i].Mobs));
-			}
-			at += width;
-		}
-	}
-
-	// Labels are placed by their ink, so a spaced " · " would lose its spaces: the gaps are explicit.
-	private static float QuickSeparator(SpriteBatch sb, string glyph, float at, BookRect rect)
-	{
-		at += 7f;
-		float width = TextWidth(glyph, 0.8f);
-		CenterLabel(sb, glyph, at, rect.Y + 4f, width + 2f, rect.Height - 8f, Muted, 0.8f, rightAligned: false, leftAligned: true);
-		return at + width + 7f;
-	}
-
-	// A vanilla texture nobody drew yet is read from disk on the first frame that asks (Main.LoadItem, several ms each:
-	// the first query's rows took 50-90 ms). The row asks for it in the background and shows the icon once it is in, so
-	// typing never waits for icons.
-	private static bool QuickTextureReady(Asset<Texture2D>[] textures, int index)
-	{
-		if (index <= 0 || index >= textures.Length)
-		{
-			return false;
-		}
-		Asset<Texture2D> asset = textures[index];
-		if (asset.State == AssetState.NotLoaded)
-		{
-			Main.Assets.Request<Texture2D>(asset.Name, AssetRequestMode.AsyncLoad);
-		}
-		return asset.IsLoaded;
-	}
-
-	private static void DrawQuickIcon(SpriteBatch sb, QuickRow row, BookRect icon)
-	{
-		switch (row.Kind)
-		{
-			case QuickKind.Item:
-				if (QuickTextureReady(TextureAssets.Item, row.Id) && ContentSamples.ItemsByType.TryGetValue(row.Id, out Item item))
-				{
-					Icon(sb, item, icon.X, icon.Y, icon.Width, tooltip: false);
-				}
-				break;
-			case QuickKind.Mob:
-			{
-				int netId = BookBestiary.Mobs[row.Id].NetId;
-				if (ContentSamples.NpcsByNetId.TryGetValue(netId, out NPC npc) && QuickTextureReady(TextureAssets.Npc, npc.type))
-				{
-					DrawNpcIcon(sb, netId, icon);
-				}
-				break;
-			}
-			case QuickKind.Stage:
-				DrawBossHead(sb, row.Id, icon, 1f);
-				break;
-			case QuickKind.ItemCategory:
-				if (QuickTextureReady(TextureAssets.Item, ItemCategoryList[row.Id].IconType))
-				{
-					DrawCategoryIcon(sb, ItemCategoryList[row.Id], new BookRect(icon.X - 4f, icon.Y, icon.Width, icon.Height), mobs: false);
-				}
-				break;
-			case QuickKind.MobCategory:
-				if (MobCategories[row.Id].IconType <= 0 || QuickTextureReady(TextureAssets.Item, MobCategories[row.Id].IconType))
-				{
-					DrawCategoryIcon(sb, MobCategories[row.Id], new BookRect(icon.X - 4f, icon.Y, icon.Width, icon.Height), mobs: true);
-				}
-				break;
-			case QuickKind.Mod:
-				DrawModIcon(sb, QuickMods[row.Id], icon);
-				break;
-			default:
-				Magnifier(sb, icon.X + icon.Width / 2f, icon.Y + icon.Height / 2f, Muted);
-				break;
-		}
-	}
-
-	// The mod's icon.png; vanilla gets the Guide's book.
-	private static void DrawModIcon(SpriteBatch sb, string mod, BookRect rect)
-	{
-		if (!QuickModIcons.TryGetValue(mod, out Asset<Texture2D> asset))
-		{
-			if (mod == "Terraria" || !ModContent.RequestIfExists(mod + "/icon", out asset, AssetRequestMode.AsyncLoad))
-			{
-				asset = null;
-			}
-			QuickModIcons[mod] = asset;
-		}
-		if (asset == null || !asset.IsLoaded)
-		{
-			if (QuickTextureReady(TextureAssets.Item, ItemID.Book) && ContentSamples.ItemsByType.TryGetValue(ItemID.Book, out Item book))
-			{
-				Icon(sb, book, rect.X, rect.Y, rect.Width, tooltip: false);
-			}
-			return;
-		}
-		Texture2D texture = asset.Value;
-		float scale = Math.Min(rect.Width / texture.Width, rect.Height / texture.Height);
-		sb.Draw(texture, Origin + new Vector2(rect.X + rect.Width / 2f, rect.Y + rect.Height / 2f) * Scale, null, Color.White * GraphicsOpacity, 0f, texture.Size() / 2f, scale * Scale, SpriteEffects.None, 0f);
-	}
-
-	// What a row is and where it opens, on the right; returns the badge's left edge.
-	private static float QuickBadge(SpriteBatch sb, BookRect rect, string label, bool selected)
-	{
-		float width = TextWidth(label, 0.8f) + 16f;
-		float x = rect.X + rect.Width - width - 8f;
-		float y = rect.Y + (rect.Height - 22f) / 2f;
-		Box(sb, x, y, width, 22f, selected ? new Color(40, 62, 48) : Raised, border: true, 11f, selected ? Accent : Border);
-		CenterLabel(sb, label, x, y, width, 22f, selected ? Accent : Muted, 0.8f);
-		return x;
-	}
-
-	private static string QuickBadgeText(QuickRow row)
-	{
-		return row.Kind switch
-		{
-			QuickKind.Item => L("QuickSearch.BadgeItem"),
-			QuickKind.Mob => (BookBestiary.Mobs[row.Id].Kind == BookMobKind.Boss) ? L("QuickSearch.BadgeBoss") : L("QuickSearch.BadgeMob"),
-			QuickKind.Stage => L("QuickSearch.BadgeStage"),
-			QuickKind.ItemCategory or QuickKind.MobCategory => L("QuickSearch.BadgeCategory"),
-			QuickKind.Mod => L("QuickSearch.BadgeMod"),
-			_ => TabLabel(0)
-		};
-	}
-
-	private static string QuickRowName(QuickRow row)
-	{
-		string name = row.Kind switch
-		{
-			QuickKind.Item => ContentSamples.ItemsByType[row.Id].Name,
-			QuickKind.Mob => BookBestiary.Mobs[row.Id].Sample.FullName,
-			QuickKind.Stage => L("Stages.Before", BookSteps.Name(row.Id)),
-			QuickKind.ItemCategory => ItemCategoryList[row.Id].Label(),
-			QuickKind.MobCategory => BookBestiary.Label(BookBestiary.Tags[row.Id]),
-			QuickKind.Mod => ModName(QuickMods[row.Id]),
-			_ => L("QuickSearch.SearchDescriptions")
-		};
-		return row.Link switch
-		{
-			QuickLink.DroppedBy => L("QuickSearch.DroppedBy", name),
-			QuickLink.FoundIn => L("QuickSearch.FoundIn", name),
-			QuickLink.Drops => L("QuickSearch.Drops", name),
-			_ => name
-		};
-	}
-
-	// After the name: a stage's state, a category's or a mod's size.
-	private static string QuickRowDetail(QuickRow row)
-	{
-		switch (row.Kind)
-		{
-			case QuickKind.Stage:
-			{
-				BookSteps.Step boss = BookSteps.All[row.Id];
-				return (row.Id == BookSteps.Next()) ? L("Stages.NextBoss") : ((!boss.Available()) ? L("Stages.NotInThisWorldTheOther") : (BookSteps.SafeDowned(boss) ? L("Stages.AlreadyDown") : L("Stages.NotDownYet")));
-			}
-			case QuickKind.ItemCategory:
-				return (row.Id < QuickCategorySizes.Length) ? L("QuickSearch.ItemCount", QuickCategorySizes[row.Id]) : "";
-			case QuickKind.MobCategory:
-				return (BookBestiary.Tags[row.Id].Key == BookBestiary.RecentKey) ? "" : L("QuickSearch.MobCount", BookBestiary.Tags[row.Id].Members.Count);
-			case QuickKind.Mod:
-			{
-				(int items, int mobs) = QuickModSizes.GetValueOrDefault(QuickMods[row.Id]);
-				return (items > 0) ? L("QuickSearch.ItemCount", items) : L("QuickSearch.MobCount", mobs);
-			}
-			default:
-				return "";
-		}
-	}
-
-	private static string QuickGroupName(QuickGroup group)
-	{
-		return group switch
-		{
-			QuickGroup.Items => TabLabel(0),
-			QuickGroup.Mobs => TabLabel(2),
-			QuickGroup.Stages => L("QuickSearch.GroupStages"),
-			QuickGroup.ItemCategories => L("QuickSearch.GroupItemCategories"),
-			QuickGroup.MobCategories => L("QuickSearch.GroupMobCategories"),
-			QuickGroup.Mods => L("QuickSearch.GroupMods"),
-			QuickGroup.Opened => L("QuickSearch.GroupOpened"),
-			QuickGroup.Crafted => L("QuickSearch.GroupCrafted"),
-			_ => L("QuickSearch.GroupSeen")
-		};
-	}
-
-	// The keys, as the station menu names its own.
-	private static void DrawQuickFooter(SpriteBatch sb)
-	{
-		BookRect panel = QuickPanel;
-		float y = panel.Y + panel.Height - 36f;
-		Box(sb, panel.X + 16f, y - 8f, panel.Width - 32f, 1f, Border, border: false, 0f);
-		float x = panel.X + 20f;
-		foreach ((string key, string action) in new (string, string)[4]
-		{
-			(L("QuickSearch.KeyEnter"), L("QuickSearch.Open")),
-			(L("QuickSearch.KeyShiftEnter"), L("Common.UsedIn")),
-			(L("Help.KeyCtrlEnter"), L("Help.HowToGet")),
-			(L("Help.KeyEsc"), L("QuickSearch.Close"))
-		})
-		{
-			float keyWidth = TextWidth(key, 0.8f) + 16f;
-			HelpKeycap(sb, new BookRect(x, y, keyWidth, 24f), key);
-			x += keyWidth + 6f;
-			float actionWidth = TextWidth(action, 0.8f) + 2f;
-			CenterLabel(sb, action, x, y, actionWidth, 24f, Muted, 0.8f, rightAligned: false, leftAligned: true);
-			x += actionWidth + 16f;
-		}
-	}
-
 	// Stand: index build, a ranking pass for a query and the same pass reading every link (cold after the rebuild), in
-	// milliseconds, and what it found.
-	internal static string QuickSearchCost(string query)
+	// milliseconds, and what it found. scope: a QuickScope name ("Storage").
+	internal static string QuickSearchCost(string query, string scope = "All")
 	{
 		QuickIndexKey = default;
 		EnsureQuickIndex();
 		string keep = QuickQuery;
+		QuickScope keepScope = QuickScopeShown;
+		QuickScopeShown = Enum.TryParse(scope, out QuickScope parsed) ? parsed : QuickScope.All;
 		QuickQuery = query;
+		QuickHitTerms = Array.Empty<string>();
 		RunQuickSearch();
 		double search = QuickSearchMs;
 		RunQuickSearch(int.MaxValue);
-		string rows = string.Join(" | ", QuickRows.Take(16).Select((QuickRow r) => r.Kind == QuickKind.Header ? ("[" + QuickGroupName(r.Group) + " " + r.Count + "]") : (r.Kind + ":" + ((r.Kind == QuickKind.ShowAll) ? r.Count.ToString(CultureInfo.InvariantCulture) : QuickRowName(r)) + ((r.Hint.Length > 0) ? (" (" + r.Hint + ")") : ""))));
-		string cost = string.Create(CultureInfo.InvariantCulture, $"index {QuickIndex.Count} entries in {QuickIndexMs:F1} ms; search {search:F2} ms, with links {QuickSearchMs:F2} ms; english {(BookEnglishNames.Ready ? "ready" : (BookEnglishNames.Needed ? "reading" : "not needed"))}: ");
+		string rows = string.Join(" | ", QuickRows.Take(18).Select((QuickRow r) => r.Kind == QuickKind.Header ? ("[" + QuickGroupName(r.Group) + " " + r.Count + "]") : (r.Kind + ":" + ((r.Kind == QuickKind.ShowAll) ? r.Count.ToString(CultureInfo.InvariantCulture) : QuickRowName(r)) + ((r.Hint.Length > 0) ? (" (" + r.Hint + ")") : ""))));
+		string chips = string.Join(" ", Enum.GetValues<QuickScope>().Select((QuickScope s) => s + "=" + QuickScopeCounts[(int)s]));
+		string cost = string.Create(CultureInfo.InvariantCulture, $"index {QuickIndex.Count} entries, {QuickConcepts.Count} concepts in {QuickIndexMs:F1} ms; search {search:F2} ms, with links {QuickSearchMs:F2} ms; english {(BookEnglishNames.Ready ? "ready" : (BookEnglishNames.Needed ? "reading" : "not needed"))}, texts {(DescriptionsReady ? "ready" : "reading")}; {chips}: ");
 		QuickQuery = keep;
+		QuickScopeShown = keepScope;
+		QuickHitTerms = Array.Empty<string>();
 		RunQuickSearch();
 		return cost + rows;
+	}
+
+	// Stand: typing a query a letter at a time, as a player does (each pass narrows the last), the slowest pass and the
+	// total in milliseconds.
+	internal static string QuickTypingCost(string query)
+	{
+		string keep = QuickQuery;
+		double slowest = 0;
+		double total = 0;
+		QuickHitTerms = Array.Empty<string>();
+		for (int i = 1; i <= query.Length; i++)
+		{
+			QuickQuery = query.Substring(0, i);
+			RunQuickSearch();
+			slowest = Math.Max(slowest, QuickSearchMs);
+			total += QuickSearchMs;
+		}
+		QuickQuery = keep;
+		RunQuickSearch();
+		return string.Create(CultureInfo.InvariantCulture, $"{query.Length} keys: slowest {slowest:F2} ms, total {total:F2} ms");
 	}
 }

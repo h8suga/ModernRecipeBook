@@ -58,10 +58,15 @@ internal static class BookQuickRank
 	internal static int Value(int tier, bool name) => tier == 0 ? 0 : tier * 2 + (name ? 1 : 0);
 
 	// A Russian word without its ending, which starts a word as well as the word itself: "лунный лорд" finds «Тело лунного
-	// лорда», "зелье" «Все зелья». Up to two final vowels (or й) go while three letters stay; ь stays, so "зелье" is not
-	// "зел" and does not find everything green.
+	// лорда», "зелье" «Все зелья». Up to two final vowels (or й) go while three letters stay; ь stays after them, so
+	// "зелье" is not "зел" and does not find everything green. A word that ends in ь loses it while four letters stay:
+	// "ярость" finds «ярости».
 	internal static string Stem(string term)
 	{
+		if (term.Length > 4 && term[^1] == 'ь')
+		{
+			return term.Substring(0, term.Length - 1);
+		}
 		int end = term.Length;
 		while (end > 3 && term.Length - end < 2 && "аеёиоуыэюяй".Contains(term[end - 1]))
 		{
@@ -70,17 +75,89 @@ internal static class BookQuickRank
 		return term.Substring(0, end);
 	}
 
-	// A match at the start of a word: the field's start or after anything that is not a letter or digit.
-	internal static bool StartsWord(string field, string term)
+	// A description matches when every term (or its stem) starts a word of it: "rage" finds "the rage meter", not
+	// "storage" or "average".
+	internal static bool Describes(string text, string[] terms)
+	{
+		if (string.IsNullOrEmpty(text))
+		{
+			return false;
+		}
+		foreach (string term in terms)
+		{
+			if (!StartsWord(text, Stem(term)))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// Where the typed words sit in a shown text, for highlighting: per term its first occurrence at a word start (its
+	// stem's when only that is there), else anywhere; merged, in order. The shown text keeps its case: positions are found
+	// in its lower-case copy, which has the same length.
+	internal static List<(int Start, int Length)> Marks(string shown, string[] terms)
+	{
+		List<(int Start, int Length)> marks = new List<(int, int)>();
+		if (string.IsNullOrEmpty(shown) || terms.Length == 0)
+		{
+			return marks;
+		}
+		string lower = shown.ToLowerInvariant().Replace('ё', 'е');
+		if (lower.Length != shown.Length)
+		{
+			return marks;
+		}
+		foreach (string term in terms)
+		{
+			string stem = Stem(term);
+			int at = WordStart(lower, term);
+			int length = term.Length;
+			if (at < 0 && stem != term)
+			{
+				at = WordStart(lower, stem);
+				length = stem.Length;
+			}
+			if (at < 0)
+			{
+				at = lower.IndexOf(term, StringComparison.Ordinal);
+				length = term.Length;
+			}
+			if (at >= 0)
+			{
+				marks.Add((at, length));
+			}
+		}
+		marks.Sort();
+		// Overlapping terms ("moon", "moo") join into one mark.
+		for (int i = marks.Count - 1; i > 0; i--)
+		{
+			(int start, int length) = marks[i - 1];
+			if (marks[i].Start <= start + length)
+			{
+				marks[i - 1] = (start, Math.Max(start + length, marks[i].Start + marks[i].Length) - start);
+				marks.RemoveAt(i);
+			}
+		}
+		return marks;
+	}
+
+	private static int WordStart(string field, string term)
 	{
 		for (int at = field.IndexOf(term, StringComparison.Ordinal); at >= 0; at = field.IndexOf(term, at + 1, StringComparison.Ordinal))
 		{
 			if (at == 0 || !char.IsLetterOrDigit(field[at - 1]))
 			{
-				return true;
+				return at;
 			}
 		}
-		return false;
+		return -1;
+	}
+
+	// A match at the start of a word: the field's start or after anything that is not a letter or digit.
+	internal static bool StartsWord(string field, string term)
+	{
+		return WordStart(field, term) >= 0;
 	}
 
 	// An internal name as words: "IronskinPotion" -> "Ironskin Potion", "CalamityMod/AstrumDeusHead" -> "CalamityMod/Astrum Deus Head".
@@ -108,6 +185,19 @@ internal static class BookQuickRank
 		if (Words("IronskinPotion") != "Ironskin Potion" || Words("NPCKiller") != "NPC Killer")
 		{
 			failures.Add("words: " + Words("IronskinPotion") + " / " + Words("NPCKiller"));
+		}
+		if (Stem("ярость") != "ярост" || Stem("зелье") != "зель" || Stem("соль") != "соль")
+		{
+			failures.Add("stems: " + Stem("ярость") + " / " + Stem("зелье") + " / " + Stem("соль"));
+		}
+		if (!Describes("заполняет шкалу ярости", BookRules.SearchTerms("ярость")) || Describes("100% storage", BookRules.SearchTerms("rage")) || !Describes("fills the rage meter", BookRules.SearchTerms("rage meter")))
+		{
+			failures.Add("descriptions");
+		}
+		string marks = string.Join(",", Marks("Moon Lord Legs", BookRules.SearchTerms("lord moo")));
+		if (marks != "(0, 3),(5, 4)" || string.Join(",", Marks("Тело лунного лорда", BookRules.SearchTerms("лунный"))) != "(5, 4)")
+		{
+			failures.Add("marks: " + marks + " / " + string.Join(",", Marks("Тело лунного лорда", BookRules.SearchTerms("лунный"))));
 		}
 		return failures.Count == 0 ? "ok" : string.Join("; ", failures);
 		void Check(string query, string[] fields, int expected)

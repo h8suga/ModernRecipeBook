@@ -88,6 +88,13 @@ internal static class BookCategoryPath
 		return result;
 	}
 
+	// A category under its group's heading, as a card names it: "Potions › Buff potions" (the quick search's reason).
+	internal static string Path(BookCategory category, IReadOnlyList<BookCategory> categories)
+	{
+		BookCategory group = Parents.TryGetValue(category.Key, out string parent) ? categories.FirstOrDefault((BookCategory c) => c.Key == parent) : null;
+		return (group == null) ? Named(category).Label() : (Named(group).Label() + " › " + Named(category).Label());
+	}
+
 	private static BookCategory Named(BookCategory category)
 	{
 		if (!GroupNames.TryGetValue(category.Key, out string key))

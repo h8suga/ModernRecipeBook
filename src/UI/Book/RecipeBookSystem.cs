@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -426,7 +427,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			last = last[..^"Condition".Length];
 		}
-		return System.Text.RegularExpressions.Regex.Replace(last, "(?<=[a-z])(?=[A-Z])", " ");
+		return Regex.Replace(last, "(?<=[a-z])(?=[A-Z])", " ");
 	}
 
 	private static int Selected = -1;
@@ -1862,7 +1863,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static Item[] SelectedSetParts()
 	{
-		Item chosen = SelectedItem;
+		return SetPartsOf(SelectedItem);
+	}
+
+	// The three pieces the card tracks as one set with this piece, or null.
+	private static Item[] SetPartsOf(Item chosen)
+	{
 		BookArmorSets.Set set = ((chosen == null) ? null : BookArmorSets.Get(chosen.type));
 		if (!(set == null))
 		{
@@ -2082,8 +2088,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Track / Untrack the card's recipe, or its whole armor set (button or Alt+T).
 	private static void ToggleTrack(bool wholeSet)
 	{
-		Recipe recipe = SelectedRecipe;
-		Item[] parts = SelectedSetParts();
+		ToggleTrack(SelectedRecipe, SelectedSetParts(), wholeSet);
+	}
+
+	// The same for any recipe and set (the quick search's rows): what the card's Track does for its own.
+	private static void ToggleTrack(Recipe recipe, Item[] parts, bool wholeSet)
+	{
 		wholeSet &= parts != null;
 		if (!wholeSet && recipe == null)
 		{
@@ -3957,9 +3967,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		CloseMarkerPanel();
 		CloseQuickSearch();
-		// The quick search ranks met mobs and reads this world's loot: built again in the next world.
-		QuickIndex.Clear();
-		QuickLinks.Clear();
+		ResetQuickWorld();
 		CloseAcquisition();
 		StopTracker();
 		BlockTrackerPress = false;
@@ -3998,7 +4006,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Selected = -1;
 		FavoritesOnly = (CraftableOnly = false);
 		// Mods' tooltips can read the world (Calamity's difficulty lines): read them again in the next one.
-		ItemDescriptions = Array.Empty<(string, string)>();
+		ItemDescriptions = Array.Empty<ItemText>();
 		LastLeft = (LastRight = (HelpOpen = false));
 		LastEscape = false;
 		LastKeys = default;
@@ -4372,10 +4380,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static int TextMatchCount;
 
-	// Per item type: the normalized description (BookItemTooltip.Description) with the name it was built from. Built a
-	// slice per update once the book is open: all ~8300 tooltips at once would stall a frame. Until every type is done the
-	// search matches names only; a language change starts over.
-	private static (string Name, string Text)[] ItemDescriptions = Array.Empty<(string, string)>();
+	// Per item type, with the name it was built from: the description as the search reads it (Text, normalized) and as
+	// shown (BookItemTooltip.Shown); for the quick search also the armor's set bonus and, in another language, the
+	// item's own English text. Built a slice per update while the book or the quick search is open: all ~8300 tooltips at
+	// once would stall a frame. Until every type is done the search matches names only; a language change starts over.
+	private sealed record ItemText(string Name, string Text, string Shown, string Bonus, string BonusShown, string English, string EnglishShown);
+
+	private static ItemText[] ItemDescriptions = Array.Empty<ItemText>();
 
 	private static int DescriptionNext;
 
@@ -4391,8 +4402,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return null;
 		}
-		var (name, text) = ItemDescriptions[item.type];
-		return (name == item.Name) ? text : null;
+		return ItemTextOf(item.type)?.Text;
+	}
+
+	// The item's texts while they are those of its current name, else null (not read yet).
+	private static ItemText ItemTextOf(int type)
+	{
+		if ((uint)type >= (uint)ItemDescriptions.Length)
+		{
+			return null;
+		}
+		ItemText text = ItemDescriptions[type];
+		return (text != null && ContentSamples.ItemsByType.TryGetValue(type, out Item item) && text.Name == item.Name) ? text : null;
 	}
 
 	private static void WarmDescriptions()
@@ -4400,7 +4421,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string culture = Language.ActiveCulture.Name;
 		if (ItemDescriptions.Length != ItemLoader.ItemCount || culture != DescriptionCulture)
 		{
-			ItemDescriptions = new (string, string)[ItemLoader.ItemCount];
+			ItemDescriptions = new ItemText[ItemLoader.ItemCount];
 			DescriptionNext = 1;
 			DescriptionCulture = culture;
 		}
@@ -4414,7 +4435,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			int type = DescriptionNext++;
 			if (ContentSamples.ItemsByType.TryGetValue(type, out var sample) && !sample.IsAir)
 			{
-				ItemDescriptions[type] = (sample.Name, BookItemTooltip.Description(sample));
+				ItemDescriptions[type] = ReadItemText(sample);
 			}
 		}
 		// Done: a search typed meanwhile now finds by text too.
@@ -4422,6 +4443,31 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			ApplyFilters(clearMessage: false);
 		}
+	}
+
+	private static ItemText ReadItemText(Item sample)
+	{
+		string shown = ResolveTags(BookItemTooltip.Shown(sample));
+		// A piece's set bonus, as the card's armor block reads it (the set chosen with this piece).
+		BookArmorSets.Set set = BookArmorSets.Get(sample.type);
+		string bonus = (set == null) ? "" : ResolveTags(BookRules.TagFree(BookItemClasses.SetBonus(ArmorChoices(set, sample))));
+		string english = ResolveTags(BookRules.TagFree(BookItemTraits.EnglishTooltip(sample) ?? ""));
+		return new ItemText(sample.Name, BookRules.SearchText(shown), shown, BookRules.SearchText(bonus), bonus, BookRules.SearchText(english), english);
+	}
+
+	private static readonly Regex TagPattern = new Regex(@"\[(\w+)(/[^:\]]*)?:([^\]]*)\]", RegexOptions.CultureInvariant);
+
+	// The tags a tooltip keeps after BookRules.TagFree, as the game draws them: Calamity's buff tags ([cbuffplr:Frostburn],
+	// BuffTagPlayerEffectHandler / BuffTagEnemyEffectHandler: the buff by ID or BuffID.Search name) read as the buff's
+	// name in this language; any other tag as its text.
+	private static string ResolveTags(string text)
+	{
+		return TagPattern.Replace(text, (Match tag) =>
+		{
+			string value = tag.Groups[3].Value;
+			bool buff = (int.TryParse(value, out int id) && id > 0 && id < BuffLoader.BuffCount) || BuffID.Search.TryGetId(value, out id);
+			return buff ? Lang.GetBuffName(id) : value;
+		});
 	}
 
 	// Stand: building every description at once, and the slowest items.
@@ -5289,6 +5335,31 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
+	// Ctrl+Backspace: the search, the mod, the toggles, the stations and the category go; the stage and class filters stay.
+	private static void ResetFilters(bool apply = true)
+	{
+		Query = (ModFilter = "");
+		FavoritesOnly = (MetOnly = (CraftableOnly = false));
+		SetExcludedStations(Array.Empty<string>());
+		Category = (CategoryRow = (Page = 0));
+		if (apply)
+		{
+			ApplyFilters();
+		}
+	}
+
+	// Alt+1..5: a stage; the fifth is "Before: <the next boss>".
+	private static void SetStageShortcut(BookStageFilter filter)
+	{
+		StageFilter = filter;
+		if (StageFilter == BookStageFilter.BeforeBoss)
+		{
+			StageBoss = NextBossKey;
+		}
+		Page = (DetailsPage = (Variant = 0));
+		ApplyFilters();
+	}
+
 	private static void RefreshView()
 	{
 		BookSources.Refresh(force: true);
@@ -5338,11 +5409,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			break;
 		}
 		case BookHotkeys.Action.ResetFilters:
-			Query = (ModFilter = "");
-			FavoritesOnly = (MetOnly = (CraftableOnly = false));
-			SetExcludedStations(Array.Empty<string>());
-			Category = (CategoryRow = (Page = 0));
-			ApplyFilters();
+			ResetFilters();
 			break;
 		case BookHotkeys.Action.Craft:
 			if (!TrackingView && !BestiaryView)
@@ -5394,13 +5461,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.Stage3:
 		case BookHotkeys.Action.Stage4:
 		case BookHotkeys.Action.Stage5:
-			StageFilter = (BookStageFilter)(action - BookHotkeys.Action.Stage1);
-			if (StageFilter == BookStageFilter.BeforeBoss)
-			{
-				StageBoss = NextBossKey;
-			}
-			Page = (DetailsPage = (Variant = 0));
-			ApplyFilters();
+			SetStageShortcut((BookStageFilter)(action - BookHotkeys.Action.Stage1));
 			break;
 		case BookHotkeys.Action.MoveLeft:
 			MoveSelection(-1);
@@ -5826,18 +5887,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Line(sb, cx, cy - size, cx, cy + size, color);
 	}
 
-	// Search glyph: an octagon lens and a handle.
-	private static void Magnifier(SpriteBatch sb, float cx, float cy, Color color)
+	// Search glyph: an octagon lens and a handle; radius 5 in the filter bar, larger in the quick search's field.
+	private static void Magnifier(SpriteBatch sb, float cx, float cy, Color color, float radius = 5f)
 	{
-		float x = cx - 1.5f;
-		float y = cy - 1.5f;
+		float k = radius / 5f;
+		float x = cx - 1.5f * k;
+		float y = cy - 1.5f * k;
 		for (int i = 0; i < 8; i++)
 		{
 			double a = Math.PI / 4.0 * i + Math.PI / 8.0;
 			double b = Math.PI / 4.0 * (i + 1) + Math.PI / 8.0;
-			Line(sb, x + (float)Math.Cos(a) * 5f, y + (float)Math.Sin(a) * 5f, x + (float)Math.Cos(b) * 5f, y + (float)Math.Sin(b) * 5f, color);
+			Line(sb, x + (float)Math.Cos(a) * radius, y + (float)Math.Sin(a) * radius, x + (float)Math.Cos(b) * radius, y + (float)Math.Sin(b) * radius, color);
 		}
-		Line(sb, x + 3.5f, y + 3.5f, x + 7.5f, y + 7.5f, color);
+		Line(sb, x + 3.5f * k, y + 3.5f * k, x + 7.5f * k, y + 7.5f * k, color);
 	}
 
 	// Vanilla's defense shield followed by the number, as in the inventory.

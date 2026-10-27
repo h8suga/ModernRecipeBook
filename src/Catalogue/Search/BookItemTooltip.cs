@@ -56,11 +56,18 @@ internal static class BookItemTooltip
 	// The search's text: the descriptive lines, normalized; "" when a mod's tooltip code throws.
 	internal static string Description(Item sample)
 	{
+		return BookRules.SearchText(Shown(sample));
+	}
+
+	// The descriptive lines as shown, without chat tags (the quick search's snippets and preview); "" when a mod's
+	// tooltip code throws.
+	internal static string Shown(Item sample)
+	{
 		try
 		{
-			return BookRules.SearchText(BookRules.TagFree(string.Join("\n", from line in Lines(sample)
+			return BookRules.TagFree(string.Join("\n", from line in Lines(sample)
 				where Describes(line)
-				select line.Text)));
+				select line.Text));
 		}
 		catch
 		{

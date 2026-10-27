@@ -1,8 +1,5 @@
-Placeholder: Предметы, мобы, боссы, категории, моды…
 EmptyTitle: Поиск по всей книге
-EmptyHint: Введите название — подойдут и английские названия, и ID
 NothingFound: По запросу «{0}» ничего нет
-NothingFoundHint: Попробуйте английское название, ID или мод
 SearchDescriptions: Искать в описаниях на вкладке «Предметы»
 AllInItems: Все {0} на вкладке «Предметы»
 AllInBestiary: Все {0} в бестиарии
@@ -29,7 +26,6 @@ ItemCount: "{0} {^0:предмет;предмета;предметов}"
 MobCount: "{0} {^0:моб;моба;мобов}"
 Id: ID {0}
 KeyEnter: Enter
-KeyShiftEnter: Shift+Enter
 Open: Открыть
 Close: Закрыть
 EnglishLoading: Читаю английские названия…

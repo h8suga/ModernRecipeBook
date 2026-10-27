@@ -1826,7 +1826,8 @@ public sealed class BookSources : ModSystem
 	// touched, coins in it included: the owner asked for the first row to stay. Coins that go to storage are not
 	// exchanged into higher ones. Magic Storage locators stay too: a carried Portable Access is how the book reaches a
 	// far network, and putting it away would cut that network off in the same click.
-	internal static void DepositAll()
+	// only: one kind of item (the quick search's Deposit), by the same rules.
+	internal static void DepositAll(int only = 0)
 	{
 		Player player = Main.LocalPlayer;
 		if (!CanDepositAll || player.HasLockedInventory())
@@ -1847,7 +1848,7 @@ public sealed class BookSources : ModSystem
 		foreach (int k in Enumerable.Range(50, 8).Concat(Enumerable.Range(10, 40)))
 		{
 			Item item = player.inventory[k];
-			if (item == null || item.IsAir || item.favorited || BookMagicStorage.IsLocator(item))
+			if (item == null || item.IsAir || item.favorited || BookMagicStorage.IsLocator(item) || (only > 0 && item.type != only))
 			{
 				continue;
 			}
