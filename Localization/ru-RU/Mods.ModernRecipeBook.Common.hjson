@@ -161,10 +161,8 @@ Ready: Готово
 Nearby: Рядом
 MagicStorageSupportIsOffSee: Связь с Magic Storage отключена (client.log)
 NoItemSelected: Предмет не выбран
-ClickAnItemInTheGrid: Нажмите на предмет в сетке
 Taking: Перенос…
 RefreshF5: Обновить · F5
-CtrlClickTrashAltClickFavorite: Ctrl+клик — в корзину · Alt+клик — в избранное
 F1AllKeyboardShortcuts: F1 · Все сочетания клавиш
 DragToMoveTheWindow: Перетащите, чтобы переместить окно
 Categories: Категории
@@ -199,7 +197,6 @@ NoCraftsYet: Пока ничего не создано
 ItemsYouCraftWillAppearHere: Здесь появится то, что вы создадите
 RecipesFromHistoryArenTLoaded: Рецепты из истории не загружены
 EnableTheModsThatAddThem: Включите моды, которые их добавляют
-Stacks: Стопок: {0}
 Items: Предметов: {0}
 Mobs: Мобов: {0}
 Recent: Недавние: {0}/{1}

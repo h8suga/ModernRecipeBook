@@ -3341,7 +3341,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				return;
 			}
 			// An ingredient or station row opens that item's card on Items; Back returns to the goal.
-			if (line.Icon != null && !line.Icon.IsAir && rect.Contains(Mouse.X, Mouse.Y))
+			if (!line.Section && line.Icon != null && !line.Icon.IsAir && rect.Contains(Mouse.X, Mouse.Y))
 			{
 				SwitchTab(0);
 				StepCard(line.Icon.type, CardModeFor(line.Icon.type));
@@ -3561,7 +3561,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			StationItems.TryGetValue(tile, out var station);
 			string stationName = StationName(tile);
-			lines.Add(new TrackingLine(station, stationName, "", TextColor, Muted));
+			(string status, string _, Color color) = StationState(tile);
+			lines.Add(new TrackingLine(station, stationName, status, TextColor, color));
 		}
 		if (tiles.Length == 0)
 		{
@@ -4708,6 +4709,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		SetTabFlags(index);
 		ChangeFilterTab(from, index, leaving);
 		ResetCard();
+		StorageGone = StorageShown = null;
+		StorageHoverCell = -1;
 		if (StorageView)
 		{
 			BookSources.Refresh(force: true);
@@ -4873,15 +4876,30 @@ public sealed partial class RecipeBookSystem : ModSystem
 			SetTyping(value: true);
 			PlayerInput.WritingText = true;
 		}
-		Item previousStorageItem = (StorageView ? SelectedItem : null);
-		int selectedType = previousStorageItem?.type ?? 0;
-		int selectedPrefix = previousStorageItem?.prefix ?? 0;
+		// A rebuild reorders the list under the selected index: the kind shown before it is found again by its display
+		// Item (one per kind for the session, BookSources.RebuildItems). One taken out completely stays as StorageGone.
 		if (StorageView && AppliedStorageVersion != BookSources.ItemsVersion)
 		{
 			AppliedStorageVersion = BookSources.ItemsVersion;
-			Selected = ((selectedType > 0) ? BookSources.Items.FindIndex((Item item) => item.type == selectedType && item.prefix == selectedPrefix) : (-1));
+			// Nothing noted yet (Back just returned here): the index's item, as it reads now.
+			Item shown = StorageShown ?? SelectedItem;
+			Selected = (shown != null) ? BookSources.Items.IndexOf(shown) : (-1);
+			if (Selected < 0 && shown != null)
+			{
+				StorageGone = shown;
+			}
+			else if (Selected >= 0)
+			{
+				StorageGone = null;
+			}
 			ApplyFilters(clearMessage: false);
+			// Nothing is selected while the panel shows the gone kind, so Ctrl+Enter cannot take what is not shown.
+			if (StorageGone != null)
+			{
+				Selected = -1;
+			}
 		}
+		NoteStorageSelection();
 		BookCrafting.Refresh();
 		if (Dirty)
 		{
@@ -5010,22 +5028,24 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return;
 		}
 		// Storage: no click selects. The details panel follows the hovered cell and keeps the last one when the mouse
-		// leaves the grid; it changes only when another cell is hovered, so the arrow keys still move it.
+		// leaves the grid; it changes only when the mouse moves to another cell, so the arrow keys still move it, and a
+		// take or a re-sort that brings another kind under a still mouse leaves the panel on the kind it showed.
 		if (StorageView && !MenuOpen)
 		{
 			int hoveredCell = StorageCellAt();
 			if (hoveredCell >= 0)
 			{
-				Item hoveredItem = Result(Filtered[hoveredCell]);
-				if ((hoveredItem.type, hoveredItem.prefix) != StorageHoverKey)
+				if (hoveredCell != StorageHoverCell)
 				{
-					StorageHoverKey = (hoveredItem.type, hoveredItem.prefix);
+					StorageHoverCell = hoveredCell;
+					StorageGone = null;
 					Selected = Filtered[hoveredCell];
+					NoteStorageSelection();
 				}
 			}
 			else if (!BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y))
 			{
-				StorageHoverKey = (0, 0);
+				StorageHoverCell = -1;
 			}
 		}
 		int scrollWheelValue = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
@@ -5266,11 +5286,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 				StorageLeftClick(Result(Filtered[cell]));
 				return;
 			}
-			// An item on the cursor dropped onto the grid's empty part goes into nearby storage, as into an empty
-			// chest slot.
-			if (!Main.mouseItem.IsAir && BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y))
+			// An item on the cursor dropped onto the grid's empty part or the details panel goes into nearby storage, as
+			// into an empty chest slot.
+			if (!Main.mouseItem.IsAir && (BookGeometry.StorageGrid.Contains(Mouse.X, Mouse.Y) || StorageDropRect.Contains(Mouse.X, Mouse.Y)))
 			{
 				BookSources.DepositCursor();
+				return;
+			}
+			Item shown = SelectedItem ?? StorageGone;
+			if (shown != null && StorageStackRect.Contains(Mouse.X, Mouse.Y))
+			{
+				OpenStorageCard(shown.type);
 				return;
 			}
 		}
@@ -5412,8 +5438,28 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static float GridTop => StorageView ? BookGeometry.StorageGridTop : BookGeometry.GridTop;
 
-	// The last hovered Storage cell's kind: the selection follows the mouse only when it moves to another cell.
-	private static (int Type, int Prefix) StorageHoverKey;
+	// The last hovered Storage cell, by its place in the list: the selection follows the mouse only when it moves to
+	// another cell.
+	private static int StorageHoverCell = -1;
+
+	// The display Item of the kind the Storage panel shows, noted while the list it indexes is current.
+	private static Item StorageShown;
+
+	private static void NoteStorageSelection()
+	{
+		if (StorageView && AppliedStorageVersion == BookSources.ItemsVersion)
+		{
+			StorageShown = SelectedItem ?? StorageGone;
+		}
+	}
+
+	// A Storage item's card, from the details panel; Back returns to Storage.
+	private static void OpenStorageCard(int type)
+	{
+		StorageGone = null;
+		SwitchTab(0);
+		StepCard(type, CardModeFor(type));
+	}
 
 	// The Filtered position of the Storage cell under the mouse, or -1.
 	private static int StorageCellAt()
@@ -5507,6 +5553,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int position = Filtered.IndexOf(Selected);
 		int next = (position < 0) ? (Page * ActivePageSize) : Math.Clamp(position + step, 0, Filtered.Count - 1);
 		next = Math.Clamp(next, 0, Filtered.Count - 1);
+		StorageGone = null;
 		ArmorFocus = 0;
 		ResetCard();
 		Selected = Filtered[next];
@@ -6369,7 +6416,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			StationItems.TryGetValue(tile, out var station);
 			string name = StationName(tile);
-			list.Add(new Detail(station, name, L("Common.Station"), Muted, Muted, ""));
+			(string status, string tip, Color color) = StationState(tile);
+			list.Add(new Detail(station, name, status, Muted, color, tip));
 		}
 		if (!r.requiredTile.Any((int t) => t >= 0))
 		{
@@ -6579,18 +6627,33 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool skippedCut = skippedText.Length > 0 && FixedLabel(sb, skippedText, skipped.X, skipped.Y, Caution, 0.8f, skipped.Width, skipped.Height);
 		Box(sb, content.X, skipped.Y + skipped.Height + 8f, content.Width, 1f, Border);
 		BookRect icon = BookGeometry.StorageItemIcon;
-		BookRect stack = new BookRect(icon.X, icon.Y, content.Width, icon.Height);
-		Item selected = on ? SelectedItem : null;
+		BookRect stack = StorageStackRect;
+		// A kind taken out completely stays in the panel at ×0 until another cell is hovered (StorageGone).
+		Item selected = on ? (SelectedItem ?? StorageGone) : null;
+		bool gone = selected != null && selected == StorageGone;
+		// The panel takes a held item as the grid does (StorageDropRect); the stack opens its card.
+		bool holding = on && !Main.mouseItem.IsAir;
+		bool dropping = holding && !MenuOpen && StorageDropRect.Contains(Mouse.X, Mouse.Y);
+		bool linking = selected != null && !holding && !MenuOpen && stack.Contains(Mouse.X, Mouse.Y);
+		if (dropping)
+		{
+			Box(sb, StorageDropRect, HoverFill, border: false, 8f);
+		}
 		if (selected != null)
 		{
+			if (linking)
+			{
+				Box(sb, stack, HoverFill, border: false, 8f);
+			}
 			Box(sb, icon, Raised, border: false, 8f);
 			Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
 			// A long name shrinks to fit before it is cut; the stack's tooltip then repeats it whole.
 			float nameSize = Math.Clamp((content.Width - 60f) / Math.Max(1f, TextWidth(selected.Name, 1f)), 0.8f, 1f);
 			FixedLabel(sb, selected.Name, icon.X + 60f, icon.Y + (1f - nameSize) * 12f, TextColor, nameSize, content.Width - 60f, 26f);
-			FixedLabel(sb, "×" + Count(selected.stack) + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria") + ChangedSuffix(selected), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
-			string[] rows = BookSources.BreakdownRows(selected.type);
-			for (int row = 0; row < rows.Length && row < 5; row++)
+			FixedLabel(sb, "×" + Count(gone ? 0 : selected.stack) + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria") + ChangedSuffix(selected), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
+			// Every source has its row: the inventory, the open container, four banks, chests and Magic Storage fit.
+			string[] rows = gone ? Array.Empty<string>() : BookSources.BreakdownRows(selected);
+			for (int row = 0; row < rows.Length; row++)
 			{
 				BookRect where = BookGeometry.StorageWhere(row);
 				FixedLabel(sb, rows[row], where.X, where.Y, TextColor, 0.85f, where.Width, where.Height);
@@ -6599,7 +6662,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		else if (on)
 		{
 			FixedLabel(sb, L("Common.NoItemSelected"), icon.X, icon.Y, TextColor, 1f, content.Width, 26f);
-			FixedLabel(sb, L("Common.ClickAnItemInTheGrid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
+			FixedLabel(sb, L("StorageFix.HoverAnItemInTheGrid"), icon.X, icon.Y + 28f, Muted, 0.85f, content.Width, 20f);
 		}
 		string message = BookSources.TakingShown ? L("Common.Taking") : BookSources.Message;
 		if (message.Length > 0)
@@ -6634,12 +6697,40 @@ public sealed partial class RecipeBookSystem : ModSystem
 			string tip = BookSources.NotCountedTip;
 			MouseTip(skippedCut ? ((tip.Length > 0) ? (skippedText + "\n" + tip) : skippedText) : tip);
 		}
-		else if (selected != null && stack.Contains(Mouse.X, Mouse.Y))
+		else if (dropping)
+		{
+			MouseTip(L("StorageFix.ClickStoreTheHeldItem"));
+		}
+		else if (linking)
 		{
 			string cut = (TextWidth(selected.Name, 0.8f) > content.Width - 60f) ? (selected.Name + "\n") : "";
-			MouseTip(cut + BookSources.TakeHint + "\n" + L("Common.CtrlClickTrashAltClickFavorite"));
+			MouseTip(cut + L("Common.ClickOpenThisItem"));
 		}
 	}
+
+	// The selected stack's row in the details panel: a link to the item's card.
+	private static BookRect StorageStackRect
+	{
+		get
+		{
+			BookRect icon = BookGeometry.StorageItemIcon;
+			return new BookRect(icon.X, icon.Y, BookGeometry.StorageContent.Width, icon.Height);
+		}
+	}
+
+	// Where the details panel takes a held item, as the grid's empty part does: from the stack row down to the message
+	// line. A full grid page has nowhere else but the gaps between cells.
+	private static BookRect StorageDropRect
+	{
+		get
+		{
+			BookRect icon = BookGeometry.StorageItemIcon;
+			return new BookRect(icon.X, icon.Y, BookGeometry.StorageContent.Width, BookGeometry.StorageMessage.Y - 4f - icon.Y);
+		}
+	}
+
+	// The kind the panel showed when a take removed it from the list; cleared once another cell is hovered.
+	private static Item StorageGone;
 
 	// Mod filter list: drops down under its button, rows are plain list items (hover, selected = Accent bar).
 	private static void DrawModMenu(SpriteBatch sb)
@@ -7134,7 +7225,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string count;
 		if (StorageView)
 		{
-			count = L("Common.Stacks", Count(Filtered.Count));
+			// Kinds, not stacks: next to "Cells: 2,033 / 3,360" both numbers read as stacks.
+			count = L("StorageFix.Kinds", Count(Filtered.Count));
 		}
 		else if (Catalogue)
 		{
@@ -7640,10 +7732,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		BookRect obtain = BookGeometry.DetailListObtain(row);
 		float right = (hasItem ? (obtain.X - 8f) : (row.X + row.Width - 10f));
-		if (kind == 0)
+		// Ingredients show have/need, stations whether one is in reach (StationState).
+		if (kind == 0 || (kind == 1 && hasItem))
 		{
 			float valueWidth = TextWidth(d.Sub, 0.85f) + 4f;
-			CenterLabel(sb, d.Sub, right - valueWidth, row.Y + 4f, valueWidth, row.Height - 8f, d.Color, 0.85f, rightAligned: true);
+			CenterLabel(sb, d.Sub, right - valueWidth, row.Y + 4f, valueWidth, row.Height - 8f, d.SubColor, 0.85f, rightAligned: true);
 			right -= valueWidth + 10f;
 		}
 		if (d.Alternatives && row.Height > 32f)
@@ -7670,7 +7763,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			// An "A or B" row opens the alternative it shows.
 			string action = hasItem ? (d.Alternatives ? L("Common.ClickOpenAlternative", d.Icon.Name) : L("Common.ClickOpenThisItem")) : "";
-			string detail = (kind == 0) ? d.Tooltip : "";
+			string detail = (kind == 0 || kind == 1) ? d.Tooltip : "";
 			// Where the item is ("Chests ×2: 120") stays the last line, under the click hint.
 			string where = "";
 			int cut = detail.IndexOf('\n');

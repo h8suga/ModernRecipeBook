@@ -1,32 +1,24 @@
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.ModLoader;
 
 namespace ModernRecipeBook.Recent;
 
-// Every craft the player or the book makes goes through Main.CraftItem (the book pulls nearby materials into the
-// inventory first), so one hook records Recent.
-public sealed class BookRecentCraftHooks : ModSystem
+// Every craft ends in RecipeLoader.OnCraft, which hands the result to OnCreated with the recipe
+// (TML:Terraria.ModLoader/RecipeLoader.cs:220-224): vanilla's crafts (Main.cs:40835), the book's (which pull nearby
+// materials into the inventory and craft through Main.CraftItem), a craft onto a stack already on the cursor, and Magic
+// Storage's crafting window, which never calls Main.CraftItem (MS:MagicStorage/CraftingGUI.cs:1084-1115, 1191-1194).
+// Crafts run on the crafting player's own game only, so each one here is the local player's.
+public sealed class BookRecentCraftHooks : GlobalItem
 {
 	// The local player's crafts: a dedicated server never loads it.
 	public override bool IsLoadingEnabled(Mod mod) => !Main.dedServ;
 
-	public override void Load()
+	public override void OnCreated(Item item, ItemCreationContext context)
 	{
-		On_Main.CraftItem += AfterInventoryCraft;
-	}
-
-	public override void Unload()
-	{
-		On_Main.CraftItem -= AfterInventoryCraft;
-	}
-
-	private static void AfterInventoryCraft(On_Main.orig_CraftItem orig, Recipe recipe)
-	{
-		bool isAir = Main.mouseItem.IsAir;
-		orig(recipe);
-		if (isAir && recipe != null && !Main.mouseItem.IsAir && Main.mouseItem.type == recipe.createItem.type)
+		if (context is RecipeItemCreationContext craft)
 		{
-			BookRecent.Record(recipe);
+			BookRecent.Record(craft.Recipe);
 		}
 	}
 }

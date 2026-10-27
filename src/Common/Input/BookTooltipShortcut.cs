@@ -29,7 +29,7 @@ public sealed class BookTooltipShortcut : GlobalItem
 		Item cell = RecipeBookSystem.StorageHover;
 		if (cell != null && RecipeBookSystem.Open && item.type == cell.type && item.prefix == cell.prefix)
 		{
-			string where = BookSources.Breakdown(item.type);
+			string where = BookSources.Breakdown(cell);
 			if (where.Length > 0)
 			{
 				tooltips.Add(new TooltipLine(Mod, "NearbySources", where)
@@ -38,6 +38,10 @@ public sealed class BookTooltipShortcut : GlobalItem
 				});
 			}
 			tooltips.Add(new TooltipLine(Mod, "NearbyTake", BookSources.TakeHint)
+			{
+				OverrideColor = new Color(150, 165, 155)
+			});
+			tooltips.Add(new TooltipLine(Mod, "NearbyMore", BookSources.MoreHint)
 			{
 				OverrideColor = new Color(150, 165, 155)
 			});

@@ -1,0 +1,16 @@
+DepositNotSent: Could not send to the server: the items are back
+HoverAnItemInTheGrid: Hover an item in the grid
+ClickStoreTheHeldItem: Click: put the held item into storage
+Kinds: Kinds: {0}
+StationInterface: Interface
+StationNotNearby: Not nearby
+StationNotNearbyTip: Not near you, and in no Crafting Interface you reach
+CellMore: Alt+Click: favorite · Mouse3: its card
+CellMoreWithTrash: Ctrl+Click: trash · Alt+Click: favorite · Mouse3: its card
+PortableAccessMissingTip: The storage it was bound to is gone: right-click a Storage Heart with it to bind it again (a Portable Crafting Access: a Crafting Interface).
+PortableAccessLoadingTip: Its storage is far away and still coming from the server; it counts once it has arrived.
+WithinAndRemote: "{0} · storage {1}"
+ToppedUp: Topped up: {0}
+ItemPlus: "{0} +{1}"
+NothingToStack: Nothing was stacked
+NoRoomInStorage: No room in storage

@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
+using Terraria.IO;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -68,6 +69,11 @@ public sealed class BookNearbyServer : ModSystem
 		internal int LastLocked = -1;
 
 		internal int LastInUse = -1;
+
+		internal int LastFlags = -1;
+
+		// When the last subscription snapshot was sent (Subscribe).
+		internal ulong Snapshot;
 	}
 
 	private const int CycleTicks = 30;
@@ -104,18 +110,47 @@ public sealed class BookNearbyServer : ModSystem
 		return Clients[player] ??= new Client();
 	}
 
+	// The Player object in each slot when last seen. A client who leaves gets a new one in their slot
+	// (RemoteClient.Reset, TML:Terraria/RemoteClient.cs:216), so a changed object means the slot changed hands, even
+	// when no update ran while it was empty (a server whose only player left and came back).
+	private static readonly Player[] SlotPlayers = new Player[255];
+
+	public override void Load()
+	{
+		if (Main.dedServ)
+		{
+			On_WorldFile.SaveWorld_bool_bool += RestoreBeforeExitSave;
+		}
+	}
+
+	public override void Unload()
+	{
+		if (Main.dedServ)
+		{
+			On_WorldFile.SaveWorld_bool_bool -= RestoreBeforeExitSave;
+		}
+	}
+
 	public override void PostUpdateEverything()
 	{
 		if (Main.netMode == NetmodeID.MultiplayerClient)
 		{
 			return;
 		}
-		// Players who left: deliveries they never acknowledged go back, their subscription ends (main thread; the
-		// disconnect hook runs on the network thread, Netplay.UpdateConnectedClients).
+		// Players who left: deliveries they never acknowledged go back, their subscription ends, and the Magic Storage
+		// window they had open is no longer theirs or the next player's (main thread; the disconnect hook runs on the
+		// network thread, Netplay.UpdateConnectedClients).
 		for (int p = 0; p < 255; p++)
 		{
+			Player player = Main.player[p];
+			bool replaced = Main.netMode == NetmodeID.Server && SlotPlayers[p] != null && SlotPlayers[p] != player;
+			SlotPlayers[p] = player;
+			if (replaced)
+			{
+				BookMagicStorage.ForgetSession(p);
+			}
 			Client client = Clients[p];
-			if (client != null && !Main.player[p].active)
+			if (client != null && (replaced || !player.active))
 			{
 				foreach (Delivery delivery in client.InFlight)
 				{
@@ -132,31 +167,54 @@ public sealed class BookNearbyServer : ModSystem
 
 	public override void OnWorldUnload()
 	{
-		if (Main.netMode == NetmodeID.Server)
-		{
-			for (int p = 0; p < 255; p++)
-			{
-				if (Clients[p] != null)
-				{
-					foreach (Delivery delivery in Clients[p].InFlight)
-					{
-						Restore(delivery.Items);
-					}
-				}
-			}
-		}
+		RestoreInFlight();
 		Array.Clear(Clients);
+		Array.Clear(SlotPlayers);
 		Ticks = 0;
 	}
 
+	private static void RestoreInFlight()
+	{
+		if (Main.netMode != NetmodeID.Server)
+		{
+			return;
+		}
+		foreach (Client client in Clients)
+		{
+			if (client != null)
+			{
+				foreach (Delivery delivery in client.InFlight)
+				{
+					Restore(delivery.Items, closing: true);
+				}
+				client.InFlight.Clear();
+			}
+		}
+	}
+
+	// A server that shuts down saves the world before OnWorldUnload (TML:Terraria/Main.cs:6019-6024): deliveries still in
+	// flight go back first, so the last save has them. Host & Play shuts down this way when the host leaves
+	// (NetMessage.EnsureLocalPlayerIsPresent), and no update runs after the last player left to restore theirs.
+	private static void RestoreBeforeExitSave(On_WorldFile.orig_SaveWorld_bool_bool orig, bool useCloudSaving, bool resetTime)
+	{
+		if (Netplay.Disconnect)
+		{
+			RestoreInFlight();
+		}
+		orig(useCloudSaving, resetTime);
+	}
+
+	// A subscription takes a full snapshot of every chest in range. Asked for more often than once a cycle, the
+	// snapshot waits for the next cycle, so a client that keeps asking costs no more than one that asks once.
 	internal static void Subscribe(int player, bool on)
 	{
 		Client client = Of(player);
 		client.Subscribed = on;
 		client.Reset = true;
 		client.Sent.Clear();
-		if (on)
+		if (on && Main.GameUpdateCount - client.Snapshot >= CycleTicks)
 		{
+			client.Snapshot = Main.GameUpdateCount;
 			Cycle(player);
 		}
 	}
@@ -234,13 +292,16 @@ public sealed class BookNearbyServer : ModSystem
 		}
 		bool reset = client.Reset;
 		client.Reset = false;
-		if (!reset && upserts == null && removes == null && locked == client.LastLocked && inUse == client.LastInUse)
+		// Bit 2: Magic Storage writes work here (they stop for good when a member fails, BookMagicStorage.Fail).
+		int state = (BookMagicStorage.Writable ? 2 : 0) | (Main.ServerSideCharacter ? 4 : 0);
+		if (!reset && upserts == null && removes == null && locked == client.LastLocked && inUse == client.LastInUse && state == client.LastFlags)
 		{
 			return;
 		}
 		client.LastLocked = locked;
 		client.LastInUse = inUse;
-		byte flags = (byte)((reset ? 1 : 0) | (BookMagicStorage.Writable ? 2 : 0) | (Main.ServerSideCharacter ? 4 : 0));
+		client.LastFlags = state;
+		byte flags = (byte)((reset ? 1 : 0) | state);
 		if (Main.netMode == NetmodeID.SinglePlayer)
 		{
 			BookSources.ApplyChests(flags, locked, inUse, upserts, removes);
@@ -424,7 +485,7 @@ public sealed class BookNearbyServer : ModSystem
 					{
 						break;
 					}
-					TakeFromHeart(network.Heart, entry, ref remaining, delivery.Items);
+					TakeFromHeart(p, network.Heart, entry, ref remaining, delivery.Items);
 				}
 				given += entry.Amount - remaining;
 			}
@@ -498,7 +559,9 @@ public sealed class BookNearbyServer : ModSystem
 		return (order != 0) ? order : a.value.CompareTo(b.value);
 	}
 
-	private static void TakeFromHeart(object heart, Entry entry, ref int remaining, List<(Item, Origin)> taken)
+	// MS's Withdraw sums what every unit gives into one item (MS:MagicStorage.Components/TEStorageHeart.cs:766-806),
+	// so one call could hand out a stack past maxStack: it is asked for one stack at a time.
+	private static void TakeFromHeart(int p, object heart, Entry entry, ref int remaining, List<(Item, Origin)> taken)
 	{
 		List<int> prefixes = new List<int>();
 		if (entry.Prefix != AnyPrefix)
@@ -523,15 +586,16 @@ public sealed class BookNearbyServer : ModSystem
 			}
 		}
 		Origin origin = new Origin(-1, 0, 0, ((TileEntity)heart).Position);
+		int maxStack = Math.Max(1, ContentSamples.ItemsByType[entry.Type].maxStack);
 		foreach (int prefix in prefixes)
 		{
-			if (remaining <= 0 || taken.Count >= MaxStacks)
+			while (remaining > 0 && taken.Count < MaxStacks)
 			{
-				break;
-			}
-			Item got = BookMagicStorage.Withdraw(heart, new Item(entry.Type, remaining, prefix));
-			if (got != null && !got.IsAir)
-			{
+				Item got = BookMagicStorage.Withdraw(heart, new Item(entry.Type, Math.Min(remaining, maxStack), prefix), p);
+				if (got == null || got.IsAir)
+				{
+					break;
+				}
 				taken.Add((got, origin));
 				remaining -= got.stack;
 			}
@@ -595,7 +659,8 @@ public sealed class BookNearbyServer : ModSystem
 			Hold(p, client, id, leftovers);
 			return refusal;
 		}
-		if (items.Count == 0 || items.Count > MaxDeposit)
+		// A stack past maxStack comes from no slot the client may have; it goes back whole.
+		if (items.Count == 0 || items.Count > MaxDeposit || items.Any((Item item) => item != null && item.stack > Math.Max(1, item.maxStack)))
 		{
 			leftovers.AddRange(items);
 			Hold(p, client, id, leftovers);
@@ -649,7 +714,7 @@ public sealed class BookNearbyServer : ModSystem
 					continue;
 				}
 				int before = item.stack;
-				Place(item, chests, chestDistance, networks, holds, deposited);
+				Place(p, item, chests, chestDistance, networks, holds, deposited);
 				placed += before - (item.IsAir ? 0 : item.stack);
 				if (!item.IsAir)
 				{
@@ -714,7 +779,7 @@ public sealed class BookNearbyServer : ModSystem
 		}
 	}
 
-	private static void Place(Item item, List<int> chests, List<float> chestDistance, List<BookMagicStorage.Network> networks, List<HashSet<int>> holds, List<(Item, Point16)> deposited)
+	private static void Place(int p, Item item, List<int> chests, List<float> chestDistance, List<BookMagicStorage.Network> networks, List<HashSet<int>> holds, List<(Item, Point16)> deposited)
 	{
 		// (1) Matching stacks, nearest container first.
 		int c = 0;
@@ -730,7 +795,7 @@ public sealed class BookNearbyServer : ModSystem
 			{
 				if (holds[n].Contains(item.type))
 				{
-					DepositInto(networks[n], item, deposited);
+					DepositInto(p, networks[n], item, deposited);
 				}
 				n++;
 			}
@@ -738,7 +803,7 @@ public sealed class BookNearbyServer : ModSystem
 		// (2) The nearest network.
 		if (!item.IsAir && networks.Count > 0)
 		{
-			DepositInto(networks[0], item, deposited);
+			DepositInto(p, networks[0], item, deposited);
 		}
 		// (3) The nearest chest with a free slot.
 		for (int i = 0; i < chests.Count && !item.IsAir; i++)
@@ -798,10 +863,10 @@ public sealed class BookNearbyServer : ModSystem
 		}
 	}
 
-	private static void DepositInto(BookMagicStorage.Network network, Item item, List<(Item, Point16)> deposited)
+	private static void DepositInto(int p, BookMagicStorage.Network network, Item item, List<(Item, Point16)> deposited)
 	{
 		int before = item.stack;
-		BookMagicStorage.Deposit(network.Heart, item);
+		BookMagicStorage.Deposit(network.Heart, item, p);
 		int left = item.IsAir ? 0 : item.stack;
 		if (left < before)
 		{
@@ -896,8 +961,12 @@ public sealed class BookNearbyServer : ModSystem
 		}
 	}
 
-	// Back where it came from: the same chest if it is still there, the same network, else on the ground at that spot.
-	private static void Restore(List<(Item Item, Origin From)> items)
+	// Back where it came from: the same chest if it is still there and nobody has it open (a player's open chest is their
+	// client's copy, and their next change to a slot overwrites the server's; vanilla quick stack skips those too,
+	// TML:Terraria/Chest.cs:400-403, 708-721), the same network, else on the ground at that spot. `closing`: the world
+	// is being saved for good, no client edits a chest after it, and items on the ground are not saved, so an open chest
+	// takes them too.
+	private static void Restore(List<(Item Item, Origin From)> items, bool closing = false)
 	{
 		foreach ((Item item, Origin from) in items)
 		{
@@ -912,7 +981,7 @@ public sealed class BookNearbyServer : ModSystem
 				{
 					Chest chest = Main.chest[from.Chest];
 					spot = BookSourceRules.ChestCenter(from.X, from.Y, dresser: false);
-					if (chest != null && chest.x == from.X && chest.y == from.Y)
+					if (chest != null && chest.x == from.X && chest.y == from.Y && (closing || Chest.UsingChest(from.Chest) < 0))
 					{
 						PutInChest(chest, item);
 					}
@@ -923,7 +992,7 @@ public sealed class BookNearbyServer : ModSystem
 					object heart = BookMagicStorage.Writable ? BookMagicStorage.HeartAt(from.Heart) : null;
 					if (heart != null)
 					{
-						BookMagicStorage.Deposit(heart, item);
+						BookMagicStorage.Deposit(heart, item, -1);
 					}
 				}
 				if (!item.IsAir)
@@ -1139,16 +1208,16 @@ public sealed class BookNearbyServer : ModSystem
 	internal const int MaxQuickStackSlots = 80;
 
 	// The Storage tab's Quick Stack, after vanilla's own (docs/nearby-storage.md §4.10). Vanilla's quick-stack rules on
-	// the given slots, which only the main inventory (10..49) and a Void Bag in use may be: no favorite, no coin, never
-	// a Magic Storage locator. An item goes only into a counted network that already holds its type, nearest first; what
-	// does not fit stays in its slot, with no fallback to another network or a chest. Networks are found as for a pull,
-	// the carried Portable Access checked here again. Like Chest.ServerPlaceItem, it works on the server's copy of the
-	// inventory and sends every given slot back, changed or not: the client locked those slots and takes the server's
-	// copy of each while locked.
+	// the given slots, which only the main inventory (10..49) and a Void Bag in use may be (Stackable). An item goes only
+	// into a counted network that already holds its type, nearest first; what does not fit stays in its slot, with no
+	// fallback to another network or a chest. Networks are found as for a pull, the carried Portable Access checked here
+	// again. Like Chest.ServerPlaceItem, it works on the server's copy of the inventory and sends every given slot back,
+	// changed or not: the client locked those slots and takes the server's copy of each while locked.
 	internal static Status QuickStack(int p, IReadOnlyList<int> slots, out int moved, out int remote)
 	{
 		moved = remote = 0;
 		Player player = Main.player[p];
+		bool bag = player.useVoidBag();
 		Status status = Status.Invalid;
 		List<(Item, Point16)> deposited = new List<(Item, Point16)>();
 		if (Admit(p, Of(p), out Status refusal) && BookMagicStorage.Writable)
@@ -1169,7 +1238,7 @@ public sealed class BookNearbyServer : ModSystem
 				foreach (int slot in slots)
 				{
 					Item item = QuickStackSlot(player, slot);
-					if (item == null || item.IsAir || item.favorited || item.IsACoin || BookMagicStorage.IsLocator(item))
+					if (!Stackable(item) || (slot >= PlayerItemSlotID.Bank4_0 && !bag))
 					{
 						continue;
 					}
@@ -1180,7 +1249,7 @@ public sealed class BookNearbyServer : ModSystem
 							continue;
 						}
 						int before = item.stack;
-						DepositInto(networks[n], item, deposited);
+						DepositInto(p, networks[n], item, deposited);
 						int got = before - (item.IsAir ? 0 : item.stack);
 						moved += got;
 						if (networks[n].Remote)
@@ -1216,14 +1285,23 @@ public sealed class BookNearbyServer : ModSystem
 		return status;
 	}
 
-	// The item a quick-stack slot id names (PlayerItemSlotID), or null for any other slot.
+	// Vanilla's quick-stack rule (no favorite, no coin, TML:Terraria/Player.cs:20179-20201), and never a Magic Storage
+	// locator or the Void Bag itself: the bag gone, the server would take its Void Vault slots for unused
+	// (Player.useVoidBag), and the client's lock on them (disableVoidBag) would wait for slots that never come back.
+	internal static bool Stackable(Item item)
+	{
+		return item != null && !item.IsAir && !item.favorited && !item.IsACoin && item.type != ItemID.VoidLens && !BookMagicStorage.IsLocator(item);
+	}
+
+	// The item a quick-stack slot id names (PlayerItemSlotID), or null for any other slot. A Void Vault slot is named
+	// whether or not the bag is carried, so it is always sent back.
 	private static Item QuickStackSlot(Player player, int slot)
 	{
 		if (slot >= PlayerItemSlotID.Inventory0 + 10 && slot < PlayerItemSlotID.Inventory0 + 50)
 		{
 			return player.inventory[slot - PlayerItemSlotID.Inventory0];
 		}
-		if (slot >= PlayerItemSlotID.Bank4_0 && slot < PlayerItemSlotID.Bank4_0 + 40 && player.useVoidBag())
+		if (slot >= PlayerItemSlotID.Bank4_0 && slot < PlayerItemSlotID.Bank4_0 + 40)
 		{
 			return player.bank4.item[slot - PlayerItemSlotID.Bank4_0];
 		}

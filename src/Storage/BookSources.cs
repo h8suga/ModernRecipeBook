@@ -60,6 +60,64 @@ public sealed class BookSources : ModSystem
 		internal int LastChest = int.MinValue;
 
 		internal int LastStorage = -1;
+
+		// A listed kind's part outside the remote containers (the open container, a carried Void Bag, the banks).
+		internal long Local => Total - Remote - Inventory;
+
+		internal void Reset()
+		{
+			Total = Craft = Banks = Remote = Inventory = Open = Chests = Storage = 0;
+			Array.Clear(Bank);
+			ChestCount = StorageCount = 0;
+			LastChest = int.MinValue;
+			LastStorage = -1;
+		}
+
+		// A stack in a local container: the open one (bank -1) or a bank (0..3, the Void Bag as the Void Vault).
+		internal void AddLocal(long n, int bank, bool craft)
+		{
+			Total += n;
+			if (craft)
+			{
+				Craft += n;
+			}
+			else
+			{
+				Banks += n;
+			}
+			if (bank < 0)
+			{
+				Open += n;
+			}
+			else
+			{
+				Bank[bank] += n;
+			}
+		}
+
+		internal void AddChest(long n, int chest)
+		{
+			Total += n;
+			Remote += n;
+			Chests += n;
+			if (LastChest != chest)
+			{
+				LastChest = chest;
+				ChestCount++;
+			}
+		}
+
+		internal void AddStorage(long n, int network)
+		{
+			Total += n;
+			Remote += n;
+			Storage += n;
+			if (LastStorage != network)
+			{
+				LastStorage = network;
+				StorageCount++;
+			}
+		}
 	}
 
 	private enum Purpose : byte
@@ -100,6 +158,9 @@ public sealed class BookSources : ModSystem
 
 		// A deposit's coins (BankCoins).
 		internal BankedCoins Coins;
+
+		// A restock's amounts per type so far: what the local containers gave, before the server's part arrives.
+		internal Dictionary<int, long> Topped;
 	}
 
 	// Where a deposit's coins went: no coins or no Piggy Bank, all into the Piggy Bank, or some on to storage because
@@ -169,7 +230,12 @@ public sealed class BookSources : ModSystem
 	// The aggregate.
 	private static readonly Dictionary<int, Tally> Tallies = new Dictionary<int, Tally>();
 
-	private static readonly Dictionary<(int Type, int Prefix), (long Local, long Remote)> Listed = new Dictionary<(int, int), (long, long)>();
+	// The same parts per listed kind (the Storage tab's (type, prefix), containers outside the inventory only): a cell is
+	// one prefix, and its breakdown adds up to it. Kept in KindPool between rebuilds, so a rebuild allocates nothing for
+	// a kind seen before.
+	private static readonly Dictionary<(int Type, int Prefix), Tally> Listed = new Dictionary<(int, int), Tally>();
+
+	private static readonly Dictionary<(int Type, int Prefix), Tally> KindPool = new Dictionary<(int, int), Tally>();
 
 	private static readonly Dictionary<(int Type, int Prefix), Item> Display = new Dictionary<(int, int), Item>();
 
@@ -218,7 +284,8 @@ public sealed class BookSources : ModSystem
 		MessageTick = Main.GameUpdateCount;
 	}
 
-	private static (int Type, int Version, int Culture, string Text, string[] Rows) BreakdownCache = (0, -1, -1, "", Array.Empty<string>());
+	// Prefix -1: the whole type.
+	private static (int Type, int Prefix, int Version, int Culture, string Text, string[] Rows) BreakdownCache = (0, 0, -1, -1, "", Array.Empty<string>());
 
 	// The details panel's texts, rebuilt only when what they show changed (they are read every frame).
 	private static (int Version, int Culture, int Locked, int InUse, int Password, int Radius) TextsKey = (-1, -1, 0, 0, 0, 0);
@@ -235,10 +302,19 @@ public sealed class BookSources : ModSystem
 	// The stations of counted Crafting Interfaces, or null when the feature is off (vanilla stations only).
 	internal static List<List<Item>> CraftStations => (Enabled && Stations.Count > 0) ? Stations : null;
 
-	internal static bool HasStorage => Enabled && BookMagicStorage.Writable && Networks.Count > 0;
+	internal static bool HasStorage => Enabled && BookMagicStorage.Writable && ServerWritable && Networks.Count > 0;
 
-	// A take or restock in flight; deposits may overlap them (a click that swaps sends both).
-	internal static bool Busy => Waiting.Values.Any((Pending p) => p.Purpose is Purpose.Take or Purpose.Restock);
+	// The server's Magic Storage writes work (its mirror flags; always so in single player, where they are this game's).
+	private static bool ServerWritable = true;
+
+	// A take or restock in flight, or the inventory locked; deposits may overlap them (a click that swaps sends both).
+	internal static bool Busy => Locked || Waiting.Values.Any((Pending p) => p.Purpose is Purpose.Take or Purpose.Restock);
+
+	// On a client, vanilla's Quick Stack locks the slots it sent until the server sends each back, and while any is locked
+	// the server's copy of a slot replaces the client's (TML:Terraria/MessageBuffer.cs:397-400, 523-537): an item put
+	// into such a slot then would be overwritten and lost. Vanilla crafts nothing then (Main.cs:40540); the book takes
+	// nothing and keeps the deliveries that arrive until the lock is over (Arrived).
+	private static bool Locked => Main.LocalPlayer.HasLockedInventory();
 
 	internal static bool CraftPending => AnyWaiting(craft: true, shownOnly: false);
 
@@ -294,12 +370,15 @@ public sealed class BookSources : ModSystem
 		Display.Clear();
 		Items.Clear();
 		Waiting.Clear();
+		Arrived.Clear();
 		HeldOwed = 0;
+		ServerWritable = true;
 		Subscribed = AwaitingSnapshot = PullsOff = Infinite = false;
 		SkippedLocked = SkippedInUse = SkippedPassword = 0;
 		StayAround = Ticks = AwaitingTicks = 0;
 		ScanDue = LocalDue = true;
 		AppliedInputs = int.MinValue;
+		ListStale = true;
 		HaveBaseline = false;
 		LastTotals.Clear();
 		MessageText = null;
@@ -318,6 +397,7 @@ public sealed class BookSources : ModSystem
 			AwaitingTicks++;
 		}
 		AgePending();
+		FlushArrived();
 		FlushQuickStack();
 		FlushHeld();
 		if (!need)
@@ -350,12 +430,21 @@ public sealed class BookSources : ModSystem
 			CheckLocal();
 		}
 		int inputs = HashCode.Combine(LocalSignature, ScanSignature, MirrorVersion, Enabled, Main.LocalPlayer.chest);
-		if (inputs != AppliedInputs)
+		if (inputs != AppliedInputs || (ListStale && Listing))
 		{
 			AppliedInputs = inputs;
 			Rebuild();
 		}
 	}
+
+	// The Storage tab's list (Listed, Items) and the Changed times are built only while the book is open or opening.
+	// With it closed the tracker is all that reads the aggregate, and it needs the per-type totals alone; the list is
+	// built on the next open.
+	private static bool Listing => RecipeBookSystem.Open || Opening;
+
+	private static bool Opening;
+
+	private static bool ListStale = true;
 
 	internal static void OnBookOpened()
 	{
@@ -365,7 +454,15 @@ public sealed class BookSources : ModSystem
 			StayAround = StayTicks;
 			SetSubscribed(on: true);
 		}
-		Refresh(force: true);
+		Opening = true;
+		try
+		{
+			Refresh(force: true);
+		}
+		finally
+		{
+			Opening = false;
+		}
 	}
 
 	private static void SetSubscribed(bool on)
@@ -529,6 +626,8 @@ public sealed class BookSources : ModSystem
 		};
 	}
 
+	// Tallies are kept between rebuilds and zeroed (one allocation per type a session, not per rebuild); a type no longer
+	// anywhere stays at 0, which every reader takes for absent.
 	private static Tally TallyOf(int type)
 	{
 		if (!Tallies.TryGetValue(type, out var tally))
@@ -539,15 +638,35 @@ public sealed class BookSources : ModSystem
 		return tally;
 	}
 
-	private static void List(int type, int prefix, long local, long remote)
+	private static bool ListingNow;
+
+	// The kind's tally, or null while not listing.
+	private static Tally KindOf(int type, int prefix)
 	{
-		(long Local, long Remote) known = Listed.GetValueOrDefault((type, prefix));
-		Listed[(type, prefix)] = (known.Local + local, known.Remote + remote);
+		if (!ListingNow)
+		{
+			return null;
+		}
+		if (!Listed.TryGetValue((type, prefix), out var tally))
+		{
+			if (!KindPool.TryGetValue((type, prefix), out tally))
+			{
+				tally = new Tally();
+				KindPool[(type, prefix)] = tally;
+			}
+			tally.Reset();
+			Listed[(type, prefix)] = tally;
+		}
+		return tally;
 	}
 
 	private static void Rebuild()
 	{
-		Tallies.Clear();
+		foreach (Tally tally in Tallies.Values)
+		{
+			tally.Reset();
+		}
+		ListingNow = Listing;
 		Listed.Clear();
 		Seen.Clear();
 		Infinite = false;
@@ -612,38 +731,26 @@ public sealed class BookSources : ModSystem
 				MirrorUsed += pair.Value.Used;
 				foreach (Stock stock in pair.Value.Entries)
 				{
-					Tally tally = TallyOf(stock.Type);
-					tally.Total += stock.Count;
-					tally.Remote += stock.Count;
-					tally.Chests += stock.Count;
-					if (tally.LastChest != pair.Key)
-					{
-						tally.LastChest = pair.Key;
-						tally.ChestCount++;
-					}
-					List(stock.Type, stock.Prefix, 0, stock.Count);
+					TallyOf(stock.Type).AddChest(stock.Count, pair.Key);
+					KindOf(stock.Type, stock.Prefix)?.AddChest(stock.Count, pair.Key);
 				}
 			}
 			for (int n = 0; n < Networks.Count; n++)
 			{
 				foreach (Item item in NetworkItems[n])
 				{
-					Tally tally = TallyOf(item.type);
-					tally.Total += item.stack;
-					tally.Remote += item.stack;
-					tally.Storage += item.stack;
-					if (tally.LastStorage != n)
-					{
-						tally.LastStorage = n;
-						tally.StorageCount++;
-					}
-					List(item.type, item.prefix, 0, item.stack);
+					TallyOf(item.type).AddStorage(item.stack, n);
+					KindOf(item.type, item.prefix)?.AddStorage(item.stack, n);
 				}
 			}
 			Infinite = NetworkCreative.Contains(true);
 		}
-		TrackChanges(SourceSet(player, bag));
-		RebuildItems();
+		if (ListingNow)
+		{
+			TrackChanges(SourceSet(player, bag));
+			RebuildItems();
+		}
+		ListStale = !ListingNow;
 		Version++;
 	}
 
@@ -689,9 +796,9 @@ public sealed class BookSources : ModSystem
 		if (HaveBaseline && sources == LastSources)
 		{
 			long now = DateTime.UtcNow.Ticks;
-			foreach (KeyValuePair<(int Type, int Prefix), (long Local, long Remote)> pair in Listed)
+			foreach (KeyValuePair<(int Type, int Prefix), Tally> pair in Listed)
 			{
-				if (!LastTotals.TryGetValue(pair.Key, out long before) || before != pair.Value.Local + pair.Value.Remote)
+				if (!LastTotals.TryGetValue(pair.Key, out long before) || before != pair.Value.Total)
 				{
 					ChangedAt[pair.Key] = now;
 				}
@@ -707,9 +814,9 @@ public sealed class BookSources : ModSystem
 		HaveBaseline = true;
 		LastSources = sources;
 		LastTotals.Clear();
-		foreach (KeyValuePair<(int Type, int Prefix), (long Local, long Remote)> pair in Listed)
+		foreach (KeyValuePair<(int Type, int Prefix), Tally> pair in Listed)
 		{
-			LastTotals[pair.Key] = pair.Value.Local + pair.Value.Remote;
+			LastTotals[pair.Key] = pair.Value.Total;
 		}
 	}
 
@@ -789,25 +896,8 @@ public sealed class BookSources : ModSystem
 			{
 				continue;
 			}
-			Tally tally = TallyOf(item.type);
-			tally.Total += item.stack;
-			if (craft)
-			{
-				tally.Craft += item.stack;
-			}
-			else
-			{
-				tally.Banks += item.stack;
-			}
-			if (bank < 0)
-			{
-				tally.Open += item.stack;
-			}
-			else
-			{
-				tally.Bank[bank] += item.stack;
-			}
-			List(item.type, item.prefix, item.stack, 0);
+			TallyOf(item.type).AddLocal(item.stack, bank, craft);
+			KindOf(item.type, item.prefix)?.AddLocal(item.stack, bank, craft);
 		}
 	}
 
@@ -815,21 +905,19 @@ public sealed class BookSources : ModSystem
 	private static void RebuildItems()
 	{
 		Items.Clear();
-		foreach (KeyValuePair<(int Type, int Prefix), (long Local, long Remote)> pair in Listed)
+		foreach (KeyValuePair<(int Type, int Prefix), Tally> pair in Listed)
 		{
 			if (!Display.TryGetValue(pair.Key, out var item))
 			{
 				item = new Item(pair.Key.Type, 1, pair.Key.Prefix);
 				Display[pair.Key] = item;
 			}
-			item.stack = (int)Math.Min(int.MaxValue, pair.Value.Local + pair.Value.Remote);
+			item.stack = (int)Math.Min(int.MaxValue, pair.Value.Total);
 			Items.Add(item);
 		}
-		Items.Sort((Item a, Item b) =>
-		{
-			int order = string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase);
-			return (order != 0) ? order : ((a.type != b.type) ? a.type.CompareTo(b.type) : a.prefix.CompareTo(b.prefix));
-		});
+		// The grid sorts again in its own order (RecipeBookSystem.ApplyFilters); ties there fall to this order, by type
+		// and then prefix, which is all a name sort here added. Integer keys: a name sort took a millisecond.
+		Items.Sort((Item a, Item b) => (a.type != b.type) ? a.type.CompareTo(b.type) : a.prefix.CompareTo(b.prefix));
 		ItemsVersion++;
 	}
 
@@ -902,21 +990,53 @@ public sealed class BookSources : ModSystem
 		return new IReadOnlyDictionary<int, long>[3] { craft, banks, remote };
 	}
 
-	// "Inventory: 12 · Open chest: 40 · Piggy Bank: 5 · Chests ×3: 120 · Magic Storage: 40"
+	// "Inventory: 12 · Open chest: 40 · Piggy Bank: 5 · Chests ×3: 120 · Magic Storage: 40", any prefix: card and
+	// material rows, where every prefix counts.
 	internal static string Breakdown(int type)
 	{
+		return BuildBreakdown(type, -1);
+	}
+
+	// The same for one Storage cell, its exact prefix; the inventory's row counts that prefix too.
+	internal static string Breakdown(Item kind)
+	{
+		return BuildBreakdown(kind.type, kind.prefix);
+	}
+
+	private static string BuildBreakdown(int type, int prefix)
+	{
 		int culture = Culture;
-		if (BreakdownCache.Type == type && BreakdownCache.Version == Version && BreakdownCache.Culture == culture)
+		if (BreakdownCache.Type == type && BreakdownCache.Prefix == prefix && BreakdownCache.Version == Version && BreakdownCache.Culture == culture)
 		{
 			return BreakdownCache.Text;
 		}
 		List<string> parts = new List<string>();
-		if (Tallies.TryGetValue(type, out var tally))
+		Tally tally;
+		long inventory;
+		if (prefix < 0)
 		{
-			if (tally.Inventory > 0)
+			Tallies.TryGetValue(type, out tally);
+			inventory = tally?.Inventory ?? 0;
+		}
+		else
+		{
+			Listed.TryGetValue((type, prefix), out tally);
+			inventory = 0;
+			for (int i = 0; i < 58; i++)
 			{
-				parts.Add(L("Storage.Inventory", Count(tally.Inventory)));
+				Item item = Main.LocalPlayer.inventory[i];
+				if (item != null && !item.IsAir && item.type == type && item.prefix == prefix)
+				{
+					inventory += item.stack;
+				}
 			}
+		}
+		if (inventory > 0)
+		{
+			parts.Add(L("Storage.Inventory", Count(inventory)));
+		}
+		if (tally != null)
+		{
 			if (tally.Open > 0)
 			{
 				parts.Add(L("Storage.OpenChest", Count(tally.Open)));
@@ -942,14 +1062,14 @@ public sealed class BookSources : ModSystem
 			parts.Add("Magic Storage: ∞");
 		}
 		string text = string.Join(" · ", parts);
-		BreakdownCache = (type, Version, culture, text, parts.ToArray());
+		BreakdownCache = (type, prefix, Version, culture, text, parts.ToArray());
 		return text;
 	}
 
-	// The same, one source per row (the details panel).
-	internal static string[] BreakdownRows(int type)
+	// The cell's, one source per row (the details panel).
+	internal static string[] BreakdownRows(Item kind)
 	{
-		Breakdown(type);
+		Breakdown(kind);
 		return BreakdownCache.Rows;
 	}
 
@@ -1166,15 +1286,18 @@ public sealed class BookSources : ModSystem
 
 	private static string BuildRadiusLine()
 	{
-		// A far network is not within any radius: the line then says only how it is reached ("Remote via Portable
-		// Access"); the owner read "Within 30 tiles" next to it as false.
+		// A far network is not within any radius, so the line says apart how it is reached; the owner read "Within 30
+		// tiles" right next to it as false. Alone it reads "Remote via Portable Access"; with chests, banks or another
+		// network counted in the radius too, "Within 30 tiles · storage via Portable Access".
 		BookMagicStorage.Network far = Networks.FirstOrDefault((BookMagicStorage.Network n) => n.Remote);
-		if (far != null)
-		{
-			return L("Storage.RemoteHow", RemoteHow(far));
-		}
 		string within = L("Storage.WithinTiles", BookNearbyConfig.Radius);
-		return (Main.netMode == NetmodeID.MultiplayerClient) ? L("Storage.SetByTheHost", within) : within;
+		within = (Main.netMode == NetmodeID.MultiplayerClient) ? L("Storage.SetByTheHost", within) : within;
+		if (far == null)
+		{
+			return within;
+		}
+		bool local = ChestsShown > 0 || BanksShown > 0 || Networks.Any((BookMagicStorage.Network n) => !n.Remote);
+		return local ? L("StorageFix.WithinAndRemote", within, RemoteHow(far)) : L("Storage.RemoteHow", RemoteHow(far));
 	}
 
 	// "via Portable Access" / "via the Magic Storage window", for the tooltips.
@@ -1236,6 +1359,10 @@ public sealed class BookSources : ModSystem
 		}
 	}
 
+	// One line per reason the line names. A carried Portable Access is explained by why it did not count: its range rule
+	// for out of range and no pylon, binding it again for a storage that is gone (MS binds one with a right-click on a
+	// Storage Heart or, the crafting one, a Crafting Interface: MS:MagicStorage.Components/StorageHeart.cs:32-70,
+	// CraftingAccess.cs:59), the wait for one still loading.
 	private static string BuildNotCountedTip()
 	{
 		List<string> lines = new List<string>();
@@ -1247,15 +1374,24 @@ public sealed class BookSources : ModSystem
 		{
 			lines.Add(L("Storage.AStorageWithAPasswordCounts"));
 		}
-		if (Carried.Count > 0)
+		if (Carried.Any(((bool Crafting, BookMagicStorage.CarriedSkip Why) c) => c.Why is BookMagicStorage.CarriedSkip.OutOfRange or BookMagicStorage.CarriedSkip.NoPylon))
 		{
 			lines.Add(L("Storage.APortableAccessInYourInventory"));
+		}
+		if (Carried.Any(((bool Crafting, BookMagicStorage.CarriedSkip Why) c) => c.Why == BookMagicStorage.CarriedSkip.Missing))
+		{
+			lines.Add(L("StorageFix.PortableAccessMissingTip"));
+		}
+		if (Carried.Any(((bool Crafting, BookMagicStorage.CarriedSkip Why) c) => c.Why == BookMagicStorage.CarriedSkip.Loading))
+		{
+			lines.Add(L("StorageFix.PortableAccessLoadingTip"));
 		}
 		return string.Join("\n", lines);
 	}
 
-	// "From: inventory, 2 chests, Magic Storage" for a craft that needs more than the inventory has.
-	internal static string CraftSources(IReadOnlyDictionary<int, long> banks, IReadOnlyDictionary<int, long> remote)
+	// "From: inventory, 2 chests, Magic Storage" for a craft that needs more than the inventory has. The inventory is
+	// named only when the craft takes something from it (the layer Recipe.Create consumes by itself).
+	internal static string CraftSources(IReadOnlyDictionary<int, long> craft, IReadOnlyDictionary<int, long> banks, IReadOnlyDictionary<int, long> remote)
 	{
 		bool usesBanks = banks.Values.Any((long n) => n > 0);
 		bool usesRemote = remote.Values.Any((long n) => n > 0);
@@ -1263,7 +1399,11 @@ public sealed class BookSources : ModSystem
 		{
 			return "";
 		}
-		List<string> parts = new List<string> { L("Storage.Inventory2") };
+		List<string> parts = new List<string>();
+		if (craft.Values.Any((long n) => n > 0))
+		{
+			parts.Add(L("Storage.Inventory2"));
+		}
 		if (usesBanks)
 		{
 			parts.Add(L("Storage.CountBanks", BanksShown));
@@ -1372,7 +1512,7 @@ public sealed class BookSources : ModSystem
 			Say(() => L("Storage.NoLongerNearby"));
 			return;
 		}
-		want = (int)Math.Min(want, have.Local + have.Remote);
+		want = (int)Math.Min(want, have.Total);
 		bool full = false;
 		int moved = MoveLocal(shown.type, shown.prefix, want, craft: true, banks: true, ref full, sink);
 		int rest = want - moved;
@@ -1393,7 +1533,7 @@ public sealed class BookSources : ModSystem
 
 	private static int SlotStack(Item shown)
 	{
-		return Listed.TryGetValue((shown.type, shown.prefix), out var have) ? (int)Math.Min(Math.Max(1, shown.maxStack), have.Local + have.Remote) : 0;
+		return Listed.TryGetValue((shown.type, shown.prefix), out var have) ? (int)Math.Min(Math.Max(1, shown.maxStack), have.Total) : 0;
 	}
 
 	// Shift+click (ItemSlot.OverrideLeftClick, cursorOverride 8): the slot's stack into the inventory, whatever the
@@ -1469,7 +1609,7 @@ public sealed class BookSources : ModSystem
 
 	internal static bool TakeOne(Item shown)
 	{
-		if (!Enabled || shown == null || shown.IsAir || !Listed.TryGetValue((shown.type, shown.prefix), out var have))
+		if (!Enabled || Locked || shown == null || shown.IsAir || !Listed.TryGetValue((shown.type, shown.prefix), out var have))
 		{
 			return false;
 		}
@@ -1562,6 +1702,9 @@ public sealed class BookSources : ModSystem
 
 	internal static string TakeHint => L("Storage.ClickTakeRightClickTakeOne");
 
+	// The cell's other gestures: Ctrl+Click only while vanilla's quick trash is on (QuickTrashOn), Mouse3 the card.
+	internal static string MoreHint => QuickTrashOn ? L("StorageFix.CellMoreWithTrash") : L("StorageFix.CellMore");
+
 	// Tops up every partial inventory stack (coins excepted) from what is nearby, like Magic Storage's Restock.
 	internal static void Restock()
 	{
@@ -1580,8 +1723,8 @@ public sealed class BookSources : ModSystem
 			}
 		}
 		List<BookNearbyServer.Entry> remote = new List<BookNearbyServer.Entry>();
+		Dictionary<int, long> topped = new Dictionary<int, long>();
 		bool full = false;
-		int moved = 0;
 		foreach (KeyValuePair<(int, int), int> pair in deficits)
 		{
 			if (!Listed.TryGetValue(pair.Key, out var have))
@@ -1589,7 +1732,7 @@ public sealed class BookSources : ModSystem
 				continue;
 			}
 			int got = MoveLocal(pair.Key.Item1, pair.Key.Item2, pair.Value, craft: true, banks: true, ref full);
-			moved += got;
+			Topped(topped, pair.Key.Item1, got);
 			int rest = pair.Value - got;
 			if (rest > 0 && have.Remote > 0 && remote.Count < BookNearbyServer.MaxEntries)
 			{
@@ -1598,13 +1741,35 @@ public sealed class BookSources : ModSystem
 		}
 		if (remote.Count > 0)
 		{
-			Send(Purpose.Restock, remote, remote.Sum((BookNearbyServer.Entry e) => e.Amount), moved);
+			Send(Purpose.Restock, remote, remote.Sum((BookNearbyServer.Entry e) => e.Amount), (int)topped.Values.Sum(), topped: topped);
 		}
 		else
 		{
-			Say(() => (moved > 0) ? L("Storage.StacksToppedUp") : L("Storage.NothingToTopUp"));
+			Say(() => ToppedUp(topped));
 		}
 		Refresh(force: true);
+	}
+
+	private static void Topped(Dictionary<int, long> topped, int type, long n)
+	{
+		if (n > 0)
+		{
+			topped[type] = topped.GetValueOrDefault(type) + n;
+		}
+	}
+
+	// Restock tops every partial stack up to its max stack, as vanilla's (ChestUI.Restock,
+	// TML:Terraria.UI/ChestUI.cs:907-1022) and Magic Storage's (StorageGUI.TryRestock, MS:MagicStorage/StorageGUI.cs:
+	// 489-516) do. From a whole network that can be a lot, so the result says what came out, largest first:
+	// "Topped up: Torch +1,454 · Glowstick +1,918 · …".
+	private static string ToppedUp(Dictionary<int, long> topped)
+	{
+		if (topped.Count == 0)
+		{
+			return L("Storage.NothingToTopUp");
+		}
+		IEnumerable<string> parts = topped.OrderByDescending((KeyValuePair<int, long> p) => p.Value).Take(3).Select((KeyValuePair<int, long> p) => L("StorageFix.ItemPlus", Lang.GetItemNameValue(p.Key), Count(p.Value)));
+		return L("StorageFix.ToppedUp", string.Join(" · ", parts) + ((topped.Count > 3) ? " · …" : ""));
 	}
 
 	// The inventory's own Quick Stack to Nearby Chests (vanilla radius; Magic Storage extends it to the networks near the
@@ -1616,16 +1781,42 @@ public sealed class BookSources : ModSystem
 		{
 			return;
 		}
+		QuickStackBefore = StackSignature(player);
 		player.QuickStackAllChests();
-		Say(() => L("Storage.StackedIntoNearbyChests"));
 		ScanDue = LocalDue = true;
-		QuickStackQueued = HasStorage;
+		QuickStackQueued = true;
 		FlushQuickStack();
 	}
 
 	// Waits for vanilla's own round trip: on a client its slots stay locked (HasLockedInventory) until the server sent
-	// each back, and a slot the server sends after that is ignored.
+	// each back, and a slot the server sends after that is ignored. Only then does the result say whether vanilla's
+	// part moved anything: a client sends every eligible slot whether or not a chest is near
+	// (TML:Terraria/Player.cs:20179-20201), so the lock alone tells nothing.
 	private static bool QuickStackQueued;
+
+	private static int QuickStackBefore;
+
+	// Whether vanilla's part of the last Quick Stack moved anything (OnStacked).
+	private static bool QuickStackVanillaMoved;
+
+	// Vanilla quick stack's slots: the main inventory and a Void Bag in use.
+	private static int StackSignature(Player player)
+	{
+		bool bag = player.useVoidBag();
+		int signature = bag ? 1 : 0;
+		for (int k = 10; k < 50; k++)
+		{
+			signature = Fold(signature, player.inventory[k]);
+		}
+		if (bag)
+		{
+			foreach (Item item in player.bank4.item)
+			{
+				signature = Fold(signature, item);
+			}
+		}
+		return signature;
+	}
 
 	private static void FlushQuickStack()
 	{
@@ -1635,6 +1826,9 @@ public sealed class BookSources : ModSystem
 			return;
 		}
 		QuickStackQueued = false;
+		bool stacked = StackSignature(player) != QuickStackBefore;
+		QuickStackVanillaMoved = stacked;
+		Say(() => stacked ? L("Storage.StackedIntoNearbyChests") : L("StorageFix.NothingToStack"));
 		if (!HasStorage)
 		{
 			return;
@@ -1678,9 +1872,12 @@ public sealed class BookSources : ModSystem
 			OnStacked(status, moved, remote);
 			return;
 		}
-		// Locked as vanilla locks a slot it sends for quick stacking, so the server's copy of each comes back into it.
+		// Sent and locked as vanilla sends and locks a slot for quick stacking (TML:Terraria/Player.cs:20179-20201): the
+		// server works on its copy, which a pickup this tick has not reached yet, and its copy of each comes back into it.
 		foreach (int slot in slots)
 		{
+			Item item = (slot < PlayerItemSlotID.Inventory0 + 50) ? player.inventory[slot - PlayerItemSlotID.Inventory0] : player.bank4.item[slot - PlayerItemSlotID.Bank4_0];
+			NetMessage.SendData(MessageID.SyncEquipment, -1, -1, null, player.whoAmI, slot, item.prefix);
 			if (slot < PlayerItemSlotID.Inventory0 + 50)
 			{
 				player.inventoryChestStack[slot - PlayerItemSlotID.Inventory0] = true;
@@ -1701,7 +1898,7 @@ public sealed class BookSources : ModSystem
 
 	private static bool QuickStackable(Item item, HashSet<int> held)
 	{
-		return item != null && !item.IsAir && !item.favorited && !item.IsACoin && !BookMagicStorage.IsLocator(item) && held.Contains(item.type);
+		return BookNearbyServer.Stackable(item) && held.Contains(item.type);
 	}
 
 	// "Stacked 12 items · 3 into remote storage". Only slots whose type a counted network holds were sent, so nothing
@@ -1710,15 +1907,18 @@ public sealed class BookSources : ModSystem
 	{
 		if (moved > 0)
 		{
-			Say(() => (remote == moved) ? L("Storage.StackedRemote", Count(moved)) : ((remote > 0) ? L("Storage.StackedSomeRemote", Count(moved), Count(remote)) : L("Storage.StackedLocal", Count(moved))));
+			// The count goes in as a number: a plural form of these lines ({^0:item;items}) parses it, and a formatted
+			// "1,234" makes tML's LocalizedText.Format throw every time the line is drawn.
+			Say(() => (remote == moved) ? L("Storage.StackedRemote", moved) : ((remote > 0) ? L("Storage.StackedSomeRemote", moved, Count(remote)) : L("Storage.StackedLocal", moved)));
 		}
 		else
 		{
+			bool stacked = QuickStackVanillaMoved;
 			Say(() => status switch
 			{
 				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
 				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
-				_ => L("Storage.StackedIntoNearbyChestsNoRoom"),
+				_ => stacked ? L("Storage.StackedIntoNearbyChestsNoRoom") : L("StorageFix.NoRoomInStorage"),
 			});
 		}
 		ScanDue = LocalDue = true;
@@ -1936,14 +2136,26 @@ public sealed class BookSources : ModSystem
 			OnGive(id, status, leftovers);
 			return;
 		}
-		ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbyDeposit);
-		packet.Write(id);
-		packet.Write((byte)items.Count);
-		foreach (Item item in items)
+		// The items have left their slots: a packet that cannot be built or sent (past 65,535 bytes with large mod data,
+		// TML:Terraria.ModLoader/ModPacket.cs:81-84) gives them back here instead of losing them.
+		try
 		{
-			ItemIO.Send(item, packet, writeStack: true);
+			ModPacket packet = BookNearbyServer.NewPacket(BookMessage.NearbyDeposit);
+			packet.Write(id);
+			packet.Write((byte)items.Count);
+			foreach (Item item in items)
+			{
+				ItemIO.Send(item, packet, writeStack: true);
+			}
+			packet.Send();
 		}
-		packet.Send();
+		catch (Exception error)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Nearby deposit could not be sent; the items went back.", error);
+			Waiting.Remove(id);
+			GiveBack(items, home, leftoverSink);
+			Say(() => L("StorageFix.DepositNotSent"));
+		}
 	}
 
 	// The Piggy Bank is open, or one is within the radius: its tile, a Money Trough or Chester (Scan's banks).
@@ -2136,7 +2348,7 @@ public sealed class BookSources : ModSystem
 		Send(Purpose.Craft, entries, entries.Sum((BookNearbyServer.Entry e) => (long)e.Amount), 0, recipe, batches, requested);
 	}
 
-	private static void Send(Purpose purpose, List<BookNearbyServer.Entry> entries, long asked, int movedLocally, Recipe recipe = null, int batches = 0, int requested = 0, Sink sink = Sink.Inventory, bool held = false)
+	private static void Send(Purpose purpose, List<BookNearbyServer.Entry> entries, long asked, int movedLocally, Recipe recipe = null, int batches = 0, int requested = 0, Sink sink = Sink.Inventory, bool held = false, Dictionary<int, long> topped = null)
 	{
 		int id = ++NextId;
 		Waiting[id] = new Pending
@@ -2147,7 +2359,8 @@ public sealed class BookSources : ModSystem
 			Batches = batches,
 			Requested = requested,
 			Sink = sink,
-			Held = held
+			Held = held,
+			Topped = topped
 		};
 		LocallyMoved = movedLocally;
 		if (Main.netMode == NetmodeID.SinglePlayer)
@@ -2187,6 +2400,11 @@ public sealed class BookSources : ModSystem
 					continue;
 				}
 				got += item.stack;
+				// Counted before it is put away: GetItem empties the stack it places.
+				if (pending?.Topped != null)
+				{
+					Topped(pending.Topped, item.type, item.stack);
+				}
 				Item rest = item;
 				if (pending != null && pending.Sink != Sink.Inventory)
 				{
@@ -2262,9 +2480,11 @@ public sealed class BookSources : ModSystem
 			break;
 		}
 		case Purpose.Restock:
-			long topped = got + LocallyMoved;
-			Say(() => (status == BookNearbyServer.Status.Busy) ? L("Storage.TooFastWaitAMoment") : ((topped > 0) ? L("Storage.StacksToppedUp") : L("Storage.NothingToTopUp")));
+		{
+			Dictionary<int, long> topped = pending.Topped ?? new Dictionary<int, long>();
+			Say(() => (status == BookNearbyServer.Status.Busy && topped.Count == 0) ? L("Storage.TooFastWaitAMoment") : ToppedUp(topped));
 			break;
+		}
 		case Purpose.Deposit:
 		{
 			BankedCoins coins = pending.Coins;
@@ -2290,6 +2510,19 @@ public sealed class BookSources : ModSystem
 		case Purpose.Craft:
 			BookCrafting.ContinueCraft(pending.Recipe, pending.Requested, pending.Batches, status, got);
 			break;
+		}
+	}
+
+	// Deliveries that came while the inventory was locked (Locked), applied and acknowledged once the lock is over.
+	private static readonly List<(int Id, BookNearbyServer.Status Status, List<Item> Items)> Arrived = new List<(int, BookNearbyServer.Status, List<Item>)>();
+
+	private static void FlushArrived()
+	{
+		while (Arrived.Count > 0 && !Locked)
+		{
+			(int id, BookNearbyServer.Status status, List<Item> items) = Arrived[0];
+			Arrived.RemoveAt(0);
+			OnGive(id, status, items);
 		}
 	}
 
@@ -2352,6 +2585,7 @@ public sealed class BookSources : ModSystem
 		}
 		SkippedLocked = locked;
 		SkippedInUse = inUse;
+		ServerWritable = (flags & 2) != 0;
 		PullsOff = (flags & 4) != 0;
 		MirrorVersion++;
 	}
@@ -2407,7 +2641,14 @@ public sealed class BookSources : ModSystem
 			{
 				items.Add(ItemIO.Receive(reader, readStack: true));
 			}
-			OnGive(id, status, items);
+			// Save & Exit has begun: the player is being saved on another thread (TML:Terraria/WorldGen.cs:3233-3255).
+			// Unacknowledged, the delivery goes back to its container when the player leaves.
+			if (Main.gameMenu)
+			{
+				break;
+			}
+			Arrived.Add((id, status, items));
+			FlushArrived();
 			break;
 		}
 		}
