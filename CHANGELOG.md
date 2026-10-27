@@ -22,6 +22,10 @@ patch for fixes, minor for features.
 - Mob cards: "Spawns" says how a mob comes (a boss's summon, "During Signus's fight", "During Celestial Pillars", "Any
   time"; the Divine Swine "Sky"); boss minions, the Lunatic Devotees and the Old One's Army sit at the right stage, and
   "Before: Moon Lord" shows Moon Lord.
+- **Quick search**: Ctrl+F anywhere (or the new unbound "Search Everything" key) opens one search over items, Bestiary
+  entries, bosses ("Before: X"), item and Bestiary categories and mods, grouped by kind, with badges, clickable category
+  paths and the book's own links (who drops it, which bag holds it, a mob's notable loot); English names and IDs work
+  in any language. Ctrl+F leaves Smart Cursor as it was, and no key pressed in the search reaches the game.
 - Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
   Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
   fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
@@ -45,6 +49,8 @@ patch for fixes, minor for features.
 - In a drunk world the evil boss step reads "Eater of Worlds or Brain of Cthulhu", and both evils' loot counts as
   this world's.
 - The mob card no longer shows the previous world's loot after you enter a world of another difficulty.
+- The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
+  Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
 
 ## 1.17.1 — 2026-10-26
