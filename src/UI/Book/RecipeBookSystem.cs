@@ -2553,7 +2553,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// One of BookSpawnGates.Gate.Terms: "Hardmode or after Calamitas Clone", "after Golem or another boss", the
 	// mechanical bosses in a word.
-	private static string GateTermText(string term)
+	internal static string GateTermText(string term)
 	{
 		switch (term)
 		{
