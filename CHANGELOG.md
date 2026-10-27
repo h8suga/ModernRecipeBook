@@ -9,6 +9,10 @@ patch for fixes, minor for features.
 - The item card of anything with loot of its own (boss Treasure Bags, fishing crates, presents, Calamity's bags and
   geodes) gets a third mode, **Contents**: what it holds, with the same rows, chances, conditions and hover as the
   mob card's loot. A Treasure Bag on a mob card and a Container row in How to Get open it straight on its Contents.
+- The item card's header names the item's category after its mod ("Terraria · Weapons › Whips"): what the item is,
+  the most specific sidebar category, with its group when there is room (a long mod name shortens first). Clicking a part
+  of the path opens Items on that category with the search cleared and every other filter kept, the item still selected;
+  Back returns.
 - Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
   Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
   fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
