@@ -227,7 +227,7 @@ internal static class BookHotkeys
 		}
 	}
 
-	// Ctrl+F, the quick search: anywhere in the game, the book open or not (RecipeBookSystem.UpdateQuickSearch decides
+	// Ctrl+F, the quick search: with the inventory or the book open (RecipeBookSystem.UpdateQuickSearch decides
 	// where it may open). Ctrl+Shift+F counts too; with Alt it is not the chord.
 	internal static bool QuickSearch(KeyboardState keys, KeyboardState previous)
 	{

@@ -7,7 +7,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.18.0-4c8f5a" alt="Version 1.18.0">
+<img src="https://img.shields.io/badge/version-1.18.1-4c8f5a" alt="Version 1.18.1">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
@@ -82,7 +82,7 @@ all here. Forks and pull requests are welcome.
 - **Fully integrated with Magic Storage and Calamity**, read from their own code.
 - **Hover anything** that stands for an item to read its own tooltip; every count says where it comes from.
 - **Everything is a link**: every boss, mob, item, biome, mod and stage the book names opens where it lives, and
-  **Ctrl+F** searches all of it from anywhere in the game, with Craft and Take one click away.
+  **Ctrl+F** searches all of it, with Craft and Take one click away.
 - **Every filter stays** until you change it, per tab, and Back/Forward walk through everything you did.
 - **Multiplayer-ready**, fast (heavy data is built in small steps while the book is open), fully in English and
   Russian, and **translatable** into any language like Calamity.
@@ -122,7 +122,7 @@ Ctrl+1…6 opens a tab, Ctrl+Tab goes to the next one.
 
 ### Quick search (Ctrl+F)
 
-Ctrl+F anywhere in the game, with the book open or not, opens one search over everything the book knows:
+Ctrl+F with the inventory or the book open (in the world Ctrl is Smart Cursor), or the "Search Everything" key you bind in Controls anywhere, opens one search over everything the book knows:
 
 - **items, Storage, recipes, the Bestiary, bosses** ("Before: X"), **tracked goals, categories and mods**, grouped by
   kind; the chips under the field (Tab) narrow it to one of them;
@@ -481,7 +481,7 @@ that item.
 
 | Finding things | |
 |---|---|
-| Ctrl+F | Quick search, anywhere in the game |
+| Ctrl+F | Quick search (inventory or book open) |
 | Ctrl+Backspace | Reset filters |
 | Alt+1…5 | Stage (5: before the next boss) |
 | F5 | Refresh |

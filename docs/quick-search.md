@@ -11,7 +11,7 @@ the keys in `BookHotkeys.QuickSearch` and `BookPlayer` (`GuardHeldKeys`, `Restor
 
 ## Opening
 
-- **Ctrl+F anywhere in the game**, the book open (any tab, over How to Get or Help) or closed. With the book closed the
+- **Ctrl+F with the inventory or the book open** (any tab, over How to Get or Help): in the world Ctrl is Smart Cursor, held while playing. With the book closed the
   popup stands where the book opens, over a dimmed screen; closing it leaves the book closed unless a pick opened it.
 - **"Search Everything"** in Controls: the same on one key, unbound by default so it takes nobody's key.
 - **Not** while chat, a sign, a chest name or another mod's text field takes the keyboard (`Main.drawingPlayerChat`,

@@ -3,6 +3,12 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.18.1 — 2026-10-27
+
+### Changed
+- Ctrl+F opens the quick search only with the inventory or the book open: in the world Ctrl is Smart Cursor, held while
+  playing. The "Search Everything" key, once you bind it in Controls, opens it anywhere.
+
 ## 1.18.0 — 2026-10-27
 
 ### Added
