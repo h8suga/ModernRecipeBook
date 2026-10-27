@@ -716,6 +716,10 @@ internal static class BookProgressionSources
 	{
 		try
 		{
+			if (condition is BookItemSources.NotCondition not)
+			{
+				return HiddenFromUI(not.Inner);
+			}
 			if (condition == null || condition.CanShowItemDropInUI())
 			{
 				return false;
@@ -730,7 +734,9 @@ internal static class BookProgressionSources
 			{
 				return true;
 			}
-			return WorldGate(condition) == null && !(DropConditionStep(condition) > 0);
+			// Vanilla's own answers that change are all this world's difficulty, seed or evil (Conditions.NotExpert,
+			// IsCrimson... ), which the book reads itself, even where it cannot fix them (the evil of a drunk world).
+			return condition.GetType().Assembly != typeof(Main).Assembly && WorldGate(condition) == null && !(DropConditionStep(condition) > 0);
 		}
 		catch (Exception)
 		{
@@ -745,7 +751,7 @@ internal static class BookProgressionSources
 	}
 
 	// Drop conditions that read only the world's seed, which never changes, or its evil and difficulty (the Eye of
-	// Cthulhu's ore and seeds, in Classic and in its bag): judged by asking them.
+	// Cthulhu's ore and seeds, in Classic and in its bag; EitherEvil in a drunk world): judged by asking them.
 	private static readonly HashSet<string> SeedGates = Set("DontStarveIsUp DontStarveIsNotUp DrunkWorldIsUp DrunkWorldIsNotUp ForTheWorthyIsUp ForTheWorthyIsNotUp TenthAnniversaryIsUp TenthAnniversaryIsNotUp ZenithSeedIsUp ZenithSeedIsNotUp BeesSeed NotBeesSeed NoTrapsSeed NotNoTrapsSeed RemixSeed NotRemixSeed IsCorruption IsCrimson IsCorruptionAndNotExpert IsCrimsonAndNotExpert");
 
 	// For the loot lists: whether a condition fixed for this world (difficulty or seed) holds; null when it is not fixed.
@@ -766,7 +772,7 @@ internal static class BookProgressionSources
 		// Condition.RemixWorld and its kin are keyed "Conditions.World...").
 		if (condition is SimpleItemDropRuleCondition simple && WrappedKey(simple) is string key && key.StartsWith("Conditions.World", StringComparison.Ordinal))
 		{
-			return simple.Predicate();
+			return key is "Conditions.WorldCrimson" or "Conditions.WorldCorrupt" ? EitherEvil(simple.Predicate) : simple.Predicate();
 		}
 		if (condition == null || condition.GetType().Assembly != typeof(Main).Assembly)
 		{
@@ -775,9 +781,34 @@ internal static class BookProgressionSources
 		string name = condition.GetType().Name;
 		if (SeedGates.Contains(name))
 		{
-			return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, IsInSimulation = true, rng = Main.rand });
+			Func<bool> holds = () => condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, IsInSimulation = true, rng = Main.rand });
+			return name.Contains("Corruption", StringComparison.Ordinal) || name.Contains("Crimson", StringComparison.Ordinal) ? EitherEvil(holds) : holds();
 		}
 		return ((name is "RemixSeedEasymode" or "RemixSeedHardmode") && !Main.remixWorld) || (name == "MechdusaKill" && !(Main.remixWorld && Main.getGoodWorld)) ? false : null;
+	}
+
+	// A condition on the world's evil: fixed outside a drunk world. A drunk world has both evils and turns WorldGen.crimson
+	// over every dawn (Main.UpdateTime_StartDay), so there it is a gate only when both evils agree (Classic loot in Expert).
+	private static bool? EitherEvil(Func<bool> holds)
+	{
+		if (!Main.drunkWorld)
+		{
+			return holds();
+		}
+		bool now = WorldGen.crimson;
+		bool crimson, corrupt;
+		try
+		{
+			WorldGen.crimson = true;
+			crimson = holds();
+			WorldGen.crimson = false;
+			corrupt = holds();
+		}
+		finally
+		{
+			WorldGen.crimson = now;
+		}
+		return crimson == corrupt ? crimson : null;
 	}
 
 	// Whether a drop condition that is a difficulty gate holds in the current world; null when it is no difficulty gate.

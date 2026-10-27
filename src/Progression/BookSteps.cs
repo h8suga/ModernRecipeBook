@@ -227,7 +227,8 @@ internal static class BookSteps
 		{
 			("Terraria", "TheTwins") => () => Language.GetTextValue("Enemies.TheTwins"),
 			("Terraria", "MoonLord") => () => Language.GetTextValue("Enemies.MoonLord"),
-			("Terraria", "EaterofWorldsHead") => () => Lang.GetNPCNameValue(WorldGen.crimson ? NPCID.BrainofCthulhu : NPCID.EaterofWorldsHead),
+			// The world evil's boss; a drunk world has both evils and turns WorldGen.crimson over every dawn (Main.UpdateTime_StartDay).
+			("Terraria", "EaterofWorldsHead") => () => Main.drunkWorld || Main.zenithWorld ? L("KillConditions.EitherEvilBoss", Lang.GetNPCNameValue(NPCID.EaterofWorldsHead), Lang.GetNPCNameValue(NPCID.BrainofCthulhu)) : Lang.GetNPCNameValue(WorldGen.crimson ? NPCID.BrainofCthulhu : NPCID.EaterofWorldsHead),
 			("Terraria", _) => () => Lang.GetNPCNameValue(npcs[0]),
 			_ => () => Language.GetTextValue("Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName") is string text && text != "Mods." + mod + ".BossChecklistIntegration." + entry + ".EntryName" ? text : Lang.GetNPCNameValue(npcs[0])
 		};

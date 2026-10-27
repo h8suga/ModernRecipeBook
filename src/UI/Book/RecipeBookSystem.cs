@@ -811,6 +811,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return "";
 		}
+		// Before the very boss that drops it is its first kill (Calamity's Picksaw from Golem while !NPC.downedGolemBoss,
+		// CalamityGlobalNPC.ModifyNPCLoot), worded as Plantera's (FirstTimeKillingPlantera, DropConditionLabel).
+		if (before > 0 && npc != null && BookSteps.Npc(npc.type) == before)
+		{
+			return holds ? L("KillConditions.FirstKill") : L("KillConditions.AlreadyPast", L("KillConditions.FirstKill"));
+		}
 		string name = step is int known && known > 0 ? StepName(known) : (before > 0 ? L("Stages.Before", BookSteps.Name(before)) : L("Common.SpecialCondition"));
 		return L(holds ? "Common.ConditionMet" : (before > 0 ? "KillConditions.AlreadyPast" : "Common.ConditionNotMetYet"), name);
 	}

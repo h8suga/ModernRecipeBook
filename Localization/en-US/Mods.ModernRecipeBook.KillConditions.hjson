@@ -25,3 +25,4 @@ SeedInHardmode: Seed “{0}”, in hardmode
 FirstKill: Only the first kill
 NotUsedYet: If you have not used {0}
 NotCarried: If you do not carry {0}
+EitherEvilBoss: "{0} or {1}"

@@ -25,3 +25,4 @@ SeedInHardmode: Сид «{0}», в хардмоде
 FirstKill: Только за первое убийство
 NotUsedYet: Пока не использовано: {0}
 NotCarried: Если у вас нет: {0}
+EitherEvilBoss: "{0} или {1}"
