@@ -1174,10 +1174,11 @@ public sealed partial class RecipeBookSystem
 		// One group alone (a scope of one kind) needs no header: the chip names it.
 		int listed = Enumerable.Range(0, groupCount).Count((int g) => found[g].Count > 0 || (g == (int)QuickGroup.Goals && goals.Count > 0 && QuickScopeLists(scope, QuickGroup.Goals)));
 		bool headers = scope == QuickScope.All || listed > 1;
-		// Groups by their best match, the fixed order on a tie; goals (the player's own) after Items.
+		// Groups by their best match, the fixed order on a tie, except that a boss goes before the items named after it
+		// (its trophy, mask, lore item: "astrum deus" means the boss); goals (the player's own) after Items.
 		foreach (int g in from g in Enumerable.Range(0, groupCount)
 			where found[g].Count > 0
-			orderby found[g][0].Rank descending, g
+			orderby found[g][0].Rank descending, (g == (int)QuickGroup.Mobs && QuickIndex[found[g][0].Position] is { Kind: QuickKind.Mob } top && BookBestiary.Mobs[top.Id].Kind == BookMobKind.Boss) ? -1 : g
 			select g)
 		{
 			QuickGroup group = (QuickGroup)g;
