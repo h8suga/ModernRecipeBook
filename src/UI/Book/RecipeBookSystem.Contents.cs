@@ -159,7 +159,7 @@ public sealed partial class RecipeBookSystem
 			if (ContentsRow(top, slot).Contains(Mouse.X, Mouse.Y))
 			{
 				LootLine line = loot[DetailsPage * size + slot];
-				if (!ToggleLootFold(line) && line.Loot != null)
+				if (!ToggleLootFold(line) && line.Loot != null && LootOpens(line.Loot.ItemType))
 				{
 					StepCard(line.Loot.ItemType, CardModeFor(line.Loot.ItemType));
 				}

@@ -52,7 +52,7 @@ internal static class BookHelp
 			new Entry("Help.KeyRMB", "Help.PlaceAMarker", () => BookMapMarkers.Enabled),
 			new Entry("Help.KeyRMBOnAMarker", "Help.EditOrDeleteIt", () => BookMapMarkers.Enabled)
 		}),
-		new Section(1, "Help.SectionTHEITEMCARD", new Entry[10]
+		new Section(1, "Help.SectionTHEITEMCARD", new Entry[12]
 		{
 			new Entry("Help.KeyCtrlEnter", "Help.Craft"),
 			new Entry("Help.KeyCtrlShiftEnter", "Help.CraftTheMost"),
@@ -63,7 +63,10 @@ internal static class BookHelp
 			new Entry("Help.KeyAltU", "Help.MobLootStats"),
 			new Entry("Help.KeyLMB", "Help.OpenAnIngredient"),
 			new Entry("Help.KeyAltLMB", "Help.FavoriteInTheGrid"),
-			new Entry("Help.KeyMouse3", "Help.LookUpItemOrMob")
+			new Entry("Help.KeyMouse3", "Help.LookUpItemOrMob"),
+			// A bright name in a line is a link (RecipeBookSystem.Links); a boss in the stage menu opens on Shift.
+			new Entry("Links.HelpKeyLMBOnAName", "Links.HelpOpenWhatItNames"),
+			new Entry("Help.KeyShiftLMB", "Links.HelpStageMenuBossCard")
 		}),
 		// The cards take the mouse only with the inventory open (RecipeBookSystem.TrackerInteractive).
 		new Section(1, "UiPolish.SectionTRACKERCARDS", new Entry[3]

@@ -550,7 +550,24 @@ public sealed partial class RecipeBookSystem
 			EnemyReadErrors++;
 		}
 		NPC sample = ContentSamples.NpcsByNetId.GetValueOrDefault(id);
-		EnemyLoot = OrderLoot(FromBags(ReadLoot(own)));
+		// What a boss leaves on its death besides its loot, outside the drop rules: its potions and hearts, as How to Get
+		// lists the potions (BookCodeSources.DeathDrops). One of its own drops already gives the item: a rule more on its
+		// row, which adds up as rules do.
+		List<BookEnemyLoot> loot = FromBags(ReadLoot(own));
+		foreach ((int item, int min, int max) in BookCodeSources.DeathDrops(id))
+		{
+			BookEnemyDrop death = new BookEnemyDrop(item, 1f, min, max, L("ItemsSources.WhenItDies"), "death", Rule: -1);
+			int row = loot.FindIndex((BookEnemyLoot x) => x.ItemType == item && x.Bag == 0);
+			if (row >= 0)
+			{
+				loot[row] = new BookEnemyLoot(loot[row].Reports.Append(death));
+			}
+			else
+			{
+				loot.Add(new BookEnemyLoot(new[] { death }));
+			}
+		}
+		EnemyLoot = OrderLoot(loot);
 		EnemyGlobalLoot = ReadLoot(global, (DropRateInfo rate) => GlobalDropFits(rate, sample)).OrderBy((BookEnemyLoot x) => x.OtherWorld).ThenBy((BookEnemyLoot x) => ContentSamples.ItemsByType[x.ItemType].Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 		RebuildMobLootLines();
 	}
@@ -788,6 +805,7 @@ public sealed partial class RecipeBookSystem
 				}
 				List<string> conditions = new List<string>();
 				List<string> keys = new List<string>();
+				List<BookMention> mentions = new List<BookMention>();
 				bool otherMode = false;
 				bool past = false;
 				bool? now = true;
@@ -802,8 +820,12 @@ public sealed partial class RecipeBookSystem
 					{
 						conditions.Add(word.Label);
 					}
+					if (word.Target is BookMention target)
+					{
+						mentions.Add(target);
+					}
 				}
-				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode, past, now, index));
+				drops.Add(new BookEnemyDrop(rate.itemId, rate.dropRate, rate.stackMin, rate.stackMax, string.Join("; ", conditions.Distinct(StringComparer.Ordinal)), string.Join("|", keys.OrderBy((string x) => x, StringComparer.Ordinal)), otherMode, past, now, index, mentions.ToArray()));
 			}
 		}
 		return BookEnemyRules.Group(drops);
@@ -881,6 +903,7 @@ public sealed partial class RecipeBookSystem
 			EmptyState(sb, BookGeometry.DetailsPanel, L("Bestiary.NothingSelected"), L("Bestiary.PickAMobOnTheLeft"));
 			return;
 		}
+		CardTarget = "mob:" + mob.Index;
 		EnsureMobCard();
 		int netId = MobCardNetId;
 		NPC npc = ContentSamples.NpcsByNetId[netId];
@@ -911,32 +934,38 @@ public sealed partial class RecipeBookSystem
 				MouseTip(L("Bestiary.VariantsTheBestiaryCountsAsThis"));
 			}
 		}
+		// "Boss · Calamity Mod": the kind opens its Bestiary category, the mod the mod filter (RecipeBookSystem.Links).
 		BookRect subtitle = BookGeometry.MobSubtitle;
-		FixedLabel(sb, MobKindName(mob.Kind) + " · " + ModName(mob.Mod), subtitle.X, subtitle.Y, Muted, 0.8f, subtitle.Width, subtitle.Height);
+		DrawLinkLine(sb, new List<LinkSpan> { new LinkSpan(MobKindName(mob.Kind), MobCategoryLink(BookBestiary.FindTag(KindTag(mob.Kind)))), new LinkSpan(" · "), new LinkSpan(ModName(mob.Mod), ModLink(mob.Mod, mobs: true)) }, subtitle, 0.8f, Muted);
 		BookRect tags = BookGeometry.MobTags;
 		Box(sb, tags, Raised, border: false, 8f);
 		string clipped = null;
-		TagLine(0, L("Bestiary.Stage"), StepName(BookProgression.NpcStep(netId)));
-		TagLine(1, L("Bestiary.Biome"), (EnemyBiomes.Length > 0) ? EnemyBiomes : L("Bestiary.NotListed"));
-		TagLine(2, L("Bestiary.Spawns"), (EnemySpawn.Length > 0) ? EnemySpawn : L("Bestiary.NotListed2"));
+		bool onLink = false;
+		// The stage's boss opens its card, a stage the stage filter; biomes and events open their category, a spawn gate's
+		// boss its card, a boss's summon item its card.
+		int step = BookProgression.NpcStep(netId);
+		TagLine(0, L("Bestiary.Stage"), StageSpans(step, StepName(step), mobs: true));
+		TagLine(1, L("Bestiary.Biome"), (EnemyBiomes.Length > 0) ? Linked(EnemyBiomes, LinkNames.Places | LinkNames.Bosses) : Plain(L("Bestiary.NotListed")));
+		TagLine(2, L("Bestiary.Spawns"), (EnemySpawn.Length > 0) ? Linked(EnemySpawn, LinkNames.Bosses | LinkNames.Places, EnemySpawnItems.Select((int item) => (ItemName(item), ItemLink(item)))) : Plain(L("Bestiary.NotListed2")));
 		bool tracked = ContentSamples.NpcBestiaryCreditIdsByNpcNetIds.TryGetValue(mob.NetId, out string credit) && SeenMobs.TryGet(credit, out _);
 		(long First, long Last) met = default;
 		if (tracked)
 		{
 			SeenMobs.TryGet(credit, out met);
 		}
-		TagLine(3, L("Bestiary.Met3"), tracked ? (BookMobEncounters.Date(met.First, full: false) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.Earlier") : L("Bestiary.NotYet")));
+		TagLine(3, L("Bestiary.Met3"), Plain(tracked ? (BookMobEncounters.Date(met.First, full: false) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.Earlier") : L("Bestiary.NotYet"))));
 		BookRect spawnLine = new BookRect(tags.X, tags.Y + 3f + 2 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
 		BookRect metLine = new BookRect(tags.X, tags.Y + 3f + 3 * BookGeometry.MobTagStep, tags.Width, BookGeometry.MobTagStep);
-		if (!MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
+		// A link under the mouse shows its own tip.
+		if (!onLink && !MenuOpen && metLine.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(tracked ? (L("Bestiary.FirstMet", BookMobEncounters.Date(met.First, full: true)) + "\n" + L("Bestiary.LastMet", BookMobEncounters.Date(met.Last, full: true)) + " · " + BookMobEncounters.Ago(met.Last)) : (MobMet(mob.NetId) ? L("Bestiary.MetBeforeTheBookStartedRecording") : L("Bestiary.EncountersAreRecordedWhenTheMob")));
 		}
-		else if (!MenuOpen && EnemySpawnTip.Length > 0 && spawnLine.Contains(Mouse.X, Mouse.Y))
+		else if (!onLink && !MenuOpen && EnemySpawnTip.Length > 0 && spawnLine.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(EnemySpawnTip);
 		}
-		else if (!MenuOpen && tags.Contains(Mouse.X, Mouse.Y))
+		else if (!onLink && !MenuOpen && tags.Contains(Mouse.X, Mouse.Y))
 		{
 			// The note replaces the hint of a value cut short, so that value leads it.
 			MouseTip((clipped != null ? (clipped + "\n") : "") + L("Bestiary.FromTheBestiaryMayBeIncomplete"));
@@ -957,13 +986,16 @@ public sealed partial class RecipeBookSystem
 		{
 			MouseTip(favorite ? L("Bestiary.RemoveFromFavoritesAltF") : L("Bestiary.AddToFavoritesAltF"));
 		}
-		void TagLine(int line, string label, string value)
+		void TagLine(int line, string label, List<LinkSpan> value)
 		{
 			float y = tags.Y + 3f + (float)line * BookGeometry.MobTagStep;
 			FixedLabel(sb, label, tags.X + 10f, y, Muted, 0.75f, 84f, BookGeometry.MobTagStep);
-			if (FixedLabel(sb, value, tags.X + 96f, y, TextColor, 0.8f, tags.Width - 104f, BookGeometry.MobTagStep) && Hit(tags.X, y, tags.Width, BookGeometry.MobTagStep))
+			BookRect rect = new BookRect(tags.X + 96f, y, tags.Width - 104f, BookGeometry.MobTagStep);
+			List<LinkPiece> pieces = LinkPieces(value, rect, 0.8f);
+			onLink |= DrawLinkPieces(sb, pieces, rect, 0.8f, TextColor, Muted);
+			if ((pieces.Count < value.Count || pieces.Any((LinkPiece p) => p.Cut)) && Hit(tags.X, y, tags.Width, BookGeometry.MobTagStep))
 			{
-				clipped = value;
+				clipped = string.Concat(value.Select((LinkSpan s) => s.Text));
 			}
 		}
 	}
@@ -1062,16 +1094,21 @@ public sealed partial class RecipeBookSystem
 		return (varies ? "" : BookAcquisitionRules.Chance(pick.Chance), detail, bag);
 	}
 
-	// One loot row, of the mob card and of a container's Contents: name and chance, then the amount and conditions.
+	// One loot row, of the mob card and of a container's Contents: name and chance, then the amount and conditions. The
+	// row opens the item; the bosses, places and the bag its second line names are links of their own, and on one of them
+	// the row shows no hover. An item with no card of its own (the hearts a boss leaves) opens nothing.
 	private static void DrawLootRow(SpriteBatch sb, BookRect rect, BookEnemyLoot loot, bool dim)
 	{
-		bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 		Item item = ContentSamples.ItemsByType[loot.ItemType];
-		Box(sb, rect, hover ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
-		Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
 		BookDropPick pick = loot.Pick;
 		bool varies = loot.OtherWorld || pick == null;
 		(string chance, string detail, string bag) = LootRowText(loot);
+		BookRect detailRect = new BookRect(rect.X + 46f, rect.Y + 21f, rect.Width - 54f, 18f);
+		List<LinkPiece> links = LinkPieces(LinkedMentions(detail, LinkNames.Bosses | LinkNames.Places | LinkNames.Bags, loot.Mentions), detailRect, 0.75f);
+		bool opens = LootOpens(loot.ItemType);
+		bool hover = !MenuOpen && rect.Contains(Mouse.X, Mouse.Y) && !OnLink(links);
+		Box(sb, rect, (hover && opens) ? HoverFill : (dim ? Panel : Raised), border: true, 8f);
+		Icon(sb, item, rect.X + 6f, rect.Y + 5f, 32f, tooltip: false);
 		float chanceWidth = (chance.Length > 0) ? (TextWidth(chance, 0.85f) + 4f) : 0f;
 		FixedLabel(sb, item.Name, rect.X + 46f, rect.Y + 2f, dim ? Muted : TextColor, 0.9f, rect.Width - 54f - chanceWidth - 8f, 20f);
 		if (chance.Length > 0)
@@ -1079,8 +1116,12 @@ public sealed partial class RecipeBookSystem
 			CenterLabel(sb, chance, rect.X + rect.Width - 8f - chanceWidth, rect.Y + 2f, chanceWidth, 20f, dim ? Muted : TextColor, 0.85f, rightAligned: true);
 		}
 		string conditions = pick?.Conditions ?? "";
-		FixedLabel(sb, detail, rect.X + 46f, rect.Y + 21f, Muted, 0.75f, rect.Width - 54f, 18f);
-		if (hover)
+		DrawLinkPieces(sb, links, detailRect, 0.75f, Muted);
+		if (hover && !opens)
+		{
+			MouseTip(item.Name + "\n" + L("Links.NoCardPickup"));
+		}
+		else if (hover)
 		{
 			// The item's own tooltip; under it what the row cuts short: this world's rules with their full conditions (a bag's
 			// row: the bag's), then another world's (the boss's own Classic ones) and those already past; how rules that add
@@ -1173,7 +1214,7 @@ public sealed partial class RecipeBookSystem
 			{
 				RebuildMobLootLines();
 			}
-			else if (line.Loot != null)
+			else if (line.Loot != null && LootOpens(line.Loot.ItemType))
 			{
 				// The item opens on Items, a Treasure Bag on what it holds; Back returns to this mob.
 				SwitchTab(0);
@@ -1181,6 +1222,13 @@ public sealed partial class RecipeBookSystem
 			}
 			return;
 		}
+	}
+
+	// An item kept out of the catalogue (a heart, a pickup that never stays in an inventory: BookCurated.Hidden) has no
+	// card to open.
+	private static bool LootOpens(int type)
+	{
+		return ContentSamples.ItemsByType.TryGetValue(type, out Item item) && !BookCurated.Hidden(item);
 	}
 
 	// Opens a mob on the Bestiary tab: selected in the grid when the filters show it, else focused in the card.

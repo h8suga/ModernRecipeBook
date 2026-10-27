@@ -1,2 +1,2 @@
-en-US, 1130/1130, 100%, missing 0
-ru-RU, 1130/1130, 100%, missing 0
+en-US, 1346/1346, 100%, missing 0
+ru-RU, 1346/1346, 100%, missing 0

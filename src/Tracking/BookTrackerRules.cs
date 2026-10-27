@@ -72,12 +72,6 @@ internal static class BookTrackerRules
 		return -1;
 	}
 
-	// The last line of an expanded goal whose materials do not all fit: "+N more".
-	internal static bool OnMoreLine(float y, int index, int expanded, int expandedMaterials)
-	{
-		return index == expanded && expandedMaterials > MaxMaterialLines && y >= GoalTop(index, expanded, expandedMaterials) + GoalHeight + (MaxMaterialLines - 1) * MaterialHeight;
-	}
-
 	internal static BookGeometry PanelLayoutHeight(int panelHeight, int width, int height, bool custom, float x, float y, int sizePercent = 100, float uiScale = 1f)
 	{
 		float scale = Math.Max(0.01f, Math.Min((float)Math.Clamp(sizePercent, 60, 150) / 100f / Math.Max(0.1f, uiScale), Math.Min(((float)width - 32f) / 300f, ((float)height - 100f) / (float)panelHeight)));

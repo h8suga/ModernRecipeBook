@@ -772,7 +772,7 @@ internal static class BookProgressionSources
 	}
 
 	// "NPCName.Pirate" or "Mods.CalamityMod.NPCs.<category...>.SeaKing.DisplayName" back to the NPC type.
-	private static int? NpcFromNameKey(string key)
+	internal static int? NpcFromNameKey(string key)
 	{
 		if (key == null)
 		{
