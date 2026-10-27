@@ -42,8 +42,8 @@ internal static class BookShimmer
 
 	private static readonly Dictionary<int, Plan> Plans = new Dictionary<int, Plan>();
 
-	// What the plans were built under: the moon phase, the bosses and the Town Slime change them.
-	private static (int Moon, bool Skeletron, bool Golem, bool MoonLord, bool Slime, int Recipes) PlansKey;
+	// What the plans were built under: the moon phase, the bosses and the Town Slime change them; a mod's own gates (Calamity's) are read again every ten seconds.
+	private static (int Moon, bool Skeletron, bool Golem, bool MoonLord, bool Slime, int Recipes, int Tick) PlansKey;
 
 	// After the Moon Lord (Item.GetShimmered): Rod of Discord, Clentaminator and the bottomless buckets.
 	private static readonly int[] MoonLordPairs = new int[4] { ItemID.RodofDiscord, ItemID.Clentaminator, ItemID.BottomlessBucket, ItemID.BottomlessShimmerBucket };
@@ -56,7 +56,7 @@ internal static class BookShimmer
 		{
 			return null;
 		}
-		var key = ((int)Main.GetMoonPhase(), NPC.downedBoss3, NPC.downedGolemBoss, NPC.downedMoonlord, NPC.unlockedSlimeRainbowSpawn, Recipe.numRecipes);
+		var key = ((int)Main.GetMoonPhase(), NPC.downedBoss3, NPC.downedGolemBoss, NPC.downedMoonlord, NPC.unlockedSlimeRainbowSpawn, Recipe.numRecipes, (int)(Main.GameUpdateCount / 600));
 		if (key != PlansKey)
 		{
 			Plans.Clear();
@@ -64,8 +64,33 @@ internal static class BookShimmer
 		}
 		if (!Plans.TryGetValue(type, out var plan))
 		{
-			plan = Build(sample);
+			plan = Calamity(Build(sample));
 			Plans[type] = plan;
+		}
+		return plan;
+	}
+
+	// Calamity's own shimmer rules (CalamityMod.ILEditing.ILChanges). The Rod of Discord stays locked until Supreme
+	// Calamitas and then the Exo Mechs are beaten (AdjustShimmerRequirements, a hook on IsItemTransformLocked, so the lock
+	// itself is already in the plan; this names the boss). A Plagued Containment Brick before Golem does not shimmer at
+	// all: the whole stack is gone and three Plague Nanodroids come out (ShimmerEffectEdits), which the book will not do to
+	// a stack in storage, so it waits for Golem.
+	private static Plan Calamity(Plan plan)
+	{
+		if (plan == null || !ModLoader.TryGetMod("CalamityMod", out Mod calamity))
+		{
+			return plan;
+		}
+		if (plan.Item == ItemID.RodofDiscord && !plan.Ready && NPC.downedMoonlord)
+		{
+			Type downed = calamity.Code.GetType("CalamityMod.DownedBossSystem");
+			bool scal = downed?.GetProperty("downedCalamitas")?.GetValue(null) is true;
+			string boss = scal ? "Draedon" : "SupremeCalamitas";
+			return plan with { GateNpc = calamity.TryFind<ModNPC>(boss, out ModNPC npc) ? npc.Type : 0 };
+		}
+		if (!NPC.downedGolemBoss && calamity.TryFind<ModItem>("PlaguedContainmentBrick", out ModItem brick) && plan.Item == brick.Type)
+		{
+			return plan with { Ready = false, GateNpc = NPCID.Golem };
 		}
 		return plan;
 	}
@@ -202,6 +227,19 @@ internal static class BookShimmer
 	// balloon no longer shimmers), and the result line names what it did.
 	private static Plan LastPlan;
 
+	// The progression step of the boss a locked plan waits for (-1 when none): the book's boss links and names go by step.
+	internal static int GateStep(Plan plan)
+	{
+		return (plan?.GateNpc > 0) ? BookSteps.Npc(plan.GateNpc) : -1;
+	}
+
+	// The boss as the book names its step ("Exo Mechs", "Moon Lord"), else the NPC's own name.
+	internal static string GateName(Plan plan)
+	{
+		string name = BookSteps.Name(GateStep(plan));
+		return (name.Length > 0) ? name : Lang.GetNPCNameValue(plan.GateNpc);
+	}
+
 	// Why the item cannot be shimmered from the book now, or "" when it can.
 	internal static string Reason(int type)
 	{
@@ -212,7 +250,7 @@ internal static class BookShimmer
 		}
 		if (!plan.Ready)
 		{
-			return (plan.GateNpc > 0) ? L("Shimmer.AfterBoss", Lang.GetNPCNameValue(plan.GateNpc)) : L("Shimmer.NotNow");
+			return (plan.GateNpc > 0) ? L("Shimmer.AfterBoss", GateName(plan)) : L("Shimmer.NotNow");
 		}
 		if (!BookMagicStorage.Installed || !BookMagicStorage.Shimmers || !BookMagicStorage.Writable)
 		{
