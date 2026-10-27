@@ -569,6 +569,10 @@ public sealed partial class RecipeBookSystem
 					Plus(sb, cx, cy, 5f, color);
 				}
 				break;
+			case QuickAction.Shimmer:
+				// The Decrafting Interface that does it.
+				QuickItemIcon(sb, BookMagicStorage.DecraftingItem, new BookRect(rect.X + 4f, rect.Y + 4f, 16f, 16f));
+				break;
 			case QuickAction.Stats:
 				Box(sb, cx - 6f, cy + 1f, 3f, 5f, color, border: false, 1f);
 				Box(sb, cx - 1.5f, cy - 3f, 3f, 9f, color, border: false, 1f);
