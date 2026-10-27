@@ -1,0 +1,23 @@
+// The item card's Shimmer mode and the Shimmer buttons of the card and of How to Get (RecipeBookSystem.Shimmer, over
+// BookShimmer). Counts come formatted; {0} of AfterBoss is the boss, of NeedsInterface and HowItWorks the Decrafting
+// Interface's own name.
+Mode: Мерцание
+ModeTip: Во что превращается в мерцании · Alt+U
+TurnsInto: В мерцании превращается в:
+TurnsBackInto: В мерцании распадается на:
+TurnBackIntoEvery: В мерцании по {0} шт. распадаются на:
+CoinLuck: Монетная удача
+CoinLuckBody: Она ненадолго повышает удачу
+EachCoinGives: В мерцании каждая монета даёт:
+SetsFree: В мерцании выпускает:
+BringsToTown: В мерцании приводит в город:
+AfterBoss: Сначала победите: {0}
+NeedsInterface: Нужен {0}
+NoneStored: Нет в Magic Storage
+HowItWorks: Мерцание из книги берёт предмет из сети Magic Storage, где есть {0}, и кладёт результат обратно
+ShimmerThisManyTimes: В мерцание столько раз за нажатие
+AsManyAsThereAre: Сколько есть в сети · Shift+клик
+Shimmer: В мерцание
+ShimmerTimes: В мерцание ×{0}
+TakesFrom: Возьмёт {0} шт. из «{1}», там {2}
+ShiftClickAll: Shift+клик: все {0}
