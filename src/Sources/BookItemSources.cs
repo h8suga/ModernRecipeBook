@@ -32,8 +32,11 @@ internal sealed record BookItemSource(BookAcquisitionKind Kind, int Item)
 
 	internal string Owner { get; init; } = "Terraria";
 
-	// Drops and containers: the report as the game's drop UI computes it.
+	// Drops and containers: the report as the game's drop UI computes it, and the place of its rule among the mob's or
+	// the container's rules (BookEnemyDrop.Rule).
 	internal DropRateInfo? Rate { get; init; }
+
+	internal int Rule { get; init; }
 
 	internal AbstractNPCShop Shop { get; init; }
 
@@ -312,12 +315,12 @@ internal static class BookItemSources
 		Index();
 		void Display(List<IItemDropRule> rules, Func<DropRateInfo, BookItemSource> make)
 		{
-			foreach (IItemDropRule rule in rules)
+			for (int index = 0; index < rules.Count; index++)
 			{
 				List<DropRateInfo> rates = new List<DropRateInfo>();
 				try
 				{
-					ReportShown(rule, rates, new DropRateInfoChainFeed(1f));
+					ReportShown(rules[index], rates, new DropRateInfoChainFeed(1f));
 				}
 				catch (Exception)
 				{
@@ -328,7 +331,7 @@ internal static class BookItemSources
 				{
 					if (rate.itemId > 0)
 					{
-						Add(make(rate));
+						Add(make(rate) with { Rule = index });
 					}
 				}
 			}
@@ -556,9 +559,27 @@ internal static class BookItemSources
 
 	// What How to Get and the Bestiary card list: the game's own report (chances as the drop UI computes them), except that
 	// a LeadingConditionRule's failed-condition branch carries the condition's negation, as in Reports (Nova's Starblight
-	// Soot drops when it does not blow itself up).
+	// Soot drops when it does not blow itself up); a rule at 0% is none (Calamity "removes" vanilla's hardmode ores from
+	// crates and the Sky Crate's and Goodie Bag's items by setting chanceNumerator = 0, CalamityGlobalItemLoot); and a boss
+	// bag's money is one row from the least to the most it gives.
 	internal static void ReportShown(IItemDropRule rule, List<DropRateInfo> rates, DropRateInfoChainFeed feed)
 	{
+		Shown(rule, rates, feed);
+		rates.RemoveAll((DropRateInfo r) => r.dropRate <= 0f);
+	}
+
+	private static void Shown(IItemDropRule rule, List<DropRateInfo> rates, DropRateInfoChainFeed feed)
+	{
+		// ItemDropRule.CoinsBasedOnNPCValue reports the boss's coin value in coins, but CoinsRule.TryDroppingItem drops it
+		// times 0.8 to 1.2 plus up to four bonuses of 0.1, 0.2, 0.3 and 0.4: 0.8 to 2.2 times, in the coin its least reaches.
+		if (rule is CoinsRule { withRandomBonus: true } coins)
+		{
+			long least = (long)(coins.value * 0.8), most = (long)(coins.value * 2.2);
+			(int coin, long worth) = least >= 1000000 ? (ItemID.PlatinumCoin, 1000000L) : (least >= 10000 ? (ItemID.GoldCoin, 10000L) : (least >= 100 ? (ItemID.SilverCoin, 100L) : (ItemID.CopperCoin, 1L)));
+			rates.Add(new DropRateInfo(coin, (int)(least / worth), (int)Math.Max(1L, most / worth), feed.parentDroprateChance, feed.conditions));
+			Chains.ReportDroprates(coins.ChainedRules, 1f, rates, feed);
+			return;
+		}
 		if (rule is not LeadingConditionRule leading)
 		{
 			rule.ReportDroprates(rates, feed);
@@ -573,14 +594,14 @@ internal static class BookItemSources
 				if (!failed.hideLootReport)
 				{
 					branch.AddCondition(NotCondition.Of(leading.condition));
-					ReportShown(failed.RuleToChain, rates, branch);
+					Shown(failed.RuleToChain, rates, branch);
 				}
 				continue;
 			}
 			branch.AddCondition(leading.condition);
 			if (chain is Chains.TryIfSucceeded { hideLootReport: false } succeeded)
 			{
-				ReportShown(succeeded.RuleToChain, rates, branch);
+				Shown(succeeded.RuleToChain, rates, branch);
 			}
 			else
 			{

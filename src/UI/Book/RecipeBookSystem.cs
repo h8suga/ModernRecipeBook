@@ -765,7 +765,133 @@ public sealed partial class RecipeBookSystem : ModSystem
 		AcquisitionRulePage = 0;
 	}
 
-	// Difficulty conditions get a one-word label; anything else keeps the mod's own description.
+	// One condition of a loot rule as its row words it (an empty Label says nothing) and what it means in this world:
+	// another difficulty's or seed's (OtherMode), a branch this world is already past (Past: a boss it came before is
+	// down, a first kill made), whether it holds now (Now: false not yet, null when the kill or an event decides).
+	private readonly record struct LootWord(string Label, bool OtherMode = false, bool Past = false, bool? Now = true);
+
+	// The word of a loot rule's condition, for the mob card, Contents and How to Get alike: a difficulty or seed gate this
+	// world meets says nothing, one it fails marks another world's rule and keeps its word.
+	private static LootWord LootCondition(IItemDropRuleCondition condition, int npcNetId, int item)
+	{
+		bool? gate = BookProgressionSources.WorldGate(condition);
+		if (gate == true)
+		{
+			return new LootWord("");
+		}
+		LootWord word = ConditionWord(condition, npcNetId, item);
+		return gate == false ? word with { OtherMode = true } : word;
+	}
+
+	// Vanilla's difficulty conditions and the like get a word of their own (DropConditionLabel); a mod's text is kept, a
+	// wrapped Condition worded as the book's own (WrappedConditionWord); a condition without a text is named by what
+	// decides it (HiddenConditionWord). Whether it holds now is the world's answer where only progression decides it
+	// (BookProgressionSources.FollowsProgression).
+	private static LootWord ConditionWord(IItemDropRuleCondition condition, int npcNetId, int item)
+	{
+		NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
+		bool holds = LootHolds(condition, npc);
+		// The mechanical bosses' summons drop each only while its boss is not yet beaten, in Hardmode, though the rule
+		// reports all three under a dummy condition (MechBossSpawnersDropRule: CanDrop Main.hardMode, TryDroppingItem the
+		// Mechanical Worm while !NPC.downedMechBoss1, the Eye !downedMechBoss2, the Skull !downedMechBoss3).
+		if (condition is Conditions.MechanicalBossesDummyCondition)
+		{
+			(bool downed, string boss) = item switch
+			{
+				ItemID.MechanicalWorm => (NPC.downedMechBoss1, "Terraria TheDestroyer"),
+				ItemID.MechanicalEye => (NPC.downedMechBoss2, "Terraria TheTwins"),
+				ItemID.MechanicalSkull => (NPC.downedMechBoss3, "Terraria SkeletronPrime"),
+				_ => (false, null)
+			};
+			if (boss != null)
+			{
+				string name = BookSteps.Name(BookSteps.Find(boss));
+				return downed ? new LootWord(L("KillConditions.AlreadyPast", L("BestiaryLoot.Until", name)), Past: true, Now: false)
+					: (Main.hardMode ? new LootWord(L("BestiaryLoot.HardmodeUntil", name)) : new LootWord(L("Common.ConditionNotMetYet", L("BestiaryLoot.HardmodeUntil", name)), Now: false));
+			}
+		}
+		if (condition is Conditions.PumpkinMoonDropGatingChance or Conditions.FrostMoonDropGatingChance)
+		{
+			return new LootWord(WaveOddsLabel(condition is Conditions.FrostMoonDropGatingChance), Now: null);
+		}
+		// Plantera's first kill (Conditions.FirstTimeKillingPlantera: !NPC.downedPlantBoss).
+		if (condition is Conditions.FirstTimeKillingPlantera)
+		{
+			return holds ? new LootWord(L("KillConditions.FirstKill")) : new LootWord(L("KillConditions.AlreadyPast", L("KillConditions.FirstKill")), Past: true, Now: false);
+		}
+		// Magic Storage's Shadow Diamond comes once per world from each boss: ShadowDiamondCondition.CanDrop reads the boss's
+		// StorageWorld flag (moddedDiamonds for a mod's), asked outside the drop simulation only; the Eater of Worlds' last
+		// segment is a boss by then (NPC.DropEoWLoot).
+		if (condition.GetType().FullName == "MagicStorage.Items.ShadowDiamondCondition" && npc != null)
+		{
+			NPC kill = (NPC)npc.Clone();
+			kill.boss = true;
+			return LootHolds(condition, kill, simulation: false) ? new LootWord(L("KillConditions.FirstKill")) : new LootWord(L("KillConditions.AlreadyPast", L("KillConditions.FirstKill")), Past: true, Now: false);
+		}
+		// What a bag gives a character by its name (Calamity's StarterBag): another character's unless it is this one's.
+		string[] names = BookKillConditions.PlayerNames(condition);
+		if (names.Length > 0)
+		{
+			return new LootWord(L("BestiaryLoot.ForCharacterNamed", string.Join(L("Common.OrSeparator"), names)), OtherMode: !holds, Now: holds);
+		}
+		string text = DropConditionLabel(condition, condition.GetConditionDescription());
+		if (string.IsNullOrWhiteSpace(text))
+		{
+			return HiddenConditionWord(condition, npc, holds);
+		}
+		if (condition is SimpleItemDropRuleCondition simple)
+		{
+			return WrappedConditionWord(simple, text, holds, npc != null ? BookSteps.Npc(npc.type) : -1);
+		}
+		// Calamity's first-kill loot comes before the very boss that drops it (AddConditionalPerPlayer(() =>
+		// !NPC.downedAncientCultist, LorePrelude, ..., DropHelper.FirstKillText)): the book's words, "already past" once
+		// it is down; so does any text the probe places before a boss.
+		int before = BookProgressionSources.BeforeStep(condition);
+		if (before > 0)
+		{
+			string first = (npc != null && BookSteps.Npc(npc.type) == before) ? L("KillConditions.FirstKill") : text;
+			return holds ? new LootWord(first) : new LootWord(L("KillConditions.AlreadyPast", first), Past: true, Now: false);
+		}
+		if (BookKillConditions.TestsNpc(condition) && BookProgressionSources.DropConditionStep(condition) is not > 0)
+		{
+			return new LootWord(text, Now: BookKillConditions.MetOnKill(condition, npcNetId) == true ? true : null);
+		}
+		return new LootWord(text, Now: BookProgressionSources.FollowsProgression(condition) ? holds : null);
+	}
+
+	// Whether a drop condition holds now for a kill of the NPC (null: a container opened, Player.DropFromItem), asked as
+	// the drop simulation asks it.
+	private static bool LootHolds(IItemDropRuleCondition condition, NPC npc, bool simulation = true)
+	{
+		try
+		{
+			return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = simulation, rng = Main.rand });
+		}
+		catch (Exception)
+		{
+			return false;
+		}
+	}
+
+	// A Condition wrapped as a drop condition (Condition.ToDropCondition, "Drops: {0}": Calamity's DropHelper.PostDoG(),
+	// GFB) in the book's words: a seed as the seed, a boss or Hardmode as its step, met or not yet; else the wrapped
+	// Condition's own text, without the "Drops:". On the very boss whose step it names it means every kill but the first
+	// (the boss's flag is set after its loot: NPC.NPCLoot drops, then DoDeathEvents).
+	private static LootWord WrappedConditionWord(SimpleItemDropRuleCondition simple, string text, bool holds, int own)
+	{
+		string key = BookProgressionSources.WrappedKey(simple);
+		if (BookProgressionSources.WrappedSeed(key) is (string seed, bool with))
+		{
+			return new LootWord(L(with ? "KillConditions.WithSeed" : "KillConditions.WithoutSeed", seed));
+		}
+		if (BookProgressionSources.ConditionStep(key, simple.Predicate) is int step && step > 0)
+		{
+			return new LootWord(L(holds ? "Common.ConditionMet" : "Common.ConditionNotMetYet", step == own ? L("BestiaryLoot.AfterTheFirstKill") : ConditionStepName(step)), Now: holds);
+		}
+		string inner = (simple.Description?.BoundArgs?.FirstOrDefault() as LocalizedText)?.Value;
+		return new LootWord(string.IsNullOrWhiteSpace(inner) ? text : inner, Now: BookProgressionSources.FollowsProgression(simple) ? holds : null);
+	}
+
 	// A drop condition its mod left without a text (Calamity's AddIf lambdas, e.g. Hadarian Wings once Astrum Aureus is
 	// dead) is named by the boss progression places it after (a known condition, or what the probe found), and asked
 	// whether it holds in this world now. What the probes found comes first: another world's rule says which world
@@ -777,51 +903,105 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// every step that holds now says nothing, as a met difficulty gate (the last Exo Mech alive, CanDropLoot; no Primordial
 	// Wyrm about, CanMinionsDropThings). The Windy Balloon's kites are inside the slime it lifts (vanilla registers them
 	// under NeverTrue; SlimeBodyItemDropRule drops what NPC.AI_001_Slimes_GenerateItemInsideBody put in a lifted slime).
-	private static string HiddenConditionLabel(IItemDropRuleCondition condition, int npcNetId)
+	private static LootWord HiddenConditionWord(IItemDropRuleCondition condition, NPC npc, bool holds)
 	{
 		if (BookProgressionSources.OtherWorldOf(condition) is { } world)
 		{
-			return world.Arg == null ? L(world.Key) : L(world.Key, world.Arg);
+			return new LootWord(string.Join("; ", world.Select(((string Key, string Arg) w) => w.Arg == null ? L(w.Key) : L(w.Key, w.Arg))));
 		}
+		int npcNetId = npc?.netID ?? 0;
 		if (condition is Conditions.NeverTrue && npcNetId == NPCID.WindyBalloon)
 		{
-			return L("KillConditions.InTheSlimeItLifts");
+			return new LootWord(L("KillConditions.InTheSlimeItLifts"), Now: null);
 		}
 		int? step = BookProgressionSources.DropConditionStep(condition);
 		int before = BookProgressionSources.BeforeStep(condition);
 		if (before == 0 && step is not > 0 && BookKillConditions.TestsNpc(condition))
 		{
-			return BookKillConditions.MetOnKill(condition, npcNetId) == true ? "" : L(BookKillConditions.LabelKey(condition, npcNetId));
+			return BookKillConditions.MetOnKill(condition, npcNetId) == true ? new LootWord("") : new LootWord(L(BookKillConditions.LabelKey(condition, npcNetId)), Now: null);
 		}
-		NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
-		bool Holds()
+		if (before == 0 && step is not > 0 && BookProgressionSources.EventGate(() => LootHolds(condition, npc)) is string eventKey)
 		{
-			try
-			{
-				return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand });
-			}
-			catch (Exception)
-			{
-				return false;
-			}
+			return new LootWord(L(eventKey), Now: null);
 		}
-		if (before == 0 && step is not > 0 && BookProgressionSources.EventGate(Holds) is string eventKey)
-		{
-			return L(eventKey);
-		}
-		bool holds = Holds();
 		if (before == 0 && step == 0 && holds)
 		{
-			return "";
+			return new LootWord("");
 		}
+		int own = npc != null ? BookSteps.Npc(npc.type) : -1;
 		// Before the very boss that drops it is its first kill (Calamity's Picksaw from Golem while !NPC.downedGolemBoss,
-		// CalamityGlobalNPC.ModifyNPCLoot), worded as Plantera's (FirstTimeKillingPlantera, DropConditionLabel).
-		if (before > 0 && npc != null && BookSteps.Npc(npc.type) == before)
+		// CalamityGlobalNPC.ModifyNPCLoot), worded as Plantera's (FirstTimeKillingPlantera).
+		if (before > 0 && own == before)
 		{
-			return holds ? L("KillConditions.FirstKill") : L("KillConditions.AlreadyPast", L("KillConditions.FirstKill"));
+			return holds ? new LootWord(L("KillConditions.FirstKill")) : new LootWord(L("KillConditions.AlreadyPast", L("KillConditions.FirstKill")), Past: true, Now: false);
 		}
-		string name = step is int known && known > 0 ? StepName(known) : (before > 0 ? L("Stages.Before", BookSteps.Name(before)) : L("Common.SpecialCondition"));
-		return L(holds ? "Common.ConditionMet" : (before > 0 ? "KillConditions.AlreadyPast" : "Common.ConditionNotMetYet"), name);
+		// After the very boss that drops it is every kill but the first (the Wall of Flesh's Hermit's Box: Calamity's
+		// DropHelper.If(() => Main.hardMode) is false while its death starts Hardmode); not when the kill counts too (an Exo
+		// Mech's gear from the others once it is down, AresBody.DefineExoMechLoot).
+		if (step is int at && at > 0 && own == at && !BookKillConditions.TestsNpc(condition))
+		{
+			return new LootWord(L(holds ? "Common.ConditionMet" : "Common.ConditionNotMetYet", L("BestiaryLoot.AfterTheFirstKill")), Now: holds);
+		}
+		// Calamity's ore gates count the mechanical bosses, in whichever order they fall.
+		string mechs = BookProgressionSources.MechGate(condition, out bool negated);
+		string name = mechs != null ? MechBossesName(mechs, negated) : (step is int known && known > 0 ? ConditionStepName(known) : (before > 0 ? L("BestiaryLoot.Until", BookSteps.Name(before)) : null));
+		if (before > 0)
+		{
+			return holds ? new LootWord(name) : new LootWord(L("KillConditions.AlreadyPast", name), Past: true, Now: false);
+		}
+		return name == null ? new LootWord(L(holds ? "Common.ConditionMet" : "Common.ConditionNotMetYet", L("Common.SpecialCondition")), Now: null) : new LootWord(L(holds ? "Common.ConditionMet" : "Common.ConditionNotMetYet", name), Now: holds);
+	}
+
+	// A step as a condition names it: "After Plantera", "Hardmode", "After Moon Lord" (not the stage's "Post-Moon Lord").
+	private static string ConditionStepName(int step)
+	{
+		return step == BookSteps.MoonLordStep ? L("BestiaryLoot.AfterMoonLord") : StepName(step);
+	}
+
+	private static string MechBossesName(string term, bool negated)
+	{
+		return term switch
+		{
+			"mechs:any" => L(negated ? "BestiaryLoot.UntilAnyMechanicalBoss" : "BestiaryLoot.AfterAnyMechanicalBoss"),
+			"mechs:two" => L(negated ? "BestiaryLoot.UntilTwoMechanicalBosses" : "BestiaryLoot.AfterTwoMechanicalBosses"),
+			_ => L(negated ? "BestiaryLoot.UntilAllMechanicalBosses" : "BestiaryLoot.AfterAllMechanicalBosses")
+		};
+	}
+
+	// The moons' wave odds on top of a drop's own chance (Conditions.PumpkinMoonDropGatingChance: 1 in
+	// max(1, (int)((24 − wave) / 2.5)), in Expert and Master with the wave counted 5 higher and the odds one better;
+	// FrostMoonDropGatingChance from 28 and two better), over the moons' 20 waves (NPC.MoonEventRequiredPointsPerWaveLookup).
+	private const int MoonWaves = 20;
+
+	private static int WaveOdds(bool frost, int wave)
+	{
+		int counted = wave + (Main.expertMode ? 5 : 0);
+		return Math.Max(1, (int)(((frost ? 28 : 24) - counted) / 2.5) - (Main.expertMode ? (frost ? 2 : 1) : 0));
+	}
+
+	private static string WaveOddsLabel(bool frost)
+	{
+		int every = Enumerable.Range(1, MoonWaves).FirstOrDefault((int wave) => WaveOdds(frost, wave) == 1);
+		return every > 0 ? L("BestiaryLoot.WaveOddsToEveryKill", WaveOdds(frost, 1), every) : L("BestiaryLoot.WaveOdds", WaveOdds(frost, 1), WaveOdds(frost, MoonWaves), MoonWaves);
+	}
+
+	// The odds wave by wave, the waves with the same odds on one line.
+	private static string WaveTable(bool frost)
+	{
+		List<string> lines = new List<string>();
+		for (int wave = 1; wave <= MoonWaves;)
+		{
+			int odds = WaveOdds(frost, wave);
+			int last = wave;
+			while (last < MoonWaves && WaveOdds(frost, last + 1) == odds)
+			{
+				last++;
+			}
+			string chance = odds == 1 ? L("BestiaryLoot.EveryKill") : L("BestiaryLoot.OneIn", odds);
+			lines.Add(last == wave ? L("BestiaryLoot.Wave", wave, chance) : L("BestiaryLoot.Waves", wave, last, chance));
+			wave = last + 1;
+		}
+		return string.Join("\n", lines);
 	}
 
 	// The hover's sentence under rows whose conditions ("a; b" lists) name one that depends on the kill.
@@ -867,12 +1047,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return L(seed.Key, seed.Arg);
 		}
-		// Plantera's first kill (Conditions.FirstTimeKillingPlantera: !NPC.downedPlantBoss); what a bag gives once per
-		// player (NotUsedDemonHeart: !player.extraAccessory; NoPortalGun: the player does not carry one).
-		if (condition is Conditions.FirstTimeKillingPlantera)
-		{
-			return NPC.downedPlantBoss ? L("KillConditions.AlreadyPast", L("KillConditions.FirstKill")) : L("KillConditions.FirstKill");
-		}
+		// What a bag gives once per player (NotUsedDemonHeart: !player.extraAccessory; NoPortalGun: the player does not
+		// carry one).
 		if (condition is Conditions.NotUsedDemonHeart)
 		{
 			return L("KillConditions.NotUsedYet", ItemName(ItemID.DemonHeart));
@@ -1068,17 +1244,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return (source.ConditionLabel.Length > 0) ? (materials + " · " + source.ConditionLabel) : materials;
 		}
 		string kind = AcquisitionKindName(source.Kind);
+		// A branch this world is past says so by its own label ("Only the first kill · already past").
 		if (group.OtherWorld)
 		{
-			return kind + " · " + L("Common.NotInThisWorld") + ((group.Rules.Length == 1 && source.ConditionLabel.Length > 0) ? (" · " + source.ConditionLabel) : "");
+			return kind + (group.PastOnly ? "" : (" · " + L("Common.NotInThisWorld"))) + ((group.Rules.Length == 1 && source.ConditionLabel.Length > 0) ? (" · " + source.ConditionLabel) : "");
 		}
-		if (group.Rules.Length > 1)
+		if (group.Varies)
 		{
 			return kind + " · " + L("Common.VariesByCondition");
 		}
-		if (source.ConditionLabel.Length > 0)
+		if (group.ConditionLabel.Length > 0)
 		{
-			return kind + " · " + source.ConditionLabel;
+			return kind + " · " + group.ConditionLabel;
 		}
 		return kind;
 	}
@@ -1127,7 +1304,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookAcquisitionRule rule = (expanded ? group.Rules[index] : group.Rules[0]);
 			BookAcquisitionEntry source = (expanded ? rule.Source : group.Source);
 			bool opens = !expanded && AcquisitionOpens(group);
-			bool varies = !expanded && (group.Rules.Length > 1 || group.OtherWorld);
+			bool varies = !expanded && group.Varies;
 			BookRect bounds = BookGeometry.AcquisitionRow(row);
 			bool hover = bounds.Contains(Mouse.X, Mouse.Y);
 			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
@@ -1137,7 +1314,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			BookRect detail = BookGeometry.AcquisitionDetail(row);
 			Text(sb, title, name.X, name.Y, TextColor, 1f, name.Width, name.Height);
 			Text(sb, expanded ? AcquisitionKindName(source.Kind) : AcquisitionDetailText(group), detail.X, detail.Y, Muted, 0.85f, detail.Width, detail.Height);
-			AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), varies ? "" : source.Chance);
+			AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), varies ? "" : (expanded ? source.Chance : group.Chance));
 			AcquisitionBadge(sb, BookGeometry.AcquisitionAmount(row), varies ? "" : (expanded ? source.Amount : group.Amount));
 			if (opens)
 			{

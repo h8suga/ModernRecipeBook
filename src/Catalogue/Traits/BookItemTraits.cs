@@ -606,15 +606,7 @@ internal static class BookItemTraits
 		{
 			OpCode op = (il[i] == 0xFE && i + 1 < il.Length) ? TwoByteOps[il[++i]] : OneByteOps[il[i]];
 			i++;
-			int size = op.OperandType switch
-			{
-				OperandType.InlineNone => 0,
-				OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
-				OperandType.InlineVar => 2,
-				OperandType.InlineI8 or OperandType.InlineR => 8,
-				OperandType.InlineSwitch => (i + 4 <= il.Length) ? (4 + 4 * BitConverter.ToInt32(il, i)) : 4,
-				_ => 4
-			};
+			int size = OperandSize(op, il, i);
 			if (i + 4 <= il.Length && (op.OperandType is OperandType.InlineField or OperandType.InlineMethod) && wanted(op))
 			{
 				int token = BitConverter.ToInt32(il, i);
@@ -634,6 +626,63 @@ internal static class BookItemTraits
 			}
 			i += size;
 		}
+	}
+
+	// The string literals a method's IL loads (ldstr): StarterBag's player names (BookKillConditions).
+	internal static IEnumerable<string> IlStrings(MethodInfo method)
+	{
+		byte[] il;
+		try
+		{
+			il = method.GetMethodBody()?.GetILAsByteArray();
+		}
+		catch
+		{
+			yield break;
+		}
+		if (il == null)
+		{
+			yield break;
+		}
+		if (!opsReady)
+		{
+			ReadOpCodes();
+		}
+		int i = 0;
+		while (i < il.Length)
+		{
+			OpCode op = (il[i] == 0xFE && i + 1 < il.Length) ? TwoByteOps[il[++i]] : OneByteOps[il[i]];
+			i++;
+			string text = null;
+			if (op.OperandType == OperandType.InlineString && i + 4 <= il.Length)
+			{
+				try
+				{
+					text = method.Module.ResolveString(BitConverter.ToInt32(il, i));
+				}
+				catch
+				{
+				}
+			}
+			if (text != null)
+			{
+				yield return text;
+			}
+			i += OperandSize(op, il, i);
+		}
+	}
+
+	private static int OperandSize(OpCode op, byte[] il, int i)
+	{
+		return op.OperandType switch
+		{
+			OperandType.InlineNone => 0,
+			OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+			OperandType.InlineVar => 2,
+			OperandType.InlineI8 or OperandType.InlineR => 8,
+			OperandType.InlineSwitch => (i + 4 <= il.Length) ? (4 + 4 * BitConverter.ToInt32(il, i)) : 4,
+			_ => 4
+		};
 	}
 
 	private static void ReadDescriptions(double budgetMs)

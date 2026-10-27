@@ -6,6 +6,7 @@ using System.Reflection;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.GameContent.Bestiary;
+using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -313,7 +314,10 @@ internal static class BookBestiary
 		{
 			return BookMobKind.Town;
 		}
-		if (npc.boss || npc.type == NPCID.EaterofWorldsHead)
+		// Calamity makes the Aquatic Scourge a boss only once it turns on the player (AquaticScourgeHead.AI sets NPC.boss), so
+		// its sample is none: a mob of a boss's progression step (BookSteps: Calamity's own Boss Checklist entries) that drops
+		// a Treasure Bag is one (AquaticScourgeHead.ModifyNPCLoot: ItemDropRule.BossBag).
+		if (npc.boss || npc.type == NPCID.EaterofWorldsHead || (BookSteps.Npc(npc.type) >= 0 && DropsBossBag(npc.netID)))
 		{
 			return BookMobKind.Boss;
 		}
@@ -322,6 +326,23 @@ internal static class BookBestiary
 			return BookMobKind.MiniBoss;
 		}
 		return BookMobKind.Enemy;
+	}
+
+	private static bool DropsBossBag(int netId)
+	{
+		try
+		{
+			List<DropRateInfo> rates = new List<DropRateInfo>();
+			foreach (IItemDropRule rule in Main.ItemDropsDB.GetRulesForNPCID(netId, includeGlobalDrops: false))
+			{
+				BookItemSources.ReportShown(rule, rates, new DropRateInfoChainFeed(1f));
+			}
+			return rates.Any((DropRateInfo r) => r.itemId > 0 && r.itemId < ItemID.Sets.BossBag.Length && ItemID.Sets.BossBag[r.itemId]);
+		}
+		catch (Exception)
+		{
+			return false;
+		}
 	}
 
 	// The game's invasion names are long for a sidebar row ("Нашествие гоблинов"); these read the same, shorter.

@@ -49,9 +49,12 @@ internal static class BookKillConditions
 	// What each condition's predicate reads and calls, when it reads the NPC (null when it does not), by reference.
 	private static Dictionary<IItemDropRuleCondition, HashSet<MemberInfo>> reads = new Dictionary<IItemDropRuleCondition, HashSet<MemberInfo>>(ReferenceEqualityComparer.Instance);
 
+	private static Dictionary<IItemDropRuleCondition, string[]> names = new Dictionary<IItemDropRuleCondition, string[]>(ReferenceEqualityComparer.Instance);
+
 	internal static void Clear()
 	{
 		reads = new Dictionary<IItemDropRuleCondition, HashSet<MemberInfo>>(ReferenceEqualityComparer.Instance);
+		names = new Dictionary<IItemDropRuleCondition, string[]>(ReferenceEqualityComparer.Instance);
 	}
 
 	internal static bool TestsNpc(IItemDropRuleCondition condition)
@@ -102,6 +105,35 @@ internal static class BookKillConditions
 			}
 		}
 		return "KillConditions.OnCertainKills";
+	}
+
+	private static readonly FieldInfo PlayerNameField = typeof(Player).GetField(nameof(Player.name));
+
+	// The character names a condition asks for (Calamity's StarterBag gives its dev items by name:
+	// "info.player.name == \"Dandy\"", "...ToLower() == \"big e\""), from the string literals of a predicate that reads
+	// Player.name; empty for any other condition.
+	internal static string[] PlayerNames(IItemDropRuleCondition condition)
+	{
+		if (condition == null || condition is BookItemSources.NotCondition)
+		{
+			return Array.Empty<string>();
+		}
+		if (!names.TryGetValue(condition, out string[] found))
+		{
+			try
+			{
+				List<MethodInfo> methods = Predicates(condition);
+				found = methods.Any((MethodInfo m) => BookItemTraits.IlMembers(m, (OpCode op) => op == OpCodes.Ldfld).Any(((OpCode Op, MemberInfo Member) x) => x.Member == PlayerNameField))
+					? methods.SelectMany(BookItemTraits.IlStrings).Distinct(StringComparer.Ordinal).ToArray()
+					: Array.Empty<string>();
+			}
+			catch (Exception)
+			{
+				found = Array.Empty<string>();
+			}
+			names[condition] = found;
+		}
+		return found;
 	}
 
 	// For the dev audits: the condition's type and the method that decides it.
