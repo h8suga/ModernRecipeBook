@@ -397,6 +397,9 @@ public sealed partial class RecipeBookSystem
 		{
 			Rebuild();
 		}
+		// The player's saved book state (its window size and place, which the field is drawn at, and the tabs' filters)
+		// is read when the book first opens: opened first, the field would stand at 100% in the middle.
+		RestorePendingPlayerUiState();
 		EnsureBestiary();
 		SetTyping(value: false);
 		ModMenu = (SortMenu = (StageMenu = (StationMenu = (TraitMenu = false))));
