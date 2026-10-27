@@ -866,9 +866,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return WrappedConditionWord(simple, text, holds, npc != null ? BookSteps.Npc(npc.type) : -1);
 		}
-		// Calamity's first-kill loot comes before the very boss that drops it (AddConditionalPerPlayer(() =>
-		// !NPC.downedAncientCultist, LorePrelude, ..., DropHelper.FirstKillText)): the book's words, "already past" once
-		// it is down; so does any text the probe places before a boss.
+		// Calamity's first-kill loot (AddConditionalPerPlayer(() => !NPC.downedAncientCultist, LorePrelude, ...,
+		// DropHelper.FirstKillText)): the book's words, "already past" once it no longer holds (Dreadnautilus's Blood Moon
+		// lore: !downedDreadnautilus, CalamityGlobalNPC.ModifyNPCLoot). One that tests the kill too fails on the blank
+		// sample (Astrum Deus's lore: !downedAstrumDeus and a worm it split into, AstrumDeusHead.ModifyNPCLoot
+		// firstDeusKill; the Eater of Worlds' segments: info.npc.boss): its boss's own flag says.
+		if (CalamityFirstKill(condition))
+		{
+			int own = npc != null ? BookSteps.Npc(npc.type) : -1;
+			bool kill = BookKillConditions.TestsNpc(condition);
+			if (!kill || own > 0)
+			{
+				return (kill ? !BookSteps.SafeDowned(BookSteps.All[own]) : holds) ? new LootWord(L("KillConditions.FirstKill")) : new LootWord(L("KillConditions.AlreadyPast", L("KillConditions.FirstKill")), Past: true, Now: false);
+			}
+		}
+		// Any other text the probe places before a boss: "already past" once it is down.
 		int before = BookProgressionSources.BeforeStep(condition);
 		if (before > 0)
 		{
@@ -880,6 +892,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return new LootWord(text, Now: BookKillConditions.MetOnKill(condition, npcNetId) == true ? true : null);
 		}
 		return new LootWord(text, Now: BookProgressionSources.FollowsProgression(condition) ? holds : null);
+	}
+
+	// Calamity's "first kill" text (DropHelper.FirstKillText, read once when Calamity loads, in that language).
+	private static string calamityFirstKill;
+
+	private static bool CalamityFirstKill(IItemDropRuleCondition condition)
+	{
+		calamityFirstKill ??= (ModLoader.TryGetMod("CalamityMod", out Mod calamity) ? calamity.Code.GetType("CalamityMod.DropHelper")?.GetField("FirstKillText")?.GetValue(null) as string : null) ?? "";
+		return calamityFirstKill.Length > 0 && condition.GetConditionDescription() == calamityFirstKill;
 	}
 
 	// Whether a drop condition holds now for a kill of the NPC (null: a container opened, Player.DropFromItem), asked as

@@ -93,6 +93,9 @@ patch for fixes, minor for features.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
+- Calamity's first-kill loot always reads "Only the first kill" in the book's language and folds into "already past"
+  once it no longer drops: Astrum Deus's lore items after Deus, Dreadnautilus's Blood Moon lore, the Brain of
+  Cthulhu's Corruption lore. Before, they showed Calamity's English text as this world's loot.
 - A drop that only follows another of the same item is part of its row: Abyssal and Sulphuric Treasure's Healing
   Potion reads "12.86% ×1–2" instead of "Varies by condition" (in Expert one more at 1/3 after the first).
 - Fishing rows show their gates again ("with Wulfrum Fishing Pole", "By day", "Hardmode", "In lava").
