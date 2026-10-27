@@ -35,9 +35,21 @@ public sealed class BookConfig : ModConfig
 	[DefaultValue(true)]
 	public bool InventoryAltRightClick = true;
 
+	// What Mouse3 on an item in a slot opens (RecipeBookSystem.OpenForInventoryItem).
+	[DefaultValue(BookItemClickAction.OpenInBook)]
+	[DrawTicks]
+	public BookItemClickAction ItemClickAction = BookItemClickAction.OpenInBook;
+
 	[Header("Movement")]
 	[DefaultValue(false)]
 	public bool DoubleTapDash;
 
 	public override ConfigScope Mode => ConfigScope.ClientSide;
+}
+
+// OpenInBook: the item's card in the book; QuickSearch: the quick search with the item's name, the item first.
+public enum BookItemClickAction
+{
+	OpenInBook,
+	QuickSearch
 }

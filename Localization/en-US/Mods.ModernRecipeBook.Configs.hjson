@@ -13,7 +13,16 @@ BookConfig: {
 
 	InventoryAltRightClick: {
 		Label: Middle-Click Item Search
-		Tooltip: Middle-click an item in any slot to open it in the book. Elsewhere Mouse3 opens the book.
+		Tooltip: Middle-click an item in any slot to look it up (see Middle-Click on an Item). Elsewhere Mouse3 opens the book.
+	}
+
+	ItemClickAction: {
+		Label: Middle-Click on an Item
+		Tooltip:
+			'''
+			Open in the Book: the item's card.
+			Quick Search: the quick search with the item's full name, the item first and selected, with its sources and actions.
+			'''
 	}
 
 	TrackerOpacityPercent: {
@@ -37,6 +46,20 @@ BookConfig: {
 		Label: Double-Tap Dash (Calamity)
 		Tooltip: Double-tap left or right to dash; Calamity's dash key keeps working.
 	}
+}
+
+BookItemClickAction: {
+	OpenInBook: {
+		Label: Open in the Book
+		Tooltip: The item's card in the book.
+	}
+
+	QuickSearch: {
+		Label: Quick Search
+		Tooltip: The quick search with the item's full name, the item first and selected.
+	}
+
+	Tooltip: What middle-clicking an item opens.
 }
 
 BookServerConfig: {
