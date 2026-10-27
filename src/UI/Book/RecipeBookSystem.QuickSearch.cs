@@ -17,7 +17,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace ModernRecipeBook.UI.Book;
 
-// Quick search: Ctrl+F anywhere (or the "Search Everything" key) opens one field over the game or the book that finds
+// Quick search: Ctrl+F with the inventory or the book open (or the "Search Everything" key anywhere) opens one field over the game or the book that finds
 // items, Bestiary entries, "Before: <boss>" stages, item and Bestiary categories, mods and tracked goals at once, grouped
 // by kind, and opens a pick where it lives, through the book's history (docs/quick-search.md). Items are found by their
 // names, then by what they are (a category, the buff they give, a trait, a class), then by their description; scopes
@@ -308,7 +308,9 @@ public sealed partial class RecipeBookSystem
 			RunQuickSearch();
 		}
 		KeyboardState keys = Keyboard.GetState();
-		bool pressed = BookHotkeys.QuickSearch(keys, QuickHotkeyKeys) || QuickRequested;
+		// Ctrl+F only with the inventory or the book open: in the world Ctrl is Smart Cursor, held while playing. The
+		// "Search Everything" key, bound by the player, opens it anywhere.
+		bool pressed = (BookHotkeys.QuickSearch(keys, QuickHotkeyKeys) && (Main.playerInventory || Open)) || QuickRequested;
 		QuickHotkeyKeys = keys;
 		QuickRequested = false;
 		if (pressed && QuickSearchAllowed())
