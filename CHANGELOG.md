@@ -3,6 +3,14 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.20.0 — 2026-10-27
+
+### Added
+- Setting **Resummon Minions After Death** (off by default): on respawn the minions you died with come back, the same
+  ones and as many, mixed sets included, without the staff in the inventory and without mana.
+- Setting **Keep Table Buffs After Death** (off by default): the Bewitching Table and War Table buffs come back on
+  respawn with the time they had left.
+
 ## 1.19.0 — 2026-10-27
 
 ### Added

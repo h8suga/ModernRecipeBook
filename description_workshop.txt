@@ -1,16 +1,17 @@
 [h1]Modern Recipe Book[/h1]
-[b]Version 1.19.0[/b] · tModLoader 2026.08 · Calamity 2.2.4 · Magic Storage 0.7.0.11 · [url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]what changed[/url]
+[b]Version 1.20.0[/b] · tModLoader 2026.08 · Calamity 2.2.4 · Magic Storage 0.7.0.11 · [url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]what changed[/url]
 
 A recipe book, bestiary and storage browser for every item and mob in Terraria and its mods. Press [b]Mouse3[/b] and the book opens over the game. Everything is read from the game and its mods, not from a wiki.
 
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/items.png[/img]
 
-[h2]New in 1.18[/h2]
+[h2]New since 1.18[/h2]
 [list]
 [*][b]Ctrl+F searches everything[/b] (with the inventory or the book open, or on a key of your own anywhere): items, storage, recipes, the Bestiary, bosses, goals, categories and mods, by name, by what a thing is ("buff", "wings") and by descriptions. Every row has Craft, Take, Track or Open one click away.
 [*][b]Everything is a link[/b]: every boss, mob, biome, item, mod and stage the book names opens where it lives; Back returns.
 [*][b]Contents[/b] of Treasure Bags, crates, presents and geodes; [b]chests[/b] in How to Get (299 items); drop conditions in plain words.
 [*]Coins go to the Piggy Bank first, right stages for crafted items, multiplayer storage fixes, Recent counts what you crafted.
+[*][b]After death[/b] (optional): the minions you died with come back on respawn without the staff or mana, and the Bewitching Table and War Table buffs are kept.
 [/list]
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/quick-search.png[/img]
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/contents.png[/img]
@@ -50,8 +51,8 @@ Terraria 1.4.4.9, tModLoader 2026.08.3.0. Calamity 2.2.4 and Magic Storage 0.7.0
 [url=https://github.com/h8suga/ModernRecipeBook]GitHub: source, every feature, screenshots[/url] · [url=https://github.com/h8suga/ModernRecipeBook/issues]bugs and ideas[/url]
 
 [h2]На русском[/h2]
-[b]Версия 1.19.0.[/b] Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском, открывается на Mouse3. Где взять любой предмет и после какого босса он доступен, крафт из сундуков, копилок и Magic Storage рядом (даже из удалённой сети), бестиарий с добычей и появлением, отслеживание целей, телепорт по карте и метки, полная поддержка Calamity и Magic Storage, мультиплеер.
-[b]Новое в 1.18:[/b] Ctrl+F ищет по всему сразу (по названию, по смыслу «баф», «крылья» и по описаниям) с кнопками «Создать» и «Взять»; каждое имя в книге — ссылка; содержимое мешков и ящиков; сундуки мира в «Где взять»; условия добычи понятными словами; монеты сначала в копилку. Подробности — [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]на GitHub[/url].
+[b]Версия 1.20.0.[/b] Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском, открывается на Mouse3. Где взять любой предмет и после какого босса он доступен, крафт из сундуков, копилок и Magic Storage рядом (даже из удалённой сети), бестиарий с добычей и появлением, отслеживание целей, телепорт по карте и метки, полная поддержка Calamity и Magic Storage, мультиплеер.
+[b]Новое с 1.18:[/b] по желанию после смерти возвращаются миньоны, с которыми ты умер (без посоха и маны), и баффы Колдовского стола и Стола войны; Ctrl+F ищет по всему сразу (по названию, по смыслу «баф», «крылья» и по описаниям) с кнопками «Создать» и «Взять»; каждое имя в книге — ссылка; содержимое мешков и ящиков; сундуки мира в «Где взять»; условия добычи понятными словами; монеты сначала в копилку. Подробности — [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]на GitHub[/url].
 
 [hr][/hr]
 Free software under the [url=https://github.com/h8suga/ModernRecipeBook/blob/main/LICENSE]GNU GPL v3.0[/url]. Made by h8suga; psychological1nstability laid the foundation of the mod.
