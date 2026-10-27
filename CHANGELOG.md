@@ -49,6 +49,12 @@ patch for fixes, minor for features.
 - In a drunk world the evil boss step reads "Eater of Worlds or Brain of Cthulhu", and both evils' loot counts as
   this world's.
 - The mob card no longer shows the previous world's loot after you enter a world of another difficulty.
+- Tracked goals that are already ready when you track them stay on screen; only a goal completed while tracked fades out,
+  2.6 s after completion, whether the book is open or not.
+- Tracker cards take the mouse only with the inventory open (a right-click aims minions through them), untrack with a
+  held right-click, start above the chat, and "+N more" opens the Tracking tab.
+- F1 lists every gesture where it works; Alt+U cycles Recipe / Used In / Contents; Russian set goals are named
+  («Святая броня») and the Russian texts use the game's and Magic Storage's terms.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
