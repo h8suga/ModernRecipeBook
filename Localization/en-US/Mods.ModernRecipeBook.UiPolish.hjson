@@ -1,0 +1,22 @@
+ClickMaterialsHoldRightUntrack: Click: materials · Hold right-click: untrack
+MoreOpenTracking: +{0} more · click: show all
+OpenTrackingWithAllMaterials: Open the Tracking tab: every material is there
+ArmorSetNameOf: "{0} Armor {1}"
+ArmorSetOf: Armor {0}
+ArmorSetFromPiece: "{0} + {1}"
+KeyCtrlShiftTab: Ctrl+Shift+Tab
+PreviousTab: Previous tab
+KeyMouseWheel: Mouse wheel
+ScrollUnderTheCursor: Scroll under the cursor
+SectionTRACKERCARDS: TRACKER CARDS · INVENTORY OPEN
+KeyLMBOnACard: LMB on a card
+ShowItsMaterials: Show its materials
+KeyDragTheTitle: Drag the title
+MoveTheCards: Move the cards
+KeyShiftLMBInGrid: Shift+LMB in grid
+KeyMenuArrowsEnter: ↑ ↓ · Enter
+MoveTickInAMenu: Move, tick in a menu
+KeyCtrlQ: Ctrl+Q
+KeyCtrlR: Ctrl+R
+KeyMouse3OnACell: Mouse3 on a cell
+OpenItsCard: Open its card

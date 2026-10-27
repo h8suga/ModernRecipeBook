@@ -46,8 +46,8 @@ FlightTimeUp: Время полёта: от короткого
 FlightTimeDown: Время полёта: от долгого
 HealLifeUp: Лечение: от меньшего
 HealLifeDown: Лечение: от большего
-HealManaUp: Мана: от меньшего
-HealManaDown: Мана: от большего
+HealManaUp: Мана: от меньшей
+HealManaDown: Мана: от большей
 BuffTimeUp: Длительность: от короткой
 BuffTimeDown: Длительность: от долгой
 PickPowerUp: Сила кирки: от меньшей

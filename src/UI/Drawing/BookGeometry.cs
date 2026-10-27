@@ -34,9 +34,10 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect AcquisitionList => new BookRect(AcquisitionPanel.X + 24f, AcquisitionPanel.Y + 92f, AcquisitionPanel.Width - 48f, 376f);
 
-	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 164f, 28f);
+	internal static BookRect TrackSingleAction => new BookRect(812f, 604f, 140f, 28f);
 
-	internal static BookRect TrackSetAction => new BookRect(984f, 604f, 112f, 28f);
+	// Wide enough for «Убрать комплект».
+	internal static BookRect TrackSetAction => new BookRect(960f, 604f, 136f, 28f);
 
 	internal static BookRect TrackAction => new BookRect(812f, 604f, 284f, 28f);
 
@@ -108,7 +109,8 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 
 	internal static BookRect Help => new BookRect(934f, 660f, 40f, 24f);
 
-	internal static BookRect HelpPanel => new BookRect(40f, 64f, 1040f, 568f);
+	// Nearly the whole frame: three columns of up to 16 rows, each action up to ~182 wide.
+	internal static BookRect HelpPanel => new BookRect(16f, 16f, 1088f, 664f);
 
 	internal static BookRect HelpClose => new BookRect(HelpPanel.X + HelpPanel.Width - 56f, HelpPanel.Y + 24f, 32f, 32f);
 

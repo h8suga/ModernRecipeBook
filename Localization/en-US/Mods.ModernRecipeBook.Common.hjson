@@ -68,9 +68,6 @@ UntrackAllThreePieces: Untrack all three pieces
 TrackAllThreePiecesAsOne: Track all three pieces as one goal
 TRACKING: TRACKING · {0}
 DragToMove: Drag to move
-ClickMaterialsRightClickUntrack: Click: materials · Right-click: untrack
-MoreCtrl: +{0} more · Ctrl+{1}
-ArmorSet: Armor set
 StartsOnItsOwnOrWith: Starts on its own or with a {0}
 StartsOnItsOwn: Starts on its own
 FromCalamitySEventTables: From Calamity's event tables
@@ -111,7 +108,7 @@ NotInThisMode: Not in this mode
 PreHardmode: Pre-Hardmode
 Hardmode: Hardmode
 PostMoonLord: Post-Moon Lord
-AllStages: All stages
+AllStages: All Stages
 Syncing: Syncing…
 ReadyToCraft: Ready to craft
 Ingredients: Ingredients: {0}/{1}
@@ -168,7 +165,6 @@ ClickAnItemInTheGrid: Click an item in the grid
 Taking: Taking…
 RefreshF5: Refresh · F5
 CtrlClickTrashAltClickFavorite: Ctrl+Click: trash · Alt+Click: favorite
-AllSources: All sources
 F1AllKeyboardShortcuts: F1 · All keyboard shortcuts
 DragToMoveTheWindow: Drag to move the window
 Categories: Categories
@@ -179,7 +175,7 @@ NameTextIDMod: Name, text, ID, mod
 ClearSearch: Clear search
 SearchCtrlF: Search · Ctrl+F
 NameMatchesFirstThenTheItem: Name matches first, then the item's text
-AllMods: All mods
+AllMods: All Mods
 FilterByMod: Filter by mod
 Newest: Newest
 RecentCraftsAreAlwaysNewestFirst: Recent crafts are always newest first
@@ -191,11 +187,11 @@ AltClickAnItemToAdd: Alt+Click an item to add it
 HiddenByTheTraitsFilter: Hidden by the traits filter
 UntickSomeTraitsUnderTraitsOn: Untick some traits under Traits on the left
 HiddenByTheClassFilter: Hidden by the class filter
-PickAllClassesAboveTheCategories: Pick All classes above the categories
+PickAllClassesAboveTheCategories: Pick All Classes above the categories
 NothingToCraftRightNow: Nothing to craft right now
 TurnOffCraftableToShowEverything: Turn off Craftable to show everything
 HiddenByTheStationFilter: Hidden by the station filter
-OpenTheStationFilterAndPick: Open the station filter and pick Show all
+OpenTheStationFilterAndPick: Open the station filter and pick Show All
 NothingFound: Nothing found
 CtrlBackspaceResetsFilters: Ctrl+Backspace resets filters
 NearbyContainersAreEmpty: Nearby containers are empty
@@ -224,7 +220,7 @@ AddToFavoritesAltF: Add to favorites · Alt+F
 Recipe2: Recipe
 OtherRecipesForThisItem: Other recipes for this item
 MoreOfThisRecipeMouseWheel: More of this recipe · Mouse wheel
-UsedIn: Used in
+UsedIn: Used In
 Back: Back
 WhatTheItemIsMadeOf: What the item is made of · Alt+U
 WhatYouCanMakeFromIt: What you can make from it · Alt+U

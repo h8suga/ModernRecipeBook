@@ -69,7 +69,7 @@ internal static class BookText
 	// Dev audit for the test stand: the counted texts at the numbers each language's plural rules tell apart.
 	internal static IEnumerable<string> PluralAudit()
 	{
-		string[] keys = new string[8] { "Crafting.InventoryFullFreeSlots", "Storage.CountChests", "Storage.CountLocked", "Storage.WithinTiles", "HowToGet.CountSources", "Stations.WithoutStations", "MobCard.CountPlayers", "Markers.MarkersAtMost" };
+		string[] keys = new string[13] { "Crafting.InventoryFullFreeSlots", "Storage.CountChests", "Storage.CountLocked", "Storage.CountInUse", "Storage.CountPassword", "Storage.CountBanks", "Storage.CountInactiveUnits", "Storage.StackedLocal", "Storage.WithinTiles", "HowToGet.CountSources", "Stations.WithoutStations", "MobCard.CountPlayers", "Markers.MarkersAtMost" };
 		return from key in keys
 			from n in new int[7] { 1, 2, 5, 11, 21, 22, 111 }
 			select key + " " + n + ": " + L(key, n);

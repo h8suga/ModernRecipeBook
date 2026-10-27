@@ -167,6 +167,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static float TrackerDragY;
 
+	// The card under a held right-click and how long it has been held (BookTrackerRules.UntrackHoldTicks untracks it).
+	private static TrackedGoal UntrackHeld;
+
+	private static int UntrackHeldTicks;
+
+	// Cards take the mouse only with the inventory open, like the game's own HUD toggles (info displays, builder
+	// accessories): in play the cursor aims at the world, and a summoner points minions with a right-click wherever
+	// the enemy is, cards included.
+	private static bool TrackerInteractive => Main.playerInventory;
+
 	private static float GraphicsOpacity = 1f;
 
 	private static int EnemyReadErrors;
@@ -1817,9 +1827,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			RefreshResourceTracker(notify: true);
 		}
-		else if (UpdateTrackerMaterials(goal))
+		else
 		{
-			SoundEngine.PlaySound(in SoundID.ResearchComplete);
+			// The first count only sets the goal's starting state (BookTrackerSignal): nothing chimes yet.
+			UpdateTrackerMaterials(goal);
 		}
 		return true;
 	}
@@ -1928,7 +1939,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		TrackedGoal[] array = TrackedGoals.ToArray();
 		foreach (TrackedGoal goal in array)
 		{
-			if (!Open && !TrackerDragging && goal.Dismiss.Tick())
+			// The fade counts from the completion, book open or not: closing the book never starts a removal.
+			if (!TrackerDragging && goal.Dismiss.Tick())
 			{
 				RemoveGoal(goal);
 			}
@@ -1960,11 +1972,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		goal.Ready = !goal.Unknown && BookTrackerRules.Ready(needs, goal.Counts, goal.Batches);
 		goal.Progress = AssessTrackedGoal(goal);
 		goal.Possible = (goal.Unknown ? 0 : BookBatchPlanner.MaxBatches(needs, goal.Counts, 9999));
-		if (ResourceTrackerStyle)
-		{
-			return false;
-		}
-		if (!goal.Signal.Update(goal.Ready))
+		// Only a goal that turns ready while tracked chimes and fades out 2.6 s later (the owner's rule); one ready when
+		// it was tracked stays until it is untracked. Counts not known yet decide nothing.
+		if (ResourceTrackerStyle || goal.Unknown || !goal.Signal.Update(goal.Ready))
 		{
 			return false;
 		}
@@ -2003,7 +2013,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool setTracked = TrackedGoals.Any((TrackedGoal g) => g.Key == SetGoalKey(parts));
 		if (setTracked)
 		{
-			Button(sb, BookGeometry.TrackSetAction, L("Common.UntrackSet"), active: true);
+			// «Убрать комплект» is a little wider than the button: it shrinks rather than cut.
+			Button(sb, BookGeometry.TrackSetAction, L("Common.UntrackSet"), active: true, fitWidth: true);
 		}
 		else if (full)
 		{
@@ -2122,8 +2133,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool rightClick = Main.mouseRight && !TrackerLastRight;
 		TrackerLastLeft = Main.mouseLeft;
 		TrackerLastRight = Main.mouseRight;
+		// Re-armed below only while the same card stays under the held button.
+		TrackedGoal held = UntrackHeld;
+		UntrackHeld = null;
 		// The compact style is not interactive, like the info accessory lines it sits under.
-		if (Open || TrackedGoals.Count == 0 || ResourceTrackerStyle || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
+		if (Open || TrackedGoals.Count == 0 || ResourceTrackerStyle || !TrackerInteractive || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
 		{
 			TrackerDragging = false;
 			return;
@@ -2168,14 +2182,41 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return;
 		}
 		TrackedGoal goal = TrackedGoals[index];
-		if (rightClick)
+		// Untrack takes a held right-click that fills the card's bar, so a stray click never loses a goal.
+		if (Main.mouseRight && (rightClick || held == goal))
 		{
-			RemoveGoal(goal);
+			UntrackHeld = goal;
+			UntrackHeldTicks = (held == goal) ? (UntrackHeldTicks + 1) : 1;
+			if (UntrackHeldTicks >= BookTrackerRules.UntrackHoldTicks)
+			{
+				RemoveGoal(goal);
+				UntrackHeld = null;
+				SoundEngine.PlaySound(in SoundID.Grab);
+			}
+		}
+		else if (click && index == TrackerActiveIndex && BookTrackerRules.OnMoreLine(y, index, TrackerActiveIndex, TrackerActiveMaterials))
+		{
+			OpenTrackingGoal(goal);
 		}
 		else if (click)
 		{
 			ActiveGoal = ((ActiveGoal == goal) ? null : goal);
 		}
+	}
+
+	// A card's "+N more" line: the book opens on Tracking with that goal selected, where every material is listed.
+	private static void OpenTrackingGoal(TrackedGoal goal)
+	{
+		if (!Open)
+		{
+			Toggle();
+		}
+		if (!TrackingView)
+		{
+			SwitchTab(5);
+		}
+		TrackingSelection = goal;
+		Page = TrackedGoals.IndexOf(goal) / BookGeometry.TrackingPageSize;
 	}
 
 	private static void PlayerInputLockTracker()
@@ -2199,7 +2240,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// Cards style: a compact list. The header "Tracking · n" drags the panel; a row shows crafts possible/wanted and
-	// a thin progress bar; click expands its materials (missing first), right-click untracks.
+	// a thin progress bar; with the inventory open, click expands its materials (missing first) and a held right-click
+	// untracks.
 	private static void DrawTracker(SpriteBatch sb)
 	{
 		if (TrackedGoals.Count == 0 || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
@@ -2228,7 +2270,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			float opacity = (float)Math.Clamp(ModContent.GetInstance<BookConfig>().TrackerOpacityPercent, 20, 100) / 100f;
 			GraphicsOpacity = opacity * ((TrackedGoals.Count == 1) ? (1f - TrackedGoals[0].Dismiss.Progress) : 1f);
 			Box(sb, 0f, 0f, width, TrackerPanelHeight, Panel, border: true, 10f, Border);
-			bool header = TrackerDragging || Hit(0f, 0f, width, BookTrackerRules.HeaderHeight);
+			bool interactive = TrackerInteractive;
+			bool header = TrackerDragging || (interactive && Hit(0f, 0f, width, BookTrackerRules.HeaderHeight));
 			FixedLabel(sb, L("Common.TRACKING", TrackedGoals.Count), 12f, 5f, header ? TextColor : Muted, 0.8f, width - 56f, 22f);
 			for (int line = 0; line < 3; line++)
 			{
@@ -2246,7 +2289,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				float block = BookTrackerRules.GoalHeight + (expanded ? BookTrackerRules.ExpandedHeight(goal.Materials.Count) : 0);
 				float fade = 1f - goal.Dismiss.Progress;
 				GraphicsOpacity = opacity * fade;
-				bool hover = !TrackerDragging && Hit(0f, top, width, block);
+				bool hover = interactive && !TrackerDragging && Hit(0f, top, width, block);
 				if (expanded || hover)
 				{
 					Box(sb, 4f, top + 2f, width - 8f, block - 4f, (expanded && !hover) ? Surface : Raised, border: false, 8f);
@@ -2257,13 +2300,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 				FixedLabel(sb, GoalTitle(goal), 48f, top + 5f, TextColor * fade, 0.88f, width - 48f - 12f - craftsWidth - 12f, 22f);
 				CenterLabel(sb, crafts, width - 12f - craftsWidth, top + 5f, craftsWidth, 22f, (goal.Ready ? EnoughColor : TextColor) * fade, 0.88f, rightAligned: true);
 				DrawProgressBar(sb, 48f, top + 31f, width - 48f - 12f, 4f, goal);
+				if (goal == UntrackHeld)
+				{
+					// The held right-click fills the bar red; full, the goal is gone.
+					Box(sb, 48f, top + 31f, Math.Max(4f, (width - 48f - 12f) * UntrackHeldTicks / BookTrackerRules.UntrackHoldTicks), 4f, MissingColor, border: false, 2f);
+				}
+				bool more = false;
 				if (expanded)
 				{
-					DrawGoalMaterials(sb, goal, top + BookTrackerRules.GoalHeight, fade);
+					more = DrawGoalMaterials(sb, goal, top + BookTrackerRules.GoalHeight, fade, hover && BookTrackerRules.OnMoreLine(Mouse.Y, i, active, activeMaterials));
 				}
-				if (hover)
+				if (hover && !more)
 				{
-					MouseTip(GoalTitle(goal) + "\n" + L("Common.ClickMaterialsRightClickUntrack"));
+					MouseTip(GoalTitle(goal) + "\n" + L("UiPolish.ClickMaterialsHoldRightUntrack"));
 				}
 			}
 		}
@@ -2276,11 +2325,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	private static void DrawGoalMaterials(SpriteBatch sb, TrackedGoal goal, float y, float fade)
+	// True when the mouse is on the "+N more" line, a link to the Tracking tab (it shows its own tip).
+	private static bool DrawGoalMaterials(SpriteBatch sb, TrackedGoal goal, float y, float fade, bool moreHovered)
 	{
 		if (goal.Progress.Length != goal.Materials.Count)
 		{
-			return;
+			return false;
 		}
 		float width = BookTrackerRules.PanelWidth;
 		int[] order = MissingFirst(goal.Progress);
@@ -2297,10 +2347,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 			FixedLabel(sb, MaterialName(material), 76f, itemY + 1f, (row.Met ? Muted : TextColor) * fade, 0.82f, width - 76f - 12f - ratioWidth - 12f, 22f);
 			CenterLabel(sb, ratio, width - 12f - ratioWidth, itemY + 1f, ratioWidth, 22f, ProgressColor(row) * fade, 0.82f, rightAligned: true);
 		}
-		if (more)
+		if (!more)
 		{
-			FixedLabel(sb, L("Common.MoreCtrl", order.Length - shown, TrackingTabNumber), 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, Muted * fade, 0.82f, width - 88f, 22f);
+			return false;
 		}
+		// The book's hotkeys work only while it is open, so the line is a link instead of naming Ctrl+6.
+		FixedLabel(sb, L("UiPolish.MoreOpenTracking", order.Length - shown), 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, (moreHovered ? Accent : Muted) * fade, 0.82f, width - 88f, 22f);
+		if (moreHovered)
+		{
+			MouseTip(L("UiPolish.OpenTrackingWithAllMaterials"));
+		}
+		return moreHovered;
 	}
 
 	// Width a count needs, so the name next to it gets the rest of the row.
@@ -2386,19 +2443,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return goal.Recipe.createItem.Name;
 		}
-		// "Molten Helmet / Molten Breastplate / Molten Greaves" reads "Molten Armor".
-		string[][] words = goal.Parts.Select((Item p) => p.Name.Split(' ')).ToArray();
-		int common = 0;
-		while (words.All((string[] w) => w.Length > common + 1 && w[common] == words[0][common]))
+		// "Molten Helmet / Molten Breastplate / Molten Greaves" reads "Molten Armor"; «Святой шлем / Святой нагрудник /
+		// Святые ботинки» reads «Святая броня», «Шлем туманности / …» «Броня туманности». Pieces with nothing in
+		// common are named by the shortest name, which fits the card best: «Ясеневый шлем + 2».
+		BookSetTitles.Words words = BookSetTitles.Find(goal.Parts.Select((Item p) => p.Name).ToArray(), GameCulture.FromCultureName(GameCulture.CultureName.Russian).IsActive);
+		if (words.Leading.Length > 0)
 		{
-			common++;
+			return (words.Trailing.Length > 0) ? L("UiPolish.ArmorSetNameOf", words.Leading, words.Trailing) : L("Common.ArmorSetName", words.Leading);
 		}
-		if (common == 0)
+		if (words.Trailing.Length > 0)
 		{
-			return L("Common.ArmorSet");
+			return L("UiPolish.ArmorSetOf", words.Trailing);
 		}
-		string prefix = string.Join(" ", words[0].Take(common));
-		return L("Common.ArmorSetName", prefix);
+		return L("UiPolish.ArmorSetFromPiece", goal.Parts.Select((Item p) => p.Name).MinBy((string n) => n.Length), goal.Parts.Length - 1);
 	}
 
 	private static BookResourceProgress[] AssessTrackedGoal(TrackedGoal goal)
@@ -2755,17 +2812,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 			counts[type2] = totalDemand;
 		}
 		ResourceTrackerRows = BookResourceTrackerRules.Assess(needs, counts, unknown, infinite);
-		if (!BookResourceTrackerRules.Ready(ResourceTrackerRows, TrackedGoals.Count > 0, TrackedGoals.All((TrackedGoal g) => !g.Unknown)))
+		if (unknown)
+		{
+			return;
+		}
+		// As with the cards: the lines fade out only when the last missing material comes in while tracked, never
+		// because everything was already there when a goal was added (BookTrackerSignal).
+		bool ready = BookResourceTrackerRules.Ready(ResourceTrackerRows, TrackedGoals.Count > 0, sourcesKnown: true);
+		if (!ready)
 		{
 			ResourceTrackerDismiss.Reset();
 		}
-		else if (notify)
+		if (ResourceTrackerSignal.Update(ready) && notify)
 		{
 			ResourceTrackerDismiss.Begin();
-			if (ResourceTrackerSignal.Update(ready: true))
-			{
-				SoundEngine.PlaySound(in SoundID.ResearchComplete);
-			}
+			SoundEngine.PlaySound(in SoundID.ResearchComplete);
 		}
 	}
 
@@ -2780,7 +2841,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			RefreshResourceTracker(notify: true);
 		}
-		if (!Open && !TrackerDragging && ResourceTrackerDismiss.Tick())
+		if (!TrackerDragging && ResourceTrackerDismiss.Tick())
 		{
 			StopTracker();
 		}
@@ -3070,7 +3131,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			FixedLabel(sb, TrackingStatus(goal), rect.X + 64f, rect.Y + 31f, goal.Ready ? EnoughColor : Muted, 0.8f, nameWidth, 18f);
 			DrawProgressBar(sb, barX, rect.Y + 26f, 140f, 4f, goal);
 			CenterLabel(sb, CraftsRatio(goal), countX, rect.Y + 7f, 80f, 24f, goal.Ready ? EnoughColor : TextColor, 1f, rightAligned: true);
-			CenterLabel(sb, L("Common.Crafts"), countX, rect.Y + 31f, 80f, 18f, Muted, 0.8f, rightAligned: true);
+			// Under the bar's line, so it may reach left of the count: «изготовлений» is wider than "crafts".
+			CenterLabel(sb, L("Common.Crafts"), countX - 40f, rect.Y + 31f, 120f, 18f, Muted, 0.8f, rightAligned: true);
 		}
 		if (TrackingGoalPages > 1)
 		{
@@ -3092,7 +3154,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		float titleSize = Math.Clamp((d.Width - 92f) / Math.Max(1f, Ink(title).Width * TextScale), 0.85f, 1.05f);
 		FixedLabel(sb, title, d.X + 76f, d.Y + 17f, TextColor, titleSize, d.Width - 92f, 26f);
 		FixedLabel(sb, TrackingOrigin(goal), d.X + 76f, d.Y + 45f, Muted, 0.8f, d.Width - 92f, 20f);
-		FixedLabel(sb, L("Common.Crafts2", CraftsRatio(goal)), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, 160f, 20f);
+		FixedLabel(sb, L("Common.Crafts2", CraftsRatio(goal)), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, d.Width - 32f, 20f);
 		DrawProgressBar(sb, d.X + 16f, d.Y + 102f, d.Width - 32f, 6f, goal);
 		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
 		goal.ResourcePage = Math.Clamp(goal.ResourcePage, 0, pages.Count - 1);
@@ -5245,8 +5307,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.ToggleUsedIn:
 			if (CardShown)
 			{
-				CardMode = (ShownCardMode == BookCardMode.UsedIn) ? BookCardMode.Recipe : BookCardMode.UsedIn;
+				// Steps through the switch the card shows: Recipe → Used in (→ Contents) → Recipe.
+				CardMode = (BookCardMode)(((int)ShownCardMode + 1) % CardModeLabels().Length);
 				DetailsPage = 0;
+				if (CardMode == BookCardMode.UsedIn && UsedInCraftableOnly)
+				{
+					BookCrafting.Refresh(force: true);
+				}
 			}
 			else if (CardMob != null)
 			{
@@ -5535,7 +5602,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		label = BookRules.PlainText(label).Replace("\n", " ").Replace("\r", " ");
 		if (fitWidth && Ink(label).Width > 0f)
 		{
-			size = Math.Min(size, width / (Ink(label).Width * TextScale));
+			// A hair under the exact fit: ink × (width / ink) can round above width, and the label would be cut after all.
+			size = Math.Min(size, width / (Ink(label).Width * TextScale) * 0.999f);
 		}
 		// Vertical placement and size come from shared reference glyphs, so labels in one row share a baseline
 		// whatever letters they contain ("Items" and "Recipes" used to sit at different heights).
@@ -6292,7 +6360,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Box(sb, row.X, row.Y + 8f, 3f, row.Height - 16f, Accent, border: false, 1f);
 			}
-			CenterLabel(sb, (j == 0) ? L("Common.AllSources") : ModName(mod), row.X + 12f, row.Y + 4f, row.Width - 20f, row.Height - 8f, selected ? Accent : TextColor, 0.95f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, (j == 0) ? L("Common.AllMods") : ModName(mod), row.X + 12f, row.Y + 4f, row.Width - 20f, row.Height - 8f, selected ? Accent : TextColor, 0.95f, rightAligned: false, leftAligned: true);
 		}
 		int rows = Mods.Count + 1;
 		if (rows > 9)
@@ -7452,7 +7520,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		CenterLabel(sb, label, rect.X + 6f, rect.Y, rect.Width - 12f, rect.Height, TextColor, 0.8f);
 	}
 
-	// F1 cheat sheet: two columns of sections, each row a keycap and what it does. Modal: nothing under it hints.
+	// F1 cheat sheet: three columns of sections, each row a keycap and what it does. Modal: nothing under it hints.
 	private static void DrawHelp(SpriteBatch sb)
 	{
 		PendingTip = null;

@@ -32,22 +32,22 @@ Favorite: В избранное
 KeyAltG: Alt+G
 HowToGet: Где взять
 KeyAltU: Alt+U
-RecipeUsedIn: Рецепт · применение
-MobLootStats: Добыча · параметры
+RecipeUsedIn: Рецепт → применение…
+MobLootStats: Моб: добыча, параметры
 KeyLMB: ЛКМ
 OpenAnIngredient: Открыть материал
 KeyShiftLMB: Shift+ЛКМ
-WhereItSUsed: Где используется
+WhereItSUsed: Открыть «Применение»
 KeyAltLMB: Alt+ЛКМ
 FavoriteInTheGrid: Избранное из сетки
 KeyMouse3: Mouse3
-LookUpItemOrMob: Предмет или моб
+LookUpItemOrMob: Найти предмет или моба
 KeyCtrlF: Ctrl+F
 Search: Поиск
 KeyCtrlBackspace: Ctrl+Backspace
-ResetFilters: Сбросить фильтры
+ResetFilters: Сброс поиска и фильтров
 KeyAlt15: Alt+1…5
-Stage5BeforeTheNextBoss: Этап · 5: до следующего босса
+Stage5BeforeTheNextBoss: Этап (5 — до босса)
 KeyClassButtons: Кнопки класса
 FilterByClass: Фильтр по классу
 KeyF5: F5
@@ -59,15 +59,13 @@ StackToInventory: Стопку в инвентарь
 KeyCtrlLMB: Ctrl+ЛКМ
 ToTheTrash: В корзину
 SelectedToInventory: Взять выбранное
-KeyCtrlQCtrlR: Ctrl+Q · Ctrl+R
-QuickStackRestock: Стак · пополнить
 KeyShiftLMBInInv: Shift+ЛКМ в инв.
 PutAStackIn: Сложить стопку
-KeyLMBHoldingItem: ЛКМ с предметом
+KeyLMBHoldingItem: ЛКМ мимо ячеек
 PutTheHeldItemIn: Сложить с курсора
 SectionMOVINGAROUND: НАВИГАЦИЯ
-SectionFULLMAPMOUSE3REBINDABLE: КАРТА · КОЛЁСИКО МЕНЯЕТСЯ
-SectionTHEITEMCARD: ПРЕДМЕТ В КАРТОЧКЕ
+SectionFULLMAPMOUSE3REBINDABLE: БОЛЬШАЯ КАРТА · КНОПКА НАСТРАИВАЕТСЯ
+SectionTHEITEMCARD: КАРТОЧКА ПРЕДМЕТА
 SectionFINDINGTHINGS: ПОИСК И ФИЛЬТРЫ
 SectionSTORAGE: ХРАНИЛИЩЕ
 KeyArrows: ← ↑ → ↓
