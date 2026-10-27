@@ -128,6 +128,12 @@ public sealed partial class RecipeBookSystem
 
 	private static bool QuickRequested;
 
+	// An item opened from a slot (BookConfig.ItemClickAction): its row and its group come first while the query is still
+	// the name it was opened with.
+	private static int QuickPinItem;
+
+	private static string QuickPinQuery = "";
+
 	private static bool QuickEverOpened;
 
 	private static KeyboardState QuickHotkeyKeys;
@@ -429,6 +435,25 @@ public sealed partial class RecipeBookSystem
 		QuickHitTerms = Array.Empty<string>();
 		RunQuickSearch();
 		QuickFrameMaxMs = (QuickSearchMaxMs = 0);
+	}
+
+	// Mouse3 on an item in a slot with the quick search chosen in the settings: the field opens with the item's full name,
+	// on All, the item first and selected, the name selected so typing replaces it.
+	internal static bool OpenQuickSearchForItem(int type)
+	{
+		if (!QuickSearchAllowed() && !QuickSearchOpen)
+		{
+			return false;
+		}
+		OpenQuickSearch();
+		string name = Lang.GetItemNameValue(type);
+		QuickPinItem = type;
+		QuickPinQuery = name;
+		QuickScopeShown = QuickScope.All;
+		QuickExpanded.Clear();
+		SetQuickQuery(name);
+		QuickAllSelected = true;
+		return true;
 	}
 
 	private static void CloseQuickSearch()
@@ -1186,6 +1211,21 @@ public sealed partial class RecipeBookSystem
 		QuickScopeCounts[(int)QuickScope.Bosses] = counts[(int)QuickGroup.Stages] + counts[(int)QuickGroup.Bosses];
 		QuickScopeCounts[(int)QuickScope.Tracking] = goals.Count;
 		QuickScopeCounts[(int)QuickScope.Categories] = counts[(int)QuickGroup.ItemCategories] + counts[(int)QuickGroup.MobCategories];
+		// The item opened from a slot leads its group, and its group leads (QuickPinItem).
+		int pin = (QuickPinItem > 0 && QuickPinItem < QuickItemEntry.Length && QuickQuery == QuickPinQuery) ? QuickItemEntry[QuickPinItem] : (-1);
+		List<(int Position, int Rank, int Weight)> pinned = found[(int)QuickGroup.Items];
+		int pinAt = (pin >= 0) ? pinned.FindIndex(((int Position, int Rank, int Weight) x) => x.Position == pin) : (-1);
+		if (pin >= 0 && pinAt < 0 && QuickStamp[pin] == QuickPass && QuickScopeLists(scope, QuickGroup.Items))
+		{
+			pinned.Insert(0, (pin, QuickRank[pin], QuickWeight(QuickIndex[pin])));
+		}
+		else if (pinAt > 0)
+		{
+			(int, int, int) hit = pinned[pinAt];
+			pinned.RemoveAt(pinAt);
+			pinned.Insert(0, hit);
+		}
+		pin = (pinned.Count > 0 && pinned[0].Position == pin) ? pin : (-1);
 		// One group alone (a scope of one kind) needs no header: the chip names it.
 		int listed = Enumerable.Range(0, groupCount).Count((int g) => found[g].Count > 0 || (g == (int)QuickGroup.Goals && goals.Count > 0 && QuickScopeLists(scope, QuickGroup.Goals)));
 		bool headers = scope == QuickScope.All || listed > 1;
@@ -1193,7 +1233,7 @@ public sealed partial class RecipeBookSystem
 		// (its trophy, mask, lore item: "astrum deus" means the boss); goals (the player's own) after Items.
 		foreach (int g in from g in Enumerable.Range(0, groupCount)
 			where found[g].Count > 0
-			orderby found[g][0].Rank descending, (g == (int)QuickGroup.Mobs && QuickIndex[found[g][0].Position] is { Kind: QuickKind.Mob } top && BookBestiary.Mobs[top.Id].Kind == BookMobKind.Boss) ? -1 : g
+			orderby (pin >= 0 && g == (int)QuickGroup.Items) ? 0 : 1, found[g][0].Rank descending, (g == (int)QuickGroup.Mobs && QuickIndex[found[g][0].Position] is { Kind: QuickKind.Mob } top && BookBestiary.Mobs[top.Id].Kind == BookMobKind.Boss) ? -1 : g
 			select g)
 		{
 			QuickGroup group = (QuickGroup)g;

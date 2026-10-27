@@ -4457,6 +4457,12 @@ public sealed partial class RecipeBookSystem : ModSystem
 			SyncInputEdges();
 			return true;
 		}
+		// The setting's other choice: the quick search with the item's name, the item first (a press from over the book
+		// stays the book's).
+		if (ModContent.GetInstance<BookConfig>().ItemClickAction == BookItemClickAction.QuickSearch && !(Open && MouseOver))
+		{
+			return OpenQuickSearchForItem(type);
+		}
 		SetTyping(value: false);
 		ModMenu = (StationMenu = (HelpOpen = false));
 		CloseAcquisition();

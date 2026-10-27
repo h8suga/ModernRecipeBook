@@ -3,6 +3,13 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.19.0 — 2026-10-27
+
+### Added
+- Setting **Middle-Click on an Item**: Mouse3 on an item in a slot opens its card in the book (as before) or the quick
+  search with the item's full name, the item first and selected, with its sources and actions; typing another query
+  ranks as usual.
+
 ## 1.18.2 — 2026-10-27
 
 ### Fixed

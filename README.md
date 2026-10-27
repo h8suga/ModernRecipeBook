@@ -7,7 +7,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.18.2-4c8f5a" alt="Version 1.18.2">
+<img src="https://img.shields.io/badge/version-1.19.0-4c8f5a" alt="Version 1.19.0">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
@@ -513,7 +513,8 @@ Mod Configuration → **Recipe Book** (yours) and **Recipe Book: Server** (the h
 |---|---|---|
 | Window Size | 90% | Shrinks the book to fit small screens |
 | Text Size | 100% | Text only, not the window |
-| Middle-Click Item Search | on | Mouse3 on an item in any slot opens it in the book |
+| Middle-Click Item Search | on | Mouse3 on an item in any slot looks it up |
+| Middle-Click on an Item | Open in the Book | Open in the Book: its card; Quick Search: the quick search with its full name, the item first and selected |
 | Tracking Cards Opacity / Size | 90% / 100% | The tracking overlay's panel |
 | Tracking Overlay: Compact Lines | off | Material lines under the minimap instead of cards |
 | Double-Tap Dash (Calamity) | off | Double-tap left or right to dash |
