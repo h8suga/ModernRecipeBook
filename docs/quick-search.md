@@ -1,8 +1,13 @@
-# Quick search (branch `feature/quick-search`)
+# Quick search (branches `feature/quick-search`, `feature/quick-search-redesign`)
 
 Owner: "make a fast search: press e.g. Ctrl+F and search an item right away", then: a separate, full search over everything
-the book knows, like a site's search box. Code: `RecipeBookSystem.QuickSearch.cs`, `BookQuickRank`, `BookEnglishNames`,
-`BookMobCategoryPath`; the keys in `BookHotkeys.QuickSearch` and `BookPlayer` (`GuardHeldKeys`, `RestoreSmartCursor`).
+the book knows, like a site's search box. After the first version: "it doesn't look modern; rework the search window", plus
+descriptions, concepts ("баф" lists the buff potions), every tab's data, and one-click actions on each result.
+
+Code: `RecipeBookSystem.QuickSearch.cs` (index, ranking, scopes, keys, opening), `RecipeBookSystem.QuickPalette.cs` (drawing),
+`RecipeBookSystem.QuickActions.cs` (actions, the ">" commands), `BookQuickRank`, `BookEnglishNames`, `BookMobCategoryPath`;
+the keys in `BookHotkeys.QuickSearch` and `BookPlayer` (`GuardHeldKeys`, `RestoreSmartCursor`). Texts:
+`Mods.ModernRecipeBook.QuickSearch` and `.QuickSearchDesign`.
 
 ## Opening
 
@@ -18,93 +23,153 @@ the book knows, like a site's search box. Code: `RecipeBookSystem.QuickSearch.cs
 ## Keys never reach the game
 
 - **Smart Cursor:** vanilla toggles it as Ctrl goes down (`Player.TryToToggleSmartCursor`), before F is pressed. Ctrl+F
-  puts it back to what it was before Ctrl went down, and Ctrl then stays away from the game until let go, so its release
-  toggles nothing. Ctrl alone and Ctrl with any other key outside the book stay vanilla.
+  puts it back to what it was before Ctrl went down, and Ctrl then stays away from the game until let go.
 - **Everything held while the popup is open**, and what is still held when it closes (the Esc or Enter that closed it,
   the clicking mouse button), reaches no game control until let go: no thrown item, no hotbar switch, no inventory on
   Esc or Tab, no swing on the click that closed it. The Enter that opens a pick does not open the chat (`chatRelease`).
-- **The same rule now guards the book's own chords** (scout H1, H2): a key pressed while the book holds the keyboard
-  (Ctrl or Alt down, a menu, the search field, How to Get) and a key the book acted on (F1, the page keys) is blocked by
-  key, not by trigger name, so a mod's keybind is blocked too. Every binding is a trigger of one set
-  (`TriggersSet.KeyStatus`, mods' as "Mod/Name"). With the owner's bindings: Ctrl+Tab switches the tab and no longer
-  closes the book through Inventory on Tab; Alt+F no longer dashes through Calamity's F, Alt+T no longer flips gravity
-  through its T. The book's own keybinds stay usable. This replaces the digit-with-modifier and F1 special cases.
-- The game reads the keyboard an update late (`PlayerInput.GetPressedKeys` reads `Main.keyState`), so a key counts as
-  held while either the live keyboard or the game's shows it.
+- The same rule guards the book's own chords (a key pressed while the book holds the keyboard is blocked by key, not by
+  trigger name, so a mod's keybind is blocked too).
+
+## The window
+
+A command palette in the book's panels (Raycast, Spotlight, Linear's Ctrl+K were the references), 1040 × 632 book units:
+
+- **Field:** borderless, the query at 1.12, a larger magnifier, the scope as a chip at its start (Backspace in the empty
+  field takes it off), "38 results" (the scope's count) and clear on the right. While English names are read it says so.
+- **Scope chips:** All · Items · Storage · Recipes · Bestiary · Bosses · Tracking · Categories, each with its count; an
+  empty one hides (All and the one in use stay). Tab / Shift+Tab or a click; the pill glides to the new chip.
+- **Results (left):** light group headers (sentence case, the count dimmer), rows of 42 units: icon, the name with the
+  typed words in mint (`BookQuickRank.Marks`: a term's first word-start, its stem's, else anywhere), then why it is listed
+  (the English name, "ID 1234", the internal name, "gives Ironskin", "in Potions › Buff potions") or its category path
+  (each step a link). A description match takes two lines: the name, then the line that matched. The selected row gets a
+  fill and an accent bar; the bar glides to the next row in about 60 ms (critically damped, no overshoot).
+- **Linked rows** hang under their match with an elbow: the relation muted, the name it points to brighter, the
+  localized phrase whole ("Dropped by {0}" / «Падает с: {0}»: only its parts change colour).
+- **Kind badges** (Item, Mob, Boss, Stage, Category, Mod) moved off the rows (the group header says it) to the preview,
+  and to the rows of the one mixed group (Opened recently).
+- **Preview (right):** the selected result in an inset card: a big icon, its name, kind, category path, mod and stage;
+  what the player has ("You have 120", where: "Inventory: 2 · Magic Storage: 15"), "Can craft ×5", "Tracked · 40%",
+  a favorite; the description (set bonus included) with the typed words marked; How to Get's first rows (the recipe's
+  station, then the sources with their chance) or a mob's numbers, flavor text and loot; a category's first members as
+  icons; a stage's boss numbers and loot. Below, every action as a button with its key. Sources and loot are read once
+  the selection rests (8 updates), as the links are; a quiet placeholder of their shape stands in until then.
+- **Footer:** the keys for the selected row, and what the last action said ("Crafted: Torch") or "> commands".
+- **States:** the empty field lists tracked goals, picks from this session, recent crafts and mobs seen, then what the
+  field searches. Nothing found: the tabs' own searches (they read item texts), "Search everything" when a scope hid the
+  rest, the query and a hint; the preview explains the four ways to search.
+- **Motion:** the panel comes in with the backdrop as the book's modals do (150 ms, ease-out, from 98 %); over the game
+  the same curve. The selection and the scope pill glide; nothing else moves, and closing is instant (it is opened tens
+  of times a play session).
 
 ## What it finds
 
-One index per language and world (`EnsureQuickIndex`, 25-47 ms with Calamity, about 9,200 entries, built on the first
-open):
+One index per language and world (`EnsureQuickIndex`, 21-28 ms with Calamity, 9191 entries and 450 concepts, built on the
+first open):
 
 | Group | Entries | Matched on | Opens |
 |---|---|---|---|
-| Items | every catalogue item | name, English name, internal name (as words), ID, mod | its card on Items (selected in the grid when the filters show it, else in the card) |
-| Bestiary | every entry | name, English name, internal name, net ID, mod | its card on the Bestiary tab |
-| Before a boss | every boss step | boss name, English name, its parts' names ("Ares" finds the Exo Mechs) | the stage filter "Before: X" (Storage and Tracking switch to Items) |
-| Item categories | the sidebar's | label, key ("potions" works in Russian) | Items on that category |
+| Items | every catalogue item | name, English name, internal name (as words), ID, mod; what it is; its description | its card on Items |
+| Bestiary | every entry | name, English name, internal name, net ID, mod; its category; its flavor text | its card on the Bestiary tab |
+| Before a boss | every boss step | boss name, English name, its parts' names ("Ares" finds the Exo Mechs) | the stage filter "Before: X" |
+| Item categories | the sidebar's | label, English label, key, short forms ("buff", «баф») | Items on that category |
 | Bestiary categories | kinds, events, biomes | label, English label | the Bestiary on that category |
 | Mods | mods with items or mobs | name | Items (or the Bestiary) with that mod's filter |
+| Tracking | tracked goals | the goal's item or set | the Tracking tab on that goal |
 
-- **English names** while the game runs in another language: the game keeps only one language's texts, so
-  `BookEnglishNames` reads the English ones again from vanilla's embedded `en_US` json and every mod's `en-US` hjson.
-  The files are read in 2 ms slices on the main thread (15 ms in all with Calamity), parsed on a worker: 11,798 names.
-  A row found by its English name shows it: "Террапризма · Terraprisma".
-- **Ranking** (`BookQuickRank.Score`): exact > prefix > word-prefix > contains, each one step higher when a name matched
-  rather than an internal name, ID or mod. Every term must match somewhere; a Russian word also starts a word
-  without its last vowel or two (`BookQuickRank.Stem`: "лунный лорд" finds «Тело лунного лорда»). Equal matches: the weight (how many recipes
-  make or use the item; a met mob, a boss; the next boss, then bosses still alive; a bigger category), then the shorter
-  name. Groups are ordered by their best match, the table's order on a tie.
-- **Caps:** Items 5, Bestiary 4, the others 3 (Mods 2). Items and Bestiary end with "All N on the tab" (the tab's own
-  search, which also reads item texts, its other filters cleared as Ctrl+Backspace clears them); the others expand in
-  place.
-- **Nothing found:** "Search item descriptions on the Items tab", which runs the book's own search (it reads tooltips).
-- **Empty field:** picks from this session, the latest crafts, the mobs seen last.
+- **What an item is (concepts, `EnsureQuickConcepts`):** a query that names a concept strongly (every term starts a word
+  of it) lists its members:
+  - an item or Bestiary category (the sidebar's own lists, with short forms in both languages: `QuickSynonyms`, e.g.
+    "buff, buffs" / «баф, бафф, бафы»), the reason "in Potions › Buff potions" (`BookCategoryPath.Path`);
+  - the buff an item gives (`Item.buffType`'s name, and the English one), and the stations vanilla gives a buff for a
+    right click (`Player.TileInteractionsUse`: Crystal Ball, Slice of Cake, War Table, Sharpening Station, Bewitching
+    Table, Ammo Box): "Clairvoyance" finds the Crystal Ball, "gives Clairvoyance";
+  - a trait (`BookItemTraits`: homing, pierces, auto attack, minion, sentry...) and a class (`BookItemClasses`).
+  The concepts follow the traits (read after the world loads) and the English labels, a few ms, never the whole index.
+- **Descriptions:** three letters or more also read the Items tab's own text cache (`ItemDescriptions`, now an `ItemText`
+  record per type: the description as searched and as shown, the armor piece's set bonus, the item's own English text
+  in another language) and each Bestiary entry's flavor text (`FlavorTextBestiaryInfoElement`'s key). Every term must
+  start a word of it (its stem may): "rage" finds "the rage meter", not "storage". A Latin query in another language
+  reads the English text too. The cache is built in 2 ms slices while the book or the quick search is open; the quick
+  search runs again when it is done. Calamity's buff tags ([cbuffplr:Frostburn]) read as the buff's name, as the game
+  draws them (`ResolveTags`).
+- **English names** while the game runs in another language: `BookEnglishNames` reads vanilla's embedded `en_US` json
+  (items, NPCs, buffs, Bestiary tags) and every mod's `en-US` hjson (display names, and the book's own category, class,
+  trait and command labels).
+- **Ranking:** a strong name match (a name's words start with the query, or better; an ID, an internal name, the mod)
+  first, then what an item is (a concept), then a name that only contains the query, then the description; within a
+  tier `BookQuickRank.Score` (exact > prefix > word-prefix > contains, a name above an internal name), then the weight
+  (how many recipes use the item, a met mob, a boss), a little for a recent craft or sighting and for an item this world
+  can get before its next boss, then the shorter name. Groups are ordered by their best match.
+- **Russian stems:** up to two final vowels go while three letters stay; a word ending in ь loses it while four letters
+  stay ("ярость" finds «ярости»).
+- **Caps:** All shows Items 5, Bestiary 4, the others 3 (Mods 2); a scope lists 60, then "All N on the tab" (the tab's own
+  search). Categories, stages and mods expand in place.
 
-## Linked rows
+## Every tab in the search
 
-Under a strong match (a name's words start with the query, or better; a Russian word's ending may differ), the book's
-own links:
+- **Storage:** an item the player has (inventory, nearby chests, banks, Magic Storage: `BookSources.Quantity`) shows
+  "×120" on its row (the tooltip and the preview say where); the Storage scope lists them; Enter there opens the Storage
+  tab with its biggest stack selected. Elsewhere Enter opens the item's card on Items, as before: the scope says which
+  tab, and the footer names it ("Enter Open on Storage").
+- **Recipes:** an item that can be crafted now (the card's own logic: `BookCrafting.IsAvailable`, nearby storage and the
+  Crafting Interface stations included) shows "Can craft ×N" and its row button crafts; the Recipes scope lists the
+  items with a recipe, and Enter there opens the Recipes tab on it, with Craft.
+- **Tracking:** goals whose item matches list with their progress bar; Enter opens the Tracking tab on the goal.
+- **Recent:** the empty field lists recent crafts and sightings; they rank a little higher.
+- The per-item counts and craftable recipes are cached by `BookSources.Version`, `ItemsVersion` and
+  `BookCrafting.AvailabilityVersion`; when any of them changes (a craft, a take, a scan) the same query is ranked again
+  with the selection kept.
 
-- **An item** (the first two): How to Get's own rows (`SourceEntries`, the Treasure Bag rule included): the bosses that
-  drop it, the containers it is found in, other mobs; at most 3, then "All ways to get it: N · How to Get". Another
-  world's rows are left to How to Get. Terraprisma → "Dropped by Empress of Light"; Kaleidoscope → the Empress and her
-  Treasure Bag.
-- **A mob** (the first): its card's own loot (its rules, the bag's in Expert): this world's drops, the rarest first, a
-  material after the weapons and accessories of its rarity; at most 3, then "All loot: N · mob card".
-- Links are read once the query rests (8 updates), one match per update: reading a match's sources the first time
-  probes conditions and took up to 37 ms; "w", "wo", "woo" need none of them.
+## Actions
 
-## Rows
+Every action runs the book's own code and gives its feedback (the card's `BookCrafting.TryCraft` and its message, Storage's
+`TakeToInventory` / `TakeOne` and their sound, Deposit All's rules, `ToggleTrack`, `ToggleFavorite`, the stage filter,
+How to Get). The ones that show something open the book there, through its history; the others stay in the field.
 
-- Icon, name, why it matched when not by name (English name, "ID 1234", internal name), then where it sits: an item's
-  path as its card names it (`BookCategoryPath`: "Weapons › Whips"), a mob's kind and biome (`BookMobCategoryPath`:
-  "Enemies · Forest", an event only when no biome lists it). Each step of the path is a link to that category.
-- A badge on the right says what the row is and where it opens: Item, Mob, Boss, Stage, Category, Mod.
-- Linked rows hang under their match with an elbow, smaller and muted.
+- **One click on each row:** the row's own button at its right end, picked the same way everywhere: an item that can be
+  crafted now → **Craft ×1** (Shift+click: the most), one nearby storage holds → **Take** (a stack; right click: one), one
+  with a recipe → **Track** / **Untrack**, everything else → **Open** (shown only on the row in hand: a click on the row
+  opens it already). The row's other actions appear as small buttons while it is hovered (Track, Favorite, How to Get,
+  Used in; a mob's Stats and Favorite; a goal's Untrack and How to Get). A click on the row's body opens it.
+- **The preview** lists them all: Open, Craft ×1, Craft ×Max, Take, Deposit (its stacks from slots 10-49, as Deposit All
+  takes them), Track / Track Set (armor), Favorite, How to Get, Used in, Contents (containers), "Before: <boss>" (the
+  stage that first lists it), Link in chat (`ItemTagHandler.GenerateTag`); for a mob Open card, Stats, Favorite,
+  "Before: <this boss>", and the boss's summon item's Craft / How to Get / Track (`BookBossInfo`: Boss Checklist, else
+  Calamity's registrations).
+- **Keys are the card's:** Ctrl+Enter the row's action (craft as in the card; take as on Storage for an item that cannot
+  be crafted now), Ctrl+Shift+Enter craft the most, Alt+T track, Alt+F favorite, Alt+G How to Get, Alt+U Used in (a mob's
+  stats), Shift+Enter Used in (as Shift+click in the grid). Ctrl+Enter used to open How to Get here; that is Alt+G now,
+  as on the card.
+- **Commands (">"):** Deposit All, Quick Stack, Restock (the Storage tab's buttons), Refresh (F5), Clear filters
+  (Ctrl+Backspace), Open <tab> (Ctrl+1..6), Switch tracker style (the config's compact lines, saved), Help, Settings (the
+  mod's config page), Untrack all (Enter twice, as the Tracking tab asks). Five more for a player working toward a boss:
+  Before the next boss (Alt+5's stage filter: what can be had for the fight), Next boss's card (its loot, life and
+  summon), Craftable now (Items with the Craftable filter), Favorites, Summoner items (the class filter).
 
 ## Keys in the popup
 
 | Key | Does |
 |---|---|
 | ↑ ↓, PgUp PgDn | Select (across groups and linked rows; held keys repeat) |
-| Enter | Open the selected row |
-| Shift+Enter | An item on its Used in list (as Shift+Click in the grid) |
-| Ctrl+Enter | An item's How to Get (the card behind it, so Back returns to the card) |
-| Esc | Close; the query stays and comes back selected, so typing replaces it (the book's Esc closes the top layer, never clears a field) |
-| Ctrl+A, Backspace | Select the query; clear it |
+| Tab, Shift+Tab | The next or previous scope chip |
+| Enter | Open the selected row (on the scope's tab) |
+| Ctrl+Enter, Ctrl+Shift+Enter | The row's action (craft or take), craft the most |
+| Alt+T, Alt+F, Alt+G, Alt+U | Track, favorite, How to Get, Used in (a mob's stats) |
+| Shift+Enter | An item on its Used in list |
+| Esc | Close; the query and the scope stay and come back selected |
+| Ctrl+A, Backspace | Select the query; clear it; in the empty field, take the scope off |
 
-The mouse: hover selects, a click opens, the wheel scrolls, a click outside closes. Every pick goes through the book's
-history: Back returns to where the book was.
+The mouse: hover selects, a click opens, a row's buttons act, the wheel scrolls, a click outside closes.
 
 ## Cost (stand, Calamity, Russian names loaded)
 
-- Ranking a keystroke: 0.7-2.6 ms (single letters match thousands; only the shown rows are kept in order).
-- The slowest popup frame while typing from a cold start: 12 ms (the first rows' new strings); typing "moon lord" after
-  that: 2.6 ms. Links after the pause: 11-13 ms once.
-- Before the fixes the first query's frames took 52-93 ms: `BookCategoryPath` counting a category the first time an
-  item in it asks (now warmed in 2 ms slices while the popup is open), the world's tile sources (read on the update after
-  the popup opens) and vanilla textures loaded on the frame that asks (now requested in the background, the icon shows a
-  frame later).
-- Stand probes: `c call p=ModernRecipeBook.UI.Book.RecipeBookSystem.QuickSearchCost a=<query>`, `QuickFrameMaxMs`,
-  `QuickSearchMaxMs`; `c call p=ModernRecipeBook.Catalogue.Search.BookQuickRank.SelfCheck`.
+- Ranking a keystroke: 0.7-1.4 ms; the slowest passes are a single letter (a full scan, 2.2-2.5 ms) and the third letter
+  (descriptions join, a full scan once, about 2.3 ms). Typing on narrows the last pass's matches (`QuickExtends`): the
+  same terms with the last one longer, or one more.
+- A popup frame while typing for real (`stand.ps1 type`): 1.2-1.9 ms at most, ranking included; idle 0.3-0.5 ms.
+- Links and the preview's sources after the pause: read once per match, as before (11-13 ms the first time in a world).
+- The text cache with set bonuses and English texts: 48 slices of 2 ms after the first open (the descriptions alone took
+  72 ms, about 36 slices); the slowest single tooltip (Apoctolith, 2.2 ms) bounds a slice's overrun, as before.
+- Stand probes: `c call p=ModernRecipeBook.UI.Book.RecipeBookSystem.QuickSearchCost a=<query> a=<scope>`,
+  `QuickTypingCost a=<query>`, `QuickFrameMaxMs`, `QuickSearchMaxMs`;
+  `c call p=ModernRecipeBook.Catalogue.Search.BookQuickRank.SelfCheck`.

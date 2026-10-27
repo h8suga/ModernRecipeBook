@@ -746,8 +746,7 @@ internal static class BookItemTraits
 		string own = null;
 		if (other && english != null)
 		{
-			string key = (sample.ModItem != null) ? sample.ModItem.Tooltip.Key : ("ItemTooltip." + ItemID.Search.GetName(type));
-			english.TryGetValue(key, out own);
+			english.TryGetValue(EnglishKey(sample), out own);
 		}
 		bool ownInEnglish = own != null && !Placeholder.IsMatch(own);
 		// What the game shows (a tooltip line may hold several lines: Calamity joins its own), and what mods add to it.
@@ -760,6 +759,22 @@ internal static class BookItemTraits
 		{
 			Apply(type, own.Split('\n').ToList(), Source.EnglishDescription);
 		}
+	}
+
+	private static string EnglishKey(Item sample)
+	{
+		return (sample.ModItem != null) ? sample.ModItem.Tooltip.Key : ("ItemTooltip." + ItemID.Search.GetName(sample.type));
+	}
+
+	// The item's own description in English while the game runs in another language (the quick search matches a Latin
+	// query against it); null in English, before it is read, or when it is only placeholders.
+	internal static string EnglishTooltip(Item sample)
+	{
+		if (english == null || Language.ActiveCulture.Name.StartsWith("en", StringComparison.Ordinal) || !english.TryGetValue(EnglishKey(sample), out string own))
+		{
+			return null;
+		}
+		return Placeholder.IsMatch(own) ? null : own;
 	}
 
 	private static readonly Regex Placeholder = new Regex("\\[[A-Z][A-Z0-9_]*\\]", RegexOptions.CultureInvariant);

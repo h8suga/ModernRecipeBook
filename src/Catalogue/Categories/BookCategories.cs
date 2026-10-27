@@ -220,7 +220,7 @@ internal static class BookCategories
 		return categories;
 		void Add(string key, string label, int icon, Func<Item, bool> match)
 		{
-			categories.Add(new BookCategory(key, () => L("Categories." + label), icon, match));
+			categories.Add(new BookCategory(key, () => L("Categories." + label), icon, match, KeyOf("Categories." + label)));
 		}
 	}
 }

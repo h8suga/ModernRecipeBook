@@ -15,7 +15,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace ModernRecipeBook.Catalogue.Search;
 
-// The English names of items, NPCs and Bestiary tags while the game runs in another language, so the quick search
+// The English names of items, NPCs, buffs and Bestiary tags (and the book's own category, class and trait labels) while the game runs in another language, so the quick search
 // finds "Terraprisma" for a Russian player. The game keeps only the active language's texts (LanguageManager loads
 // English, then overwrites it), so English is read again from where the game reads it: vanilla's embedded
 // Terraria.Localization.Content.en_US.*.json (LanguageManager.GetLanguageFilesForCulture) and every mod's en-US .hjson
@@ -25,8 +25,11 @@ internal static class BookEnglishNames
 {
 	private const int SliceMs = 2;
 
-	// Vanilla categories the search names things from.
-	private static readonly string[] VanillaCategories = { "ItemName", "NPCName", "Bestiary_Biomes", "Bestiary_Events", "Bestiary_Invasions" };
+	// Vanilla categories the search names things from (buffs: an item is found by the buff it gives).
+	private static readonly string[] VanillaCategories = { "ItemName", "NPCName", "BuffName", "Bestiary_Biomes", "Bestiary_Events", "Bestiary_Invasions" };
+
+	// The book's own labels the quick search matches concepts by: item and Bestiary categories, classes, traits.
+	private static readonly string[] OwnLabels = { KeyOf("Categories."), KeyOf("BestiaryCategories."), KeyOf("Classes."), KeyOf("Traits.") + "Name", KeyOf("QuickSearchDesign.") + "Command" };
 
 	private static Dictionary<string, string> texts;
 
@@ -172,7 +175,7 @@ internal static class BookEnglishNames
 					Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name);
 				}
 			}
-			else if (token is JValue { Type: JTokenType.String } value && path.EndsWith(".DisplayName", StringComparison.Ordinal))
+			else if (token is JValue { Type: JTokenType.String } value && (path.EndsWith(".DisplayName", StringComparison.Ordinal) || OwnLabels.Any((string own) => path.StartsWith(own, StringComparison.Ordinal))))
 			{
 				found[path.Replace(".$parentVal", "")] = (string)value;
 			}

@@ -1,8 +1,5 @@
-Placeholder: Items, mobs, bosses, categories, mods…
 EmptyTitle: Search the whole book
-EmptyHint: Type a name: English names and IDs work too
 NothingFound: Nothing found for “{0}”
-NothingFoundHint: Try the English name, an ID or a mod
 SearchDescriptions: Search item descriptions on the Items tab
 AllInItems: All {0} on the Items tab
 AllInBestiary: All {0} in the Bestiary
@@ -29,7 +26,6 @@ ItemCount: "{0} {^0:item;items}"
 MobCount: "{0} {^0:mob;mobs}"
 Id: ID {0}
 KeyEnter: Enter
-KeyShiftEnter: Shift+Enter
 Open: Open
 Close: Close
 EnglishLoading: Reading English names…

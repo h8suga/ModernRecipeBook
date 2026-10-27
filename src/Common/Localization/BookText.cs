@@ -19,6 +19,12 @@ internal static class BookText
 	// localization loads is filled in when it does.
 	private static readonly ConcurrentDictionary<string, LocalizedText> Texts = new ConcurrentDictionary<string, LocalizedText>();
 
+	// The full localization key of a book text ("Categories.Wings" -> "Mods.ModernRecipeBook.Categories.Wings").
+	internal static string KeyOf(string key)
+	{
+		return Prefix + key;
+	}
+
 	internal static string L(string key)
 	{
 		return Text(key).Value;
