@@ -1,0 +1,21 @@
+// Shimmer from the book through a Magic Storage Decrafting Interface (BookShimmer): why it cannot be done now, and the
+// result line. {0} counts are numbers.
+DoesNotShimmer: Не меняется в мерцании
+AfterBoss: Мерцание сработает после босса «{0}»
+NotNow: В этом мире пока не меняется в мерцании
+NeedsMagicStorage: Нужна сеть Magic Storage с Интерфейсом распада
+StorageOff: Хранилища рядом выключены на этом сервере
+Shimmering: Мерцание…
+NoInterface: Рядом нет Интерфейса распада
+NoneInNetwork: Нет в сети с Интерфейсом распада
+NeedsUnit: Меняется по {0} шт. за раз
+CantRightNow: Сейчас нельзя
+TooFast: Слишком быстро, подождите
+SomethingChanged: Отменено: что-то изменилось
+NothingShimmered: Ничего не изменилось
+CoinLuck: монетная удача
+Released: выпущено: {0}
+Done: В мерцание: {0} {1} → {2}
+Spilled: "{0} шт. у ваших ног, хранилище полно"
+Partly: не всё
+More: и ещё {0}

@@ -876,6 +876,199 @@ public sealed class BookNearbyServer : ModSystem
 		}
 	}
 
+	// Shimmer through a network's Decrafting Interface (BookShimmer, docs/shimmer.md). The network must be one the player
+	// reaches as for a pull and have a Decrafting Interface, and the item must shimmer now (BookShimmer.For): the client's
+	// view is checked again here. Up to `amount` (whole units) comes out of that network, shimmers the way the liquid
+	// does it (ShimmerItems) and the results go into the same network; what does not fit drops at the player's feet
+	// (`spilled`). What was taken and not shimmered goes back where it came from.
+	internal static Status Shimmer(int p, Point16 at, int type, int amount, List<Item> results, out int done, out int spilled)
+	{
+		done = spilled = 0;
+		Client client = Of(p);
+		if (!Admit(p, client, out var refusal))
+		{
+			return refusal;
+		}
+		if (!BookMagicStorage.Writable || !BookMagicStorage.Shimmers)
+		{
+			return Status.Off;
+		}
+		BookShimmer.Plan plan = BookShimmer.For(type);
+		if (plan == null || !plan.Ready || amount <= 0 || amount > BookShimmer.MaxItems)
+		{
+			return Status.Invalid;
+		}
+		Player player = Main.player[p];
+		List<BookMagicStorage.Network> networks = new List<BookMagicStorage.Network>();
+		BookMagicStorage.Scan(player, BookNearbyConfig.Radius + BookSourceRules.SlackTiles, null, networks, null, out _);
+		BookMagicStorage.Network network = networks.Find((BookMagicStorage.Network n) => n.Position == at);
+		if (network == null || !BookMagicStorage.HasDecrafting(network.Heart))
+		{
+			return Status.Invalid;
+		}
+		amount -= amount % plan.Unit;
+		List<(Item Item, Origin From)> taken = new List<(Item, Origin)>();
+		int remaining = amount;
+		List<Item> made = new List<Item>();
+		try
+		{
+			TakeFromHeart(p, network.Heart, new Entry(type, AnyPrefix, amount), ref remaining, taken);
+			int got = amount - remaining;
+			done = ShimmerItems(player, plan, type, got - got % plan.Unit, made);
+		}
+		catch (Exception error)
+		{
+			ModContent.GetInstance<ModernRecipeBook>().Logger.Error("Shimmer from the book failed; everything taken went back.", error);
+			Restore(taken);
+			done = 0;
+			return Status.Invalid;
+		}
+		ReturnUnused(taken, taken.Sum(((Item Item, Origin From) t) => t.Item.stack) - done);
+		List<(Item, Point16)> deposited = new List<(Item, Point16)>();
+		foreach (Item item in made)
+		{
+			results.Add(item.Clone());
+			try
+			{
+				DepositInto(p, network, item, deposited);
+			}
+			catch (Exception error)
+			{
+				ModContent.GetInstance<ModernRecipeBook>().Logger.Error($"Shimmer result {item.Name} ×{item.stack} did not go into storage; it drops at the player.", error);
+			}
+			if (!item.IsAir)
+			{
+				spilled += item.stack;
+				player.QuickSpawnItem(new EntitySource_Misc("ModernRecipeBook:Shimmer"), item, item.stack);
+			}
+		}
+		SafeReport(p, taken, deposited);
+		return (done == 0) ? Status.Nothing : ((done < amount) ? Status.Partial : Status.Done);
+	}
+
+	// The pieces taken past `count` items go back to their network, the last ones first (TakeFromHeart takes plain items
+	// first, so a reforged one is what goes back); `taken` keeps only what was used, for the audit.
+	private static void ReturnUnused(List<(Item Item, Origin From)> taken, int count)
+	{
+		List<(Item Item, Origin From)> back = new List<(Item, Origin)>();
+		for (int i = taken.Count - 1; i >= 0 && count > 0; i--)
+		{
+			(Item item, Origin from) = taken[i];
+			if (item.stack <= count)
+			{
+				count -= item.stack;
+				back.Add((item, from));
+				taken.RemoveAt(i);
+				continue;
+			}
+			Item piece = item.Clone();
+			piece.stack = count;
+			item.stack -= count;
+			back.Add((piece, from));
+			count = 0;
+		}
+		Restore(back);
+	}
+
+	// Item.GetShimmered for `n` of `type` (whole units), at the player where vanilla uses the item's own spot
+	// (TML:Terraria/Item.cs:49645-49850): coin luck, the item it turns into, a decraft's ingredients (or the recipe's own
+	// shimmer results, less what the recipe's ConsumeIngredient keeps back), the rainbow Town Slime, released critters.
+	// Item results go into `made`; returns how many items it used.
+	private static int ShimmerItems(Player player, BookShimmer.Plan plan, int type, int n, List<Item> made)
+	{
+		if (n <= 0)
+		{
+			return 0;
+		}
+		Vector2 center = player.Center;
+		EntitySource_Misc source = new EntitySource_Misc("ModernRecipeBook:Shimmer");
+		switch (plan.What)
+		{
+		case BookShimmer.Kind.CoinLuck:
+		{
+			int luck = n * plan.CoinLuck;
+			if (Main.netMode == NetmodeID.SinglePlayer)
+			{
+				player.AddCoinLuck(center, luck);
+			}
+			NetMessage.SendData(MessageID.ShimmerActions, -1, -1, null, 1, (int)center.X, (int)center.Y, luck);
+			return n;
+		}
+		case BookShimmer.Kind.Transform:
+			AddStacks(made, plan.Results[0].Type, n);
+			return n;
+		case BookShimmer.Kind.Decraft:
+		{
+			Recipe recipe = Main.recipe[plan.Recipe];
+			int crafts = n / plan.Unit;
+			foreach (Item ingredient in (IEnumerable<Item>)(recipe.customShimmerResults ?? recipe.requiredItem))
+			{
+				if (ingredient.type <= 0)
+				{
+					break;
+				}
+				int amount = crafts * ingredient.stack;
+				RecipeLoader.ConsumeIngredient(recipe, ingredient.type, ref amount, isDecrafting: true);
+				AddStacks(made, ingredient.type, amount);
+			}
+			return crafts * plan.Unit;
+		}
+		case BookShimmer.Kind.TownSlime:
+		{
+			if (NPC.unlockedSlimeRainbowSpawn)
+			{
+				return 0;
+			}
+			NPC.unlockedSlimeRainbowSpawn = true;
+			NetMessage.SendData(MessageID.WorldData);
+			int npc = NPC.NewNPC(source, (int)center.X + 4, (int)center.Y, NPCID.TownSlimeRainbow);
+			if (npc >= 0 && npc < Main.maxNPCs)
+			{
+				Main.npc[npc].netUpdate = true;
+				Main.npc[npc].shimmerTransparency = 1f;
+				NetMessage.SendData(MessageID.ShimmerActions, -1, -1, null, 2, npc);
+			}
+			WorldGen.CheckAchievement_RealEstateAndTownSlimes();
+			return 1;
+		}
+		case BookShimmer.Kind.Critter:
+		{
+			Item sample = ContentSamples.ItemsByType[type];
+			int shimmered = NPCID.Sets.ShimmerTransformToNPC[sample.makeNPC];
+			int tries = 50;
+			int slots = NPC.GetAvailableAmountOfNPCsToSpawnUpToSlot(n, 200);
+			int released = 0;
+			while (tries > 0 && slots > 0 && released < n)
+			{
+				tries--;
+				slots--;
+				released++;
+				int npc = (shimmered < 0) ? NPC.ReleaseNPC((int)center.X, (int)player.Bottom.Y, sample.makeNPC, sample.placeStyle, Main.myPlayer) : NPC.ReleaseNPC((int)center.X, (int)player.Bottom.Y, shimmered, 0, Main.myPlayer);
+				if (npc >= 0)
+				{
+					Main.npc[npc].shimmerTransparency = 1f;
+					NetMessage.SendData(MessageID.ShimmerActions, -1, -1, null, 2, npc);
+				}
+			}
+			return released;
+		}
+		default:
+			return 0;
+		}
+	}
+
+	// `amount` of `type` as whole stacks.
+	private static void AddStacks(List<Item> made, int type, int amount)
+	{
+		int maxStack = Math.Max(1, ContentSamples.ItemsByType[type].maxStack);
+		while (amount > 0)
+		{
+			int n = Math.Min(amount, maxStack);
+			made.Add(new Item(type, n));
+			amount -= n;
+		}
+	}
+
 	// Stand (server harness): a pull for player p whose reply is never sent, as if the client vanished before it
 	// arrived; and a burst of them, for the rate limit.
 	internal static string TestPull(int p, int type, int amount, int prefix)
@@ -1104,7 +1297,7 @@ public sealed class BookNearbyServer : ModSystem
 
 	// What each message cost on the side that received it: count and bytes, payload plus tML's 4-byte header (length,
 	// message 250, mod id). Read on the stand: c call p=ModernRecipeBook.Storage.BookNearbyServer.Traffic
-	private const int Kinds = BookMessage.NearbyStacked - BookMessage.NearbySubscribe + 1;
+	private const int Kinds = BookMessage.NearbyShimmered - BookMessage.NearbySubscribe + 1;
 
 	internal static readonly int[] Received = new int[Kinds];
 
@@ -1199,6 +1392,16 @@ public sealed class BookNearbyServer : ModSystem
 			packet.Write7BitEncodedInt(moved);
 			packet.Write7BitEncodedInt(remote);
 			packet.Send(whoAmI);
+			break;
+		}
+		case BookMessage.NearbyShimmer:
+		{
+			Point16 at = new Point16(reader.ReadInt16(), reader.ReadInt16());
+			int item = reader.Read7BitEncodedInt();
+			int amount = reader.Read7BitEncodedInt();
+			List<Item> results = new List<Item>();
+			Status status = Shimmer(whoAmI, at, item, amount, results, out int done, out int spilled);
+			BookShimmer.SendResult(whoAmI, status, item, done, results, spilled);
 			break;
 		}
 		}

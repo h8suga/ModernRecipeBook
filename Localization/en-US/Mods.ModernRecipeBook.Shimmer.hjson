@@ -1,0 +1,21 @@
+// Shimmer from the book through a Magic Storage Decrafting Interface (BookShimmer): why it cannot be done now, and the
+// result line. {0} counts are numbers.
+DoesNotShimmer: Doesn't change in Shimmer
+AfterBoss: Shimmers after {0}
+NotNow: Doesn't shimmer in this world yet
+NeedsMagicStorage: Needs a Magic Storage network with a Decrafting Interface
+StorageOff: Nearby storage is off on this server
+Shimmering: Shimmering…
+NoInterface: No Decrafting Interface in reach
+NoneInNetwork: None in a network with a Decrafting Interface
+NeedsUnit: Shimmers {0} at a time
+CantRightNow: Can't shimmer right now
+TooFast: Too fast, wait a moment
+SomethingChanged: Shimmer cancelled: something changed
+NothingShimmered: Nothing was shimmered
+CoinLuck: coin luck
+Released: "{0} released"
+Done: Shimmered {0} {1}: {2}
+Spilled: "{0} at your feet, storage full"
+Partly: not all of it
+More: and {0} more
