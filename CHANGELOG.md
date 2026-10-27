@@ -30,10 +30,14 @@ patch for fixes, minor for features.
 - Mob cards: "Spawns" says how a mob comes (a boss's summon, "During Signus's fight", "During Celestial Pillars", "Any
   time"; the Divine Swine "Sky"); boss minions, the Lunatic Devotees and the Old One's Army sit at the right stage, and
   "Before: Moon Lord" shows Moon Lord.
-- **Quick search**: Ctrl+F anywhere (or the new unbound "Search Everything" key) opens one search over items, Bestiary
-  entries, bosses ("Before: X"), item and Bestiary categories and mods, grouped by kind, with badges, clickable category
-  paths and the book's own links (who drops it, which bag holds it, a mob's notable loot); English names and IDs work
-  in any language. Ctrl+F leaves Smart Cursor as it was, and no key pressed in the search reaches the game.
+- **Quick search**: Ctrl+F anywhere (or the new unbound "Search Everything" key) opens a command palette over items,
+  storage, recipes, Bestiary entries, bosses ("Before: X"), tracked goals, categories and mods, grouped by kind, with
+  scope chips (Tab), the typed words marked, clickable category paths and the book's own links (who drops it, which bag
+  holds it, a mob's notable loot). It finds items by what they are (a category such as "buff" or «крылья», the buff
+  they give, a trait, a class) and by their descriptions and Bestiary texts, below the name matches; English names and
+  IDs work in any language. Every row has a one-click action (Craft, Take, Track, Open; Ctrl+Enter, Alt+T, Alt+F,
+  Alt+G, Alt+U as on the card), the preview shows the selected result with all its actions, and ">" lists the book's
+  commands. Ctrl+F leaves Smart Cursor as it was, and no key pressed in the search reaches the game.
 - Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
   Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
   fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
@@ -81,6 +85,14 @@ patch for fixes, minor for features.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
+- Stages: a crafted item is never placed before its own recipe (Solar Sink after the Lunatic Cultist, Cactus Bookcase
+  after Skeletron, Pumpkin Moon Medallion after Plantera, Zenith Throne after Yharon); rarity only guesses for items
+  with no source the book can open.
+- Stages: Cascade waits for Skeletron, Yelets for a mechanical boss, Kraken for Plantera; Sandstone, Hardened Sand,
+  Coral, shells and the Living Loom (and their furniture) are there from the start, the space bricks come after Moon
+  Lord by shimmering Luminite Bricks.
+- Stage hints name chests, structures, quests and events instead of "no source found", and global loot as "drop: Any
+  enemy".
 
 ## 1.17.1 — 2026-10-26
 
