@@ -38,7 +38,10 @@ public sealed class BookMagicStorage : ModSystem
 
 		internal bool ViaWindow;
 
-		internal bool ViaCarried;
+		// The carried Portable Access that reaches it (its item type; 0 none): the radius line names it, a link to its card.
+		internal int Carrier;
+
+		internal bool ViaCarried => Carrier > 0;
 
 		internal bool Remote => !Nearby;
 	}
@@ -94,6 +97,9 @@ public sealed class BookMagicStorage : ModSystem
 	private static int SnowEmulator = -1;
 
 	private static int BiomeGlobe = -1;
+
+	// The Storage Heart item: a network's link in the Storage tab opens its card (0 when MS has none by that name).
+	internal static int HeartItem { get; private set; }
 
 	private static Type UnitType;
 
@@ -267,6 +273,7 @@ public sealed class BookMagicStorage : ModSystem
 		CraftingTile = Owner.TryFind<ModTile>("CraftingAccess", out var crafting) ? crafting.Type : -1;
 		SnowEmulator = Owner.TryFind<ModItem>("SnowBiomeEmulator", out var snow) ? snow.Type : -1;
 		BiomeGlobe = Owner.TryFind<ModItem>("BiomeGlobe", out var globe) ? globe.Type : -1;
+		HeartItem = Owner.TryFind<ModItem>("StorageHeart", out var heart) ? heart.Type : 0;
 	}
 
 	private static void BindCells()
@@ -391,7 +398,7 @@ public sealed class BookMagicStorage : ModSystem
 	// MS (or, on the server, has locked in MS) is added however far it is, and so is the network of each bound Portable
 	// Access the player carries when MS itself would open it from here (AddCarried); `carried` gets the ones that would
 	// not, with the reason.
-	internal static void Scan(Player player, int tiles, List<int> banks, List<Network> networks, List<List<Item>> stations, out int locked, List<(bool Crafting, CarriedSkip Why)> carried = null)
+	internal static void Scan(Player player, int tiles, List<int> banks, List<Network> networks, List<List<Item>> stations, out int locked, List<(int Type, bool Crafting, CarriedSkip Why)> carried = null)
 	{
 		carried?.Clear();
 		locked = 0;
@@ -504,7 +511,7 @@ public sealed class BookMagicStorage : ModSystem
 	// the storage (Utility.PlayerIsNearAccess, NearbyPylons, StorageSystemHasNearbyPylon); then MS's security. Its network
 	// ranks by the distance to the location, so networks in reach of the player stay first. A crafting one adds its
 	// interface's stations. On a multiplayer client a location whose tiles have not arrived is asked for once.
-	private static void AddCarried(Player player, List<Network> networks, List<List<Item>> stations, ref HashSet<object> refused, List<(bool Crafting, CarriedSkip Why)> carried)
+	private static void AddCarried(Player player, List<Network> networks, List<List<Item>> stations, ref HashSet<object> refused, List<(int Type, bool Crafting, CarriedSkip Why)> carried)
 	{
 		for (int slot = 0; slot < SentLocations.Length; slot++)
 		{
@@ -531,14 +538,14 @@ public sealed class BookMagicStorage : ModSystem
 			bool crafting = (bool)context[3];
 			if (!LocationLoaded(location))
 			{
-				carried?.Add((crafting, CarriedSkip.Loading));
+				carried?.Add((item.type, crafting, CarriedSkip.Loading));
 				continue;
 			}
 			Tile tile = Main.tile[location.X, location.Y];
 			object heart = (tile.HasTile && tile.TileType == (int)context[0] && tile.TileFrameX == 0 && tile.TileFrameY == 0) ? HeartFromAccess.Invoke(null, new object[1] { location }) : null;
 			if (heart == null)
 			{
-				carried?.Add((crafting, CarriedSkip.Missing));
+				carried?.Add((item.type, crafting, CarriedSkip.Missing));
 				continue;
 			}
 			object[] range = new object[2];
@@ -548,12 +555,12 @@ public sealed class BookMagicStorage : ModSystem
 			{
 				if (!((IEnumerable)PylonsNear.Invoke(null, new object[2] { player, playerRange })).GetEnumerator().MoveNext())
 				{
-					carried?.Add((crafting, CarriedSkip.OutOfRange));
+					carried?.Add((item.type, crafting, CarriedSkip.OutOfRange));
 					continue;
 				}
 				if (pylonRange >= 0 && !(bool)PylonNearStorage.Invoke(null, new object[3] { player, heart, pylonRange }))
 				{
-					carried?.Add((crafting, CarriedSkip.NoPylon));
+					carried?.Add((item.type, crafting, CarriedSkip.NoPylon));
 					continue;
 				}
 			}
@@ -564,7 +571,7 @@ public sealed class BookMagicStorage : ModSystem
 			}
 			Network network = Add(networks, heart);
 			network.Distance = Math.Min(network.Distance, Vector2.DistanceSquared(player.Center, location.ToWorldCoordinates(16f, 16f)));
-			network.ViaCarried = true;
+			network.Carrier = item.type;
 			if (crafting && stations != null && TileEntity.ByPosition.TryGetValue(location, out var entity) && CraftingType.IsInstanceOfType(entity) && StationsOf.GetValue(entity) is List<Item> list && !stations.Contains(list))
 			{
 				stations.Add(list);

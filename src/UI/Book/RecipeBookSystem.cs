@@ -129,6 +129,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// The Storage tab cell under the mouse this frame; its tooltip gets the "Chests ×3: 120" line.
 	internal static Item StorageHover;
 
+	// The Recent cell (its recipe) under the mouse this frame, -1 none; its tooltip gets "Crafted ×12 · 5 min ago".
+	internal static int RecentHover = -1;
+
 	// A card list row (an ingredient, a Used in recipe) under the mouse this frame: it shows its item's own tooltip, as a
 	// grid cell does, and the book's lines for the row (counts, the click hint) go under it (BookTooltipShortcut). The
 	// owner wanted the description at once instead of a click to open the item.
@@ -4424,6 +4427,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return false;
 		}
+		// Mouse3 on the Storage tab's own cell or stack (while the mouse is on the book only its own icons ask,
+		// BookInventoryShortcut.TryQueueItem): the card the stack opens, never the inventory's Used in.
+		if (Open && MouseOver && StorageView)
+		{
+			SetTyping(value: false);
+			OpenStorageCard(type);
+			SyncInputEdges();
+			return true;
+		}
 		SetTyping(value: false);
 		ModMenu = (StationMenu = (HelpOpen = false));
 		CloseAcquisition();
@@ -5481,12 +5493,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 				BookSources.DepositCursor();
 				return;
 			}
-			Item shown = SelectedItem ?? StorageGone;
-			if (shown != null && StorageStackRect.Contains(Mouse.X, Mouse.Y))
-			{
-				OpenStorageCard(shown.type);
-				return;
-			}
 		}
 		for (int n3 = 0; n3 < ActivePageSize && !BestiaryView; n3++)
 		{
@@ -5641,12 +5647,19 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	// A Storage item's card, from the details panel; Back returns to Storage.
+	// A Storage item's card (the panel's stack, Mouse3 on its cell) on Items, as a quick search pick opens it
+	// (QuickShowItem): selected in the grid when the tab's own filters show it, else in the card as a step; the filters
+	// stay as the player set them. It opens on its recipe or, for a container, on what it holds (CardModeFor); an item with
+	// neither, on How to Get. Back returns to Storage.
 	private static void OpenStorageCard(int type)
 	{
 		StorageGone = null;
-		SwitchTab(0);
-		StepCard(type, CardModeFor(type));
+		CloseAcquisition();
+		QuickShowItem(type, CardModeFor(type));
+		if (!RecipesByItem.ContainsKey(type) && !HasContents(type))
+		{
+			OpenAcquisition(type, null);
+		}
 	}
 
 	// The Filtered position of the Storage cell under the mouse, or -1.
@@ -6833,16 +6846,28 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Box(sb, pill.X + 10f, pill.Y + 8f, 8f, 8f, stateColor, border: false, 4f);
 		CenterLabel(sb, state, pill.X + 24f, pill.Y + 2f, pill.Width - 30f, pill.Height - 4f, stateColor, 0.8f, rightAligned: false, leftAligned: true);
 		SectionLabel(sb, L("Common.Nearby"), content.X, content.Y + 1f, pill.X - content.X - 8f);
+		// The lines name what they count as links (RecipeBookSystem.Links): the storages and each bank on the summary (the
+		// Cells tooltip counts the same containers), the carried Portable Access on the radius and "Not counted" lines.
 		BookRect source = BookGeometry.StorageSource;
-		FixedLabel(sb, on ? BookSources.Summary : StorageOffTitle, source.X, source.Y, on ? TextColor : Muted, 0.9f, source.Width, source.Height);
+		if (on)
+		{
+			DrawLinkLine(sb, SummarySpans(source), source, 0.9f, TextColor, Muted);
+		}
+		else
+		{
+			FixedLabel(sb, StorageOffTitle, source.X, source.Y, Muted, 0.9f, source.Width, source.Height);
+		}
 		BookRect hint = BookGeometry.StorageHint;
-		FixedLabel(sb, on ? BookSources.RadiusLine : StorageOffHint, hint.X, hint.Y, Muted, 0.8f, hint.Width, hint.Height);
+		DrawLinkLine(sb, on ? PieceSpans(BookSources.RadiusLine) : Plain(StorageOffHint), hint, 0.8f, Muted);
 		BookRect cells = BookGeometry.StorageCells;
 		string cellsText = on ? BookSources.Cells : "";
 		bool cellsCut = cellsText.Length > 0 && FixedLabel(sb, cellsText, cells.X, cells.Y, BookSources.CellsAlmostFull ? Caution : TextColor, 0.85f, cells.Width, cells.Height);
 		BookRect skipped = BookGeometry.StorageSkipped;
-		string skippedText = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? L("Common.MagicStorageSupportIsOffSee") : (on ? BookSources.NotCounted : "");
-		bool skippedCut = skippedText.Length > 0 && FixedLabel(sb, skippedText, skipped.X, skipped.Y, Caution, 0.8f, skipped.Width, skipped.Height);
+		// Magic Storage support that failed names the book's own reading of it, which has no place in the book.
+		List<LinkSpan> skippedSpans = (BookMagicStorage.Installed && !BookMagicStorage.Readable) ? Plain(L("Common.MagicStorageSupportIsOffSee")) : (on ? PieceSpans(BookSources.NotCounted) : null);
+		List<LinkPiece> skippedPieces = (skippedSpans?.Count > 0) ? LinkPieces(skippedSpans, skipped, 0.8f) : new List<LinkPiece>();
+		bool skippedCut = skippedPieces.Count > 0 && (skippedPieces.Count < skippedSpans.Count || skippedPieces[^1].Cut);
+		DrawLinkPieces(sb, skippedPieces, skipped, 0.8f, Caution);
 		Box(sb, content.X, skipped.Y + skipped.Height + 8f, content.Width, 1f, Border);
 		BookRect icon = BookGeometry.StorageItemIcon;
 		BookRect stack = StorageStackRect;
@@ -6859,22 +6884,36 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (selected != null)
 		{
-			if (linking)
+			// The stack is a link to the item's card; its mod, a part of it, a link to the mod filter on Items. A held item
+			// makes the panel a drop target instead.
+			string mod = selected.ModItem?.Mod.Name ?? "Terraria";
+			BookRect countLine = new BookRect(icon.X + 60f, icon.Y + 28f, content.Width - 60f, 20f);
+			List<LinkPiece> count = LinkPieces(new List<LinkSpan>
+			{
+				new LinkSpan("×" + Count(gone ? 0 : selected.stack) + " · "),
+				new LinkSpan(ModName(mod), holding ? null : ModLink(mod, mobs: false, selected.type)),
+				new LinkSpan(ChangedSuffix(selected))
+			}, countLine, 0.85f);
+			BookLink card = holding ? null : StorageCardLink(selected);
+			if (card != null && linking && !OnLink(count))
 			{
 				Box(sb, stack, HoverFill, border: false, 8f);
+				MouseTip(card.Tip);
 			}
+			RowLink(card, stack);
 			Box(sb, icon, Raised, border: false, 8f);
 			Icon(sb, selected, icon.X + 4f, icon.Y + 4f, 40f);
-			// A long name shrinks to fit before it is cut; the stack's tooltip then repeats it whole.
+			// A long name shrinks to fit before it is cut; the link's tip names it whole.
 			float nameSize = Math.Clamp((content.Width - 60f) / Math.Max(1f, TextWidth(selected.Name, 1f)), 0.8f, 1f);
 			FixedLabel(sb, selected.Name, icon.X + 60f, icon.Y + (1f - nameSize) * 12f, TextColor, nameSize, content.Width - 60f, 26f);
-			FixedLabel(sb, "×" + Count(gone ? 0 : selected.stack) + " · " + ModName(selected.ModItem?.Mod.Name ?? "Terraria") + ChangedSuffix(selected), icon.X + 60f, icon.Y + 28f, Muted, 0.85f, content.Width - 60f, 20f);
-			// Every source has its row: the inventory, the open container, four banks, chests and Magic Storage fit.
-			string[] rows = gone ? Array.Empty<string>() : BookSources.BreakdownRows(selected);
+			DrawLinkPieces(sb, count, countLine, 0.85f, Muted);
+			// Every source has its row: the inventory, the open container, four banks, chests and Magic Storage fit. A
+			// bank's name and Magic Storage are links to their items' cards.
+			BookSources.Piece[][] rows = gone ? Array.Empty<BookSources.Piece[]>() : BookSources.BreakdownRows(selected);
 			for (int row = 0; row < rows.Length; row++)
 			{
-				BookRect where = BookGeometry.StorageWhere(row);
-				FixedLabel(sb, rows[row], where.X, where.Y, TextColor, 0.85f, where.Width, where.Height);
+				List<LinkSpan> spans = PieceSpans(rows[row]);
+				DrawLinkLine(sb, holding ? Plain(string.Concat(spans.Select((LinkSpan s) => s.Text))) : spans, BookGeometry.StorageWhere(row), 0.85f, TextColor, Muted);
 			}
 		}
 		else if (on)
@@ -6885,10 +6924,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string message = BookSources.TakingShown ? L("Common.Taking") : BookSources.Message;
 		if (message.Length > 0)
 		{
-			BookRect line = BookGeometry.StorageMessage;
-			FixedLabel(sb, message, line.X, line.Y, TextColor, 0.85f, line.Width, line.Height);
+			// The items it names ("Topped up: Torch +1,454", "Coins went to the Piggy Bank") are links to their cards; a
+			// result about one item that does not write its name («монеты в копилке») is a link to it whole.
+			int[] named = BookSources.MessageItems;
+			DrawLinkLine(sb, Linked(message, LinkNames.None, named.Select((int type) => (ItemName(type), ItemLink(type))), (named.Length == 1) ? new[] { (message, ItemLink(named[0])) } : null), BookGeometry.StorageMessage, 0.85f, TextColor, Muted);
 		}
-		if (MenuOpen)
+		// A link under the mouse has shown its own tip (DrawLinkPieces, the stack's above).
+		if (MenuOpen || HoveredLink.Link != null)
 		{
 			return;
 		}
@@ -6909,21 +6951,77 @@ public sealed partial class RecipeBookSystem : ModSystem
 			// A cut line keeps the truncation's own tip: the whole line, then the breakdown.
 			MouseTip(cellsCut ? (cellsText + "\n" + BookSources.CellsTip) : BookSources.CellsTip);
 		}
-		else if (on && skippedText.Length > 0 && skipped.Contains(Mouse.X, Mouse.Y))
+		else if (on && skippedPieces.Count > 0 && skipped.Contains(Mouse.X, Mouse.Y))
 		{
 			// A cut line keeps its whole text above the explanation, as the cells line does.
 			string tip = BookSources.NotCountedTip;
-			MouseTip(skippedCut ? ((tip.Length > 0) ? (skippedText + "\n" + tip) : skippedText) : tip);
+			string whole = string.Concat(skippedSpans.Select((LinkSpan s) => s.Text));
+			MouseTip(skippedCut ? ((tip.Length > 0) ? (whole + "\n" + tip) : whole) : tip);
 		}
 		else if (dropping)
 		{
 			MouseTip(L("StorageFix.ClickStoreTheHeldItem"));
 		}
-		else if (linking)
+	}
+
+	// BookSources' pieces as a line: a piece that names an item is a link to its card, the piece's own hover above the
+	// link's. Kept per array, which BookSources rebuilds only when what it says changed, so a line reads its links once.
+	private static readonly Dictionary<BookSources.Piece[], List<LinkSpan>> PieceSpansCache = new Dictionary<BookSources.Piece[], List<LinkSpan>>(ReferenceEqualityComparer.Instance);
+
+	private static List<LinkSpan> PieceSpans(BookSources.Piece[] pieces)
+	{
+		if (!PieceSpansCache.TryGetValue(pieces, out List<LinkSpan> spans))
 		{
-			string cut = (TextWidth(selected.Name, 0.8f) > content.Width - 60f) ? (selected.Name + "\n") : "";
-			MouseTip(cut + L("Common.ClickOpenThisItem"));
+			if (PieceSpansCache.Count > 64)
+			{
+				PieceSpansCache.Clear();
+			}
+			spans = PieceSpansCache[pieces] = pieces.Select((BookSources.Piece p) => new LinkSpan(p.Text, PieceLink(p))).ToList();
 		}
+		return spans;
+	}
+
+	private static BookLink PieceLink(BookSources.Piece piece)
+	{
+		BookLink link = ItemLink(piece.Item);
+		return (link != null && piece.Tip.Length > 0) ? (link with { Tip = piece.Tip + "\n" + link.Tip }) : link;
+	}
+
+	// The summary's counts, then its banks by name in the room left, each a link to its card, "+N" for those that do not
+	// fit (the line's tooltip names them all). Rebuilt with BookSources' texts.
+	private static (BookSources.Piece[] Counts, int[] Banks, float Scale, List<LinkSpan> Spans) SummarySpansCache;
+
+	private static List<LinkSpan> SummarySpans(BookRect line)
+	{
+		BookSources.Piece[] counts = BookSources.SummaryPieces;
+		int[] banks = BookSources.SummaryBanks;
+		if (SummarySpansCache.Counts != counts || SummarySpansCache.Banks != banks || SummarySpansCache.Scale != TextScale)
+		{
+			List<LinkSpan> spans = PieceSpans(counts);
+			// Measured as the whole line, as LinkPieces lays it out (ItemListSpans measures a list on a line of its own).
+			for (int shown = banks.Length; shown >= 1; shown--)
+			{
+				List<LinkSpan> named = spans.Concat((spans.Count > 0) ? new[] { new LinkSpan(" · ") } : Array.Empty<LinkSpan>()).Concat(banks.Take(shown).SelectMany((int bank, int i) => new[] { new LinkSpan((i > 0) ? ", " : ""), new LinkSpan(ItemName(bank), ItemLink(bank)) })).Where((LinkSpan s) => s.Text.Length > 0).ToList();
+				if (shown < banks.Length)
+				{
+					named.Add(new LinkSpan(" +" + (banks.Length - shown)));
+				}
+				if (LineWidth(named, line, 0.9f) <= line.Width || shown == 1)
+				{
+					spans = named;
+					break;
+				}
+			}
+			SummarySpansCache = (counts, banks, TextScale, spans);
+		}
+		return SummarySpansCache.Spans;
+	}
+
+	// A Storage item's card, as any link to an item opens it (ItemLink) but through OpenStorageCard.
+	private static BookLink StorageCardLink(Item item)
+	{
+		int type = item.type;
+		return (ItemLink(type) is { } link) ? (link with { Follow = () => OpenStorageCard(type) }) : null;
 	}
 
 	// The selected stack's row in the details panel: a link to the item's card.
@@ -7048,6 +7146,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static void DrawBookContent(SpriteBatch sb)
 	{
 		StorageHover = null;
+		RecentHover = -1;
 		DrawHeader(sb);
 		if (TrackingView)
 		{
@@ -7342,6 +7441,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Main.HoverItem = item.Clone();
 				Main.hoverItemName = item.Name;
+				if (RecentView)
+				{
+					RecentHover = num;
+				}
 				if (StorageView)
 				{
 					StorageHover = item;
