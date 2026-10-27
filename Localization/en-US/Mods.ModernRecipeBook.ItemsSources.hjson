@@ -1,0 +1,26 @@
+EventTier: "{0}, tier {1}"
+WaveMedals: wave {0}: {1}
+VictoryMedals: the win: {0}
+BeforeAnyMechanicalBoss: before any mechanical boss
+DefenderMedalsBody: The {0} gives every player medals as waves are cleared and when the event is won ({1}), {2} for a whole run. The event always comes at the highest tier the world has opened
+WhenItDies: on its death, besides its loot
+BossPotionBody: Besides its loot, every boss leaves 5 to 15 of one item when it dies, mostly healing potions; which one depends on the boss. The Bestiary does not list them
+InAGreedPot: through the {0}
+GreedPotBody: Used on a placed {0} (the {1} sells it), the ore flies in and comes out as the next ore 1 time in 3, else as {2}
+AtNight: "{0} at night"
+FallenStarAtNight: At night half of this chance goes to the {0} instead
+SummonedWith: Summoned with {0} in hand
+CrimsonShrine: Crimson shrine
+CrimsonShrineBody: In the chest of Calamity's underground Crimson shrine, only in a world made with the “get fixed boi” seed
+DecraftBody: Thrown into shimmer, each of these turns back into the materials of its recipe:
+DecraftOne: "{0}: ×{1}"
+DecraftPer: "{0}: ×{1} per {2}"
+AndMore: and {0} more
+DecraftAlchemy: A potion brewed at a placed bottle loses each material 1 time in 3
+AnyOfItems: "{0} {^0:item;items}"
+ShimmerIt: undo its recipe
+ShimmerAny: undo any of their recipes
+OpensWithUsedUp: Opens with {0} · used up
+OpensWithKept: Opens with {0} · kept
+KeyUsedUpBody: Right-click the {1} with a {0} in the inventory: opening it uses the key up
+KeyKeptBody: Right-click the {1} with a {0} in the inventory or an open Void Bag: the key stays

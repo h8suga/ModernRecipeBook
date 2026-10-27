@@ -2895,7 +2895,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// One of BookSpawnGates.Gate.Terms: "Hardmode or after Calamitas Clone", "after Golem or another boss", the
 	// mechanical bosses in a word.
-	private static string GateTermText(string term)
+	internal static string GateTermText(string term)
 	{
 		switch (term)
 		{
@@ -5332,7 +5332,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (mode == BookCardMode.Contents)
 		{
-			if (HandleContentsClick(chosen.type, top))
+			if (HandleContentsKeyClick(chosen.type, top) || HandleContentsClick(chosen.type, ContentsListTop(chosen.type, top)))
 			{
 				return;
 			}
@@ -7199,7 +7199,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		else if (mode == BookCardMode.Contents)
 		{
-			DrawContents(sb, chosen, top);
+			DrawContentsKey(sb, chosen.type, top);
+			DrawContents(sb, chosen, ContentsListTop(chosen.type, top));
 		}
 		else if (r != null)
 		{

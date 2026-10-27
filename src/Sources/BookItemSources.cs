@@ -132,6 +132,9 @@ internal static class BookItemSources
 
 	internal static List<(int From, int To)> Conversions { get; private set; } = new List<(int, int)>();
 
+	// Items whose loot is a swap (FindLootSwaps).
+	private static HashSet<int> LootSwaps = new HashSet<int>();
+
 	internal static List<(int Machine, int Product, int Ticks)> Machines { get; private set; } = new List<(int, int, int)>();
 
 	// Treasure bags that roll the developer and patron sets (boss bags that are not pre-hardmode-like), and what they give.
@@ -156,6 +159,7 @@ internal static class BookItemSources
 		GlobalReports = new List<DropRateInfo>();
 		Items = new List<ItemRoutes>();
 		Conversions = new List<(int, int)>();
+		LootSwaps = new HashSet<int>();
 		Machines = new List<(int, int, int)>();
 		HardmodeBags = Array.Empty<int>();
 		DevSetChances = new Dictionary<int, float>();
@@ -232,13 +236,14 @@ internal static class BookItemSources
 		List<IItemDropRule> global = Main.ItemDropsDB.GetRulesForNPCID(NPCID.BlueSlime, includeGlobalDrops: true).Except(specific).ToList();
 		GlobalReports = Reports(global);
 		Display(global, (DropRateInfo rate) => new BookItemSource(BookAcquisitionKind.Drop, rate.itemId) { Owner = "<global>", Rate = rate });
+		LootSwaps = FindLootSwaps();
 		foreach (KeyValuePair<int, Item> pair in ContentSamples.ItemsByType)
 		{
 			if (pair.Value == null || pair.Value.IsAir)
 			{
 				continue;
 			}
-			List<IItemDropRule> rules = Main.ItemDropsDB.GetRulesForItemID(pair.Key);
+			List<IItemDropRule> rules = LootSwaps.Contains(pair.Key) ? new List<IItemDropRule>() : Main.ItemDropsDB.GetRulesForItemID(pair.Key);
 			// Shimmer (the Aether exists from world generation; late transmutations are curated stage floors).
 			int shimmered = ItemID.Sets.ShimmerTransformToItem[pair.Key];
 			if (rules.Count > 0 || shimmered > 0)
@@ -387,6 +392,31 @@ internal static class BookItemSources
 		{
 			Add(source);
 		}
+	}
+
+	// Two items whose only loot is each other, whole: an inventory swap the game registers as item loot (Capricorn Hooves
+	// and Tail, ItemDropDatabase.RegisterCapricorns; the swap itself is ItemSlot.TryItemSwap, a Use row of
+	// BookRewardSources). Neither is a container: no Contents tab, no Container row, no route.
+	private static HashSet<int> FindLootSwaps()
+	{
+		Dictionary<int, int> only = new Dictionary<int, int>();
+		foreach (int type in ContentSamples.ItemsByType.Keys)
+		{
+			List<IItemDropRule> rules = Main.ItemDropsDB.GetRulesForItemID(type);
+			List<DropRateInfo> rates = rules.Count > 0 ? Reports(rules) : null;
+			if (rates is [DropRateInfo rate] && rate.dropRate >= 1f && rate.stackMin == 1 && rate.stackMax == 1 && (rate.conditions?.Count ?? 0) == 0)
+			{
+				only[type] = rate.itemId;
+			}
+		}
+		return only.Where((KeyValuePair<int, int> pair) => pair.Key != pair.Value && only.GetValueOrDefault(pair.Value) == pair.Key).Select((KeyValuePair<int, int> pair) => pair.Key).ToHashSet();
+	}
+
+	// A container that is really a swap (FindLootSwaps).
+	internal static bool IsLootSwap(int type)
+	{
+		EnsureBuilt();
+		return LootSwaps.Contains(type);
 	}
 
 	// Chance per opened bag of every developer and patron set item (VanillaDevSets and tModLoader's own sets, whose items
