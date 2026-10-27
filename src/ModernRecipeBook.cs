@@ -40,6 +40,9 @@ public sealed class ModernRecipeBook : Mod
 
 	internal static ModKeybind MapTeleport;
 
+	// The quick search on one key, for those who would rather not press Ctrl+F; unbound, so it takes no one's key.
+	internal static ModKeybind QuickSearch;
+
 	internal const string MapTeleportKey = "Mouse3";
 
 	public override void Load()
@@ -50,6 +53,7 @@ public sealed class ModernRecipeBook : Mod
 			ChainBack = KeybindLoader.RegisterKeybind(this, "ChainBack", "Mouse4");
 			ChainForward = KeybindLoader.RegisterKeybind(this, "ChainForward", "Mouse5");
 			MapTeleport = KeybindLoader.RegisterKeybind(this, "MapTeleport", MapTeleportKey);
+			QuickSearch = KeybindLoader.RegisterKeybind(this, "QuickSearch", Microsoft.Xna.Framework.Input.Keys.None);
 		}
 	}
 
@@ -101,6 +105,6 @@ public sealed class ModernRecipeBook : Mod
 
 	public override void Unload()
 	{
-		ToggleBook = (ChainBack = (ChainForward = (MapTeleport = null)));
+		ToggleBook = (ChainBack = (ChainForward = (MapTeleport = (QuickSearch = null))));
 	}
 }

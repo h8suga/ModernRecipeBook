@@ -177,7 +177,6 @@ ClickAgainForAllClasses: Click again for all classes
 NameIDOrMod: Name, ID or mod
 NameTextIDMod: Name, text, ID, mod
 ClearSearch: Clear search
-SearchCtrlF: Search · Ctrl+F
 NameMatchesFirstThenTheItem: Name matches first, then the item's text
 AllMods: All mods
 FilterByMod: Filter by mod

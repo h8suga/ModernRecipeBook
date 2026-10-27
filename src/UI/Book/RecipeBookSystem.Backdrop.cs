@@ -20,7 +20,7 @@ public sealed partial class RecipeBookSystem
 	private static float ModalOpacity = 1f;
 
 	// Panels that sit over the book (the enemy card lives inside How to Get). A new modal only joins here.
-	private static bool ModalOpen => AcquisitionOpen || HelpOpen;
+	private static bool ModalOpen => AcquisitionOpen || HelpOpen || QuickSearchOpen;
 
 	internal static bool BackdropWanted => Open && !Main.gameMenu && (ModalOpen || BookBackdrop.Fade > 0f);
 
