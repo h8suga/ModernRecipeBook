@@ -51,15 +51,15 @@ BookConfig: {
 BookItemClickAction: {
 	OpenInBook: {
 		Label: Open in the Book
-		Tooltip: ""
+		Tooltip: The item's card in the book.
 	}
 
 	QuickSearch: {
 		Label: Quick Search
-		Tooltip: ""
+		Tooltip: The quick search with the item's full name, the item first and selected.
 	}
 
-	Tooltip: ""
+	Tooltip: What middle-clicking an item opens.
 }
 
 BookServerConfig: {

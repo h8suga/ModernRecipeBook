@@ -51,15 +51,15 @@ BookConfig: {
 BookItemClickAction: {
 	OpenInBook: {
 		Label: Открыть в книге
-		// Tooltip: ""
+		Tooltip: Карточка предмета в книге.
 	}
 
 	QuickSearch: {
 		Label: Быстрый поиск
-		// Tooltip: ""
+		Tooltip: Быстрый поиск с полным названием предмета, сам предмет первым и выделен.
 	}
 
-	// Tooltip: ""
+	Tooltip: Что открывает средняя кнопка по предмету.
 }
 
 BookServerConfig: {
