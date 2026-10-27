@@ -765,30 +765,54 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Difficulty conditions get a one-word label; anything else keeps the mod's own description.
 	// A drop condition its mod left without a text (Calamity's AddIf lambdas, e.g. Hadarian Wings once Astrum Aureus is
 	// dead) is named by the boss progression places it after (a known condition, or what the probe found), and asked
-	// whether it holds in this world now. One that tests the dying NPC instead (BookKillConditions: Astrum Deus's split
-	// worms, a Wulfrum robot's supercharge) says nothing when a normal kill of the mob meets it, else only that it depends
-	// on the kill: the world's state cannot tell met from not met.
+	// whether it holds in this world now. What the probes found comes first: another world's rule says which world
+	// (BookProgressionSources.OtherWorldOf: Supreme Calamitas's Levi in Death mode), and one that comes before a boss says
+	// so (BeforeStep: Calamity's "!NPC.downedBoss2" Ashen Stalactite; the failed branch of a progression gate, Calamity's
+	// AddFail, too), "already past" once it is down. One that tests the dying NPC instead (BookKillConditions: Astrum
+	// Deus's split worms, a Wulfrum robot's supercharge) says nothing when a normal kill of the mob meets it, else only
+	// that it depends on the kill; one that waits for a world event names it (EventGate). A gate the probe found open at
+	// every step that holds now says nothing, as a met difficulty gate (the last Exo Mech alive, CanDropLoot; no Primordial
+	// Wyrm about, CanMinionsDropThings). The Windy Balloon's kites are inside the slime it lifts (vanilla registers them
+	// under NeverTrue; SlimeBodyItemDropRule drops what NPC.AI_001_Slimes_GenerateItemInsideBody put in a lifted slime).
 	private static string HiddenConditionLabel(IItemDropRuleCondition condition, int npcNetId)
 	{
+		if (BookProgressionSources.OtherWorldOf(condition) is { } world)
+		{
+			return world.Arg == null ? L(world.Key) : L(world.Key, world.Arg);
+		}
+		if (condition is Conditions.NeverTrue && npcNetId == NPCID.WindyBalloon)
+		{
+			return L("KillConditions.InTheSlimeItLifts");
+		}
 		int? step = BookProgressionSources.DropConditionStep(condition);
-		if (step is not > 0 && BookKillConditions.TestsNpc(condition))
+		int before = BookProgressionSources.BeforeStep(condition);
+		if (before == 0 && step is not > 0 && BookKillConditions.TestsNpc(condition))
 		{
 			return BookKillConditions.MetOnKill(condition, npcNetId) == true ? "" : L(BookKillConditions.LabelKey(condition, npcNetId));
 		}
-		// The failed branch of a progression gate (Calamity's AddFail: the Caustic Croaker Staff until Aquatic Scourge)
-		// drops before that boss, and once it is down that is over, not "not yet".
-		int before = (step is not > 0 && condition is BookItemSources.NotCondition not && BookProgressionSources.DropConditionStep(not.Inner) is int gate && gate > 0) ? gate : 0;
+		NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
+		bool Holds()
+		{
+			try
+			{
+				return condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand });
+			}
+			catch (Exception)
+			{
+				return false;
+			}
+		}
+		if (before == 0 && step is not > 0 && BookProgressionSources.EventGate(Holds) is string eventKey)
+		{
+			return L(eventKey);
+		}
+		bool holds = Holds();
+		if (before == 0 && step == 0 && holds)
+		{
+			return "";
+		}
 		string name = step is int known && known > 0 ? StepName(known) : (before > 0 ? L("Stages.Before", BookSteps.Name(before)) : L("Common.SpecialCondition"));
-		try
-		{
-			NPC npc = (npcNetId != 0 && ContentSamples.NpcsByNetId.TryGetValue(npcNetId, out NPC sample)) ? sample : null;
-			DropAttemptInfo info = new DropAttemptInfo { player = Main.LocalPlayer, npc = npc, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand };
-			return L(condition.CanDrop(info) ? "Common.ConditionMet" : (before > 0 ? "KillConditions.AlreadyPast" : "Common.ConditionNotMetYet"), name);
-		}
-		catch (Exception)
-		{
-			return name;
-		}
+		return L(holds ? "Common.ConditionMet" : (before > 0 ? "KillConditions.AlreadyPast" : "Common.ConditionNotMetYet"), name);
 	}
 
 	// The hover's sentence under rows whose conditions ("a; b" lists) name one that depends on the kill.
@@ -829,6 +853,34 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (condition is Conditions.MechdusaKill)
 		{
 			return L("KillConditions.Mechdusa");
+		}
+		if (BookProgressionSources.SeedLabel(condition) is { } seed)
+		{
+			return L(seed.Key, seed.Arg);
+		}
+		// Plantera's first kill (Conditions.FirstTimeKillingPlantera: !NPC.downedPlantBoss); what a bag gives once per
+		// player (NotUsedDemonHeart: !player.extraAccessory; NoPortalGun: the player does not carry one).
+		if (condition is Conditions.FirstTimeKillingPlantera)
+		{
+			return NPC.downedPlantBoss ? L("KillConditions.AlreadyPast", L("KillConditions.FirstKill")) : L("KillConditions.FirstKill");
+		}
+		if (condition is Conditions.NotUsedDemonHeart)
+		{
+			return L("KillConditions.NotUsedYet", ItemName(ItemID.DemonHeart));
+		}
+		if (condition is Conditions.NoPortalGun)
+		{
+			return L("KillConditions.NotCarried", ItemName(ItemID.PortalGun));
+		}
+		// The moon events' boss trophies: only from wave 15 on (Conditions.PumpkinMoonDropGateForTrophies and
+		// FrostMoonDropGateForTrophies, NPC.waveNumber).
+		if (condition is Conditions.PumpkinMoonDropGateForTrophies)
+		{
+			return L("KillConditions.PumpkinMoonWave15");
+		}
+		if (condition is Conditions.FrostMoonDropGateForTrophies)
+		{
+			return L("KillConditions.FrostMoonWave15");
 		}
 		return full;
 	}
@@ -2542,9 +2594,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		};
 	}
 
-	private static string EnemyLootTooltip(IEnumerable<BookEnemyDrop> rules)
+	// One line per rule; a prefix marks them (another world's).
+	private static string EnemyLootTooltip(IEnumerable<BookEnemyDrop> rules, string prefix = "")
 	{
-		return string.Join("\n", rules.Select((BookEnemyDrop x) => BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : L("Common.NoConditions2"))).Distinct(StringComparer.Ordinal));
+		return string.Join("\n", rules.Select((BookEnemyDrop x) => prefix + BookAcquisitionRules.Chance(x.Chance) + " · ×" + BookAcquisitionRules.Stack(x.Min, x.Max) + " · " + ((x.Conditions.Length > 0) ? x.Conditions : L("Common.NoConditions2"))).Distinct(StringComparer.Ordinal));
 	}
 
 	// The progression step ("After Plantera"); an unknown one is either a source the current difficulty rules out or

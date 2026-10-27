@@ -336,10 +336,78 @@ internal static class BookProgressionSources
 	// (BookSpawnGates.ProbeSteps): their step, or -2 for a condition that waits for something else than progression.
 	private static Dictionary<object, int> probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
 
+	// Opaque drop conditions no progression of this world meets, by what does: the step one comes before (true with
+	// nothing down, false from that step on: Calamity's "!NPC.downedBoss2" Ashen Stalactite), or the other world one
+	// belongs to (OtherWorlds: Supreme Calamitas's Levi in Death mode).
+	private static Dictionary<object, int> before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+
+	private static Dictionary<object, (string Key, string Arg)> otherWorld = new Dictionary<object, (string, string)>(ReferenceEqualityComparer.Instance);
+
 	internal static void Clear()
 	{
 		calamityDropGates = null;
 		probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		otherWorld = new Dictionary<object, (string, string)>(ReferenceEqualityComparer.Instance);
+	}
+
+	// The secret seeds by the Main flag each sets, as the seed is typed (UIWorldCreation.ProcessSeed; the drunk world's
+	// is its date).
+	private static readonly (string Field, string Seed)[] Seeds = { ("drunkWorld", "05162020"), ("getGoodWorld", "for the worthy"), ("tenthAnniversaryWorld", "celebrationmk10"), ("dontStarveWorld", "the constant"), ("notTheBeesWorld", "not the bees"), ("remixWorld", "don't dig up"), ("noTrapsWorld", "no traps"), ("zenithWorld", "get fixed boi") };
+
+	// Vanilla's seed drop conditions, which have no text of their own: the seed and whether they need it (true) or its
+	// absence (false); the remix seed's two split by hardmode (Conditions.RemixSeedEasymode/Hardmode).
+	private static readonly Dictionary<string, (string Field, bool With, string Key)> VanillaSeedConditions = new Dictionary<string, (string, bool, string)>(StringComparer.Ordinal)
+	{
+		["RemixSeed"] = ("remixWorld", true, null), ["NotRemixSeed"] = ("remixWorld", false, null),
+		["RemixSeedEasymode"] = ("remixWorld", true, "KillConditions.SeedBeforeHardmode"), ["RemixSeedHardmode"] = ("remixWorld", true, "KillConditions.SeedInHardmode"),
+		["TenthAnniversaryIsUp"] = ("tenthAnniversaryWorld", true, null), ["TenthAnniversaryIsNotUp"] = ("tenthAnniversaryWorld", false, null),
+		["DontStarveIsUp"] = ("dontStarveWorld", true, null), ["DontStarveIsNotUp"] = ("dontStarveWorld", false, null),
+		["DrunkWorldIsUp"] = ("drunkWorld", true, null), ["DrunkWorldIsNotUp"] = ("drunkWorld", false, null),
+		["ForTheWorthyIsUp"] = ("getGoodWorld", true, null), ["ForTheWorthyIsNotUp"] = ("getGoodWorld", false, null),
+		["BeesSeed"] = ("notTheBeesWorld", true, null), ["NotBeesSeed"] = ("notTheBeesWorld", false, null),
+		["NoTrapsSeed"] = ("noTrapsWorld", true, null), ["NotNoTrapsSeed"] = ("noTrapsWorld", false, null),
+		["ZenithSeedIsUp"] = ("zenithWorld", true, null), ["ZenithSeedIsNotUp"] = ("zenithWorld", false, null)
+	};
+
+	// The label of a vanilla seed condition (key and the seed), null for any other.
+	internal static (string Key, string Arg)? SeedLabel(IItemDropRuleCondition condition)
+	{
+		if (condition == null || condition.GetType().Assembly != typeof(Main).Assembly || !VanillaSeedConditions.TryGetValue(condition.GetType().Name, out var seed))
+		{
+			return null;
+		}
+		string name = Seeds.First(((string Field, string Seed) s) => s.Field == seed.Field).Seed;
+		return (seed.Key ?? (seed.With ? "KillConditions.WithSeed" : "KillConditions.WithoutSeed"), name);
+	}
+
+	// The worlds an opaque drop condition (a mod's lambda reading Main.expertMode, a seed flag or Calamity's difficulty)
+	// is asked in besides this one, one flag at a time and each put back: the other difficulties (Main.GameMode),
+	// Calamity's Revengeance and Death (CalamityWorld.revenge and .death) and every seed flipped. Each with the label
+	// of what the condition then needs.
+	private static List<(Action Apply, Action Restore, string Key, string Arg)> OtherWorlds()
+	{
+		List<(Action, Action, string, string)> worlds = new List<(Action, Action, string, string)>();
+		int mode = Main.GameMode;
+		foreach ((int other, string key) in new[] { ((int)GameModeID.Normal, "Common.Classic"), ((int)GameModeID.Expert, "Common.ExpertMaster"), ((int)GameModeID.Master, "Common.Master") })
+		{
+			if (other != mode)
+			{
+				worlds.Add((() => Main.GameMode = other, () => Main.GameMode = mode, key, null));
+			}
+		}
+		Type calamity = ModLoader.TryGetMod("CalamityMod", out Mod mod) ? mod.Code.GetType("CalamityMod.World.CalamityWorld") : null;
+		IEnumerable<(FieldInfo Field, string On, string Off, string Arg)> flags = new[] { ("revenge", "KillConditions.Revengeance", "KillConditions.WithoutRevengeance"), ("death", "KillConditions.Death", "KillConditions.WithoutDeath") }
+			.Select(((string Name, string On, string Off) x) => (calamity?.GetField(x.Name, BindingFlags.Public | BindingFlags.Static), x.On, x.Off, (string)null))
+			.Concat(Seeds.Select(((string Field, string Seed) x) => (typeof(Main).GetField(x.Field, BindingFlags.Public | BindingFlags.Static), "KillConditions.WithSeed", "KillConditions.WithoutSeed", x.Seed)));
+		foreach ((FieldInfo field, string on, string off, string arg) in flags)
+		{
+			if (field?.FieldType == typeof(bool) && field.GetValue(null) is bool now)
+			{
+				worlds.Add((() => field.SetValue(null, !now), () => field.SetValue(null, now), now ? off : on, arg));
+			}
+		}
+		return worlds;
 	}
 
 	// Probes every condition the tables cannot read: drop conditions with a sample of the NPC that drops them (bags
@@ -347,28 +415,22 @@ internal static class BookProgressionSources
 	internal static int ProbeOpaque(IEnumerable<(IItemDropRuleCondition Condition, NPC Npc)> drops, IEnumerable<Condition> conditions)
 	{
 		probed = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		before = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+		otherWorld = new Dictionary<object, (string, string)>(ReferenceEqualityComparer.Instance);
 		List<object> keys = new List<object>();
 		List<Func<bool>> tests = new List<Func<bool>>();
 		HashSet<object> seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
-		// A failed-condition branch's own condition too, which may be reported nowhere else: its step names that branch
-		// "before" it (RecipeBookSystem.HiddenConditionLabel).
-		foreach ((IItemDropRuleCondition condition, NPC npc) in drops.SelectMany(((IItemDropRuleCondition Condition, NPC Npc) d) => d.Condition is BookItemSources.NotCondition not ? new[] { d, (not.Inner, d.Npc) } : new[] { d }))
+		foreach ((IItemDropRuleCondition condition, NPC npc) in drops)
 		{
 			if (condition != null && seen.Add(condition) && ReadDropConditionStep(condition) == null)
 			{
-				DropAttemptInfo info = new DropAttemptInfo
-				{
-					player = Main.LocalPlayer,
-					npc = npc ?? new NPC(),
-					IsExpertMode = Main.expertMode,
-					IsMasterMode = Main.masterMode,
-					IsInSimulation = true,
-					rng = Main.rand
-				};
+				// Built at each call: a flipped difficulty is read from the attempt too (IsExpertMode).
+				NPC sample = npc ?? new NPC();
 				keys.Add(condition);
-				tests.Add(() => condition.CanDrop(info));
+				tests.Add(() => condition.CanDrop(new DropAttemptInfo { player = Main.LocalPlayer, npc = sample, IsExpertMode = Main.expertMode, IsMasterMode = Main.masterMode, IsInSimulation = true, rng = Main.rand }));
 			}
 		}
+		int drop = keys.Count;
 		foreach (Condition condition in conditions)
 		{
 			if (condition != null && seen.Add(condition) && ConditionStep(condition) == null)
@@ -385,7 +447,89 @@ internal static class BookProgressionSources
 			probed[keys[i]] = step < 0 ? -2 : step;
 			placed += step >= 0 ? 1 : 0;
 		}
+		// The drop conditions no step of this world opens: a step they come before (the negation's answer, when the
+		// condition itself held with nothing down), else the first other world in which some step opens them or they
+		// hold before one.
+		List<int> left = Enumerable.Range(0, drop).Where((int i) => answers[i] == null).ToList();
+		string[] negations = BookSpawnGates.ProbeSteps(left.Select((int i) => (Func<bool>)(() => !tests[i]())).ToList());
+		for (int n = 0; n < left.Count; n++)
+		{
+			if (!string.IsNullOrEmpty(negations[n]) && BookSteps.Resolve(negations[n]) is int step && step > 0)
+			{
+				before[keys[left[n]]] = step;
+			}
+		}
+		left = left.Where((int i) => !before.ContainsKey(keys[i])).ToList();
+		foreach ((Action apply, Action restore, string key, string arg) in OtherWorlds())
+		{
+			if (left.Count == 0)
+			{
+				break;
+			}
+			string[] there, thereBefore;
+			try
+			{
+				apply();
+				List<Func<bool>> asked = left.Select((int i) => tests[i]).ToList();
+				there = BookSpawnGates.ProbeSteps(asked);
+				thereBefore = BookSpawnGates.ProbeSteps(asked.Select((Func<bool> test) => (Func<bool>)(() => !test())).ToList());
+			}
+			finally
+			{
+				restore();
+			}
+			for (int n = 0; n < left.Count; n++)
+			{
+				if (there[n] != null || !string.IsNullOrEmpty(thereBefore[n]))
+				{
+					otherWorld[keys[left[n]]] = (key, arg);
+				}
+			}
+			left = left.Where((int i) => !otherWorld.ContainsKey(keys[i])).ToList();
+		}
 		return placed;
+	}
+
+	// World events a drop lambda may wait for, asked with the flag on and off and put back: the label of the state it
+	// needs, null when no event changes it. Calamity's Eidolist drops its Eidolon Tablet only while no Lunar Event is on
+	// (Eidolist.ModifyNPCLoot: "!NPC.LunarApocalypseIsUp").
+	private static readonly (FieldInfo Flag, string On, string Off)[] Events = { (typeof(NPC).GetField(nameof(NPC.LunarApocalypseIsUp)), "KillConditions.DuringLunarEvents", "KillConditions.NotDuringLunarEvents") };
+
+	internal static string EventGate(Func<bool> holds)
+	{
+		foreach ((FieldInfo flag, string on, string off) in Events)
+		{
+			object now = flag.GetValue(null);
+			bool withOn, withOff;
+			try
+			{
+				flag.SetValue(null, true);
+				withOn = holds();
+				flag.SetValue(null, false);
+				withOff = holds();
+			}
+			finally
+			{
+				flag.SetValue(null, now);
+			}
+			if (withOn != withOff)
+			{
+				return withOn ? on : off;
+			}
+		}
+		return null;
+	}
+
+	// The step an opaque drop condition comes before (BookSpawnGates' probe of its negation), else 0.
+	internal static int BeforeStep(IItemDropRuleCondition condition)
+	{
+		return condition != null && before.TryGetValue(condition, out int step) ? step : 0;
+	}
+
+	// The other world an opaque drop condition belongs to, as its label key and argument; null for this world's.
+	internal static (string Key, string Arg)? OtherWorldOf(IItemDropRuleCondition condition)
+	{
+		return condition != null && otherWorld.TryGetValue(condition, out var world) ? world : null;
 	}
 
 	private static int? Probed(object condition)
@@ -508,10 +652,11 @@ internal static class BookProgressionSources
 
 	// Same for item drop rule conditions. Condition.ToDropCondition wraps a recipe-style Condition (Calamity
 	// uses it for Zenith-world and Revengeance drops), which is read by its key. A condition that tests the dying NPC
-	// (BookKillConditions: Astrum Deus's split worms) is no progression gate unless the probe found one in it too.
+	// (BookKillConditions: Astrum Deus's split worms) is no progression gate unless the probe found one in it too, and
+	// neither is one that comes before a step (BeforeStep): both are there from the start.
 	internal static int? DropConditionStep(IItemDropRuleCondition condition)
 	{
-		return ReadDropConditionStep(condition) ?? (BookKillConditions.TestsNpc(condition) ? 0 : null);
+		return ReadDropConditionStep(condition) ?? (BookKillConditions.TestsNpc(condition) || BeforeStep(condition) > 0 ? 0 : null);
 	}
 
 	private static int? ReadDropConditionStep(IItemDropRuleCondition condition)
@@ -556,9 +701,47 @@ internal static class BookProgressionSources
 		return key != null && ModeConditions.Contains(key) && !isMet();
 	}
 
+	// Vanilla's Bestiary leaves out a drop any of whose conditions answers CanShowItemDropInUI false
+	// (ItemDropBestiaryInfoElement.ShouldShowItem). The book lists on purpose what that hides only while it does not hold:
+	// another world's rule (NotExpert in Expert) and loot that waits for a boss (ShowItemDropInUI.WhenConditionSatisfied).
+	// So a drop is left out of the card, How to Get and the stages when one of its conditions answers false for good
+	// (ShowItemDropInUI.Never; Calamity's "ui: false", a bool its CanShowItemDropInUI returns: Morshu's loot, Bohldohr's NO,
+	// Supreme Calamitas's Coldheart Icicle) or is neither of those.
+	internal static bool HiddenFromUI(DropRateInfo rate)
+	{
+		return rate.conditions?.Any(HiddenFromUI) ?? false;
+	}
+
+	private static bool HiddenFromUI(IItemDropRuleCondition condition)
+	{
+		try
+		{
+			if (condition == null || condition.CanShowItemDropInUI())
+			{
+				return false;
+			}
+			if (condition is SimpleItemDropRuleCondition { ShowItemDropInUI: ShowItemDropInUI.Never })
+			{
+				return true;
+			}
+			// An answer made of the condition's own fields only (no call, no static flag) never changes.
+			MethodInfo show = condition.GetType().GetMethod(nameof(IItemDropRuleCondition.CanShowItemDropInUI), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, Type.EmptyTypes);
+			if (show != null && BookItemTraits.IlMembers(show, (System.Reflection.Emit.OpCode _) => true).All(((System.Reflection.Emit.OpCode Op, MemberInfo Member) x) => x.Member is FieldInfo { IsStatic: false }))
+			{
+				return true;
+			}
+			return WorldGate(condition) == null && !(DropConditionStep(condition) > 0);
+		}
+		catch (Exception)
+		{
+			return false;
+		}
+	}
+
+	// A difficulty gate this world fails, or an opaque condition only another world meets (OtherWorldOf).
 	internal static bool ModeBlocked(IItemDropRuleCondition condition)
 	{
-		return ModeGate(condition) == false;
+		return ModeGate(condition) == false || OtherWorldOf(condition) != null;
 	}
 
 	// Drop conditions that read only the world's seed, which never changes, or its evil and difficulty (the Eye of
@@ -567,13 +750,23 @@ internal static class BookProgressionSources
 
 	// For the loot lists: whether a condition fixed for this world (difficulty or seed) holds; null when it is not fixed.
 	// The remix seed's hardmode/pre-hardmode drops fail outside a remix world and are a hardmode condition inside one, and
-	// so does Mechdusa's kill outside a remix For the Worthy world (Conditions.MechdusaKill). Progression keeps its own
-	// reading of seeds (DropConditionStep).
+	// so does Mechdusa's kill outside a remix For the Worthy world (Conditions.MechdusaKill). An opaque condition only
+	// another world meets (OtherWorldOf) fails here too. Progression keeps its own reading of seeds (DropConditionStep).
 	internal static bool? WorldGate(IItemDropRuleCondition condition)
 	{
 		if (ModeGate(condition) is bool mode)
 		{
 			return mode;
+		}
+		if (OtherWorldOf(condition) != null)
+		{
+			return false;
+		}
+		// A seed or the world's evil wrapped by Condition.ToDropCondition (Calamity's DropHelper.Remix, NotRemix and GFB;
+		// Condition.RemixWorld and its kin are keyed "Conditions.World...").
+		if (condition is SimpleItemDropRuleCondition simple && WrappedKey(simple) is string key && key.StartsWith("Conditions.World", StringComparison.Ordinal))
+		{
+			return simple.Predicate();
 		}
 		if (condition == null || condition.GetType().Assembly != typeof(Main).Assembly)
 		{
