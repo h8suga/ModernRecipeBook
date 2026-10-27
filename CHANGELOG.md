@@ -46,6 +46,11 @@ patch for fixes, minor for features.
   empty Used In offers "Show all stages".
 - Boss cards list what the boss leaves on death (potions, hearts) as in How to Get, and Developer set rows list their
   bags.
+- Storage tab: banks, Magic Storage networks, the carried Portable Access and the stack's mod are links to their cards
+  (or the mod filter); the summary names the banks ("1 storage · Safe, Piggy Bank +1"), and Restock and coin results
+  link the items they name. A card opened from Storage (Mouse3 on a cell, the panel's stack) opens on Recipe, Contents
+  or How to Get instead of Used in.
+- Recent cells show how many the recipe made and when ("Crafted ×6 · 5 min ago").
 - Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
   Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
   fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in

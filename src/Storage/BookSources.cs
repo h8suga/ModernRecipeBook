@@ -400,7 +400,7 @@ public sealed class BookSources : ModSystem
 
 	private static void Tick()
 	{
-		bool need = RecipeBookSystem.Open || RecipeBookSystem.HasTrackedGoals;
+		bool need = RecipeBookSystem.Open || RecipeBookSystem.QuickSearchOpen || RecipeBookSystem.HasTrackedGoals;
 		bool enabled = BookNearbyConfig.Enabled;
 		StayAround = (need && enabled) ? StayTicks : (StayAround - 1);
 		SetSubscribed(enabled && StayAround > 0);
@@ -449,10 +449,10 @@ public sealed class BookSources : ModSystem
 		}
 	}
 
-	// The Storage tab's list (Listed, Items) and the Changed times are built only while the book is open or opening.
-	// With it closed the tracker is all that reads the aggregate, and it needs the per-type totals alone; the list is
-	// built on the next open.
-	private static bool Listing => RecipeBookSystem.Open || Opening;
+	// The Storage tab's list (Listed, Items) and the Changed times are built only while the book or the quick search is
+	// open (its rows count and take stacks), or opening. With both closed the tracker is all that reads the aggregate,
+	// and it needs the per-type totals alone; the list is built on the next open.
+	private static bool Listing => RecipeBookSystem.Open || RecipeBookSystem.QuickSearchOpen || Opening;
 
 	private static bool Opening;
 

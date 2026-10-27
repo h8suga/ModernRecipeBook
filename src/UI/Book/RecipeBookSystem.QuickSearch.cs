@@ -400,6 +400,13 @@ public sealed partial class RecipeBookSystem
 		ModMenu = (SortMenu = (StageMenu = (StationMenu = (TraitMenu = false))));
 		BookPlayer.RestoreSmartCursor();
 		QuickSearchOpen = true;
+		// With the book closed the inventory and storage counts, and so what can be crafted, are not kept up to date:
+		// read them now, as the book does when it opens, so the first rows already say Craft and Take.
+		if (!Open)
+		{
+			BookSources.OnBookOpened();
+			BookCrafting.Refresh(force: true);
+		}
 		QuickEverOpened = true;
 		QuickAllSelected = QuickQuery.Length > 0;
 		QuickExpanded.Clear();
@@ -540,6 +547,9 @@ public sealed partial class RecipeBookSystem
 		QuickRow? selected = (QuickSelected >= 0 && QuickSelected < QuickRows.Count) ? QuickRows[QuickSelected] : null;
 		if (Press(Keys.Enter) && !alt)
 		{
+			// The field stays open after Ctrl+Enter: the same Enter would open the chat later in this update
+			// (Main.DoUpdate_Enter_ToggleChat waits for chatRelease, set again once Enter is let go), and the chat closes it.
+			Main.chatRelease = false;
 			if (selected.HasValue)
 			{
 				// Ctrl+Enter: the row's own action, as in the card (craft) and on Storage (take); Shift+Enter: Used in.
