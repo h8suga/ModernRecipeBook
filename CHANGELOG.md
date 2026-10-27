@@ -85,6 +85,8 @@ patch for fixes, minor for features.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
+- Ctrl+Backspace resets the filters while you type in the search too, as "Nothing found · Ctrl+Backspace resets
+  filters" says.
 - Stages: a crafted item is never placed before its own recipe (Solar Sink after the Lunatic Cultist, Cactus Bookcase
   after Skeletron, Pumpkin Moon Medallion after Plantera, Zenith Throne after Yharon); rarity only guesses for items
   with no source the book can open.

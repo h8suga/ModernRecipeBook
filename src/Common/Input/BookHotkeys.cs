@@ -97,6 +97,11 @@ internal static class BookHotkeys
 				}
 				return Action.PreviousTab;
 			}
+			// Works while typing too: "Nothing found · Ctrl+Backspace resets filters" shows with the search field focused.
+			if (!menu && Press(Keys.Back))
+			{
+				return Action.ResetFilters;
+			}
 		}
 		if (typing | blocked | menu)
 		{
@@ -104,10 +109,6 @@ internal static class BookHotkeys
 		}
 		if (ctrl && !alt)
 		{
-			if (Press(Keys.Back))
-			{
-				return Action.ResetFilters;
-			}
 			if (Press(Keys.Enter))
 			{
 				return storage ? (shift ? Action.None : Action.TakeSelected) : (shift ? Action.CraftMax : Action.Craft);
