@@ -413,7 +413,7 @@ internal static class BookRewardSources
 		};
 		BookAcquisitionEntry Row(string name, string body, BookAcquisitionKind kind, string label, string rate = "", int item = 0, int npc = 0, int tile = -1)
 		{
-			return new BookAcquisitionEntry(name, body, kind, rate, "×1", item, npc, label.Length > 0, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY);
+			return new BookAcquisitionEntry(name, body, kind, rate, "×1", item, npc, label.Length > 0, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY, SourceItem: item);
 		}
 	}
 

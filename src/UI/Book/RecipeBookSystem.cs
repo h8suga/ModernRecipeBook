@@ -894,11 +894,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return full;
 	}
 
-	// A row opens something only when there is more to see: its recipe, the enemy card, what a container holds or
-	// several drop rules.
+	// A row opens something only when there is more to see: its recipe, the enemy card, the card of the item it stands
+	// for (a container on what it holds) or several drop rules.
 	private static bool AcquisitionOpens(BookAcquisitionGroup group)
 	{
-		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group) && !CanOpenContents(group))
+		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group) && RowItem(group) == 0)
 		{
 			if (group.CanExpand)
 			{
@@ -907,6 +907,30 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return false;
 		}
 		return true;
+	}
+
+	// The item a How to Get row stands for (BookAcquisitionEntry.SourceItem), unless it is the item looked up.
+	private static int RowItem(BookAcquisitionGroup group)
+	{
+		int item = group.Source.SourceItem;
+		return (item > 0 && item != AcquisitionVariants[AcquisitionVariant] && ContentSamples.ItemsByType.ContainsKey(item)) ? item : 0;
+	}
+
+	// A row of the chest an item lies in (BookChestLoot, BookStructures): its click opens the chest's card.
+	private static bool ChestRow(BookAcquisitionGroup group)
+	{
+		return group.Source.Kind is BookAcquisitionKind.Chest or BookAcquisitionKind.Structure;
+	}
+
+	// That item's card, a bag or crate on what it holds (CardModeFor); Back returns to How to Get.
+	private static void OpenItemCard(int type)
+	{
+		CloseAcquisition();
+		if (StorageView || TrackingView || BestiaryView)
+		{
+			SwitchTab(0);
+		}
+		StepCard(type, CardModeFor(type));
 	}
 
 	private static void HandleAcquisitionInput(bool click, KeyboardState keys)
@@ -974,9 +998,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				ShowMobFromSource(source);
 			}
-			else if (CanOpenContents(source))
+			else if (RowItem(source) is int item and > 0)
 			{
-				OpenContents(source.Source.ItemType);
+				OpenItemCard(item);
 			}
 			else if (AcquisitionOpens(source))
 			{
@@ -1089,7 +1113,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return ((group.Source.Owner != "Terraria") ? (L("Common.Recipe", ModName(group.Source.Owner)) + "\n") : "") + L("Common.OpenRecipe");
 		}
-		return (withName ? (group.Source.Name + "\n") : "") + KillConditionNote(group.Rules.Select((BookAcquisitionRule r) => r.Source.ConditionLabel)) + (CanOpenEnemy(group) ? L("Common.OpenInBestiary") : (CanOpenContents(group) ? L("Contents.ShowWhatSInside") : L("Common.ShowConditions")));
+		int item = RowItem(group);
+		string action = true switch
+		{
+			_ when CanOpenEnemy(group) => L("Common.OpenInBestiary"),
+			_ when item == 0 => L("Common.ShowConditions"),
+			_ when HasContents(item) => L("Contents.ShowWhatSInside"),
+			_ when ChestRow(group) => L("SourceRows.ClickChestCard", ItemName(item)),
+			_ => L("Bestiary.ClickTheItemSCard")
+		};
+		return (withName ? (group.Source.Name + "\n") : "") + KillConditionNote(group.Rules.Select((BookAcquisitionRule r) => r.Source.ConditionLabel)) + action;
 	}
 
 	private static void DrawAcquisition(SpriteBatch sb)
@@ -1143,18 +1176,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				Label(sb, BookGeometry.AcquisitionSourceAction(row), ">", hover ? TextColor : Muted);
 			}
-			// A source that is an item (a bag, a crate, what shimmers into it) shows that item's own tooltip with the
-			// row's lines under it; the item's name is its title.
-			Item sourceItem = (source.Kind is BookAcquisitionKind.Container or BookAcquisitionKind.Shimmer or BookAcquisitionKind.Use or BookAcquisitionKind.Record or BookAcquisitionKind.Machine && source.ItemType > 0) ? ContentSamples.ItemsByType.GetValueOrDefault(source.ItemType) : null;
+			// A row that stands for an item (a bag, what shimmers into it, what a trade takes) shows that item's own tooltip
+			// with the row's lines under it; one that stands for the chest the item lies in says where, as other rows do.
+			int rowItem = RowItem(group);
+			Item sourceItem = (rowItem > 0 && !ChestRow(group)) ? ContentSamples.ItemsByType[rowItem] : null;
+			// What the row leaves out (where exactly, how often), then the click.
+			string body = (rowItem > 0 && group.Rules.Length == 1 && source.Body.Length > 0 && source.Body != source.ConditionLabel) ? (source.Body + "\n") : "";
 			if (hover && opens)
 			{
 				if (sourceItem != null)
 				{
-					HoverItemRow(sourceItem, AcquisitionHint(group, withName: false));
+					HoverItemRow(sourceItem, body + AcquisitionHint(group, withName: false));
 				}
 				else
 				{
-					MouseTip(AcquisitionHint(group, Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
+					MouseTip(body + AcquisitionHint(group, body.Length == 0 && Ink(BookRules.PlainText(title)).Width * TextScale > name.Width));
 				}
 			}
 			else if (hover && expanded)
@@ -1168,10 +1204,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 				{
 					MouseTip(report);
 				}
-			}
-			else if (hover && sourceItem != null)
-			{
-				HoverItemRow(sourceItem, (source.Body != source.ConditionLabel) ? source.Body : "");
 			}
 			else if (hover && source.Kind != BookAcquisitionKind.Craft && source.Body.Length > 0 && source.Body != source.ConditionLabel)
 			{
@@ -2435,9 +2467,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		NPC npc = ContentSamples.NpcsByNetId[id];
 		List<string> biomes = new List<string>();
 		List<string> spawn = new List<string>();
+		bool inEvent = false;
 		try
 		{
 			HashSet<object> biomeTags = (from f in typeof(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes).GetFields(BindingFlags.Static | BindingFlags.Public)
+				select f.GetValue(null)).ToHashSet();
+			HashSet<object> eventTags = (from t in new[] { typeof(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Invasions), typeof(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Events) }
+				from f in t.GetFields(BindingFlags.Static | BindingFlags.Public)
 				select f.GetValue(null)).ToHashSet();
 			BestiaryEntry entry = Main.BestiaryDB.FindEntryByNPCID(npc.type);
 			if (entry != null)
@@ -2455,6 +2491,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 						if (!string.IsNullOrWhiteSpace(label) && !(label == key))
 						{
 							(biomeTags.Contains(element) ? biomes : spawn).Add(label);
+							inEvent |= eventTags.Contains(element);
 						}
 					}
 					catch (Exception)
@@ -2494,12 +2531,79 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			EnemySpawnTip = string.Join(" · ", spawn.Prepend(SpawnGateText(gate, spawn, biomes, full: true)).Distinct(StringComparer.Ordinal)) + (gate.Terms.Any((string t) => t.EndsWith(";?", StringComparison.Ordinal)) ? ("\n" + L("Common.TheModLetsItSpawnAfter")) : "") + "\n" + L("Common.FromTheModSOwnSpawn");
 		}
+		SpawnFallback(id, inEvent);
 		ReadMobLoot(id);
 		ReadEnemyStats(id);
 		ReadEnemyPortrait(id);
 		if (EnemyReadErrors > 0)
 		{
 			ModContent.GetInstance<ModernRecipeBook>().Logger.Warn($"Enemy card for NPC net ID {id}: {EnemyReadErrors} reports/tags could not be read.");
+		}
+	}
+
+	// What the Spawns and Biome lines say where the Bestiary's tags and the spawn probe say nothing, and a boss's summon in
+	// any case: Boss Checklist's summon items and spawn text (BookBossInfo), a minion's fight (BookProgressionSources.
+	// MinionStep), the event an entry of Boss Checklist's puts it in (the Lunar Events' pillars and their enemies), the
+	// Lunatic Devotees' ritual (CultistRitual), a town NPC's move-in, and for a mob with a biome and no time or event tag
+	// "Any time", as the Bestiary means it.
+	private static void SpawnFallback(int netId, bool inEvent)
+	{
+		int index = BookBestiary.IndexOf(netId);
+		BookMob mob = index >= 0 ? BookBestiary.Mobs[index] : null;
+		int[] types = (mob?.Variants ?? Array.Empty<int>()).Prepend(netId).Select((int v) => ContentSamples.NpcsByNetId[v].type).Distinct().ToArray();
+		List<BookBossInfo.Entry> entries = types.SelectMany(BookBossInfo.Of).Distinct().ToList();
+		BookBossInfo.Entry boss = entries.FirstOrDefault((BookBossInfo.Entry e) => !e.Event);
+		BookBossInfo.Entry happening = entries.FirstOrDefault((BookBossInfo.Entry e) => e.Event);
+		int minion = types.Select(BookProgressionSources.MinionStep).Where((int s) => s >= 0).DefaultIfEmpty(-1).Min();
+		BookMobKind kind = mob?.Kind ?? BookMobKind.Enemy;
+		string line = "", biome = "", info = "";
+		if (boss != null && (kind == BookMobKind.Boss || EnemySpawn.Length == 0))
+		{
+			string how = boss.Info();
+			string[] items = boss.Items.Select(ItemName).Where((string n) => n.Length > 0).Distinct().ToArray();
+			line = items.Length > 0 ? L("SourceRows.SummonedWith", string.Join(L("Common.OrSeparator"), items)) : how;
+			if (line.Length > 0)
+			{
+				info = (items.Length > 0 && how.Length > 0 ? how + "\n" : "") + L(boss.FromChecklist ? "SourceRows.FromBossChecklist" : "SourceRows.FromBossRegistration");
+			}
+			biome = L("SourceRows.WhereSummoned");
+		}
+		else if (EnemySpawn.Length == 0 && minion >= 0)
+		{
+			line = L("SourceRows.DuringFight", BookSteps.Name(minion));
+			biome = L("SourceRows.WhereItsBossFights", BookSteps.Name(minion));
+			info = L("SourceRows.FromBossCode");
+		}
+		else if (EnemySpawn.Length == 0 && happening != null && happening.Name().Length > 0)
+		{
+			line = L("SourceRows.During", happening.Name());
+			info = L(happening.FromChecklist ? "SourceRows.FromBossChecklist" : "SourceRows.FromBossRegistration");
+		}
+		else if (EnemySpawn.Length == 0 && types.Any((int t) => t is NPCID.CultistDevote or NPCID.CultistArcherBlue or NPCID.CultistArcherWhite))
+		{
+			line = L("SourceRows.CultistRitual");
+			info = L("SourceRows.FromGameCode");
+		}
+		else if (EnemySpawn.Length == 0 && kind == BookMobKind.Town)
+		{
+			line = L("SourceRows.MovesIn");
+		}
+		else if (EnemySpawn.Length == 0 && EnemyBiomes.Length > 0)
+		{
+			line = L("SourceRows.AnyTime");
+		}
+		if (line.Length > 0)
+		{
+			EnemySpawn = EnemySpawn.Length > 0 ? line + " · " + EnemySpawn : line;
+		}
+		// The hint: the whole line, then how it comes and where that is read from.
+		if (info.Length > 0)
+		{
+			EnemySpawnTip = string.Join("\n", new[] { EnemySpawn, EnemySpawnTip, info }.Where((string t) => t.Length > 0));
+		}
+		if (EnemyBiomes.Length == 0)
+		{
+			EnemyBiomes = inEvent || happening != null ? L("SourceRows.WhereTheEventIs") : biome;
 		}
 	}
 
@@ -2604,6 +2708,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			"Hallow" => L("Common.Hallow"),
 			"Sky" => L("Common.Sky"),
 			"Abyss" => L("Common.Abyss"),
+			"Granite" or "Marble" or "SpiderNest" or "SurfaceMushroom" or "UndergroundMushroom" => Language.GetTextValue("Bestiary_Biomes." + key),
 			_ => ModContent.TryFind(key, out ModBiome biome) ? biome.DisplayName.Value : key
 		};
 	}
@@ -2993,6 +3098,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 				OpenAcquisition(line.Icon.type, line.SourceTypes);
 				return;
 			}
+			// An ingredient or station row opens that item's card on Items; Back returns to the goal.
+			if (line.Icon != null && !line.Icon.IsAir && rect.Contains(Mouse.X, Mouse.Y))
+			{
+				SwitchTab(0);
+				StepCard(line.Icon.type, CardModeFor(line.Icon.type));
+				return;
+			}
 		}
 	}
 
@@ -3108,7 +3220,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 				}
 				continue;
 			}
-			Box(sb, rect, Raised, border: false, 8f);
+			bool opens = line.Icon != null && !line.Icon.IsAir && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y) && !(line.SourceTypes != null && TrackingObtain(rect).Contains(Mouse.X, Mouse.Y));
+			Box(sb, rect, opens ? HoverFill : Raised, border: false, 8f);
 			float textX = rect.X + 12f;
 			if (line.Icon != null && !line.Icon.IsAir)
 			{
@@ -3132,10 +3245,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 					continue;
 				}
 			}
-			// The whole row, not just its icon, shows the item's own tooltip.
+			// The whole row, not just its icon, shows the item's own tooltip, and a click opens its card.
 			if (line.Icon != null && !line.Icon.IsAir && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
 			{
-				HoverItemRow(line.Icon, "");
+				HoverItemRow(line.Icon, L("Common.ClickOpenThisItem"));
 			}
 		}
 		if (pages.Count > 1)

@@ -234,7 +234,7 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			NPC npc = mob.Sample;
-			if ((terms.Length > 0 && !BookRules.Search(terms, BookRules.SearchText(npc.FullName, mob.Key, ContentSamples.NpcPersistentIdsByNetIds[mob.NetId], ModName(mob.Mod)))) ||!BookProgressionRules.Matches(StageFilter, BookProgression.NpcStep(mob.NetId), StageBefore))
+			if ((terms.Length > 0 && !BookRules.Search(terms, BookRules.SearchText(npc.FullName, mob.Key, ContentSamples.NpcPersistentIdsByNetIds[mob.NetId], ModName(mob.Mod)))) || (!BookProgressionRules.Matches(StageFilter, MobStep(mob), StageBefore) && !(StageFilter == BookStageFilter.BeforeBoss && FoughtAt(mob, StageBefore))))
 			{
 				continue;
 			}
@@ -256,6 +256,18 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
+	// An entry's step is its earliest variant's: the Old One's Army's first tier, not the third the entry is named by.
+	private static int MobStep(BookMob mob)
+	{
+		return mob.Variants.Select(BookProgression.NpcStep).Where((int s) => s >= 0).DefaultIfEmpty(-1).Min();
+	}
+
+	// "Before: X" keeps X itself and its minions on this tab: the fight the player faces next.
+	private static bool FoughtAt(BookMob mob, int step)
+	{
+		return mob.Variants.Select((int v) => ContentSamples.NpcsByNetId[v].type).Any((int type) => BookSteps.Npc(type) == step || BookProgressionSources.MinionStep(type) == step);
+	}
+
 	private static int CompareMobs(int left, int right)
 	{
 		BookMob a = BookBestiary.Mobs[left];
@@ -269,7 +281,7 @@ public sealed partial class RecipeBookSystem
 		{
 			BookSortMode.ItemId => a.Order.CompareTo(b.Order),
 			BookSortMode.Mod => string.Compare(ModName(a.Mod), ModName(b.Mod), StringComparison.CurrentCultureIgnoreCase),
-			BookSortMode.Stage => BookProgression.NpcStep(a.NetId).CompareTo(BookProgression.NpcStep(b.NetId)),
+			BookSortMode.Stage => MobStep(a).CompareTo(MobStep(b)),
 			_ => 0,
 		};
 		if (comparison == 0 && SortMode != BookSortMode.ItemId)

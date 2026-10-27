@@ -212,7 +212,9 @@ internal static class BookStructures
 		{
 			label.Add(L("HowToGet.Pickaxe", s.NoteValue));
 		}
-		return new BookAcquisitionEntry(name, which.Length > 0 ? body + "\n" + which : body, s.Kind, "", "×1", s.From, 0, label.Count > 0, -1, s.Owner, string.Join(" · ", label));
+		// A chest row stands for the chest; the others show the structure's brick.
+		bool chestRow = Chests.Any(c => c.Row == row);
+		return new BookAcquisitionEntry(name, which.Length > 0 ? body + "\n" + which : body, s.Kind, "", "×1", s.From, 0, label.Count > 0, -1, s.Owner, string.Join(" · ", label), SourceItem: chestRow ? s.From : 0);
 	}
 
 	internal static string KindName(BookAcquisitionKind kind)

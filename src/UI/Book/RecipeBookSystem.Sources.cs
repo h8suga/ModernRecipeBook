@@ -123,37 +123,28 @@ public sealed partial class RecipeBookSystem
 			return new BookAcquisitionEntry(NpcName(s.Npc), "", s.Kind, "", "×1", 0, s.Npc, false, -1, s.Owner);
 		case BookAcquisitionKind.Shimmer:
 		case BookAcquisitionKind.Use:
-			return new BookAcquisitionEntry(ItemName(s.From), "", s.Kind, "", "×1", s.From, 0, false, -1, s.Owner);
+			return new BookAcquisitionEntry(ItemName(s.From), "", s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, SourceItem: s.From);
 		case BookAcquisitionKind.Machine:
 		{
 			string seconds = (s.NoteValue / 60f).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture);
 			int keeps = ContentSamples.ItemsByType[s.Item].maxStack;
-			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.MachineMakesOneEvery", seconds, keeps), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.OneEverySeconds", seconds));
+			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.MachineMakesOneEvery", seconds, keeps), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.OneEverySeconds", seconds), SourceItem: s.From);
 		}
 		case BookAcquisitionKind.DevSet:
 			// Bags exist in Expert and Master only.
 			return new BookAcquisitionEntry(L("HowToGet.HardmodeBossBags"), L("HowToGet.DevSetFromBags"), s.Kind, BookAcquisitionRules.Chance(s.Chance), "×1", s.From, 0, true, -1, s.Owner, L("HowToGet.WithItsWholeSet"), OtherMode: !Main.expertMode);
 		case BookAcquisitionKind.Record:
-			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.WhileItsTrackPlays"));
+			return new BookAcquisitionEntry(ItemName(s.From), L("HowToGet.WearABlankBoxWhileIts"), s.Kind, "", "×1", s.From, 0, false, -1, s.Owner, L("HowToGet.WhileItsTrackPlays"), SourceItem: s.From);
 		case BookAcquisitionKind.Trade:
 		{
 			string gate = GateText(s.Note);
-			string label = L("HowToGet.For", ItemName(s.FromAny.FirstOrDefault())) + (gate.Length > 0 ? " · " + gate : "");
-			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label);
+			int price = s.FromAny.FirstOrDefault();
+			string label = L("HowToGet.For", ItemName(price)) + (gate.Length > 0 ? " · " + gate : "");
+			return new BookAcquisitionEntry(NpcName(s.Npc), label, s.Kind, "", "×1", 0, s.Npc, gate.Length > 0, -1, s.Owner, label, SourceItem: price);
 		}
-		case BookAcquisitionKind.Chest:
-		{
-			if (s.Where.Length == 0)
-			{
-				return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
-			}
-			// A chest that waits for a boss (BookItemSources.CalamityGatedWorldgenItems): its place, and the boss.
-			string boss = NpcTypeName(s.Note.Substring(5));
-			(string place, string body) = s.Where[0] == "AstralChest"
-				? (L("HowToGet.ChestAstralChest"), L("HowToGet.ChestAstralChestBody", boss))
-				: (L("HowToGet.ChestHellLab"), L("HowToGet.ChestHellLabBody", boss));
-			return new BookAcquisitionEntry(place, body, s.Kind, "", "", s.From, 0, true, -1, s.Owner, GateText(s.Note));
-		}
+		// Calamity's mined lab machines and pylon (BookItemSources.CalamityWorldgenItems); chest loot is BookChestLoot's.
+		case BookAcquisitionKind.Chest when s.Where.Length == 0:
+			return new BookAcquisitionEntry(L("HowToGet.WorldChestsAndStructures"), L("HowToGet.PlacedThereWhenTheWorldIs"), s.Kind, "", "", ItemID.Chest, 0, false, -1, s.Owner, L("HowToGet.FromWorldCreation"));
 		case BookAcquisitionKind.Fishing:
 			return FishingEntry(s);
 		default:
@@ -210,7 +201,7 @@ public sealed partial class RecipeBookSystem
 			}
 		}
 		string name = s.Kind == BookAcquisitionKind.Container ? ItemName(s.From) : (s.Npc == 0 ? L("HowToGet.AnyEnemy") : ContentSamples.NpcsByNetId[s.Npc].FullName);
-		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))), OtherMode: otherMode);
+		return new BookAcquisitionEntry(name, string.Join("; ", conditions.Distinct()), s.Kind, BookAcquisitionRules.Chance(rate.dropRate), "×" + BookAcquisitionRules.Stack(rate.stackMin, rate.stackMax), s.Kind == BookAcquisitionKind.Container ? s.From : 0, s.Npc, conditions.Count > 0, -1, s.Owner, string.Join("; ", shortConditions.Distinct()), BookAcquisitionGrouping.DropRuleKey(rate.dropRate, rate.stackMin, rate.stackMax, string.Join("|", conditionKeys.OrderBy((string x) => x, StringComparer.Ordinal))), OtherMode: otherMode, SourceItem: s.Kind == BookAcquisitionKind.Container ? s.From : 0);
 	}
 
 	private static BookAcquisitionEntry FishingEntry(BookItemSource s)

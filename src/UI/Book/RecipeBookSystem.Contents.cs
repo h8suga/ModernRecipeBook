@@ -113,20 +113,4 @@ public sealed partial class RecipeBookSystem
 		}
 		return false;
 	}
-
-	private static bool CanOpenContents(BookAcquisitionGroup group)
-	{
-		return group.Source.Kind == BookAcquisitionKind.Container && HasContents(group.Source.ItemType);
-	}
-
-	// How to Get's Container rows open the bag or crate on what it holds; Back returns to How to Get.
-	private static void OpenContents(int type)
-	{
-		CloseAcquisition();
-		if (StorageView || TrackingView || BestiaryView)
-		{
-			SwitchTab(0);
-		}
-		StepCard(type, BookCardMode.Contents);
-	}
 }
