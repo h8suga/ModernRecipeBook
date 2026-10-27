@@ -19,6 +19,9 @@ internal sealed class BookEnemyLoot
 	// What the row shows of this world's rules (BookEnemyRules.Pick); null: it varies by condition.
 	internal BookDropPick Pick { get; }
 
+	// What the conditions of its reports name (BookEnemyDrop.Mentions).
+	internal IEnumerable<BookMention> Mentions => Reports.SelectMany((BookEnemyDrop x) => x.Mentions ?? System.Array.Empty<BookMention>());
+
 	// Every rule is one this world is past (Past), none another difficulty's or seed's.
 	internal bool PastOnly => OtherWorld && Reports.All((BookEnemyDrop x) => x.Past && !x.OtherMode);
 

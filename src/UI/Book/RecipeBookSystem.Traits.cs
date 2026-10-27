@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -43,7 +44,7 @@ public sealed partial class RecipeBookSystem
 
 	private static (int Type, int Culture, int Version) TraitLineKey = (-1, -1, -1);
 
-	private static string TraitLineText = "";
+	private static List<LinkSpan> TraitLineSpans = new List<LinkSpan>();
 
 	private static bool TraitFilterTab => CurrentTab is 0 or 1;
 
@@ -357,39 +358,54 @@ public sealed partial class RecipeBookSystem
 	// The card's line: the item's traits in order, "" when it has none.
 	private static string TraitLine(Item item)
 	{
+		return string.Concat(TraitSpans(item).Select((LinkSpan s) => s.Text));
+	}
+
+	// Each trait a link to the Traits filter set to it; as many names as fit, then "+N": the hover lists them all.
+	private static List<LinkSpan> TraitSpans(Item item)
+	{
 		if (item == null || item.IsAir)
 		{
-			return "";
+			return new List<LinkSpan>();
 		}
 		(int, int, int) key = (item.type, Culture, BookItemTraits.Version);
 		if (TraitLineKey == key)
 		{
-			return TraitLineText;
+			return TraitLineSpans;
 		}
 		TraitLineKey = key;
 		BookTrait has = BookItemTraits.Get(item.type);
-		List<string> names = new List<string>();
-		foreach (BookTrait trait in BookItemTraits.Rows)
+		BookTrait[] traits = BookItemTraits.Rows.Where((BookTrait trait) => (has & trait) != 0).ToArray();
+		int shown = traits.Length;
+		while (shown > 1 && TextWidth(string.Concat(Spans(shown).Select((LinkSpan s) => s.Text)), 0.8f) > BookGeometry.DetailHeaderSub.Width)
 		{
-			if ((has & trait) != 0)
+			shown--;
+		}
+		TraitLineSpans = Spans(shown);
+		return TraitLineSpans;
+		List<LinkSpan> Spans(int count)
+		{
+			List<LinkSpan> spans = new List<LinkSpan>();
+			for (int i = 0; i < count; i++)
 			{
-				names.Add(BookItemTraits.Label(trait));
+				if (i > 0)
+				{
+					spans.Add(new LinkSpan(" · "));
+				}
+				spans.Add(new LinkSpan(BookItemTraits.Label(traits[i]), TraitLink(traits[i])));
 			}
+			if (count < traits.Length)
+			{
+				spans.Add(new LinkSpan(" +" + (traits.Length - count)));
+			}
+			return spans;
 		}
-		// As many names as fit, then "+N": the hover lists them all.
-		string text = string.Join(" · ", names);
-		for (int shown = names.Count - 1; shown >= 1 && TextWidth(text, 0.8f) > BookGeometry.DetailHeaderSub.Width; shown--)
-		{
-			text = string.Join(" · ", names.GetRange(0, shown)) + " +" + (names.Count - shown);
-		}
-		TraitLineText = text;
-		return TraitLineText;
 	}
 
-	private static void DrawTraitLine(SpriteBatch sb, Item item, string line, BookRect rect)
+	// The line keeps its Accent, links included; a trait under the mouse shows its filter's tip, the rest of the line why.
+	private static void DrawTraitLine(SpriteBatch sb, Item item, BookRect rect)
 	{
-		FixedLabel(sb, line, rect.X, rect.Y, Accent, 0.8f, rect.Width, rect.Height);
-		if (!MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
+		if (!DrawLinkLine(sb, TraitSpans(item), rect, 0.8f, Accent, Accent, Accent) && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(TraitExplanation(item.type));
 		}

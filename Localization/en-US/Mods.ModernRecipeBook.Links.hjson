@@ -1,0 +1,21 @@
+ItemCard: Click: the {0}'s card
+ItemContents: Click: what the {0} holds
+HowToGet: Click: how to get {0}
+MobCard: Click: {0} in the Bestiary
+MobCategory: Click: the {0} category in the Bestiary
+ModFilter: Click: only {0} on {1}
+StageFilter: Click: only {0} on the stage filter
+TraitFilter: Click: weapons with {0}
+TrackingGoal: Click: this goal on {0}
+ShowAllStages: Show all stages
+ShowAllStagesTip: Click: the stage filter shows every stage
+FirstPickaxe: The first pickaxe with {0}% power: {1}
+ShiftClickBossCard: Shift+Click: its card in the Bestiary
+NoCardPickup: Picked up at once, like a heart: it has no card of its own
+SetPieces: SET PIECES
+CompactLineFor: For: {0}
+DevSetBags: "{0} {^0:bag;bags} that can hold a set"
+HelpKeyLMBOnAName: LMB on a name
+HelpOpenWhatItNames: Open its card or filter
+HelpStageMenuBossCard: Stage menu boss: its card
+ShowTheBags: Click: the bags it can come in

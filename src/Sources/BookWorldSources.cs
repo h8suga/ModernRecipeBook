@@ -839,7 +839,8 @@ internal static class BookWorldSources
 					continue;
 				}
 				string[] where = f[1].Split(',', StringSplitOptions.RemoveEmptyEntries).Select((string w) => w is "any" or "lava" or "honey" ? w : (w.Contains('/') ? w : Biome + w)).ToArray();
-				yield return new BookItemSource(BookAcquisitionKind.Fishing, type) { From = type, Owner = mod ?? "Terraria", Where = where, Note = (f[2] + "|" + f[3]).Trim('|') };
+				// "tier|gates": only the end is trimmed, so a row with no tier keeps its gates in second place
+				yield return new BookItemSource(BookAcquisitionKind.Fishing, type) { From = type, Owner = mod ?? "Terraria", Where = where, Note = (f[2] + "|" + f[3]).TrimEnd('|') };
 			}
 		}
 	}

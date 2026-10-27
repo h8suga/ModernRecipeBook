@@ -25,6 +25,9 @@ public sealed partial class RecipeBookSystem
 
 	private static readonly int[] EnvironmentIcons = new int[6] { ItemID.WaterBucket, ItemID.HoneyBucket, ItemID.LavaBucket, ItemID.BottomlessShimmerBucket, ItemID.SnowBlock, ItemID.Tombstone };
 
+	// The Bestiary categories of the surroundings that are biomes (the snow, the graveyard); the liquids have none.
+	private static readonly string[] EnvironmentTags = new string[6] { null, null, null, null, "tag:Bestiary_Biomes.Snow", "tag:Bestiary_Biomes.Graveyard" };
+
 	// Nearby, then the interfaces, then the surroundings; Starts[g]..Starts[g + 1] is group g.
 	private static readonly List<ActiveStation> ActiveStations = new List<ActiveStation>();
 
@@ -444,6 +447,7 @@ public sealed partial class RecipeBookSystem
 		if (panel.Contains(Mouse.X, Mouse.Y))
 		{
 			PendingTip = null;
+			HoveredLink = default;
 			if (Main.HoverItem != null && !Main.HoverItem.IsAir)
 			{
 				Main.HoverItem = new Item();
@@ -473,7 +477,9 @@ public sealed partial class RecipeBookSystem
 				continue;
 			}
 			y += 4f;
-			SectionLabel(sb, ActiveStationGroup(group), x + 4f, y, panel.Width - 32f);
+			// The Crafting Interface's group is named after Magic Storage's item, a link to its card (RecipeBookSystem.Links).
+			BookLink interfaceLink = (group == 1 && StationItems.TryGetValue(BookMagicStorage.CraftingAccessTile, out Item access)) ? ItemLink(access.type) : null;
+			DrawLinkLine(sb, Whole(ActiveStationGroup(group).ToUpperInvariant(), interfaceLink), new BookRect(x + 4f, y, panel.Width - 32f, 18f), 0.8f, Muted);
 			y += 22f;
 			for (int i = start; i < end; i++)
 			{
@@ -509,7 +515,11 @@ public sealed partial class RecipeBookSystem
 		}
 		if (hover)
 		{
-			MouseTip(ActiveStationTip(index));
+			// A station opens its item's card; where the player stands (a biome) its Bestiary category; water, honey, lava and
+			// shimmer have no place in the book.
+			BookLink link = (station.Tile >= 0) ? ((icon != null) ? ItemLink(icon.type) : null) : ((EnvironmentTags[station.Environment] is string tag) ? MobCategoryLink(BookBestiary.FindTag(tag)) : null);
+			RowLink(link, cell);
+			MouseTip(ActiveStationTip(index) + ((link != null) ? ("\n" + link.Tip) : ""));
 		}
 	}
 

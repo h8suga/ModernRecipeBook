@@ -65,7 +65,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private sealed record MaterialRequirement(Item Ingredient, RecipeGroup Group, string Name, HashSet<int> ItemTypes, bool Overlapping, int[] Alternatives = null);
 
 	// Alternatives: an "A or B" row of a merged recipe; SourceTypes then lists them, Icon's first.
-	private sealed record Detail(Item Icon, string Name, string Sub, Color Color, Color SubColor, string Tooltip, int[] SourceTypes = null, bool Alternatives = false);
+	// Group: a recipe group's row ("Any Iron Bar"), SourceTypes its members, the shown one first. Condition: a condition row's own.
+	private sealed record Detail(Item Icon, string Name, string Sub, Color Color, Color SubColor, string Tooltip, int[] SourceTypes = null, bool Alternatives = false, bool Group = false, Condition Condition = null);
 
 	private sealed record MaterialPreview(string Summary, Color Color, string Materials);
 
@@ -188,6 +189,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	// The Spawns line's hint when it comes from Calamity's Acid Rain tables, not the Bestiary; empty otherwise.
 	private static string EnemySpawnTip = "";
+
+	// The items the Spawns line names (a boss's summons): links to their cards, as its bosses and places are.
+	private static int[] EnemySpawnItems = Array.Empty<int>();
 
 	private static List<BookEnemyLoot> EnemyLoot = new List<BookEnemyLoot>();
 
@@ -735,7 +739,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 				// Row: stations as the title, the station's icon, conditions or the recipe's mod below; materials on hover.
 				string conditionText = string.Join("; ", recipe.Conditions.Select(ConditionName));
 				int stationItem = recipe.requiredTile.Where((int t) => t >= 0).Select((int t) => StationItems.TryGetValue(t, out var station) ? station.type : 0).FirstOrDefault((int t) => t > 0);
-				Add(new BookAcquisitionEntry((stations.Count == 0) ? L("Common.ByHand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText));
+				// The materials and what the conditions name are links on the row's line (RecipeBookSystem.Links).
+				BookMention[] mentions = recipe.requiredItem.Where((Item i) => !i.IsAir && (alternatives?.Contains(i.type) == true || GroupName(recipe, i, out _) == i.Name)).SelectMany((Item i) => (alternatives != null && alternatives.Contains(i.type)) ? alternatives : new[] { i.type }).Distinct().Select((int t) => new BookMention(ItemName(t), t)).Concat(ConditionMentions(recipe.Conditions)).ToArray();
+				Add(new BookAcquisitionEntry((stations.Count == 0) ? L("Common.ByHand") : string.Join(", ", stations), string.Join(", ", materials), BookAcquisitionKind.Craft, "", "×" + recipe.createItem.stack, (stationItem > 0) ? stationItem : type, 0, recipe.Conditions.Count > 0, index, Owner(recipe), conditionText, Mentions: mentions));
 			}
 		}
 		// Everything else comes from the shared source model, the same one the stages are computed from. What the
@@ -783,7 +789,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// One condition of a loot rule as its row words it (an empty Label says nothing) and what it means in this world:
 	// another difficulty's or seed's (OtherMode), a branch this world is already past (Past: a boss it came before is
 	// down, a first kill made), whether it holds now (Now: false not yet, null when the kill or an event decides).
-	private readonly record struct LootWord(string Label, bool OtherMode = false, bool Past = false, bool? Now = true);
+	// Target: what the word names (ConditionTarget), a link on the row whatever language the label is in.
+	private readonly record struct LootWord(string Label, bool OtherMode = false, bool Past = false, bool? Now = true, BookMention? Target = null);
 
 	// The word of a loot rule's condition, for the mob card, Contents and How to Get alike: a difficulty or seed gate this
 	// world meets says nothing, one it fails marks another world's rule and keeps its word.
@@ -795,6 +802,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return new LootWord("");
 		}
 		LootWord word = ConditionWord(condition, npcNetId, item);
+		word = string.IsNullOrEmpty(word.Label) ? word : (word with { Target = ConditionTarget(condition, npcNetId, item, word.Label) });
 		return gate == false ? word with { OtherMode = true } : word;
 	}
 
@@ -1086,9 +1094,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// A row opens something only when there is more to see: its recipe, the enemy card, the card of the item it stands
-	// for (a container on what it holds) or several drop rules.
+	// for (a container on what it holds), several drop rules, or the developer sets' list of bags (DevSetBags).
 	private static bool AcquisitionOpens(BookAcquisitionGroup group)
 	{
+		if (group.Source.Kind == BookAcquisitionKind.DevSet)
+		{
+			return DevSetBags.Length > 0;
+		}
 		if (group.Source.RecipeIndex < 0 && !CanOpenEnemy(group) && RowItem(group) == 0)
 		{
 			if (group.CanExpand)
@@ -1152,7 +1164,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return;
 		}
 		int pageStep = ((Press(Keys.PageUp) || (delta > 0 && BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)) || (click && BookGeometry.AcquisitionPrevious.Contains(Mouse.X, Mouse.Y))) ? (-1) : ((Press(Keys.PageDown) || (delta < 0 && BookGeometry.AcquisitionPanel.Contains(Mouse.X, Mouse.Y)) || (click && BookGeometry.AcquisitionNext.Contains(Mouse.X, Mouse.Y))) ? 1 : 0));
-		int count = (expanded ? AcquisitionSources[AcquisitionGroup].Rules.Length : AcquisitionSources.Count);
+		int count = (expanded ? ExpandedCount(AcquisitionSources[AcquisitionGroup]) : AcquisitionSources.Count);
 		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
 		page = BookAcquisitionRules.ClampPage(page + pageStep, count);
 		if (Press(Keys.Home))
@@ -1309,6 +1321,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string action = true switch
 		{
 			_ when CanOpenEnemy(group) => L("Common.OpenInBestiary"),
+			_ when group.Source.Kind == BookAcquisitionKind.DevSet => L("Links.ShowTheBags"),
 			_ when item == 0 => L("Common.ShowConditions"),
 			_ when HasContents(item) => L("Contents.ShowWhatSInside"),
 			_ when ChestRow(group) => L("SourceRows.ClickChestCard", ItemName(item)),
@@ -1323,6 +1336,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		bool expanded = AcquisitionGroup >= 0;
 		BookAcquisitionGroup current = (expanded ? AcquisitionSources[AcquisitionGroup] : null);
 		Item item = ContentSamples.ItemsByType[AcquisitionVariants[AcquisitionVariant]];
+		CardTarget = "item:" + item.type;
 		BookRect icon = BookGeometry.AcquisitionIcon(expanded);
 		if (expanded)
 		{
@@ -1333,9 +1347,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Icon(sb, item, icon.X, icon.Y, icon.Width, tooltip: false);
 		}
 		bool unknown = !expanded && AcquisitionSources.All((BookAcquisitionGroup x) => x.Source.Kind == BookAcquisitionKind.Unknown);
-		string subtitle = (expanded ? (L("Common.Conditions", item.Name)) : (L("Common.HowToGet") + (unknown ? "" : (" · " + L("HowToGet.CountSources", AcquisitionSources.Count)))));
+		bool bags = expanded && current.Source.Kind == BookAcquisitionKind.DevSet;
+		string subtitle = bags ? L("Links.DevSetBags", DevSetBags.Length) : (expanded ? (L("Common.Conditions", item.Name)) : (L("Common.HowToGet") + (unknown ? "" : (" · " + L("HowToGet.CountSources", AcquisitionSources.Count)))));
 		DrawCardHeader(sb, expanded, expanded ? current.Source.Name : item.Name, subtitle, (!expanded) ? AcquisitionVariant : 0, (!expanded) ? AcquisitionVariants.Length : 1, L("Common.OtherAcceptedItems"));
-		int count = (expanded ? current.Rules.Length : AcquisitionSources.Count);
+		int count = (expanded ? ExpandedCount(current) : AcquisitionSources.Count);
 		int page = (expanded ? AcquisitionRulePage : AcquisitionPage);
 		if (unknown)
 		{
@@ -1348,20 +1363,28 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				break;
 			}
+			if (bags)
+			{
+				DrawDevSetBag(sb, row, DevSetBags[index]);
+				continue;
+			}
 			BookAcquisitionGroup group = (expanded ? current : AcquisitionSources[index]);
 			BookAcquisitionRule rule = (expanded ? group.Rules[index] : group.Rules[0]);
 			BookAcquisitionEntry source = (expanded ? rule.Source : group.Source);
 			bool opens = !expanded && AcquisitionOpens(group);
 			bool varies = !expanded && group.Varies;
 			BookRect bounds = BookGeometry.AcquisitionRow(row);
-			bool hover = bounds.Contains(Mouse.X, Mouse.Y);
-			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
-			DrawAcquisitionIcon(sb, source, BookGeometry.AcquisitionSourceIcon(row));
 			string title = (expanded ? ((source.ConditionLabel.Length > 0) ? source.ConditionLabel : L("Common.NoConditions")) : source.Name);
 			BookRect name = BookGeometry.AcquisitionName(row);
 			BookRect detail = BookGeometry.AcquisitionDetail(row);
-			Text(sb, title, name.X, name.Y, TextColor, 1f, name.Width, name.Height);
-			Text(sb, expanded ? AcquisitionKindName(source.Kind) : AcquisitionDetailText(group), detail.X, detail.Y, Muted, 0.85f, detail.Width, detail.Height);
+			// What the row names is a link of its own (RecipeBookSystem.Links): on one, the row shows no hover.
+			List<LinkPiece> titleLinks = LinkPieces(AcquisitionTitleSpans(group, source, title, expanded), name, 1f);
+			List<LinkPiece> detailLinks = LinkPieces(expanded ? Plain(AcquisitionKindName(source.Kind)) : LinkedMentions(AcquisitionDetailText(group), LinkNames.Bosses | LinkNames.Places | LinkNames.Bags, GroupMentions(group)), detail, 0.85f);
+			bool hover = bounds.Contains(Mouse.X, Mouse.Y) && !OnLink(titleLinks) && !OnLink(detailLinks);
+			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
+			DrawAcquisitionIcon(sb, source, BookGeometry.AcquisitionSourceIcon(row));
+			DrawLinkPieces(sb, titleLinks, name, 1f, TextColor, Muted);
+			DrawLinkPieces(sb, detailLinks, detail, 0.85f, Muted);
 			AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), varies ? "" : (expanded ? source.Chance : group.Chance));
 			AcquisitionBadge(sb, BookGeometry.AcquisitionAmount(row), varies ? "" : (expanded ? source.Amount : group.Amount));
 			if (opens)
@@ -1404,6 +1427,54 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 		}
 		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? L("Common.SomeSourcesCouldNotBeRead") : "");
+	}
+
+	// A row's title as links: the places a natural row names, the bosses and the NPC of a row that does not open them
+	// (a trade's Dryad, a party's Party Girl); a row's own target (its mob, its item, its recipe) is the row's click.
+	private static List<LinkSpan> AcquisitionTitleSpans(BookAcquisitionGroup group, BookAcquisitionEntry source, string title, bool expanded)
+	{
+		if (expanded)
+		{
+			return LinkedMentions(title, LinkNames.Bosses | LinkNames.Places | LinkNames.Bags, source.Mentions);
+		}
+		int rowItem = RowItem(group);
+		if (source.RecipeIndex >= 0 || CanOpenEnemy(group) || (rowItem > 0 && title == ItemName(rowItem)))
+		{
+			return Plain(title);
+		}
+		IEnumerable<(string, BookLink)> npc = (source.NpcNetId != 0) ? new[] { (NpcName(source.NpcNetId), MobLink(source.NpcNetId)) } : null;
+		return Linked(title, LinkNames.Bosses | LinkNames.Places, npc);
+	}
+
+	// The rows an opened row lists: its rules, or the Developer set's bags.
+	private static int ExpandedCount(BookAcquisitionGroup group)
+	{
+		return (group.Source.Kind == BookAcquisitionKind.DevSet) ? DevSetBags.Length : group.Rules.Length;
+	}
+
+	// The bags that roll the developer and patron sets (BookItemSources.HardmodeBags) and something gives (vanilla's
+	// Lunatic Cultist bag has loot of its own, but ItemDropDatabase.RegisterBoss_AncientCultist gives the boss no BossBag
+	// rule), earliest first.
+	private static int[] DevSetBags => BookItemSources.HardmodeBags.Where((int t) => ContentSamples.ItemsByType.ContainsKey(t) && BookItemSources.For(t).Count > 0).OrderBy((int t) => (BookProgression.ItemStep(t) < 0) ? int.MaxValue : BookProgression.ItemStep(t)).ThenBy(ItemName, StringComparer.CurrentCultureIgnoreCase).ToArray();
+
+	// One bag of the Developer set's list: the whole row a link to what it holds.
+	private static void DrawDevSetBag(SpriteBatch sb, int row, int bag)
+	{
+		BookRect bounds = BookGeometry.AcquisitionRow(row);
+		bool hover = bounds.Contains(Mouse.X, Mouse.Y);
+		Box(sb, bounds, hover ? HoverFill : Raised, border: true, 8f);
+		BookRect icon = BookGeometry.AcquisitionSourceIcon(row);
+		Icon(sb, ContentSamples.ItemsByType[bag], icon.X, icon.Y, icon.Width, tooltip: false);
+		BookRect name = BookGeometry.AcquisitionName(row);
+		BookRect detail = BookGeometry.AcquisitionDetail(row);
+		Text(sb, ItemName(bag), name.X, name.Y, TextColor, 1f, name.Width, name.Height);
+		Text(sb, AcquisitionKindName(BookAcquisitionKind.Container) + " · " + StepName(BookProgression.ItemStep(bag)), detail.X, detail.Y, Muted, 0.85f, detail.Width, detail.Height);
+		Label(sb, BookGeometry.AcquisitionSourceAction(row), ">", hover ? TextColor : Muted);
+		if (hover)
+		{
+			RowLink(ItemLink(bag), bounds);
+			HoverItemRow(ContentSamples.ItemsByType[bag], L("Contents.ShowWhatSInside"));
+		}
 	}
 
 	// Button for this zone's panels: disabled is muted with no hover, primary is filled with Accent.
@@ -2359,6 +2430,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 		// Re-armed below only while the same card stays under the held button.
 		TrackedGoal held = UntrackHeld;
 		UntrackHeld = null;
+		// A compact line under the cursor while the book is open (CompactLineLink): the click is the line's, not the world's
+		// nor the book's.
+		if (Open && ResourceTrackerStyle && TrackerLink.Link != null && TrackerLink.Hit.Contains(Main.MouseScreen.X, Main.MouseScreen.Y))
+		{
+			Main.LocalPlayer.mouseInterface = true;
+			if (click && FollowLink(ref TrackerLink, Main.MouseScreen.X, Main.MouseScreen.Y))
+			{
+				LastLeft = true;
+			}
+			return;
+		}
 		// The compact style is not interactive, like the info accessory lines it sits under.
 		if (Open || TrackedGoals.Count == 0 || ResourceTrackerStyle || !TrackerInteractive || Main.gameMenu || Main.LocalPlayer.dead || Main.LocalPlayer.ghost)
 		{
@@ -2392,6 +2474,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			BlockTrackerPress = true;
 		}
+		// A link on a card (its title, a material) takes the click before the card (RecipeBookSystem.Links).
+		if (click && FollowLink(ref TrackerLink, x, y))
+		{
+			return;
+		}
 		if (click && y < BookTrackerRules.HeaderHeight)
 		{
 			TrackerDragging = true;
@@ -2417,10 +2504,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 				SoundEngine.PlaySound(in SoundID.Grab);
 			}
 		}
-		else if (click && index == TrackerActiveIndex && BookTrackerRules.OnMoreLine(y, index, TrackerActiveIndex, TrackerActiveMaterials))
-		{
-			OpenTrackingGoal(goal);
-		}
 		else if (click)
 		{
 			ActiveGoal = ((ActiveGoal == goal) ? null : goal);
@@ -2434,6 +2517,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			Toggle();
 		}
+		// A How to Get left open when the book closed would cover the tab (Toggle keeps it).
+		CloseAcquisition();
 		if (!TrackingView)
 		{
 			SwitchTab(5);
@@ -2451,7 +2536,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		try
 		{
-			DrawTracker(sb);
+			CollectTrackerLinks(() => DrawTracker(sb));
 			FlushTip();
 		}
 		catch (Exception exception)
@@ -2520,7 +2605,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 				Icon(sb, GoalIcon(goal), 12f, top + 8f, 28f, tooltip: false);
 				string crafts = CraftsRatio(goal);
 				float craftsWidth = CountWidth(crafts, 0.88f);
-				FixedLabel(sb, GoalTitle(goal), 48f, top + 5f, TextColor * fade, 0.88f, width - 48f - 12f - craftsWidth - 12f, 22f);
+				// The title opens the goal's card (RecipeBookSystem.Links); the rest of the card folds its materials.
+				bool titleLink = DrawLinkLine(sb, Whole(GoalTitle(goal), interactive ? Opening(GoalCardLink(goal)) : null), new BookRect(48f, top + 5f, width - 48f - 12f - craftsWidth - 12f, 22f), 0.88f, TextColor * fade, link: TextColor * fade);
 				CenterLabel(sb, crafts, width - 12f - craftsWidth, top + 5f, craftsWidth, 22f, (goal.Ready ? EnoughColor : TextColor) * fade, 0.88f, rightAligned: true);
 				DrawProgressBar(sb, 48f, top + 31f, width - 48f - 12f, 4f, goal);
 				if (goal == UntrackHeld)
@@ -2531,9 +2617,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 				bool more = false;
 				if (expanded)
 				{
-					more = DrawGoalMaterials(sb, goal, top + BookTrackerRules.GoalHeight, fade, hover && BookTrackerRules.OnMoreLine(Mouse.Y, i, active, activeMaterials));
+					more = DrawGoalMaterials(sb, goal, top + BookTrackerRules.GoalHeight, fade, interactive);
 				}
-				if (hover && !more)
+				if (hover && !more && !titleLink)
 				{
 					MouseTip(GoalTitle(goal) + "\n" + L("UiPolish.ClickMaterialsHoldRightUntrack"));
 				}
@@ -2548,8 +2634,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	// True when the mouse is on the "+N more" line, a link to the Tracking tab (it shows its own tip).
-	private static bool DrawGoalMaterials(SpriteBatch sb, TrackedGoal goal, float y, float fade, bool moreHovered)
+	// True when the mouse is on a link (it shows its own tip): a material's name opens its How to Get, the "+N more" line
+	// the goal on the Tracking tab, every material listed there.
+	private static bool DrawGoalMaterials(SpriteBatch sb, TrackedGoal goal, float y, float fade, bool interactive)
 	{
 		if (goal.Progress.Length != goal.Materials.Count)
 		{
@@ -2559,6 +2646,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		int[] order = MissingFirst(goal.Progress);
 		bool more = order.Length > BookTrackerRules.MaxMaterialLines;
 		int shown = more ? (BookTrackerRules.MaxMaterialLines - 1) : order.Length;
+		bool over = false;
 		for (int line = 0; line < shown; line++)
 		{
 			BookResourceProgress row = goal.Progress[order[line]];
@@ -2567,20 +2655,17 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Icon(sb, material.Ingredient, 48f, itemY + 2f, 20f, tooltip: false);
 			string ratio = ProgressRatio(row);
 			float ratioWidth = CountWidth(ratio, 0.82f);
-			FixedLabel(sb, MaterialName(material), 76f, itemY + 1f, (row.Met ? Muted : TextColor) * fade, 0.82f, width - 76f - 12f - ratioWidth - 12f, 22f);
+			over |= DrawLinkLine(sb, Whole(MaterialName(material), interactive ? Opening(HowToGetLink(material.Ingredient.type, material.ItemTypes.OrderBy((int t) => t))) : null), new BookRect(76f, itemY + 1f, width - 76f - 12f - ratioWidth - 12f, 22f), 0.82f, (row.Met ? Muted : TextColor) * fade, link: (row.Met ? Muted : TextColor) * fade);
 			CenterLabel(sb, ratio, width - 12f - ratioWidth, itemY + 1f, ratioWidth, 22f, ProgressColor(row) * fade, 0.82f, rightAligned: true);
 		}
 		if (!more)
 		{
-			return false;
+			return over;
 		}
 		// The book's hotkeys work only while it is open, so the line is a link instead of naming Ctrl+6.
-		FixedLabel(sb, L("UiPolish.MoreOpenTracking", order.Length - shown), 76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, (moreHovered ? Accent : Muted) * fade, 0.82f, width - 88f, 22f);
-		if (moreHovered)
-		{
-			MouseTip(L("UiPolish.OpenTrackingWithAllMaterials"));
-		}
-		return moreHovered;
+		BookLink all = interactive ? new BookLink(L("UiPolish.OpenTrackingWithAllMaterials"), () => OpenTrackingGoal(goal)) : null;
+		over |= DrawLinkLine(sb, Whole(L("UiPolish.MoreOpenTracking", order.Length - shown), all), new BookRect(76f, y + (float)(shown * BookTrackerRules.MaterialHeight) + 1f, width - 88f, 22f), 0.82f, Muted * fade, link: Muted * fade);
+		return over;
 	}
 
 	// Width a count needs, so the name next to it gets the rest of the row.
@@ -2698,9 +2783,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return BookResourceTrackerRules.AssessGoal(needs, goal.Counts.ToDictionary((KeyValuePair<int, int> p) => p.Key, (KeyValuePair<int, int> p) => (long)p.Value), goal.Unknown, infinite);
 	}
 
+	// A row of a mob opens its card: the one that drops it, its banner's, the critter caught, the seller (a town NPC) and the
+	// Angler whose quests give it.
 	private static bool CanOpenEnemy(BookAcquisitionGroup group)
 	{
-		if (group.Source.Kind is BookAcquisitionKind.Drop or BookAcquisitionKind.Banner or BookAcquisitionKind.Catch && group.Source.NpcNetId != 0)
+		if (group.Source.Kind is BookAcquisitionKind.Drop or BookAcquisitionKind.Banner or BookAcquisitionKind.Catch or BookAcquisitionKind.Shop or BookAcquisitionKind.Quest && group.Source.NpcNetId != 0)
 		{
 			return ContentSamples.NpcsByNetId.ContainsKey(group.Source.NpcNetId);
 		}
@@ -2770,6 +2857,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		string lead = rain.HasValue ? AcidRainText(rain.Value, full: false) : ((gate != null) ? SpawnGateText(gate, spawn, biomes, full: false) : null);
 		EnemySpawn = string.Join(" · ", ((lead != null) ? spawn.Prepend(lead) : spawn).Distinct(StringComparer.Ordinal));
 		EnemySpawnTip = "";
+		EnemySpawnItems = Array.Empty<int>();
 		if (rain.HasValue)
 		{
 			string start = ModContent.TryFind("CalamityMod/CausticTear", out ModItem tear) ? L("Common.StartsOnItsOwnOrWith", ItemName(tear.Type)) : L("Common.StartsOnItsOwn");
@@ -2809,6 +2897,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			string how = boss.Info();
 			string[] items = boss.Items.Select(ItemName).Where((string n) => n.Length > 0).Distinct().ToArray();
+			EnemySpawnItems = boss.Items.Where((int i) => ItemName(i).Length > 0).Distinct().ToArray();
 			line = items.Length > 0 ? L("SourceRows.SummonedWith", string.Join(L("Common.OrSeparator"), items)) : how;
 			if (line.Length > 0)
 			{
@@ -3167,14 +3256,34 @@ public sealed partial class RecipeBookSystem : ModSystem
 		for (int n = 0; n < shown; n++)
 		{
 			BookResourceProgress row = ResourceTrackerRows[order[n]];
-			MaterialRequirement material = ResourceTrackerMaterials[BookResourceTrackerRules.Key(row.Need.Types)];
+			string key = BookResourceTrackerRules.Key(row.Need.Types);
+			MaterialRequirement material = ResourceTrackerMaterials[key];
 			string name = MaterialName(material);
+			CompactLineLink(sb, TrackedGoals.Where((TrackedGoal g) => g.Materials.Any((MaterialRequirement m) => BookResourceTrackerRules.Key(m.ItemTypes) == key)).ToList(), x, top + (line + n) * step, maxWidth, step);
 			DrawInfoLine(sb, material.Ingredient, name, " " + ProgressRatio(row), x, top + (line + n) * step, maxWidth, row.Met ? InfoDoneColor : Color.White, fade);
 		}
 		if (shown < order.Length)
 		{
+			CompactLineLink(sb, TrackedGoals, x, top + (line + shown) * step, maxWidth, step);
 			DrawInfoLine(sb, null, L("Common.MoreLines", order.Length - shown), "", x, top + (line + shown) * step, maxWidth, new Color(150, 150, 150), fade);
 		}
+	}
+
+	// While the book is open the cursor is the book's, not the world's: a compact line under it lights up, names the goals
+	// it counts for and opens the first on the Tracking tab (RecipeBookSystem.Links; HandleTrackerInput takes the click).
+	// In play the lines stay out of the mouse's way, as the info lines they continue do.
+	private static void CompactLineLink(SpriteBatch sb, List<TrackedGoal> goals, int x, int y, float width, int step)
+	{
+		BookRect rect = new BookRect(x - 6, y, width + 32f, step);
+		if (!Open || goals.Count == 0 || !rect.Contains(Main.MouseScreen.X, Main.MouseScreen.Y))
+		{
+			return;
+		}
+		BookSkin.Panel(sb, new Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height), HoverFill, 6f);
+		BookLink link = GoalLink(goals[0]);
+		HoveredLink = (link, rect);
+		NoteLink(link.Tip, rect, screen: true);
+		MouseTip(L("Links.CompactLineFor", string.Join(", ", goals.Select(GoalTitle))) + "\n" + link.Tip);
 	}
 
 	// Lines the game draws above ours. The built-in displays are not listed by GetContent, so they are named here.
@@ -3374,14 +3483,25 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return L("Common.Ingredients", met, goal.Progress.Length);
 	}
 
-	// "<item's own mod> · Stage", like the item details on the other tabs.
-	private static string TrackingOrigin(TrackedGoal goal)
+	// "<item's own mod> · Stage", like the item details on the other tabs: the mod a link to the mod filter on Items, the
+	// stage to its boss's card or the stage filter.
+	private static List<LinkSpan> TrackingOriginSpans(TrackedGoal goal)
 	{
-		if (goal.IsSet)
+		List<LinkSpan> spans = new List<LinkSpan>();
+		foreach (string mod in (goal.IsSet ? goal.Parts.Select((Item p) => p.ModItem?.Mod.Name ?? "Terraria") : new[] { goal.Recipe.createItem.ModItem?.Mod.Name ?? "Terraria" }).Distinct())
 		{
-			return string.Join(" / ", goal.Parts.Select((Item p) => ModName(p.ModItem?.Mod.Name ?? "Terraria")).Distinct());
+			if (spans.Count > 0)
+			{
+				spans.Add(new LinkSpan(" / "));
+			}
+			spans.Add(new LinkSpan(ModName(mod), ModLink(mod, mobs: false, GoalCardType(goal))));
 		}
-		return ModName(goal.Recipe.createItem.ModItem?.Mod.Name ?? "Terraria") + " · " + StageName(null, goal.Recipe);
+		if (!goal.IsSet)
+		{
+			spans.Add(new LinkSpan(" · "));
+			spans.AddRange(StageSpans(BookProgression.RecipeModeExcluded(goal.Recipe.RecipeIndex) ? -1 : BookProgression.RecipeStep(goal.Recipe.RecipeIndex), StageName(null, goal.Recipe), mobs: false, GoalCardType(goal)));
+		}
+		return spans;
 	}
 
 	// "Recipe: Calamity Mod" when another mod than the item's own one made this recipe (vanilla Flying Carpet).
@@ -3455,8 +3575,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Icon(sb, GoalIcon(goal), d.X + 16f, d.Y + 16f, 48f);
 		string title = GoalTitle(goal);
 		float titleSize = Math.Clamp((d.Width - 92f) / Math.Max(1f, Ink(title).Width * TextScale), 0.85f, 1.05f);
-		FixedLabel(sb, title, d.X + 76f, d.Y + 17f, TextColor, titleSize, d.Width - 92f, 26f);
-		FixedLabel(sb, TrackingOrigin(goal), d.X + 76f, d.Y + 45f, Muted, 0.8f, d.Width - 92f, 20f);
+		// The goal's title opens its card (a set's, the set), the origin line's mod and stage go where the card's do.
+		DrawLinkLine(sb, Whole(title, GoalCardLink(goal)), new BookRect(d.X + 76f, d.Y + 17f, d.Width - 92f, 26f), titleSize, TextColor);
+		DrawLinkLine(sb, TrackingOriginSpans(goal), new BookRect(d.X + 76f, d.Y + 45f, d.Width - 92f, 20f), 0.8f, Muted);
 		FixedLabel(sb, L("Common.Crafts2", CraftsRatio(goal)), d.X + 16f, d.Y + 76f, goal.Ready ? EnoughColor : TextColor, 0.85f, d.Width - 32f, 20f);
 		DrawProgressBar(sb, d.X + 16f, d.Y + 102f, d.Width - 32f, 6f, goal);
 		List<List<(TrackingLine Line, BookRect Rect)>> pages = TrackingDetailLayout(goal);
@@ -3483,6 +3604,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			float right = rect.X + rect.Width - ((line.SourceTypes != null) ? 44f : 12f);
 			float valueWidth = ((line.Value.Length > 0) ? CountWidth(line.Value, 0.85f) : 0f);
+			if (line.Condition != null)
+			{
+				DrawLinkLine(sb, ConditionSpans(line.Condition), new BookRect(textX, rect.Y + 7f, right - valueWidth - 6f - textX, 22f), 0.85f, line.NameColor);
+				continue;
+			}
 			FixedLabel(sb, line.Name, textX, rect.Y + 7f, line.NameColor, 0.85f, right - valueWidth - 6f - textX, 22f);
 			if (valueWidth > 0f)
 			{
@@ -3546,7 +3672,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return pages;
 	}
 
-	private sealed record TrackingLine(Item Icon, string Name, string Value, Color NameColor, Color ValueColor, int[] SourceTypes = null, bool Section = false);
+	// Condition: a condition row's own, whose text names its targets (ConditionSpans).
+	private sealed record TrackingLine(Item Icon, string Name, string Value, Color NameColor, Color ValueColor, int[] SourceTypes = null, bool Section = false, Condition Condition = null);
 
 	private static List<TrackingLine> TrackingDetails(TrackedGoal goal)
 	{
@@ -3578,15 +3705,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			lines.Add(new TrackingLine(null, L("Common.ByHand"), "", Muted, Muted));
 		}
-		string[] conditions = (from c in goal.Recipes.SelectMany((Recipe r) => r.Conditions)
-			select ConditionName(c)).Distinct().ToArray();
+		Condition[] conditions = goal.Recipes.SelectMany((Recipe r) => r.Conditions).DistinctBy(ConditionName).ToArray();
 		if (conditions.Length > 0)
 		{
 			lines.Add(new TrackingLine(null, L("Common.CONDITIONS"), "", Muted, Muted, null, Section: true));
-			foreach (string condition in conditions)
+			foreach (Condition condition in conditions)
 			{
-				lines.Add(new TrackingLine(null, condition, "", ConditionColor, Muted));
+				lines.Add(new TrackingLine(null, ConditionName(condition), "", ConditionColor, Muted, Condition: condition));
 			}
+		}
+		// A set's own pieces, each opening its card as an ingredient row does.
+		if (goal.IsSet)
+		{
+			lines.Add(new TrackingLine(null, L("Links.SetPieces"), "", Muted, Muted, null, Section: true));
+			lines.AddRange(goal.Parts.Select((Item part) => new TrackingLine(part, part.Name, "", TextColor, Muted)));
 		}
 		return lines;
 	}
@@ -4264,6 +4396,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (!Main.gameMenu)
 		{
 			bool flag = !Open;
+			HoveredLink = default;
 			SetTyping(value: false);
 			// Help and the How to Get / enemy cards survive closing the book; only the dropdowns fold.
 			ModMenu = (StationMenu = false);
@@ -5001,7 +5134,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 				LastKeys = acquisitionKeys;
 				return;
 			}
-			HandleAcquisitionInput(click, acquisitionKeys);
+			// A link in a row takes the click before the row (RecipeBookSystem.Links).
+			if (!(click && FollowLink(ref HoveredLink, Mouse.X, Mouse.Y)))
+			{
+				HandleAcquisitionInput(click, acquisitionKeys);
+			}
 			LastKeys = acquisitionKeys;
 			LastEscape = acquisitionKeys.IsKeyDown(Keys.Escape);
 			return;
@@ -5142,6 +5279,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 		}
 
+		// The link under the mouse (a part of a row, a station in the popover) takes the click before anything under it.
+		if (click && FollowLink(ref HoveredLink, Mouse.X, Mouse.Y))
+		{
+			return;
+		}
 		if (!click || overStations)
 		{
 			return;
@@ -5387,7 +5529,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			HandleMobCardClick();
 			return;
 		}
-		if (StorageView || SelectedItem == null || HandleCardNavClick() || HandleArmorSetClick() || HandleCardCategoryClick() || HandleTrackButton())
+		if (StorageView || SelectedItem == null || HandleCardNavClick() || HandleArmorSetClick() || HandleTrackButton())
 		{
 			return;
 		}
@@ -5478,7 +5620,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (materialRecipe != null && CraftRect.Contains(Mouse.X, Mouse.Y))
 		{
-			BookCrafting.TryCraft(materialRecipe, PreviewBatches(materialRecipe));
+			Craft(materialRecipe, PreviewBatches(materialRecipe));
 		}
 	}
 
@@ -5700,13 +5842,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.Craft:
 			if (!TrackingView && !BestiaryView)
 			{
-				BookCrafting.TryCraft(SelectedRecipe, PreviewBatches(SelectedRecipe));
+				Craft(SelectedRecipe, PreviewBatches(SelectedRecipe));
 			}
 			break;
 		case BookHotkeys.Action.CraftMax:
 			if (!TrackingView && SelectedRecipe != null)
 			{
-				BookCrafting.TryCraft(SelectedRecipe, Math.Max(1, CachedAvailableBatches(SelectedRecipe)));
+				Craft(SelectedRecipe, Math.Max(1, CachedAvailableBatches(SelectedRecipe)));
 			}
 			break;
 		case BookHotkeys.Action.ToggleTrack:
@@ -5881,7 +6023,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			{
 				int kind = Kind(i);
 				bool header = kind != lastKind;
-				float height = (i < requirements.Count && requirements[i].Alternatives != null) ? BookGeometry.DetailRowTallHeight : 32f;
+				float height = (i < requirements.Count && (requirements[i].Alternatives != null || GroupRow(requirements[i]))) ? BookGeometry.DetailRowTallHeight : 32f;
 				float need = (header ? (((y > listTop) ? 8f : 0f) + 22f) : 0f) + height;
 				if (y + need > bottom && result[^1].Count > 0)
 				{
@@ -6312,9 +6454,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 	// Dropdown (closed state): current value and a chevron; the list opens inside the book.
 	// highlight marks a filter that is narrowing the list: its value is drawn in Accent.
 	// fitWidth: a value a little too long shrinks instead of being cut ("Knockback ↓").
-	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false, bool fitWidth = false)
+	private static void Dropdown(SpriteBatch sb, BookRect rect, string value, bool open, bool enabled = true, bool highlight = false, bool fitWidth = false, bool hoverable = true)
 	{
-		bool hover = enabled && !open && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
+		bool hover = hoverable && enabled && !open && !MenuOpen && rect.Contains(Mouse.X, Mouse.Y);
 		Box(sb, rect, hover ? HoverFill : (enabled ? Raised : Surface), border: true, 8f, open ? new Color?(Accent) : null, (!open) ? 1 : 2);
 		CenterLabel(sb, value, rect.X + 12f, rect.Y + 4f, rect.Width - 40f, rect.Height - 8f, (!enabled) ? Muted : (highlight ? Accent : TextColor), 0.85f, rightAligned: false, leftAligned: true, fitWidth);
 		if (enabled)
@@ -6472,6 +6614,14 @@ public sealed partial class RecipeBookSystem : ModSystem
 				list.Add(new Detail(requirement.Ingredient, requirement.Name, MaterialSub(assessment), color, color, AlternativesTooltip(requirement, batches), requirement.Alternatives, Alternatives: true));
 				continue;
 			}
+			if (GroupRow(requirement))
+			{
+				// "Any Iron Bar" over its members, each a link (DrawDetailRow); the tooltip has what you hold of each.
+				int[] members = Ordered(requirement.ItemTypes.OrderBy((int x) => x).ToArray(), requirement.Ingredient.type);
+				string held = string.Join("\n", members.Select((int type) => ItemName(type) + ": " + Count(Owned(new HashSet<int> { type }))));
+				list.Add(new Detail(requirement.Ingredient, requirement.Name, MaterialSub(assessment), color, color, MaterialTooltip(requirement, assessment, batches) + "\n" + held, members, Group: true));
+				continue;
+			}
 			list.Add(new Detail(requirement.Ingredient, requirement.Name, MaterialSub(assessment), color, color, MaterialTooltip(requirement, assessment, batches), requirement.ItemTypes.OrderBy((int x) => x).ToArray()));
 		}
 		foreach (int tile in r.requiredTile.Where((int t) => t >= 0))
@@ -6487,9 +6637,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		foreach (Condition c in r.Conditions)
 		{
-			list.Add(new Detail(null, ConditionName(c), L("Common.Condition"), Caution, Muted, ""));
+			list.Add(new Detail(null, ConditionName(c), L("Common.Condition"), Caution, Muted, "", Condition: c));
 		}
 		return list;
+	}
+
+	// A recipe group of more than one item takes a second line for its members.
+	private static bool GroupRow(MaterialRequirement requirement)
+	{
+		return requirement.Alternatives == null && requirement.Group != null && requirement.ItemTypes.Count > 1;
 	}
 
 	private static MaterialPreview PreviewMaterials(Recipe recipe)
@@ -6850,6 +7006,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			DrawQuickSearchOverGame(sb);
 			return;
 		}
+		HoveredLink = default;
+		CardTarget = null;
 		Layout();
 		ReadSearchText();
 		if (MouseOver)
@@ -6963,8 +7121,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 			MouseTip(L("Common.DragToMoveTheWindow"));
 		}
 		BookRect stage = StageDropdownRect();
-		DrawStageDropdown(sb, stage);
-		if (!MenuOpen && stage.Contains(Mouse.X, Mouse.Y))
+		bool stageLink = DrawStageDropdown(sb, stage);
+		if (!stageLink && !MenuOpen && stage.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(StageDropdownTip());
 		}
@@ -7341,6 +7499,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			EmptyState(sb, BookGeometry.DetailsPanel, L("Common.NothingSelected"), L("Common.PickAnItemOnTheLeft"));
 			return;
 		}
+		CardTarget = "item:" + chosen.type;
 		Recipe r = SelectedRecipe;
 		float top = RecipeBlockTop(chosen);
 		DrawCardNav(sb);
@@ -7392,20 +7551,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 	}
 
 	// Header: icon, name, "<item's own mod> · <category path>" and the stage (CardCategoryLine); a mod and stage that
-	// fit one line share it when the item has no category. An armor set shows its three pieces instead.
+	// fit one line share it when the item has no category. An armor set shows its three pieces instead. The mod, the
+	// categories and the stage's boss or stage are links (RecipeBookSystem.Links).
 	private static void DrawDetailHeader(SpriteBatch sb, Item chosen, Recipe r)
 	{
 		string name = chosen.Name + ((r != null && r.createItem.stack > 1) ? (" ×" + r.createItem.stack) : "");
 		string mod = ModName(chosen.ModItem?.Mod.Name ?? "Terraria");
 		string stage = StageName(chosen, (CardItemType > 0) ? null : r);
 		Recipe stageRecipe = (CardItemType > 0) ? null : r;
-		(BookRect line, string lead, string tail) = CardCategoryLine(chosen, r);
+		(BookRect line, List<LinkSpan> tail) = CardCategoryLine(chosen, r);
 		if (DrawArmorSet(sb, chosen))
 		{
 			BookRect title = BookGeometry.ArmorTitle;
 			BookRect subtitle = BookGeometry.ArmorSubtitle;
 			FixedLabel(sb, name, title.X, title.Y, TextColor, 1.05f, title.Width, title.Height);
-			if (!DrawCardCategoryLine(sb, chosen, lead, tail, line) && !MenuOpen && subtitle.Contains(Mouse.X, Mouse.Y))
+			if (!DrawCardCategoryLine(sb, chosen, tail, line) && !MenuOpen && subtitle.Contains(Mouse.X, Mouse.Y))
 			{
 				MouseTip(StageExplanation(chosen, stageRecipe));
 			}
@@ -7422,16 +7582,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 		FixedLabel(sb, name, 880f, y, TextColor, 1.05f, 216f, 26f);
 		y += 26f;
 		BookRect sub = new BookRect(880f, y, 216f, wrap ? 40f : 20f);
-		bool linkHover = false;
+		bool linkHover;
+		List<LinkSpan> stageSpans = ItemStageSpans(chosen, stageRecipe);
 		if (wrap)
 		{
-			linkHover = DrawCardCategoryLine(sb, chosen, lead, tail, line);
-			FixedLabel(sb, stage, 880f, y + 20f, Muted, 0.8f, 216f, 20f);
+			linkHover = DrawCardCategoryLine(sb, chosen, tail, line);
+			linkHover |= DrawLinkLine(sb, stageSpans, new BookRect(880f, y + 20f, 216f, 20f), 0.8f, Muted);
 			y += 40f;
 		}
 		else
 		{
-			FixedLabel(sb, mod + " · " + stage, 880f, y, Muted, 0.8f, 216f, 20f);
+			string owner = chosen.ModItem?.Mod.Name ?? "Terraria";
+			linkHover = DrawLinkLine(sb, stageSpans.Prepend(new LinkSpan(" · ")).Prepend(new LinkSpan(mod, ModLink(owner, mobs: false))).ToList(), new BookRect(880f, y, 216f, 20f), 0.8f, Muted);
 			y += 20f;
 		}
 		if (!MenuOpen && !linkHover && sub.Contains(Mouse.X, Mouse.Y))
@@ -7445,7 +7607,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		if (traits.Length > 0)
 		{
-			DrawTraitLine(sb, chosen, traits, new BookRect(880f, y, 216f, 20f));
+			DrawTraitLine(sb, chosen, new BookRect(880f, y, 216f, 20f));
 		}
 	}
 
@@ -7689,8 +7851,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			else
 			{
-				title = L("Common.HiddenByTheStageFilter");
-				hint = L("Common.PickTheStageAtTheTop");
+				// The way out is a link in place: the stage filter back to every stage (RecipeBookSystem.Links).
+				BookRect area = new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f);
+				EmptyState(sb, area, L("Common.HiddenByTheStageFilter"), " ");
+				string show = L("Links.ShowAllStages");
+				float width = TextWidth(show, 0.85f);
+				DrawLinkLine(sb, Whole(show, ShowAllStagesLink()), new BookRect(area.X + (area.Width - width) / 2f, area.Y + area.Height / 2f + 4f, width + 2f, 24f), 0.85f, Muted);
+				return;
 			}
 			EmptyState(sb, new BookRect(812f, top + 32f, 284f, BookGeometry.DetailListBottom - top - 32f), title, hint);
 			return;
@@ -7801,10 +7968,20 @@ public sealed partial class RecipeBookSystem : ModSystem
 			CenterLabel(sb, d.Sub, right - valueWidth, row.Y + 4f, valueWidth, row.Height - 8f, d.SubColor, 0.85f, rightAligned: true);
 			right -= valueWidth + 10f;
 		}
-		if (d.Alternatives && row.Height > 32f)
+		// The other items a row accepts ("or Shadow Scale", a group's members) and what a condition names are links
+		// (RecipeBookSystem.Links); the row itself opens the item it shows.
+		bool onLink = false;
+		if ((d.Alternatives || d.Group) && row.Height > 32f)
 		{
-			CenterLabel(sb, d.Icon.Name, textX, row.Y + 2f, right - textX, 19f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
-			CenterLabel(sb, OthersLabel(d.SourceTypes, d.Icon.type, right - textX), textX, row.Y + 20f, right - textX, 16f, Muted, 0.8f, rightAligned: false, leftAligned: true);
+			CenterLabel(sb, d.Alternatives ? d.Icon.Name : d.Name, textX, row.Y + 2f, right - textX, 19f, TextColor, 0.85f, rightAligned: false, leftAligned: true);
+			int[] others = Ordered(d.SourceTypes, d.Icon.type).Skip(d.Alternatives ? 1 : 0).ToArray();
+			BookRect second = new BookRect(textX, row.Y + 20f, right - textX, 16f);
+			List<LinkSpan> members = d.Alternatives ? Linked(OthersLabel(d.SourceTypes, d.Icon.type, right - textX), LinkNames.None, others.Select((int type) => (ItemName(type), ItemLink(type)))) : ItemListSpans(others, second, 0.8f);
+			onLink = DrawLinkLine(sb, members, second, 0.8f, Muted);
+		}
+		else if (d.Condition != null)
+		{
+			onLink = DrawLinkLine(sb, ConditionSpans(d.Condition), new BookRect(textX, row.Y + 4f, right - textX, row.Height - 8f), 0.85f, Caution);
 		}
 		else
 		{
@@ -7821,7 +7998,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
-		if (!MenuOpen && row.Contains(Mouse.X, Mouse.Y))
+		if (!onLink && !MenuOpen && row.Contains(Mouse.X, Mouse.Y))
 		{
 			// An "A or B" row opens the alternative it shows.
 			string action = hasItem ? (d.Alternatives ? L("Common.ClickOpenAlternative", d.Icon.Name) : L("Common.ClickOpenThisItem")) : "";
@@ -7872,7 +8049,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ActiveStationPanel = false;
 		}
 		string message = BookCrafting.LastMessage ?? "";
-		CenterLabel(sb, (message.Length > 0) ? message : FooterHint(), 140f, 660f, hintRight - 140f, 24f, (message.Length > 0) ? Accent : Muted, 0.8f, rightAligned: false, leftAligned: true);
+		// "Crafted: Hallowed Helmet": the item's name is a link to its card (RecipeBookSystem.Links).
+		IEnumerable<(string, BookLink)> crafted = (message.Length > 0 && LastCraftType > 0) ? new[] { (ItemName(LastCraftType), ItemLink(LastCraftType)) } : null;
+		DrawLinkLine(sb, (message.Length > 0) ? Linked(message, LinkNames.None, crafted) : Plain(FooterHint()), new BookRect(140f, 660f, hintRight - 140f, 24f), 0.8f, (message.Length > 0) ? Accent : Muted);
+	}
+
+	// The item of the last craft the book started: the footer's message names it.
+	private static int LastCraftType;
+
+	private static void Craft(Recipe recipe, int batches)
+	{
+		LastCraftType = recipe?.createItem.type ?? 0;
+		BookCrafting.TryCraft(recipe, batches);
 	}
 
 	private static string FooterHint()

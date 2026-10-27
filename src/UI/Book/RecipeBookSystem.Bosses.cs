@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
@@ -131,17 +133,32 @@ public sealed partial class RecipeBookSystem
 
 	private static string UnknownStageLabel => L("Stages.UnknownStage");
 
-	// The dropdown in the header: the boss's head next to "Before: X", shrunk to fit so the tabs never move.
-	private static void DrawStageDropdown(SpriteBatch sb, BookRect rect)
+	// The dropdown in the header: the boss's head next to "Before: X", shrunk to fit so the tabs never move. The boss's
+	// name is a link to its card (RecipeBookSystem.Links); the rest of the dropdown opens the menu. True while the mouse
+	// is on the link.
+	private static bool DrawStageDropdown(SpriteBatch sb, BookRect rect)
 	{
 		bool before = StageFilter == BookStageFilter.BeforeBoss;
-		Dropdown(sb, rect, before ? "" : StageFilterLabel(), StageMenu, enabled: true, highlight: StageFilter != BookStageFilter.All);
-		if (before)
+		if (!before)
 		{
-			int step = StageBeforeStep();
-			DrawBossHead(sb, step, new BookRect(rect.X + 8f, rect.Y + (rect.Height - 20f) / 2f, 20f, 20f), 1f);
-			CenterLabel(sb, StageFilterLabel(), rect.X + 32f, rect.Y + 4f, rect.Width - 60f, rect.Height - 8f, Accent, 0.85f, rightAligned: false, leftAligned: true, fitWidth: true);
+			Dropdown(sb, rect, StageFilterLabel(), StageMenu, enabled: true, highlight: StageFilter != BookStageFilter.All);
+			return false;
 		}
+		int step = StageBeforeStep();
+		string label = StageFilterLabel();
+		BookRect line = new BookRect(rect.X + 32f, rect.Y + 4f, rect.Width - 60f, rect.Height - 8f);
+		float size = Math.Min(0.85f, line.Width / Math.Max(1f, Ink(BookRules.PlainText(label)).Width * TextScale) * 0.999f);
+		List<LinkSpan> spans = Linked(label, LinkNames.Bosses);
+		if (step < BookSteps.All.Count && !spans.Any((LinkSpan s) => s.Link != null))
+		{
+			spans = Whole(label, MobLink(StepMob(step)));
+		}
+		List<LinkPiece> pieces = LinkPieces(spans, line, size);
+		bool onLink = OnLink(pieces);
+		Dropdown(sb, rect, "", StageMenu, enabled: true, highlight: true, hoverable: !onLink);
+		DrawBossHead(sb, step, new BookRect(rect.X + 8f, rect.Y + (rect.Height - 20f) / 2f, 20f, 20f), 1f);
+		DrawLinkPieces(sb, pieces, line, size, Accent);
+		return onLink;
 	}
 
 	private static string StageDropdownTip()
@@ -285,7 +302,7 @@ public sealed partial class RecipeBookSystem
 					CenterLabel(sb, L("Stages.Before", BookSteps.Name(row.Value)), rect.X + 34f, rect.Y + 4f, rect.Width - 42f, rect.Height - 8f, active ? Accent : TextColor, 0.85f, rightAligned: false, leftAligned: true);
 					if (hover)
 					{
-						MouseTip(L("Stages.TheFirstBossNotYetDown"));
+						MouseTip(L("Stages.TheFirstBossNotYetDown") + "\n" + L("Links.ShiftClickBossCard"));
 					}
 					break;
 				}
@@ -319,7 +336,7 @@ public sealed partial class RecipeBookSystem
 					if (hover)
 					{
 						string state = row.Value == next ? L("Stages.NextBossInThisWorld") : (down ? L("Stages.AlreadyDown") : (!available ? L("Stages.NotInThisWorldTheOther") : L("Stages.NotDownYet")));
-						MouseTip(L("Stages.Before", BookSteps.Name(row.Value)) + " · " + state + "\n" + L("Stages.EverythingYouCanGetWithEvery"));
+						MouseTip(L("Stages.Before", BookSteps.Name(row.Value)) + " · " + state + "\n" + L("Stages.EverythingYouCanGetWithEvery") + "\n" + L("Links.ShiftClickBossCard"));
 					}
 					break;
 				}
@@ -339,14 +356,23 @@ public sealed partial class RecipeBookSystem
 		}
 	}
 
-	// A click while the menu is open: the row under the mouse, if any. The menu closes either way.
+	// A click while the menu is open: the row under the mouse, if any. The menu closes either way. Shift+Click on a
+	// boss opens its card instead (RecipeBookSystem.Links), the filter as it was.
 	private static void ClickStageMenu()
 	{
+		KeyboardState keys = Keyboard.GetState();
+		bool shift = keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift);
 		foreach (StageMenuRow row in StageMenuRows)
 		{
 			if (!row.Rect.Contains(Mouse.X, Mouse.Y))
 			{
 				continue;
+			}
+			if (shift && row.Kind != StageRowOption && MobLink(StepMob(row.Value)) is BookLink boss)
+			{
+				StageMenu = false;
+				boss.Follow();
+				return;
 			}
 			switch (row.Kind)
 			{

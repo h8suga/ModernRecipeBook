@@ -272,6 +272,17 @@ internal static class BookCodeSources
 		}
 	}
 
+	// The mob card's rows for what a boss leaves on its death besides its loot, the same as How to Get's: its potions
+	// (BossPotions) and, from the same NPC.DoDeathEvents_DropBossPotionsAndHearts, 5 to 9 Hearts
+	// (Main.rand.Next(5) + 5 of item 58). Empty for any other NPC. Read once per load.
+	internal static IReadOnlyList<(int Item, int Min, int Max)> DeathDrops(int netId)
+	{
+		deathDrops ??= BossPotions().GroupBy(((int Npc, int Potion) p) => p.Npc).ToDictionary((IGrouping<int, (int Npc, int Potion)> g) => g.Key, (IGrouping<int, (int Npc, int Potion)> g) => g.Select(((int Npc, int Potion) p) => (p.Potion, 5, 15)).Distinct().Append((ItemID.Heart, 5, 9)).ToList());
+		return deathDrops.TryGetValue(netId, out List<(int, int, int)> drops) ? drops : Array.Empty<(int, int, int)>();
+	}
+
+	private static Dictionary<int, List<(int, int, int)>> deathDrops;
+
 	// Every boss NPC and the potion it leaves: vanilla's by type (VanillaBossPotions), Calamity's through its BossLoot,
 	// which only sets the type (asked on the sample). Other mods' BossLoot can set world flags, so their bosses are left
 	// out. ponytail: other mods' bosses get no row; add them when their BossLoot is known to be pure.
@@ -279,7 +290,10 @@ internal static class BookCodeSources
 	{
 		foreach (var (netId, npc) in ContentSamples.NpcsByNetId)
 		{
-			if (netId <= 0 || (!npc.boss && netId != NPCID.EaterofWorldsHead) || NeverDie.Contains(netId))
+			// A boss of a step whose sample is none yet counts too: Calamity sets the Aquatic Scourge's NPC.boss only once it
+			// turns on the player (AquaticScourgeHead.AI), and its BossLoot gives Sulphurous Sand. Only a ModNPC's own BossLoot
+			// is asked for these (below), so a worm's body segments add nothing.
+			if (netId <= 0 || (!npc.boss && netId != NPCID.EaterofWorldsHead && !(npc.ModNPC != null && BookSteps.Npc(npc.type) >= 0)) || NeverDie.Contains(netId))
 			{
 				continue;
 			}
@@ -380,6 +394,13 @@ internal static class BookCodeSources
 
 	// How to Get ----------------------------------------------------------------------------------------------
 
+	// The items a code-given row's text can name, each a link where it does (RecipeBookSystem.Links): what it takes or goes
+	// through (the Greed Pot, the Storage Core Wrench) and its input.
+	internal static BookMention[] Mentions(BookItemSource s)
+	{
+		return s.FromAny.Append(s.From).Where((int t) => t > 0 && ContentSamples.ItemsByType.ContainsKey(t)).Distinct().Select((int t) => new BookMention(Lang.GetItemNameValue(t), t)).ToArray();
+	}
+
 	internal static BookAcquisitionEntry Entry(BookItemSource s)
 	{
 		switch (s.Note)
@@ -432,7 +453,7 @@ internal static class BookCodeSources
 		return null;
 		BookAcquisitionEntry Row(string name, string body, BookAcquisitionKind kind, string label, string chance = "", int item = 0, int npc = 0, bool otherMode = false)
 		{
-			return new BookAcquisitionEntry(name, body, kind, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), item, npc, label.Length > 0, -1, s.Owner, label, "", -1, 0, 0, otherMode, SourceItem: item);
+			return new BookAcquisitionEntry(name, body, kind, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), item, npc, label.Length > 0, -1, s.Owner, label, "", -1, 0, 0, otherMode, SourceItem: item, Mentions: Mentions(s));
 		}
 	}
 

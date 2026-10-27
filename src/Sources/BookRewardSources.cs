@@ -419,7 +419,7 @@ internal static class BookRewardSources
 		};
 		BookAcquisitionEntry Row(string name, string body, BookAcquisitionKind kind, string label, string rate = "", int item = 0, int npc = 0, int tile = -1)
 		{
-			return new BookAcquisitionEntry(name, body, kind, rate, "×1", item, npc, label.Length > 0, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY, SourceItem: item);
+			return new BookAcquisitionEntry(name, body, kind, rate, "×1", item, npc, label.Length > 0, -1, s.Owner, label, "", tile, s.FrameX, s.FrameY, SourceItem: item, Mentions: BookCodeSources.Mentions(s));
 		}
 	}
 
@@ -481,7 +481,9 @@ internal static class BookRewardSources
 			break;
 		}
 		string text = string.Join(" · ", label);
-		return new BookAcquisitionEntry(Lang.GetNPCNameValue(NPCID.Angler), body, BookAcquisitionKind.Quest, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), 0, NPCID.Angler, text.Length > 0, -1, s.Owner, text);
+		// The Bumblebee Tuna a honey reward is for is a link on the row (RecipeBookSystem.Links).
+		BookMention[] mentions = (s.Note == "honey") ? new[] { new BookMention(Name(ItemID.BumblebeeTuna), ItemID.BumblebeeTuna) } : null;
+		return new BookAcquisitionEntry(Lang.GetNPCNameValue(NPCID.Angler), body, BookAcquisitionKind.Quest, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), 0, NPCID.Angler, text.Length > 0, -1, s.Owner, text, Mentions: mentions);
 	}
 
 	internal static string KindName(BookAcquisitionKind kind)

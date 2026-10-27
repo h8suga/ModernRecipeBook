@@ -1,0 +1,21 @@
+ItemCard: Клик: карточка предмета «{0}»
+ItemContents: Клик: что внутри «{0}»
+HowToGet: Клик: как получить «{0}»
+MobCard: Клик: «{0}» в бестиарии
+MobCategory: Клик: категория «{0}» в бестиарии
+ModFilter: Клик: только «{0}» на вкладке «{1}»
+StageFilter: Клик: в фильтре этапа только «{0}»
+TraitFilter: Клик: оружие со свойством «{0}»
+TrackingGoal: Клик: эта цель на вкладке «{0}»
+ShowAllStages: Показать все этапы
+ShowAllStagesTip: Клик: фильтр этапа покажет все этапы
+FirstPickaxe: Первая кирка с силой {0}%: {1}
+ShiftClickBossCard: Shift+клик: его карточка в бестиарии
+NoCardPickup: Подбирается сразу, как сердце: своей карточки у него нет
+SetPieces: ЧАСТИ КОМПЛЕКТА
+CompactLineFor: Для цели: {0}
+DevSetBags: "{0} {^0:мешок;мешка;мешков}, где может выпасть комплект"
+HelpKeyLMBOnAName: ЛКМ по имени
+HelpOpenWhatItNames: Открыть его карточку или фильтр
+HelpStageMenuBossCard: Босс в меню этапа: карточка
+ShowTheBags: Клик: мешки, в которых он может выпасть

@@ -541,7 +541,9 @@ internal static class BookChestLoot
 		}
 		string chance = s.Chance > 0f ? BookAcquisitionRules.Chance(s.Chance) : "";
 		string chestName = Lang.GetItemNameValue(s.From);
-		return new BookAcquisitionEntry(L(place.Title, chestName), string.Join("\n", body), s.Kind, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), s.From, 0, label.Count > 0, -1, s.Owner, string.Join(" · ", label), OtherMode: !ThisWorld(s), SourceItem: s.From);
+		// The key the chest opens with is a link on the row (RecipeBookSystem.Links).
+		BookMention[] mentions = (s.FromAny.Length == 1) ? new[] { new BookMention(key, s.FromAny[0]) } : Array.Empty<BookMention>();
+		return new BookAcquisitionEntry(L(place.Title, chestName), string.Join("\n", body), s.Kind, chance, "×" + BookAcquisitionRules.Stack(s.Min, s.Max), s.From, 0, label.Count > 0, -1, s.Owner, string.Join(" · ", label), OtherMode: !ThisWorld(s), SourceItem: s.From, Mentions: mentions);
 	}
 
 	// Dev audit for the test stand: names of the table that resolve to no item (a typo, or a mod not loaded).

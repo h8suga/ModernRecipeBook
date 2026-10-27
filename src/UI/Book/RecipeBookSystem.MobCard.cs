@@ -176,18 +176,19 @@ public sealed partial class RecipeBookSystem
 		BookRect coins = Row(L("MobCard.Coins"), stats.Value > 0 ? "" : "—");
 		DrawCoins(sb, coins, stats.Value);
 		Row(L("MobCard.Kills"), Count(kills), L("MobCard.KilledInThisWorld"));
-		Row(L("MobCard.Banner"), hasBanner ? (Count(NPC.killCount[banner] % need) + "/" + Count(need)) : "—", hasBanner ? L("MobCard.KillsTowardTheNextBanner") : null);
+		// The banner's name is a link to its card (RecipeBookSystem.Links).
+		Row(L("MobCard.Banner"), hasBanner ? (Count(NPC.killCount[banner] % need) + "/" + Count(need)) : "—", hasBanner ? L("MobCard.KillsTowardTheNextBanner") : null, hasBanner ? ItemLink(bannerItem) : null);
 		if (stats.DamageReduction.HasValue)
 		{
 			Row(L("MobCard.DamageReduction"), Percent(stats.DamageReduction.Value), L("MobCard.CalamityShareOfDamageItIgnores"));
 		}
-		BookRect Row(string name, string value, string tip = null)
+		BookRect Row(string name, string value, string tip = null, BookLink link = null)
 		{
 			BookRect rect = BookGeometry.MobStatRow(row++);
 			float valueWidth = (value.Length > 0) ? (TextWidth(value, 0.95f) + 4f) : 0f;
-			CenterLabel(sb, name, rect.X, rect.Y, rect.Width - valueWidth - 8f, rect.Height, Muted, 0.85f, rightAligned: false, leftAligned: true);
+			bool onLink = DrawLinkLine(sb, Whole(name, link), new BookRect(rect.X, rect.Y, rect.Width - valueWidth - 8f, rect.Height), 0.85f, Muted);
 			AcquisitionBadge(sb, rect, value);
-			if (tip != null && rect.Contains(Mouse.X, Mouse.Y))
+			if (tip != null && !onLink && rect.Contains(Mouse.X, Mouse.Y))
 			{
 				MouseTip(tip);
 			}
