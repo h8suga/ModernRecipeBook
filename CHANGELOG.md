@@ -19,6 +19,14 @@ patch for fixes, minor for features.
 - How to Get knows what world generation puts in chests, vanilla's and Calamity's (labs, shrines, Abyss, Astral,
   Sulphurous Sea, Crag, Vernal Pass…): 299 items get a chest row with chance and stack per chest, boss and key. The Herb
   Bag reads "Surface chests 16.67% ×1–4" and "Draedon's lab in the sky 100% ×12–17".
+- How to Get: Defender Medals from the Old One's Army's waves, the potions every boss leaves when it dies, Calamity's
+  Greed Pot ores, Novae Slag and Celestial Remains in an Extractinator, shaken Astral trees, Sulphurous Pots, and
+  shimmer decrafting (one row per material). Lock boxes name their key; Capricorn Hooves and Tail are a swap, not a
+  container.
+- Stages: container loot no longer gets a rarity guess (Bloodstone and Supreme Healing Potion after Providence, the
+  Golden Lock Box after Skeletron, Defender Medals from the Eater of Worlds on); what only another difficulty or seed
+  gives (Levi, NO, Coldheart Icicle, Lava Chicken Broth) is "Not in this mode"; Bone Block and two unobtainable music
+  boxes leave the catalogue.
 - Mob cards: "Spawns" says how a mob comes (a boss's summon, "During Signus's fight", "During Celestial Pillars", "Any
   time"; the Divine Swine "Sky"); boss minions, the Lunatic Devotees and the Old One's Army sit at the right stage, and
   "Before: Moon Lord" shows Moon Lord.
