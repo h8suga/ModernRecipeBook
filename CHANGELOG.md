@@ -9,6 +9,11 @@ patch for fixes, minor for features.
 - The item card of anything with loot of its own (boss Treasure Bags, fishing crates, presents, Calamity's bags and
   geodes) gets a third mode, **Contents**: what it holds, with the same rows, chances, conditions and hover as the
   mob card's loot. A Treasure Bag on a mob card and a Container row in How to Get open it straight on its Contents.
+- Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
+  Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
+  fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
+  range Deposit All also empties the coin slots, works with no other storage around, and Magic Storage's own Deposit All
+  sends coins to the Piggy Bank first.
 
 ### Fixed
 - No drop condition reads "Special condition" any more:
@@ -27,6 +32,7 @@ patch for fixes, minor for features.
 - In a drunk world the evil boss step reads "Eater of Worlds or Brain of Cthulhu", and both evils' loot counts as
   this world's.
 - The mob card no longer shows the previous world's loot after you enter a world of another difficulty.
+- Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
 
 ## 1.17.1 — 2026-10-26
 
