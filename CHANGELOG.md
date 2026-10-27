@@ -39,6 +39,15 @@ patch for fixes, minor for features.
   - rules of another difficulty, Revengeance/Death or seed say which ("Not in this world · Death mode"), loot that
     drops only before a boss reads "Before: Eater of Worlds", a boss's own first-kill loot reads "Only the first
     kill", and gates the world meets say nothing.
+- Loot rows show the rule that applies in your world now: no more "Varies by condition" where the world already
+  decides. Rules that both roll are added up (Moon Lord's bag weapons 48.28% ×1–2, Tempest Staff 47.34%), and How to Get
+  shows the same numbers as the mob card.
+- Drops of another difficulty or seed, and ones your world is already past (first kills, "until a boss" drops,
+  mechanical-boss summons after the boss is beaten), fold into one "Not in this world" row. "Any enemy" lists only the
+  drops that mob can actually give.
+- Clearer condition texts ("Until Polterghast", "After any two mechanical bosses", the Pumpkin and Frost Moon odds by
+  wave). Zero-chance rules are gone, boss-bag coins show their range, mobs that share a name but drop different loot get
+  separate How to Get rows, and the Aquatic Scourge is listed as a boss.
 - In Expert and Master worlds a boss's Classic-only loot is listed as coming from its Treasure Bag ("In Treasure Bag
   (Empress of Light)", with the bag's chance) on the mob card and in How to Get; the hover marks the boss's own
   Classic chance as not in this world.
