@@ -6050,7 +6050,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		return button switch
 		{
-			StorageButton.DepositAll => BookSources.CanDeposit,
+			StorageButton.DepositAll => BookSources.CanDepositAll,
 			StorageButton.QuickStack => !Main.LocalPlayer.HasLockedInventory(),
 			_ => BookSources.Enabled && !BookSources.Busy,
 		};
@@ -6098,6 +6098,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		if (!BookSources.Enabled)
 		{
 			return StorageOffTitle;
+		}
+		if (!BookSources.CanDeposit && BookSources.CanBankCoins)
+		{
+			return L("Coins.BankOnlyTip") + "\n" + L("Coins.BankOnlyTip2");
 		}
 		if (!BookSources.CanDeposit)
 		{

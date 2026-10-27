@@ -368,7 +368,7 @@ targets: a player does not expect items to land in a Piggy Bank they did not ope
 the dropped cursor stack and Deposit All), its common coins join the Piggy Bank's own coins when the bank is
 available: open (`player.chest == -2`), or a Piggy Bank tile, Money Trough or Chester within the radius. They are
 combined into the fewest stacks as `ChestUI.MoveCoins` combines them (`BookSourceRules.CombineCoins`; each kind back
-into a slot that held it first); what does not fit goes on to the placement rule above. The bank is the player's own
+into a slot that held it first); what does not fit goes on to the placement rule above. With the Piggy Bank alone (no chest, no network) Deposit All, Shift+click and the dropped stack take only coins, and what does not fit stays with the player. Deposit All takes the coin slots for the bank alone when no container holds coins (vanilla's rule): with the bank full, their share of the remainder goes back into the coin slots, combined, so the value is kept and the slots hold only coins. The bank is the player's own
 data: the client changes it, vanilla syncs it (V3). Magic Storage's own Deposit All (`StorageGUI.TryDepositAll`)
 gets the same step through a hook (`BookMagicStorage.DepositAllCoinsFirst`) for the coins it would take from rows
 10..49; a missing member leaves MS's button as it was.
@@ -680,7 +680,8 @@ The off states name the config option. Its label belongs to `feature/server-side
 |---|---|---|
 | Deposit All button | Deposit All | Сложить всё |
 | Deposit All tooltip | Deposit to nearby storage, except hotbar and favorites<br>Onto matching stacks first, then Magic Storage, then a free chest | Сложить в хранилища рядом, кроме панели и избранного<br>Сначала к таким же, потом Magic Storage, потом сундук |
-| with the Piggy Bank available, third line | Coins go to the Piggy Bank first, including the coin slots | Монеты — сначала в свинью-копилку, и из ячеек монет |
+| with the Piggy Bank available, third line | Coins go to the Piggy Bank first, including the coin slots | Монеты сначала идут в копилку, в том числе из ячеек для монет |
+| only the Piggy Bank available (no chest, no network) | Deposit coins to the Piggy Bank, except hotbar and favorites<br>Coin slots included; nowhere nearby for the rest | Сложить монеты в копилку, кроме панели и избранного<br>Включая ячейки для монет; остальное рядом сложить некуда |
 | without Magic Storage installed | …<br>Onto matching stacks first, then a free chest | …<br>Сначала к таким же, потом в свободный сундук |
 | nothing to deposit into | Deposit to nearby storage<br>Nothing nearby to deposit into | Сложить в хранилища рядом<br>Рядом некуда складывать |
 | Storage cell tooltip, last line | Shift+Click an inventory item or drop it here: put into storage | Shift+клик по предмету в инвентаре или перенос сюда — сложить в хранилище |
@@ -702,10 +703,12 @@ The off states name the config option. Its label belongs to `feature/server-side
 | quick stack | Stacked into nearby chests | Сложено в сундуки рядом |
 | deposit done | Stored nearby | Сложено рядом |
 | deposit, no room for all | Nearby storage is full: 50 left | Рядом нет места: осталось 50 |
-| only coins, all into the Piggy Bank | Coins went to the Piggy Bank | Монеты отправлены в копилку |
-| deposit done, coins in the Piggy Bank | Stored nearby, coins to the Piggy Bank | Сложено рядом, монеты — в копилку |
-| deposit done, the Piggy Bank filled up (the rest of the coins stored too) | Stored nearby; the Piggy Bank is full | Сложено рядом; копилка полна |
-| no room for all, coins in the Piggy Bank | Coins to the Piggy Bank; 50 left | Монеты — в копилку; осталось 50 |
+| only coins, all into the Piggy Bank | Coins went to the Piggy Bank | Монеты ушли в копилку |
+| only the Piggy Bank: coins in, other items stay | Coins banked; nowhere for the rest | Монеты в копилке, остальное некуда |
+| the Piggy Bank filled up, the rest stays with the player | Piggy Bank full; the rest stays with you | Копилка полна, остальное — при вас |
+| deposit done, coins in the Piggy Bank | Stored nearby, coins in the Piggy Bank | Сложено рядом, монеты в копилке |
+| deposit done, the Piggy Bank filled up | Stored nearby; the Piggy Bank is full | Сложено рядом, копилка полна |
+| no room for all, coins in the Piggy Bank | Coins in the Piggy Bank; 50 left | Монеты в копилке; осталось 50 |
 | no room for all, the Piggy Bank filled up | No room anywhere: 50 left | Нигде нет места: осталось 50 |
 | deposit, nothing to put into | Nothing nearby to deposit into | Рядом некуда складывать |
 | Deposit All, nothing to move | Nothing to deposit | Нечего складывать |
