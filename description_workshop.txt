@@ -1,5 +1,5 @@
 [h1]Modern Recipe Book[/h1]
-[b]Version 1.18.1[/b] · tModLoader 2026.08 · Calamity 2.2.4 · Magic Storage 0.7.0.11 · [url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]what changed[/url]
+[b]Version 1.18.2[/b] · tModLoader 2026.08 · Calamity 2.2.4 · Magic Storage 0.7.0.11 · [url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]what changed[/url]
 
 A recipe book, bestiary and storage browser for every item and mob in Terraria and its mods. Press [b]Mouse3[/b] and the book opens over the game. Everything is read from the game and its mods, not from a wiki.
 
@@ -50,7 +50,7 @@ Terraria 1.4.4.9, tModLoader 2026.08.3.0. Calamity 2.2.4 and Magic Storage 0.7.0
 [url=https://github.com/h8suga/ModernRecipeBook]GitHub: source, every feature, screenshots[/url] · [url=https://github.com/h8suga/ModernRecipeBook/issues]bugs and ideas[/url]
 
 [h2]На русском[/h2]
-[b]Версия 1.18.1.[/b] Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском, открывается на Mouse3. Где взять любой предмет и после какого босса он доступен, крафт из сундуков, копилок и Magic Storage рядом (даже из удалённой сети), бестиарий с добычей и появлением, отслеживание целей, телепорт по карте и метки, полная поддержка Calamity и Magic Storage, мультиплеер.
+[b]Версия 1.18.2.[/b] Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском, открывается на Mouse3. Где взять любой предмет и после какого босса он доступен, крафт из сундуков, копилок и Magic Storage рядом (даже из удалённой сети), бестиарий с добычей и появлением, отслеживание целей, телепорт по карте и метки, полная поддержка Calamity и Magic Storage, мультиплеер.
 [b]Новое в 1.18:[/b] Ctrl+F ищет по всему сразу (по названию, по смыслу «баф», «крылья» и по описаниям) с кнопками «Создать» и «Взять»; каждое имя в книге — ссылка; содержимое мешков и ящиков; сундуки мира в «Где взять»; условия добычи понятными словами; монеты сначала в копилку. Подробности — [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]на GitHub[/url].
 
 [hr][/hr]

@@ -3,6 +3,12 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.18.2 — 2026-10-27
+
+### Fixed
+- The quick search opened before the book in a session stands at the book's saved size and place, not at 100% in the
+  middle: the player's book state is read when either opens first.
+
 ## 1.18.1 — 2026-10-27
 
 ### Changed
