@@ -7,7 +7,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.19.0-4c8f5a" alt="Version 1.19.0">
+<img src="https://img.shields.io/badge/version-1.20.0-4c8f5a" alt="Version 1.20.0">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
@@ -48,6 +48,7 @@ it right now from what I have*.
   - [Bestiary](#bestiary)
   - [Tracking](#tracking)
   - [Map teleport and shared markers](#map-teleport-and-shared-markers)
+  - [After death](#after-death)
   - [Keyboard and navigation](#keyboard-and-navigation)
   - [Languages](#languages)
 - [Compatibility](#compatibility)
@@ -387,6 +388,15 @@ Calamity is fully integrated too: bosses, biomes, events and drop rules come fro
 <img src="docs/screenshots/marker-view.png" width="41%" alt="A placed marker">
 </p>
 
+### After death
+
+Two options for summoners, both off by default:
+
+- **Resummon Minions After Death**: on respawn the minions you died with come back, the same ones and as many, mixed
+  sets included. The staff doesn't have to be in your inventory, and no mana is spent.
+- **Keep Table Buffs After Death**: the Bewitching Table and War Table buffs come back with the time they had left, so
+  there's no walk back to the tables.
+
 ### Keyboard and navigation
 
 - **Back and Forward** (Mouse4/Mouse5, Alt+←/→) walk through everything: tabs, filters, selected items, card steps,
@@ -517,6 +527,8 @@ Mod Configuration → **Recipe Book** (yours) and **Recipe Book: Server** (the h
 | Middle-Click on an Item | Open in the Book | Open in the Book: its card; Quick Search: the quick search with its full name, the item first and selected |
 | Tracking Cards Opacity / Size | 90% / 100% | The tracking overlay's panel |
 | Tracking Overlay: Compact Lines | off | Material lines under the minimap instead of cards |
+| Resummon Minions After Death | off | The minions you died with come back on respawn, no staff or mana needed |
+| Keep Table Buffs After Death | off | Bewitching Table and War Table buffs come back on respawn |
 | Double-Tap Dash (Calamity) | off | Double-tap left or right to dash |
 | **Server:** Nearby Storage | on | Show, count and craft from chests and Magic Storage in the radius |
 | **Server:** Nearby Storage Radius | 30 tiles | 10–50 tiles |

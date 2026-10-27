@@ -40,6 +40,14 @@ public sealed class BookConfig : ModConfig
 	[DrawTicks]
 	public BookItemClickAction ItemClickAction = BookItemClickAction.OpenInBook;
 
+	// After a death (BookRespawnPlayer): the minions summoned again, the Bewitching and War Table buffs kept.
+	[Header("AfterDeath")]
+	[DefaultValue(false)]
+	public bool ResummonMinionsAfterDeath;
+
+	[DefaultValue(false)]
+	public bool KeepTableBuffsAfterDeath;
+
 	[Header("Movement")]
 	[DefaultValue(false)]
 	public bool DoubleTapDash;

@@ -40,11 +40,32 @@ BookConfig: {
 		Tooltip: Material lines under the minimap, like an info accessory. Off: cards for up to 5 goals.
 	}
 
-	Headers.Movement: Movement
+	Headers: {
+		Movement: Movement
+		AfterDeath: After Death
+	}
 
 	DoubleTapDash: {
 		Label: Double-Tap Dash (Calamity)
 		Tooltip: Double-tap left or right to dash; Calamity's dash key keeps working.
+	}
+
+	ResummonMinionsAfterDeath: {
+		Label: Resummon Minions After Death
+		Tooltip:
+			'''
+			On respawn, the minions you died with come back, the same ones and as many.
+			The staff doesn't have to be in your inventory, and no mana is spent.
+			'''
+	}
+
+	KeepTableBuffsAfterDeath: {
+		Label: Keep Table Buffs After Death
+		Tooltip:
+			'''
+			Bewitching Table and War Table buffs come back on respawn with the time they had left.
+			No need to click the tables again.
+			'''
 	}
 }
 

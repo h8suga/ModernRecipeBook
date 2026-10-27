@@ -1,4 +1,4 @@
-Modern Recipe Book 1.19.0
+Modern Recipe Book 1.20.0
 
 A recipe book and bestiary for every item and mob in the game and its mods, in English and Russian, and translatable into any language like Calamity (Localization/<culture> files). Open it with Mouse3 (rebindable in Controls).
 
@@ -17,6 +17,8 @@ Map: Mouse3 on an explored spot of the full map teleports you there, and shared 
 Tracking: follow up to five goals (or full armor sets) on screen, as compact lines under the minimap or as cards with progress bars. The tracker never crafts or reserves items.
 
 Optional Double-Tap Dash (Calamity): with Calamity's Dash Double Tap Override key bound, double-tapping left/right dashes again, and the key keeps working. Off by default.
+
+After death (optional, off by default): the minions you died with come back on respawn, the same ones and as many, without the staff in your inventory or mana; the Bewitching Table and War Table buffs come back with the time they had left.
 
 Press F1 in the book for all shortcuts.
 
