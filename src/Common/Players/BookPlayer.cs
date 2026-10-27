@@ -362,6 +362,8 @@ public sealed class BookPlayer : ModPlayer
 	{
 		tag["FavoriteItems"] = Favorites.OrderBy((string x) => x).ToList();
 		tag["RecentCraftedRecipes"] = RecentRecipes.Snapshot();
+		tag["RecentCraftedMade"] = RecentRecipes.MadeSnapshot();
+		tag["RecentCraftedTicks"] = RecentRecipes.TicksSnapshot();
 		tag["MobEncounters"] = SeenMobs.Snapshot();
 		if (Player.whoAmI == Main.myPlayer && !Main.dedServ)
 		{
@@ -387,7 +389,7 @@ public sealed class BookPlayer : ModPlayer
 		{
 			Favorites.Add(value);
 		}
-		RecentRecipes.Load(tag.GetList<string>("RecentCraftedRecipes"));
+		RecentRecipes.Load(tag.GetList<string>("RecentCraftedRecipes"), tag.GetList<long>("RecentCraftedMade"), tag.GetList<long>("RecentCraftedTicks"));
 		SeenMobs.Load(tag.GetList<string>("MobEncounters"));
 		StorageChanged.Clear();
 		foreach (TagCompound world in tag.GetList<TagCompound>("StorageChanged"))
