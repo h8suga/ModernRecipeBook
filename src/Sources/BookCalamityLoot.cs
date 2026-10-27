@@ -49,6 +49,12 @@ internal static class BookCalamityLoot
 		return Rows().Select(r => r.Source);
 	}
 
+	// The kind of the item's row here, for the stage chain's last word.
+	internal static BookAcquisitionKind? KindOf(int item)
+	{
+		return Sources().FirstOrDefault((BookItemSource s) => s.Item == item)?.Kind;
+	}
+
 	internal static IEnumerable<(int Item, int Step, string Why)> Steps()
 	{
 		return from r in Rows()

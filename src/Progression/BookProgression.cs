@@ -161,6 +161,50 @@ internal static class BookProgression
 		}
 	}
 
+	// Dev audit: every item against its own sources (set TraceSources before the book rebuilds). A source counts at its
+	// own step: a route (recipe, container, mining...) once every ingredient group and the station are in, a seed raised
+	// to the item's floor; a rarity guess, or a route standing only as a post-Moon Lord lower bound, is no source. One
+	// line per item that breaks the rule, with its chain: "early" sits below every real source (a guess undercut it),
+	// "late" above its earliest source, "guess" is placed by a guess though it has routes that never open.
+	internal static IEnumerable<string> ConsistencyAudit()
+	{
+		if (!TraceSources)
+		{
+			yield return "set ModernRecipeBook.Progression.BookProgression.TraceSources=true and call ModernRecipeBook.UI.Book.RecipeBookSystem.Rebuild first";
+			yield break;
+		}
+		ILookup<int, BookProgressionRules.Route> byOutput = lastRoutes.ToLookup((BookProgressionRules.Route r) => r.Output);
+		List<(string Kind, string Line)> found = new List<(string, string)>();
+		foreach (Item item in ContentSamples.ItemsByType.Values.Where((Item i) => i != null && !i.IsAir))
+		{
+			int type = item.type, step = ItemStep(type), floor = itemFloors.GetValueOrDefault(type);
+			List<(string Name, int Step, bool Real)> sources = (from seed in trace.GetValueOrDefault(type) ?? new List<string>()
+				let at = seed.LastIndexOf('=')
+				let name = seed.Substring(0, at)
+				select (name, Max(int.Parse(seed.Substring(at + 1)), floor), name != "rarity")).ToList();
+			foreach (BookProgressionRules.Route r in byOutput[type])
+			{
+				bool open = !r.Uncertain && r.Floor >= 0 && r.Ingredients.All((int[] g) => g.Any((int t) => ItemStep(t) >= 0));
+				sources.Add((r.Source ?? ("recipe:" + r.Key), RecipeStep(r.Key), open));
+			}
+			(string Name, int Step, bool Real) real = sources.Where(s => s.Real && s.Step >= 0).OrderBy(s => s.Step).FirstOrDefault(((string)null, -1, false));
+			int any = sources.Where(s => s.Step >= 0).Select(s => s.Step).DefaultIfEmpty(-1).Min();
+			string kind = step < 0 ? (any >= 0 ? "late" : null)
+				: real.Step >= 0 && step < real.Step ? "early"
+				: real.Step < 0 && byOutput[type].Any() ? "guess"
+				: step > any ? "late" : null;
+			if (kind != null)
+			{
+				found.Add((kind, string.Join('\t', kind, type, item.ModItem?.Mod.Name ?? "Terraria", ItemName(item), step, StepKey(step), reasons.GetValueOrDefault(type, ""), real.Name == null ? "-" : real.Name + "=" + real.Step + " " + StepKey(real.Step), string.Join(" < ", Chain(type).Select((Link l) => $"{ItemName(ContentSamples.ItemsByType[l.Item])} {l.Kind}:{l.Id}={l.Step}")))));
+			}
+		}
+		yield return "violations=" + found.Count + " " + string.Join(" ", found.GroupBy(f => f.Kind).Select(g => g.Key + "=" + g.Count()));
+		foreach ((string _, string line) in found)
+		{
+			yield return line;
+		}
+	}
+
 	private static int ItemStepOrLast(int type)
 	{
 		int step = ItemStep(type);
@@ -467,21 +511,50 @@ internal static class BookProgression
 		{
 			(items, recipes) = BookProgressionRules.Resolve(seeds, floors, routes, via);
 		}
-		// Second pass: whatever the graph could not place gets its curated floor (Pearlwood), the graph runs again so
-		// what is made of it follows, and only then the rest gets its rarity tier. What the world's difficulty rules
-		// out (boss bags in Classic) stays out; listing it would open its loot.
-		for (int round = 0; round < 2; round++)
+		// Second pass: what the graph could not place gets a guess, its curated floor (Pearlwood) or else its rarity tier,
+		// but only where none of its own sources can still open: an item without a route, or a ring of items made only of
+		// one another whose real source the tables do not hold (Cactus with its platform and wall, the shimmered buckets).
+		// What is made of such an item gets no guess: the graph runs again and its recipe sets its step (a Cactus
+		// Bookcase is as late as its Book, a Solar Sink as its Solar Bricks), so a guess never undercuts a real source.
+		// What only something the world's difficulty rules out makes (expert-only bag contents in Classic) stays out
+		// as that too, not sourceless; listing it would open its loot.
+		ILookup<int, BookProgressionRules.Route> producers = routes.Where((BookProgressionRules.Route r) => !r.Uncertain && r.Floor >= 0).ToLookup((BookProgressionRules.Route r) => r.Output);
+		HashSet<int> hopeless = new HashSet<int>();
+		while (true)
 		{
-			int seeded = seeds.Count;
-			foreach (Item item in all.Where((Item i) => !items.ContainsKey(i.type) && !modeItems.Contains(i.type)))
+			HashSet<int> open = all.Select((Item i) => i.type).Where((int t) => !items.ContainsKey(t) && !modeItems.Contains(t) && !hopeless.Contains(t)).ToHashSet();
+			if (open.Count == 0)
 			{
-				if (round == 0 && floors.TryGetValue(item.type, out int listed))
+				break;
+			}
+			// What each waits for: the unplaced members of the ingredient groups that keep its routes shut (a route one of
+			// whose groups can never fill, all of it excluded or hopeless, waits for nothing).
+			Dictionary<int, int[]> waits = open.ToDictionary((int t) => t, (int t) => (from r in producers[t]
+				let shut = r.Ingredients.Where((int[] g) => !g.Any(items.ContainsKey)).ToList()
+				where shut.All((int[] g) => g.Any(open.Contains))
+				from g in shut
+				from m in g
+				where open.Contains(m)
+				select m).Distinct().ToArray());
+			int seeded = seeds.Count;
+			foreach (List<int> ring in BookProgressionRules.Rings(open, waits))
+			{
+				if (waits[ring[0]].Length == 0 && producers[ring[0]].Any((BookProgressionRules.Route r) => r.Ingredients.Any((int[] g) => g.All(Blocked))))
 				{
-					Seed(item.type, listed, "list");
+					modeItems.Add(ring[0]);
+					continue;
 				}
-				else if (round == 1)
+				// A ring's members turn into one another, so they share a step: the latest guess among them (Pearlwood's
+				// hardmode floor, not its wall's White rarity) goes to the members that carry it, the rest follow by route.
+				int top = ring.Max(Guess);
+				if (top < 0)
 				{
-					Seed(item.type, BookSteps.Of(BookProgressionSources.RarityStage(item)), "rarity");
+					hopeless.UnionWith(ring);
+					continue;
+				}
+				foreach (int type in ring.Where((int t) => Guess(t) == top))
+				{
+					Seed(type, top, floors.ContainsKey(type) ? "list" : "rarity");
 				}
 			}
 			if (seeds.Count > seeded)
@@ -489,8 +562,7 @@ internal static class BookProgression
 				(items, recipes) = BookProgressionRules.Resolve(seeds, floors, routes, via);
 			}
 		}
-		// Whatever is only reachable through something the difficulty rules out (expert-only bag contents in
-		// Classic) is unavailable in this mode too, not sourceless.
+		// What stayed unplaced (no guess to give) but has a route made only of excluded items is excluded too.
 		bool grew = true;
 		while (grew)
 		{
@@ -544,6 +616,11 @@ internal static class BookProgression
 		bool Blocked(int type)
 		{
 			return !items.ContainsKey(type) && modeItems.Contains(type);
+		}
+		// What the second pass gives an item no source places: its curated floor, else its rarity tier.
+		int Guess(int type)
+		{
+			return floors.TryGetValue(type, out int listed) ? listed : BookSteps.Of(BookProgressionSources.RarityStage(ContentSamples.ItemsByType[type]));
 		}
 		void Seed(int type, int step, string reason, int source = 0)
 		{
@@ -744,12 +821,15 @@ internal static class BookProgression
 						continue;
 					}
 					// Sourced: the raw-item pass would guess the rarity again without the drop's own floor (Bloodstone and
-					// the Guidelight of Oblivion from post-Providence Crag mobs the tables cannot place).
+					// the Guidelight of Oblivion from post-Providence Crag mobs the tables cannot place). The drop is a real
+					// source whose time the rarity guesses ("rarity:<mob>", global loot's "rarity:any"; "drop:" where the
+					// drop's own condition comes later and decides), unlike a sourceless item's plain "rarity"
+					// (ConsistencyAudit).
 					int tier = BookSteps.Of(BookProgressionSources.RarityStage(drop));
 					if (tier >= 0)
 					{
 						sourced.Add(rate.itemId);
-						seed(rate.itemId, Max(tier, floor), "rarity", 0);
+						seed(rate.itemId, Max(tier, floor), (floor > tier ? "drop:" : "rarity:") + npcName, mob.NetId);
 					}
 				}
 				if (step >= 0 && mob.Banner > 0)
@@ -777,7 +857,7 @@ internal static class BookProgression
 					if (floor3 >= 0 && tier3 >= 0)
 					{
 						sourced.Add(rate3.itemId);
-						seed(rate3.itemId, Max(tier3, floor3), "rarity", 0);
+						seed(rate3.itemId, Max(tier3, floor3), floor3 > tier3 ? "drop:any" : "rarity:any", 0);
 					}
 				}
 			}

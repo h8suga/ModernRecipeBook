@@ -397,7 +397,8 @@ public sealed partial class RecipeBookSystem
 			}
 			string phrase = link.Kind switch
 			{
-				"drop" or "enemy" or "spawn" => L("Stages.Drop", NpcName(link.Id)) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
+				// Id 0: global loot, which any enemy drops.
+				"drop" or "enemy" or "spawn" => L("Stages.Drop", link.Id == 0 ? L("HowToGet.AnyEnemy") : NpcName(link.Id)) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
 				"banner" => L("Stages.Banner", NpcName(link.Id)),
 				"catch" => L("Stages.BugNet", NpcName(link.Id)),
 				"shop" => L("Stages.SoldBy", NpcName(link.Id)) + LaterThan(BookProgression.NpcStep(link.Id), link.Step),
@@ -408,6 +409,15 @@ public sealed partial class RecipeBookSystem
 				"rarity" => L("Stages.ByRarityAGuess"),
 				"gate" => link.Id <= 0 ? L("Stages.FromTheStart") : StepPhrase(link.Id),
 				"recipe" or "bag" or "use" or "record" or "carried" or "mine" or "shimmer" or "trade" or "rod" => null,
+				// Any other route (a bag's developer set, the Greed Pot's ore, a locked chest's key) goes on through what it
+				// is made of; a curated source (BookCurated) ends the chain as How to Get names its kind.
+				_ when i + 1 < links.Count => null,
+				"chest" => L("Common.Chest"),
+				"structure" => L("Structures.Kind"),
+				"pot" => L("Common.World"),
+				"quest" => L("Rewards.Quest"),
+				"event" or "medals" or "bosspotion" => L("Rewards.Event"),
+				"calamity" when BookCalamityLoot.KindOf(link.Item) is BookAcquisitionKind kind => AcquisitionKindName(kind),
 				_ => L("Stages.NoSourceFound")
 			};
 			if (phrase != null)

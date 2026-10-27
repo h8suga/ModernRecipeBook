@@ -58,6 +58,62 @@ internal static class BookProgressionRules
 		return result;
 	}
 
+	// Rings of unplaced items that wait for nothing outside themselves: the strongly connected groups (Tarjan) of the
+	// waits with no edge out; an item that waits for nothing is a ring of one.
+	internal static List<List<int>> Rings(IEnumerable<int> nodes, IReadOnlyDictionary<int, int[]> waits)
+	{
+		Dictionary<int, int> index = new Dictionary<int, int>();
+		Dictionary<int, int> low = new Dictionary<int, int>();
+		Stack<int> stack = new Stack<int>();
+		HashSet<int> stacked = new HashSet<int>();
+		List<List<int>> rings = new List<List<int>>();
+		foreach (int node in nodes)
+		{
+			if (!index.ContainsKey(node))
+			{
+				Visit(node);
+			}
+		}
+		return rings;
+		void Visit(int v)
+		{
+			int order = index.Count;
+			index[v] = order;
+			low[v] = order;
+			stack.Push(v);
+			stacked.Add(v);
+			foreach (int w in waits[v])
+			{
+				if (!index.ContainsKey(w))
+				{
+					Visit(w);
+					low[v] = Math.Min(low[v], low[w]);
+				}
+				else if (stacked.Contains(w))
+				{
+					low[v] = Math.Min(low[v], index[w]);
+				}
+			}
+			if (low[v] != index[v])
+			{
+				return;
+			}
+			List<int> ring = new List<int>();
+			int x;
+			do
+			{
+				x = stack.Pop();
+				stacked.Remove(x);
+				ring.Add(x);
+			}
+			while (x != v);
+			if (ring.All((int m) => waits[m].All(ring.Contains)))
+			{
+				rings.Add(ring);
+			}
+		}
+	}
+
 	// Least fixed point from the seeds: a route gives its output the latest of its floor and, per ingredient group, the
 	// earliest member. via: for every item a route placed, that route (the rest keep their seed).
 	internal static (Dictionary<int, int> Items, Dictionary<int, int> Recipes) Resolve(IReadOnlyDictionary<int, int> seeds, IReadOnlyDictionary<int, int> floors, IReadOnlyList<Route> routes, Dictionary<int, Route> via = null)
@@ -109,12 +165,14 @@ internal static class BookProgressionRules
 			foreach (int[] group in route3.Ingredients)
 			{
 				int best = -1;
+				bool lower = false;
 				foreach (int type in group)
 				{
 					int s = Read(type);
-					if (s >= 0 && (best < 0 || s < best))
+					if (s >= 0 && (best < 0 || s < best || (s == best && lower)))
 					{
 						best = s;
+						lower = bounded.Contains(type);
 					}
 				}
 				if (best < 0)
@@ -124,10 +182,13 @@ internal static class BookProgressionRules
 				else
 				{
 					step = Math.Max(step, best);
+					bound |= lower;
 				}
 			}
 			// Nothing comes later than post-Moon Lord, so a route already there is placed even with a part unknown, as a
-			// lower bound that only stands while nothing else places the item.
+			// lower bound that only stands while nothing else places the item. What is made of a lower bound is one too,
+			// or it would keep the bound's step once the real one comes (the Zenith Throne at Moon Lord while its Zenith
+			// waits for Calamity's Auric Bars).
 			if (!unknown)
 			{
 				return step;

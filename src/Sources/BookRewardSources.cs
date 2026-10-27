@@ -87,8 +87,12 @@ internal static class BookRewardSources
 		(ItemID.MinecartPowerup, ItemID.MinecartMech), (ItemID.GasTrap, ItemID.UsedGasTrap)
 	};
 
-	// Item.GetShimmered's own cases, ahead of ItemID.Sets.ShimmerTransformToItem: these only once Moon Lord is down.
-	private static readonly (int From, int To)[] MoonLordShimmers = { (ItemID.RodofDiscord, ItemID.RodOfHarmony), (ItemID.Clentaminator, ItemID.Clentaminator2), (ItemID.BottomlessBucket, ItemID.BottomlessShimmerBucket), (ItemID.BottomlessShimmerBucket, ItemID.BottomlessBucket) };
+	// Item.GetShimmered's own cases, ahead of ItemID.Sets.ShimmerTransformToItem: these only once Moon Lord is down. A
+	// Luminite Brick, Moon Lord's too, turns into the space brick of the moon's phase (Item.cs:49685-49702), the only
+	// way to get one.
+	private static readonly (int From, int To)[] MoonLordShimmers = { (ItemID.RodofDiscord, ItemID.RodOfHarmony), (ItemID.Clentaminator, ItemID.Clentaminator2), (ItemID.BottomlessBucket, ItemID.BottomlessShimmerBucket), (ItemID.BottomlessShimmerBucket, ItemID.BottomlessBucket),
+		(ItemID.LunarBrick, ItemID.LunarRustBrick), (ItemID.LunarBrick, ItemID.DarkCelestialBrick), (ItemID.LunarBrick, ItemID.AstraBrick), (ItemID.LunarBrick, ItemID.CosmicEmberBrick),
+		(ItemID.LunarBrick, ItemID.CryocoreBrick), (ItemID.LunarBrick, ItemID.MercuryBrick), (ItemID.LunarBrick, ItemID.StarRoyaleBrick), (ItemID.LunarBrick, ItemID.HeavenforgeBrick) };
 
 	// Player.ApplyWilsonBeard: equipped as an accessory, the beard grows after 43200 ticks, 1 in 540 each tick after.
 	private static readonly (int From, int To)[] Beards = { (ItemID.WilsonBeardShort, ItemID.WilsonBeardLong), (ItemID.WilsonBeardLong, ItemID.WilsonBeardMagnificent) };

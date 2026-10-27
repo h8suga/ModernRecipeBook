@@ -85,9 +85,11 @@ internal static class BookItemSources
 	internal static readonly HashSet<string> CalamityWorldgenItems = Set("PowerCellFactoryItem ChargingStationItem OnyxExcavatorKey CragsPylon");
 
 	// Vanilla items found in the world from the start: blocks, ores, gems, plants and the commonest monster
-	// materials. How to Get explains most of them through their tiles; the list keeps a generic "found in
-	// the world" row for the rest.
-	internal static readonly HashSet<string> VanillaWorldItems = Set("Wood BorealWood RichMahogany Ebonwood Shadewood PalmWood AshWood Bamboo StoneBlock DirtBlock ClayBlock SandBlock EbonsandBlock CrimsandBlock MudBlock SnowBlock IceBlock SiltBlock SlushBlock DesertFossil Cobweb Gel FallenStar Acorn CopperOre TinOre IronOre LeadOre SilverOre TungstenOre GoldOre PlatinumOre DemoniteOre CrimtaneOre Meteorite Hellstone Obsidian SturdyFossil Amethyst Topaz Sapphire Emerald Ruby Diamond Amber Mushroom GlowingMushroom Daybloom Moonglow Blinkroot Deathweed Waterleaf Fireblossom Shiverthorn GrassSeeds JungleGrassSeeds MushroomGrassSeeds CorruptSeeds CrimsonSeeds AshGrassSeeds VileMushroom ViciousMushroom Bone RottenChunk Vertebrae JungleSpores Stinger Vine Lens BlackLens AntlionMandible SharkFin Feather");
+	// materials. Also what world generation places that has a later recipe or crate besides: the desert's Sandstone
+	// and Hardened Sand (DesertHive), the beach's Coral and shell piles (WorldGen.cs:15980-15990) and the Living Loom
+	// in the living trees' rooms (GrowLivingTreePassageRoom). How to Get explains most of them through their tiles;
+	// the list keeps a generic "found in the world" row for the rest.
+	internal static readonly HashSet<string> VanillaWorldItems = Set("Wood BorealWood RichMahogany Ebonwood Shadewood PalmWood AshWood Bamboo StoneBlock DirtBlock ClayBlock SandBlock EbonsandBlock CrimsandBlock MudBlock SnowBlock IceBlock SiltBlock SlushBlock DesertFossil Cobweb Gel FallenStar Acorn CopperOre TinOre IronOre LeadOre SilverOre TungstenOre GoldOre PlatinumOre DemoniteOre CrimtaneOre Meteorite Hellstone Obsidian SturdyFossil Amethyst Topaz Sapphire Emerald Ruby Diamond Amber Mushroom GlowingMushroom Daybloom Moonglow Blinkroot Deathweed Waterleaf Fireblossom Shiverthorn GrassSeeds JungleGrassSeeds MushroomGrassSeeds CorruptSeeds CrimsonSeeds AshGrassSeeds VileMushroom ViciousMushroom Bone RottenChunk Vertebrae JungleSpores Stinger Vine Lens BlackLens AntlionMandible SharkFin Feather Sandstone HardenedSand Coral Seashell Starfish LivingLoom");
 
 	// Player.GetDyeTraderReward: what the Dye Trader gives for a Strange Plant, by the gate in that method.
 	internal static readonly DyeTrade[] DyeTraderRewards =
