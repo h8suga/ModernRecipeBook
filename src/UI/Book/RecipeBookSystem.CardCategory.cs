@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 
@@ -13,8 +14,8 @@ public sealed partial class RecipeBookSystem
 	private const string CategorySeparator = " › ";
 
 	// One piece of the line as drawn: where its ink starts, the room it has, the category it opens (null for the mod,
-	// the separators and the stage) and whether it was cut short.
-	private readonly record struct CardCategoryPiece(string Text, float X, float Width, BookCategory Category, bool Cut);
+	// the separators and the stage), whether it was cut short, and the mod's whole name when the line shows it short.
+	private readonly record struct CardCategoryPiece(string Text, float X, float Width, BookCategory Category, bool Cut, string Whole);
 
 	// The line the path is on: the armor set's subtitle, before the stage; or the one under the item's name, whose
 	// stage then takes the next line (DetailHeaderText).
@@ -29,16 +30,32 @@ public sealed partial class RecipeBookSystem
 		return (new BookRect(880f, DetailHeaderText(chosen, mod, stage).Top + 26f, 216f, 20f), mod, "");
 	}
 
-	// "<lead> · <group> › <category><tail>". The group goes first when the whole line does not fit; what still does
-	// not is cut at the line's end.
+	// "Calamity" for Calamity Mod: the word says nothing in a mod's name ("Calamity Mod Music" reads "Calamity Music").
+	private static string ShortModName(string mod)
+	{
+		return Regex.Replace(mod, @"(?<=\S)\s+Mod\b", "");
+	}
+
+	// "<lead> · <group> › <category><tail>". When the whole line does not fit, the mod's short name makes room for the
+	// whole path, then the group goes (the mod's whole name back if that fits); what still does not is cut at the end.
 	private static List<CardCategoryPiece> CardCategoryPieces(Item chosen, string lead, string tail, BookRect line)
 	{
-		List<BookCategory> path = BookCategoryPath.Of(chosen.type).ToList();
-		if (path.Count > 1 && TextWidth(lead + " · " + string.Join(CategorySeparator, path.Select((BookCategory category) => category.Label())) + tail, 0.8f) > line.Width)
+		IReadOnlyList<BookCategory> whole = BookCategoryPath.Of(chosen.type);
+		IReadOnlyList<BookCategory> last = whole.TakeLast(1).ToList();
+		string brief = ShortModName(lead);
+		(string Lead, IReadOnlyList<BookCategory> Path)[] tries = { (lead, whole), (brief, whole), (lead, last), (brief, last) };
+		(string Lead, IReadOnlyList<BookCategory> Path) shown = tries[^1];
+		foreach ((string Lead, IReadOnlyList<BookCategory> Path) attempt in tries)
 		{
-			path.RemoveAt(0);
+			string text = ((attempt.Path.Count > 0) ? (attempt.Lead + " · " + string.Join(CategorySeparator, attempt.Path.Select((BookCategory category) => category.Label()))) : attempt.Lead) + tail;
+			if (TextWidth(text, 0.8f) <= line.Width)
+			{
+				shown = attempt;
+				break;
+			}
 		}
-		List<(string Text, BookCategory Category)> texts = new List<(string, BookCategory)> { ((path.Count > 0) ? (lead + " · ") : lead, null) };
+		IReadOnlyList<BookCategory> path = shown.Path;
+		List<(string Text, BookCategory Category)> texts = new List<(string, BookCategory)> { ((path.Count > 0) ? (shown.Lead + " · ") : shown.Lead, null) };
 		for (int i = 0; i < path.Count; i++)
 		{
 			if (i > 0)
@@ -64,7 +81,7 @@ public sealed partial class RecipeBookSystem
 			{
 				break;
 			}
-			pieces.Add(new CardCategoryPiece(text, left, end - left, category, right > end));
+			pieces.Add(new CardCategoryPiece(text, left, end - left, category, right > end, (pieces.Count == 0 && shown.Lead != lead) ? lead : null));
 			if (right > end)
 			{
 				break;
@@ -78,30 +95,25 @@ public sealed partial class RecipeBookSystem
 		return new BookRect(piece.X - 4f, line.Y, Math.Min(TextWidth(piece.Text, 0.8f), piece.Width) + 8f, line.Height);
 	}
 
-	// True while the mouse is on a category: its tip replaces the line's own.
+	// True while the mouse is on a category or on a shortened mod name: its tip replaces the line's own.
 	private static bool DrawCardCategoryLine(SpriteBatch sb, Item chosen, string lead, string tail, BookRect line)
 	{
-		bool linkHover = false;
+		bool ownTip = false;
 		foreach (CardCategoryPiece piece in CardCategoryPieces(chosen, lead, tail, line))
 		{
-			bool hover = false;
-			if (piece.Category != null)
+			bool hover = !MenuOpen && (piece.Category != null || piece.Whole != null) && CardCategoryHit(piece, line).Contains(Mouse.X, Mouse.Y);
+			if (hover && piece.Category != null)
 			{
-				BookRect hit = CardCategoryHit(piece, line);
-				hover = !MenuOpen && hit.Contains(Mouse.X, Mouse.Y);
-				if (hover)
-				{
-					Box(sb, hit, HoverFill, border: false, 6f);
-				}
+				Box(sb, CardCategoryHit(piece, line), HoverFill, border: false, 6f);
 			}
 			FixedLabel(sb, piece.Text, piece.X, line.Y, (piece.Category != null) ? TextColor : Muted, 0.8f, piece.Width, line.Height);
 			if (hover)
 			{
-				linkHover = true;
-				MouseTip(CardCategoryTip(piece));
+				ownTip = true;
+				MouseTip((piece.Category != null) ? CardCategoryTip(piece) : piece.Whole);
 			}
 		}
-		return linkHover;
+		return ownTip;
 	}
 
 	// What the sidebar calls the category, what a click does, and that the Items search goes when there is one.

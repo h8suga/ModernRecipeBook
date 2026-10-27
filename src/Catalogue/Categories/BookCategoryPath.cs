@@ -6,9 +6,10 @@ using Terraria.ID;
 
 namespace ModernRecipeBook.Catalogue.Categories;
 
-// Where an item sits in the sidebar, for its card: the most specific category it is in, the one listing the fewest
-// items (Whips rather than All weapons, Bars rather than Furniture, Treasure bags rather than Expert), after the row
-// heading its group when the item is in that one too ("Weapons › Whips"). An item only All items lists has none.
+// Where an item sits in the sidebar, for its card: the most specific category saying what it is, the one listing the
+// fewest items (Whips rather than All weapons, Bars rather than Furniture), a tag row (Tags) only when nothing else
+// lists it, after the row heading its group when the item is in that one too ("Weapons › Whips"). An item only All
+// items lists has none.
 // The categories and their sizes do not change once the game has loaded, so each is counted once.
 internal static class BookCategoryPath
 {
@@ -26,6 +27,11 @@ internal static class BookCategoryPath
 		["carts"] = "mounts",
 		["ores"] = "materials", ["bars"] = "materials", ["gems"] = "materials"
 	};
+
+	// The rows that repeat a tooltip's tag line (Material, Consumable, Vanity, Expert, Master) or say what the item goes
+	// in (Extractinator), not what it is: the card names one only when no other row lists the item, so Worm Scarf is
+	// an accessory before an Expert item and a Master Mode pet a pet.
+	private static readonly HashSet<string> Tags = new HashSet<string> { "materials", "consumables", "vanity", "expert", "master", "extractinator" };
 
 	// A heading row names its group in a path: Weapons, not All weapons.
 	private static readonly Dictionary<string, string> GroupNames = new Dictionary<string, string>
@@ -63,7 +69,7 @@ internal static class BookCategoryPath
 		int best = -1;
 		for (int c = 0; c < Categories.Count; c++)
 		{
-			if (Categories[c].Key != "all" && Categories[c].Matches(item) && (best < 0 || Size(c) < Size(best)))
+			if (Categories[c].Key != "all" && Categories[c].Matches(item) && (best < 0 || Before(c, best)))
 			{
 				best = c;
 			}
@@ -106,6 +112,17 @@ internal static class BookCategoryPath
 		Listed = ContentSamples.ItemsByType.Values.Where((Item item) => item != null && !item.IsAir && !string.IsNullOrWhiteSpace(item.Name) && !BookCurated.Hidden(item)).ToArray();
 		Categories = BookCategories.Create(stations);
 		Sizes = Enumerable.Repeat(-1, Categories.Count).ToArray();
+	}
+
+	// What the item is before a tag, then the one listing fewer items.
+	private static bool Before(int category, int than)
+	{
+		bool tag = Tags.Contains(Categories[category].Key);
+		if (tag != Tags.Contains(Categories[than].Key))
+		{
+			return !tag;
+		}
+		return Size(category) < Size(than);
 	}
 
 	private static int Size(int category)
