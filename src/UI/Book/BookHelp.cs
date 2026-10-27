@@ -62,7 +62,7 @@ internal static class BookHelp
 		}),
 		new Section(2, "Help.SectionFINDINGTHINGS", new Entry[5]
 		{
-			new Entry("Help.KeyCtrlF", "Help.Search"),
+			new Entry("Help.KeyCtrlF", "QuickSearch.HelpSearchEverything"),
 			new Entry("Help.KeyCtrlBackspace", "Help.ResetFilters"),
 			new Entry("Help.KeyAlt15", "Help.Stage5BeforeTheNextBoss"),
 			new Entry("Help.KeyClassButtons", "Help.FilterByClass"),

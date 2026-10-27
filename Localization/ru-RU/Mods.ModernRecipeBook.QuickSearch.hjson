@@ -1,0 +1,37 @@
+Placeholder: Предметы, мобы, боссы, категории, моды…
+EmptyTitle: Поиск по всей книге
+EmptyHint: Введите название — подойдут и английские названия, и ID
+NothingFound: По запросу «{0}» ничего нет
+NothingFoundHint: Попробуйте английское название, ID или мод
+SearchDescriptions: Искать в описаниях на вкладке «Предметы»
+AllInItems: Все {0} на вкладке «Предметы»
+AllInBestiary: Все {0} в бестиарии
+More: Ещё {0}
+AllSources: Все способы получить: {0} · Где взять
+AllLoot: Вся добыча: {0} · карточка моба
+DroppedBy: Падает с: {0}
+FoundIn: Находится в: {0}
+Drops: Добыча: {0}
+BadgeItem: Предмет
+BadgeMob: Моб
+BadgeBoss: Босс
+BadgeStage: Этап
+BadgeCategory: Категория
+BadgeMod: Мод
+GroupStages: До босса
+GroupItemCategories: Категории предметов
+GroupMobCategories: Категории бестиария
+GroupMods: Моды
+GroupOpened: Недавно открытые
+GroupCrafted: Недавно созданные
+GroupSeen: Недавно встреченные
+ItemCount: "{0} {^0:предмет;предмета;предметов}"
+MobCount: "{0} {^0:моб;моба;мобов}"
+Id: ID {0}
+KeyEnter: Enter
+KeyShiftEnter: Shift+Enter
+Open: Открыть
+Close: Закрыть
+EnglishLoading: Читаю английские названия…
+FieldTip: Поиск по вкладке · Ctrl+F — по всей книге
+HelpSearchEverything: Поиск по всему, везде

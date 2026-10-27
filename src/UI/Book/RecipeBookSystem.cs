@@ -531,6 +531,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		get
 		{
+			if (QuickSearchOpen)
+			{
+				return false;
+			}
 			if (Open)
 			{
 				if (!HelpOpen && !AcquisitionOpen && !MenuOpen)
@@ -548,7 +552,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		get
 		{
 			// The station and trait menus take the arrows, Enter and Space while open.
-			if (Typing || HelpOpen || AcquisitionOpen || StationMenu || TraitMenu)
+			if (Typing || HelpOpen || AcquisitionOpen || StationMenu || TraitMenu || QuickSearchOpen)
 			{
 				return true;
 			}
@@ -3226,6 +3230,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	internal static void ReportUiFailure(string phase, Exception error)
 	{
+		CloseQuickSearch();
 		SetTyping(value: false);
 		Open = (MouseOver = (ModMenu = (HelpOpen = false)));
 		CloseAcquisition();
@@ -3828,6 +3833,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		StationItems.Clear();
 		ItemCategoryList.Clear();
 		ItemCategories.Clear();
+		BookEnglishNames.Clear();
+		QuickOpened.Clear();
+		QuickModIcons.Clear();
 		ClearBestiary();
 		Dirty = true;
 	}
@@ -3835,6 +3843,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 	internal static void ResetView()
 	{
 		CloseMarkerPanel();
+		CloseQuickSearch();
+		// The quick search ranks met mobs and reads this world's loot: built again in the next world.
+		QuickIndex.Clear();
+		QuickLinks.Clear();
 		CloseAcquisition();
 		StopTracker();
 		BlockTrackerPress = false;
@@ -3899,12 +3911,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 				Open = (MouseOver = false);
 				BookSources.CancelCraft();
 			}
-			LastMiddle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
-			LastLeft = Main.mouseLeft;
-			LastRight = Main.mouseRight;
-			LastKeys = Keyboard.GetState();
-			LastEscape = LastKeys.IsKeyDown(Keys.Escape);
-			LastWheel = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
+			SyncInputEdges();
 			if (flag)
 			{
 				Rebuild();
@@ -3936,12 +3943,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		StepCard(type, BookCardMode.UsedIn);
 		Open = true;
-		LastLeft = Main.mouseLeft;
-		LastRight = Main.mouseRight;
-		LastMiddle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
-		LastKeys = Keyboard.GetState();
-		LastEscape = LastKeys.IsKeyDown(Keys.Escape);
-		LastWheel = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
+		SyncInputEdges();
 		Main.cursorOverride = 0;
 		Main.LocalPlayer.mouseInterface = true;
 		return true;
@@ -4376,9 +4378,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 			Main.clrInput();
 		}
 		Typing = value;
+		HoldTextInput(SearchOwner, value);
+	}
+
+	// The book's text fields (its search, the quick search) take the keyboard: the text override, and Main.blockInput,
+	// which the book lifts again only if it set it and neither field still types.
+	private static void HoldTextInput(object owner, bool value)
+	{
 		if (value)
 		{
-			Main.CurrentInputTextTakerOverride = SearchOwner;
+			Main.CurrentInputTextTakerOverride = owner;
 			if (!Main.blockInput)
 			{
 				Main.blockInput = true;
@@ -4386,15 +4395,26 @@ public sealed partial class RecipeBookSystem : ModSystem
 			}
 			return;
 		}
-		if (Main.CurrentInputTextTakerOverride == SearchOwner)
+		if (Main.CurrentInputTextTakerOverride == owner)
 		{
 			Main.CurrentInputTextTakerOverride = null;
 		}
-		if (OwnInputBlock)
+		if (OwnInputBlock && !Typing && !QuickSearchOpen)
 		{
 			Main.blockInput = false;
 			OwnInputBlock = false;
 		}
+	}
+
+	// A press or click that led to opening or closing something is not the book's next one.
+	private static void SyncInputEdges()
+	{
+		LastMiddle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
+		LastLeft = Main.mouseLeft;
+		LastRight = Main.mouseRight;
+		LastKeys = Keyboard.GetState();
+		LastEscape = LastKeys.IsKeyDown(Keys.Escape);
+		LastWheel = Microsoft.Xna.Framework.Input.Mouse.GetState().ScrollWheelValue;
 	}
 
 	private static void ReadSearchText()
@@ -4468,6 +4488,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 	{
 		if (Main.gameMenu)
 		{
+			CloseQuickSearch();
 			CloseAcquisition();
 			SetTyping(value: false);
 			Open = (MouseOver = false);
@@ -4475,6 +4496,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		BookInventoryShortcut.ProcessRequests();
 		ProcessHistoryNavigation();
+		if (UpdateQuickSearch())
+		{
+			return;
+		}
 		bool middle = Microsoft.Xna.Framework.Input.Mouse.GetState().MiddleButton == ButtonState.Pressed;
 		if (((Open && Typing) & middle) && !LastMiddle && ModernRecipeBook.ToggleBook.GetAssignedKeys().Contains("Mouse3"))
 		{
@@ -5162,6 +5187,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static bool HandleKeys(KeyboardState keys)
 	{
 		BookHotkeys.Action action = BookHotkeys.Read(keys, LastKeys, Typing, Main.blockInput, Main.drawingPlayerChat || Main.editSign || Main.editChest, HelpOpen, MenuOpen, StorageView, ArrowsFree());
+		if (action != BookHotkeys.Action.None)
+		{
+			// The key the book acted on (F1, PgDn...) does nothing else in the game until let go (BookPlayer.GuardHeldKeys).
+			BookPlayer.HoldNewKeys(keys, LastKeys);
+		}
 		switch (action)
 		{
 		case BookHotkeys.Action.None:
@@ -5170,13 +5200,6 @@ public sealed partial class RecipeBookSystem : ModSystem
 			SetTyping(value: false);
 			ModMenu = (SortMenu = (StageMenu = (StationMenu = false)));
 			HelpOpen = !HelpOpen;
-			break;
-		case BookHotkeys.Action.Search:
-			if (!TrackingView)
-			{
-				ModMenu = (SortMenu = (StageMenu = (StationMenu = false)));
-				SetTyping(value: true);
-			}
 			break;
 		case BookHotkeys.Action.Tab1:
 		case BookHotkeys.Action.Tab2:
@@ -5430,11 +5453,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 	public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers)
 	{
 		InsertTrackerLayer(layers);
-		if (!Open)
+		if (!Open && !QuickSearchOpen)
 		{
 			return;
 		}
-		if (BookMagicStorage.HideNativeUI)
+		if (Open && BookMagicStorage.HideNativeUI)
 		{
 			layers.RemoveAll((GameInterfaceLayer layer) =>
 			{
@@ -6302,8 +6325,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 
 	private static void Draw(SpriteBatch sb)
 	{
-		if (!Open || Main.gameMenu)
+		if (Main.gameMenu)
 		{
+			return;
+		}
+		if (!Open)
+		{
+			DrawQuickSearchOverGame(sb);
 			return;
 		}
 		Layout();
@@ -6327,7 +6355,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 			DrawBookContent(sb, ModalOpen);
 		}
 		DrawBackdrop(sb, backdrop);
-		if (AcquisitionOpen)
+		if (QuickSearchOpen)
+		{
+			DrawModal(sb, backdrop, DrawQuickSearch);
+		}
+		else if (AcquisitionOpen)
 		{
 			DrawModal(sb, backdrop, DrawAcquisition);
 		}
@@ -6575,7 +6607,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			// A query cut short in the box reads in full here.
 			string full = (TextWidth(Query, 0.85f) > BookGeometry.SearchText.Width) ? (Query + "\n") : "";
-			MouseTip(full + L("Common.SearchCtrlF") + (BestiaryView ? "" : ("\n" + L("Common.NameMatchesFirstThenTheItem"))));
+			MouseTip(full + L("QuickSearch.FieldTip") + (BestiaryView ? "" : ("\n" + L("Common.NameMatchesFirstThenTheItem"))));
 		}
 		Dropdown(sb, BookGeometry.ModFilter, (ModFilter.Length == 0) ? L("Common.AllMods") : ModName(ModFilter), ModMenu, enabled: true, highlight: ModFilter.Length > 0);
 		if (!MenuOpen && BookGeometry.ModFilter.Contains(Mouse.X, Mouse.Y))

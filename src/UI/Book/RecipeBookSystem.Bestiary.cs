@@ -382,6 +382,12 @@ public sealed partial class RecipeBookSystem
 	// Sidebar icons: an item, or on the Bestiary tab the Bestiary's own tag icon (a mod biome's icon).
 	private static void DrawCategoryIcon(SpriteBatch sb, BookCategory category, BookRect rect)
 	{
+		DrawCategoryIcon(sb, category, rect, BestiaryView);
+	}
+
+	// mobs: the category is a Bestiary tag, whose icon may be a frame of the Bestiary's own icon sheet.
+	private static void DrawCategoryIcon(SpriteBatch sb, BookCategory category, BookRect rect, bool mobs)
+	{
 		if (category.IconType > 0)
 		{
 			if (ContentSamples.ItemsByType.TryGetValue(category.IconType, out var icon))
@@ -390,7 +396,7 @@ public sealed partial class RecipeBookSystem
 			}
 			return;
 		}
-		BookBestiary.Tag tag = BestiaryView ? BookBestiary.FindTag(category.Key) : null;
+		BookBestiary.Tag tag = mobs ? BookBestiary.FindTag(category.Key) : null;
 		if (tag?.Icon.Texture == null)
 		{
 			return;

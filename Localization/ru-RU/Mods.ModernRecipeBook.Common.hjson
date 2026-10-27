@@ -177,7 +177,6 @@ ClickAgainForAllClasses: Клик ещё раз — все классы
 NameIDOrMod: Имя, ID или мод
 NameTextIDMod: Имя, текст, ID, мод
 ClearSearch: Очистить поиск
-SearchCtrlF: Поиск · Ctrl+F
 NameMatchesFirstThenTheItem: Сначала совпадения в имени, потом в тексте предмета
 AllMods: Все моды
 FilterByMod: Фильтр по моду

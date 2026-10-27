@@ -8,7 +8,6 @@ internal static class BookHotkeys
 	{
 		None,
 		Help,
-		Search,
 		Tab1,
 		Tab2,
 		Tab3,
@@ -65,10 +64,6 @@ internal static class BookHotkeys
 		}
 		if (ctrl && !alt)
 		{
-			if (Press(Keys.F))
-			{
-				return Action.Search;
-			}
 			// Ctrl+N opens the N-th visible tab, the number its tooltip shows.
 			if (Press(Keys.D1))
 			{
@@ -229,5 +224,14 @@ internal static class BookHotkeys
 			}
 			return false;
 		}
+	}
+
+	// Ctrl+F, the quick search: anywhere in the game, the book open or not (RecipeBookSystem.UpdateQuickSearch decides
+	// where it may open). Ctrl+Shift+F counts too; with Alt it is not the chord.
+	internal static bool QuickSearch(KeyboardState keys, KeyboardState previous)
+	{
+		bool ctrl = keys.IsKeyDown(Keys.LeftControl) || keys.IsKeyDown(Keys.RightControl);
+		bool alt = keys.IsKeyDown(Keys.LeftAlt) || keys.IsKeyDown(Keys.RightAlt);
+		return ctrl && !alt && keys.IsKeyDown(Keys.F) && !previous.IsKeyDown(Keys.F);
 	}
 }
