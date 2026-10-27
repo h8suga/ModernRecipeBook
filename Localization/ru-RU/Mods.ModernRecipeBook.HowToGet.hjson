@@ -57,4 +57,4 @@ InLava: в лаве
 Grass: трава
 CountSources: "{0} {^0:источник;источника;источников}"
 PlacesAndMore: "{0} и ещё {1}"
-WithRod: удочкой: {0}
+WithRod: "{0} в руках"

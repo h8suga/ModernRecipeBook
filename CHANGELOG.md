@@ -38,6 +38,14 @@ patch for fixes, minor for features.
   IDs work in any language. Every row has a one-click action (Craft, Take, Track, Open; Ctrl+Enter, Alt+T, Alt+F,
   Alt+G, Alt+U as on the card), the preview shows the selected result with all its actions, and ">" lists the book's
   commands. Ctrl+F leaves Smart Cursor as it was, and no key pressed in the search reaches the game.
+- **Links everywhere**: every boss, mob, biome, event, item, mod, stage, trait and goal the book names is a link with a
+  hover and a tip, and Back returns: a mob card's stage, biome, spawns, kind, mod, banner and the bosses and bags in
+  its loot conditions; an item card's stage and mod, recipe conditions, the members of "Any Iron Bar", its traits;
+  How to Get's sellers, Angler, rods, pickaxes and music tracks; tracker and Tracking goals, their conditions and set
+  parts; Active Stations' icons; the crafted-item message. Shift+Click on a stage menu boss opens its card, and an
+  empty Used In offers "Show all stages".
+- Boss cards list what the boss leaves on death (potions, hearts) as in How to Get, and Developer set rows list their
+  bags.
 - Coins go to the Piggy Bank first: Deposit All, Shift+Click and dropping a stack on the Storage tab put coins into the
   Piggy Bank when it is open or in range (a Money Trough counts too), combined into the fewest stacks; only what does not
   fit goes on to nearby storage, and with the bank full the coins from the coin slots stay there. With the Piggy Bank in
@@ -85,6 +93,7 @@ patch for fixes, minor for features.
 - The book's shortcuts no longer trigger the game's or other mods' keybinds on the same key: with Inventory on Tab,
   Ctrl+Tab no longer closes the book, and Alt+F / Alt+T no longer fire Calamity's dash or gravity keys.
 - Money Troughs, Chester and Void Lenses near the player count as their bank in the Storage tab.
+- Fishing rows show their gates again ("with Wulfrum Fishing Pole", "By day", "Hardmode", "In lava").
 - Ctrl+Backspace resets the filters while you type in the search too, as "Nothing found · Ctrl+Backspace resets
   filters" says.
 - Stages: a crafted item is never placed before its own recipe (Solar Sink after the Lunatic Cultist, Cactus Bookcase
