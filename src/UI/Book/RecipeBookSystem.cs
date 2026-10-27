@@ -6103,7 +6103,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return L("Common.DepositToNearbyStorage") + "\n" + L("Common.NothingNearbyToDepositInto");
 		}
-		return L("Common.DepositToNearbyStorageExceptHotbar") + "\n" + (BookMagicStorage.Installed ? L("Common.OntoMatchingStacksFirstThenMagic") : L("Common.OntoMatchingStacksFirstThenA"));
+		string tip = L("Common.DepositToNearbyStorageExceptHotbar") + "\n" + (BookMagicStorage.Installed ? L("Common.OntoMatchingStacksFirstThenMagic") : L("Common.OntoMatchingStacksFirstThenA"));
+		return BookSources.PiggyBankAvailable ? (tip + "\n" + L("Coins.DepositAllTip")) : tip;
 	}
 
 	private static void DrawStorageToolbar(SpriteBatch sb)

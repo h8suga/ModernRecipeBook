@@ -1,0 +1,6 @@
+DepositAllTip: Coins go to the Piggy Bank first, including the coin slots
+Banked: Coins went to the Piggy Bank
+StoredBanked: Stored nearby, coins to the Piggy Bank
+StoredBankFull: Stored nearby; the Piggy Bank is full
+LeftBanked: Coins to the Piggy Bank; {0} left
+LeftBankFull: No room anywhere: {0} left

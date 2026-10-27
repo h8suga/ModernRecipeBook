@@ -97,6 +97,18 @@ public sealed class BookSources : ModSystem
 
 		// A held right-click's batch.
 		internal bool Held;
+
+		// A deposit's coins (BankCoins).
+		internal BankedCoins Coins;
+	}
+
+	// Where a deposit's coins went: no coins or no Piggy Bank, all into the Piggy Bank, or some on to storage because
+	// the Piggy Bank filled up.
+	private enum BankedCoins : byte
+	{
+		None,
+		All,
+		Full
 	}
 
 	private const int ScanTicks = 30;
@@ -1799,10 +1811,11 @@ public sealed class BookSources : ModSystem
 	}
 
 	// Vanilla's chest Deposit All (ChestUI.DepositAll): slots 10..49 except favorites, and coins from the coin slots
-	// only when a target already holds coins (ChestUI.MoveCoins). The hotbar (0..9) is never touched, coins in it
-	// included: the owner asked for the first row to stay. Coins are not exchanged into higher ones. Magic
-	// Storage locators stay too: a carried Portable Access is how the book reaches a far network, and putting it away
-	// would cut that network off in the same click.
+	// only when a target already holds coins (ChestUI.MoveCoins), or whenever the Piggy Bank is available, since it
+	// takes the coins first (SendDeposit). The hotbar (0..9) is never touched, coins in it included: the owner asked for
+	// the first row to stay. Coins that go to storage are not exchanged into higher ones. Magic Storage locators stay
+	// too: a carried Portable Access is how the book reaches a far network, and putting it away would cut that network
+	// off in the same click.
 	internal static void DepositAll()
 	{
 		Player player = Main.LocalPlayer;
@@ -1810,7 +1823,7 @@ public sealed class BookSources : ModSystem
 		{
 			return;
 		}
-		bool coins = false;
+		bool coins = PiggyBankAvailable;
 		for (int coin = ItemID.CopperCoin; coin <= ItemID.PlatinumCoin; coin++)
 		{
 			coins |= Tallies.TryGetValue(coin, out var tally) && (tally.Chests > 0 || tally.Storage > 0);
@@ -1841,15 +1854,24 @@ public sealed class BookSources : ModSystem
 	}
 
 	// As in Magic Storage, the items leave their slots when sent; what does not fit comes back (to the cursor for a
-	// dropped stack). Deposits may overlap: nothing but the reply depends on an earlier one.
+	// dropped stack). Deposits may overlap: nothing but the reply depends on an earlier one. The coins go to the Piggy
+	// Bank first when it is available (owner); only the rest is sent.
 	private static void SendDeposit(List<Item> items, Sink leftoverSink)
 	{
+		BankedCoins coins = BankCoins(Main.LocalPlayer, items);
+		if (items.Count == 0)
+		{
+			Say(() => L("Coins.Banked"));
+			Refresh(force: true);
+			return;
+		}
 		int id = ++NextId;
 		Waiting[id] = new Pending
 		{
 			Purpose = Purpose.Deposit,
 			Asked = items.Sum((Item i) => (long)i.stack),
-			Sink = leftoverSink
+			Sink = leftoverSink,
+			Coins = coins
 		};
 		if (Main.netMode == NetmodeID.SinglePlayer)
 		{
@@ -1866,6 +1888,130 @@ public sealed class BookSources : ModSystem
 			ItemIO.Send(item, packet, writeStack: true);
 		}
 		packet.Send();
+	}
+
+	// The Piggy Bank is open, or one is within the radius: its tile, a Money Trough or Chester (Scan's banks).
+	internal static bool PiggyBankAvailable => Main.LocalPlayer.chest == -2 || (Enabled && Banks.Contains(-2));
+
+	// The common coins among `items` join the Piggy Bank's own coins, combined into the fewest stacks as
+	// ChestUI.MoveCoins combines them (BookSourceRules.CombineCoins), in the bank's coin slots and then its empty ones.
+	// What does not fit stays in `items` (as the fewest stacks too). The bank is the player's own data: changed here, on
+	// the client, and synced by vanilla, which sends each changed bank slot (msg 5, TML:Terraria/Main.cs:17167-17184),
+	// as MoveBanks relies on.
+	private static BankedCoins BankCoins(Player player, List<Item> items)
+	{
+		long[] coins = new long[4];
+		bool any = false;
+		foreach (Item item in items)
+		{
+			if (ItemID.Sets.CommonCoin[item.type])
+			{
+				coins[item.type - ItemID.CopperCoin] += item.stack;
+				any = true;
+			}
+		}
+		if (!any || !PiggyBankAvailable)
+		{
+			return BankedCoins.None;
+		}
+		Item[] bank = player.bank.item;
+		List<int> slots = new List<int>();
+		for (int i = 0; i < bank.Length; i++)
+		{
+			if (bank[i] != null && !bank[i].IsAir && ItemID.Sets.CommonCoin[bank[i].type])
+			{
+				coins[bank[i].type - ItemID.CopperCoin] += bank[i].stack;
+				slots.Add(i);
+			}
+		}
+		for (int i = 0; i < bank.Length; i++)
+		{
+			if (bank[i] == null || bank[i].IsAir)
+			{
+				slots.Add(i);
+			}
+		}
+		int[] maxStack = new int[4];
+		for (int kind = 0; kind < 4; kind++)
+		{
+			maxStack[kind] = ContentSamples.ItemsByType[ItemID.CopperCoin + kind].maxStack;
+		}
+		List<(int Kind, int Stack)> stacks = BookSourceRules.CombineCoins(coins, maxStack, slots.Count, out long[] rest);
+		// Each kind goes back into a slot that held it first, as MoveCoins puts it back, the others in slot order.
+		Dictionary<int, int> held = slots.ToDictionary((int i) => i, (int i) => bank[i]?.type ?? 0);
+		foreach (int i in slots)
+		{
+			bank[i] = new Item();
+		}
+		List<(int Kind, int Stack)> later = new List<(int, int)>();
+		foreach ((int kind, int stack) in stacks)
+		{
+			int n = slots.FindIndex((int i) => held[i] == ItemID.CopperCoin + kind);
+			if (n < 0)
+			{
+				later.Add((kind, stack));
+				continue;
+			}
+			bank[slots[n]] = new Item(ItemID.CopperCoin + kind, stack);
+			slots.RemoveAt(n);
+		}
+		for (int n = 0; n < later.Count; n++)
+		{
+			bank[slots[n]] = new Item(ItemID.CopperCoin + later[n].Kind, later[n].Stack);
+		}
+		items.RemoveAll((Item item) => ItemID.Sets.CommonCoin[item.type]);
+		for (int kind = 3; kind >= 0; kind--)
+		{
+			for (long left = rest[kind]; left > 0; left -= maxStack[kind])
+			{
+				items.Add(new Item(ItemID.CopperCoin + kind, (int)Math.Min(left, maxStack[kind])));
+			}
+		}
+		return (BookSourceRules.CoinValue(rest) == 0) ? BankedCoins.All : BankedCoins.Full;
+	}
+
+	// Magic Storage's own Deposit All (BookMagicStorage.DepositAllCoinsFirst): the coins it would take from rows 10..49
+	// go to the Piggy Bank first; what does not fit goes back into their slots for MS. The bank list is scanned afresh,
+	// since the book may be closed. Returns whether any coin moved.
+	internal static bool BankInventoryCoins(Func<Item, bool> takes)
+	{
+		Player player = Main.LocalPlayer;
+		Refresh(force: true);
+		if (!PiggyBankAvailable || player.HasLockedInventory())
+		{
+			return false;
+		}
+		List<int> slots = new List<int>();
+		for (int k = 10; k < 50; k++)
+		{
+			Item item = player.inventory[k];
+			if (!item.IsAir && !item.favorited && ItemID.Sets.CommonCoin[item.type] && takes(item))
+			{
+				slots.Add(k);
+			}
+		}
+		if (slots.Count == 0)
+		{
+			return false;
+		}
+		List<Item> coins = slots.Select((int k) => TakeOut(player.inventory, k)).ToList();
+		BankCoins(player, coins);
+		// Combined, the rest needs no more stacks than were taken; anything past that would go to the inventory.
+		for (int n = 0; n < coins.Count; n++)
+		{
+			if (n < slots.Count)
+			{
+				player.inventory[slots[n]] = coins[n];
+				continue;
+			}
+			Item rest = Put(coins[n], Sink.Inventory);
+			if (!rest.IsAir)
+			{
+				player.QuickSpawnItem(new EntitySource_Misc("ModernRecipeBook:Overflow"), rest, rest.stack);
+			}
+		}
+		Refresh(force: true);
+		return true;
 	}
 
 	// Moves the banks' share of a craft into the inventory; returns false when the inventory filled up first.
@@ -2031,13 +2177,27 @@ public sealed class BookSources : ModSystem
 			Say(() => (status == BookNearbyServer.Status.Busy) ? L("Storage.TooFastWaitAMoment") : ((topped > 0) ? L("Storage.StacksToppedUp") : L("Storage.NothingToTopUp")));
 			break;
 		case Purpose.Deposit:
+		{
+			BankedCoins coins = pending.Coins;
 			Say(() => status switch
 			{
 				BookNearbyServer.Status.Off => L("Storage.NearbyStorageIsOff"),
 				BookNearbyServer.Status.Busy => L("Storage.TooFastWaitAMoment"),
-				_ => (got == 0) ? L("Storage.StoredNearby") : L("Storage.NearbyStorageFullLeft", Count(got)),
+				_ when got == 0 => coins switch
+				{
+					BankedCoins.All => L("Coins.StoredBanked"),
+					BankedCoins.Full => L("Coins.StoredBankFull"),
+					_ => L("Storage.StoredNearby"),
+				},
+				_ => coins switch
+				{
+					BankedCoins.All => L("Coins.LeftBanked", Count(got)),
+					BankedCoins.Full => L("Coins.LeftBankFull", Count(got)),
+					_ => L("Storage.NearbyStorageFullLeft", Count(got)),
+				},
 			});
 			break;
+		}
 		case Purpose.Craft:
 			BookCrafting.ContinueCraft(pending.Recipe, pending.Requested, pending.Batches, status, got);
 			break;
