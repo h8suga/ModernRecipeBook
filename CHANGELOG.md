@@ -3,6 +3,18 @@
 All notable changes to Modern Recipe Book. Versions follow [Semantic Versioning](https://semver.org/):
 patch for fixes, minor for features.
 
+## 1.21.0 — 2026-10-27
+
+### Added
+- **Shimmer** through Magic Storage's **Decrafting Interface**: the item card has a Shimmer tab with what an item
+  turns into in Shimmer (coin luck, another item, its ingredients, a critter or the Town Slime), by the game's own rules
+  and Calamity's, with the boss a locked one waits for. With a Decrafting Interface in a network in reach, the card,
+  How to Get and the quick search shimmer it straight from that network (x1/x5/x10/Max), and the results go back into
+  it. In multiplayer the server does it.
+
+### Changed
+- A Decrafting Interface within the radius reaches its network, like the other access tiles.
+
 ## 1.20.1 — 2026-10-27
 
 ### Fixed
