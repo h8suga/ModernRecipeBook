@@ -169,6 +169,13 @@ public sealed class BookMagicStorage : ModSystem
 
 	private static PropertyInfo ActorProperty;
 
+	// MS's own Deposit All puts coins into the Piggy Bank first (DepositAllCoinsFirst).
+	private static bool CoinsFirst;
+
+	private static MethodInfo GuiHeart;
+
+	private static MethodInfo HasItemOf;
+
 	private static bool Hooked;
 
 	internal static string FailureText { get; private set; } = "";
@@ -186,6 +193,7 @@ public sealed class BookMagicStorage : ModSystem
 		CanHide = !Main.dedServ && Readable && TryBind("hide", BindHiding);
 		Countable = !Main.dedServ && Readable && TryBind("cells", BindCells);
 		Portable = Readable && TryBind("portable", BindPortable);
+		CoinsFirst = !Main.dedServ && Readable && TryBind("coins", BindCoins);
 		if (CanHide)
 		{
 			On_UserInterface.Update += UpdateNativeInterface;
@@ -290,6 +298,37 @@ public sealed class BookMagicStorage : ModSystem
 		AuditDepositOf = Method(audit, "ReportItemDeposit", typeof(int), HeartType, typeof(Item));
 	}
 
+	// The hook goes in last, so a member that is missing leaves MS's button untouched. tModLoader removes it on unload.
+	private static void BindCoins()
+	{
+		Type storageGui = Get("StorageGUI");
+		MethodInfo depositAll = Method(storageGui, "TryDepositAll", typeof(bool));
+		GuiHeart = Method(storageGui, "GetHeart");
+		HasItemOf = Method(HeartType, "HasItem", typeof(Item), typeof(Player), typeof(bool));
+		MonoModHooks.Add(depositAll, DepositAllCoinsFirst);
+	}
+
+	// MS's own Deposit All (StorageGUI.TryDepositAll, MS:MagicStorage/StorageGUI.cs:448-484) takes rows 10..49 but
+	// favorites; in its quick-stack mode only the kinds the storage holds (TEStorageHeart.HasItem). The coins among them
+	// go to the Piggy Bank first when it is available (BookSources.BankInventoryCoins); what does not fit stays for MS.
+	private static bool DepositAllCoinsFirst(Func<bool, bool> orig, bool quickStack)
+	{
+		bool banked = false;
+		if (CoinsFirst)
+		{
+			try
+			{
+				object heart = GuiHeart.Invoke(null, null);
+				banked = heart != null && BookSources.BankInventoryCoins((Item item) => !quickStack || (bool)HasItemOf.Invoke(heart, new object[3] { item, Main.LocalPlayer, true }));
+			}
+			catch (Exception error)
+			{
+				Fail("coins", error);
+			}
+		}
+		return orig(quickStack) | banked;
+	}
+
 	private static void BindHiding()
 	{
 		Type ui = Get("Common.Systems.MagicUI");
@@ -330,13 +369,18 @@ public sealed class BookMagicStorage : ModSystem
 		{
 			Portable = false;
 		}
+		else if (group == "coins")
+		{
+			CoinsFirst = false;
+		}
 		else
 		{
 			CanHide = false;
 		}
 	}
 
-	// One pass over the tiles within `tiles` of the player: bank tiles (-2..-5, once each) and Magic Storage access
+	// One pass over the tiles within `tiles` of the player: banks (-2..-5, once each: their tiles and the projectiles that
+	// open them) and Magic Storage access
 	// tiles. Each heart is listed once with its nearest access tile; a heart the player may not use counts in
 	// `locked`. `stations` gets the station lists of counted Crafting Interfaces. The network the player has open in
 	// MS (or, on the server, has locked in MS) is added however far it is, and so is the network of each bound Portable
@@ -390,6 +434,19 @@ public sealed class BookMagicStorage : ModSystem
 							}
 						}
 					}
+				}
+			}
+		}
+		// The Money Trough and Chester open the Piggy Bank, the Void Lens the Void Vault (Projectile.TryGetContainerIndex),
+		// and vanilla's quick stack reaches them like bank tiles, measured to the nearest point of the hitbox
+		// (TML:Terraria/Player.cs:20036-20056, 20115-20129). Anyone's: each opens the player's own bank.
+		if (banks != null)
+		{
+			foreach (Projectile projectile in Main.ActiveProjectiles)
+			{
+				if (projectile.TryGetContainerIndex(out int bank) && !banks.Contains(bank) && BookSourceRules.InRange(center, projectile.Hitbox.ClosestPointInRect(center), tiles))
+				{
+					banks.Add(bank);
 				}
 			}
 		}
@@ -974,8 +1031,8 @@ public sealed class BookMagicStorage : ModSystem
 		}
 	}
 
-	// Stand: c call p=ModernRecipeBook.BookMagicStorage.AddStation a=<x> a=<y> a=<item type> puts a station item into the
-	// Crafting Interface whose top-left tile is (x, y), as MS's station slots do.
+	// Stand: c call p=ModernRecipeBook.Storage.BookMagicStorage.AddStation a=<x> a=<y> a=<item type> puts a station item
+	// into the Crafting Interface whose top-left tile is (x, y), as MS's station slots do.
 	internal static string AddStation(int x, int y, int type)
 	{
 		if (!Readable || !TileEntity.ByPosition.TryGetValue(new Point16(x, y), out var entity) || !CraftingType.IsInstanceOfType(entity))
@@ -995,7 +1052,7 @@ public sealed class BookMagicStorage : ModSystem
 			On_ItemSlot.LeftClick_ItemArray_int_int -= BlockLeftClick;
 			On_ItemSlot.RightClick_ItemArray_int_int -= BlockRightClick;
 		}
-		Hooked = Installed = Readable = Writable = CanHide = Countable = Portable = false;
+		Hooked = Installed = Readable = Writable = CanHide = Countable = Portable = CoinsFirst = false;
 		SectionsAsked.Clear();
 		Owner = null;
 		SavedTiles = null;

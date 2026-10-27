@@ -583,8 +583,9 @@ public sealed class BookNearbyServer : ModSystem
 	//     fill its stacks, then a free slot of that chest), or a Magic Storage network that holds the type;
 	// (2) the rest into the nearest network;
 	// (3) else the nearest chest with a free slot.
-	// Banks are not targets. Like MS's own deposit, the client took the items out of its slots when it sent them; what
-	// does not fit comes back. Chests follow the pull rules: in range, not locked, open by nobody.
+	// Banks are not targets here: the client puts coins into the Piggy Bank before it sends (BookSources.SendDeposit).
+	// Like MS's own deposit, the client took the items out of its slots when it sent them; what does not fit comes
+	// back. Chests follow the pull rules: in range, not locked, open by nobody.
 	internal static Status Deposit(int p, int id, List<Item> items, List<Item> leftovers)
 	{
 		Client client = Of(p);
@@ -1033,7 +1034,7 @@ public sealed class BookNearbyServer : ModSystem
 	}
 
 	// What each message cost on the side that received it: count and bytes, payload plus tML's 4-byte header (length,
-	// message 250, mod id). Read on the stand: c call p=ModernRecipeBook.BookNearbyServer.Traffic
+	// message 250, mod id). Read on the stand: c call p=ModernRecipeBook.Storage.BookNearbyServer.Traffic
 	private const int Kinds = BookMessage.NearbyStacked - BookMessage.NearbySubscribe + 1;
 
 	internal static readonly int[] Received = new int[Kinds];
