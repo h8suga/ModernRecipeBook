@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.20.1-4c8f5a" alt="Версия 1.20.1">
+<img src="https://img.shields.io/badge/version-1.21.0-4c8f5a" alt="Версия 1.21.0">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
@@ -311,7 +311,10 @@ Magic Storage интегрирован полностью: книга польз
 - «Быстрый стак», «Сложить всё» и «Пополнить» достают до неё, в том числе до удалённой.
 - Сортировка **«Изменено»** ставит первым то, что только что положили, взяли или потратили на крафт, кто бы это ни
   сделал — ты или другой игрок. Время хранится у персонажа для каждого мира.
-- На сервере сам сервер проверяет те же правила и переносит предметы.
+- **Мерцание** через **Интерфейс Хранения Эфира** (распад в Magic Storage): у каждого предмета, который меняется в
+  мерцании, на карточке есть вкладка «Мерцание» — во что он превратится, по правилам самой игры (и Calamity). Если такой
+  интерфейс есть в сети в досягаемости, карточка, «Где взять» и быстрый поиск бросают предмет в мерцание прямо из сети, а
+  результат кладут обратно.
 
 <p align="center">
 <img src="docs/screenshots/storage-remote-ru.png" width="60%" alt="Удалённая сеть через Portable Access">

@@ -652,6 +652,10 @@ public sealed partial class RecipeBookSystem
 				{
 					run = QuickAction.CraftMax;
 				}
+				else if (shift && action == QuickAction.Shimmer)
+				{
+					run = QuickAction.ShimmerAll;
+				}
 				RunQuickAction(QuickRows[row], run);
 				return;
 			}

@@ -61,7 +61,21 @@ public sealed class BookMagicStorage : ModSystem
 	// Storage cells (TEStorageUnit.Capacity / NumItems): a group of its own, so a rename there leaves the rest working.
 	private static bool Countable;
 
-	private static readonly HashSet<string> AccessTiles = new HashSet<string> { "StorageHeart", "StorageAccess", "CraftingAccess", "RemoteAccess" };
+	// A Decrafting Interface is an access like the others: MS opens the network from it (Components.DecraftingAccess is a
+	// StorageAccess), so one within the radius reaches its network too.
+	private static readonly HashSet<string> AccessTiles = new HashSet<string> { "StorageHeart", "StorageAccess", "CraftingAccess", "RemoteAccess", "DecraftingAccess" };
+
+	// Shimmering through a network's Decrafting Interface (BookShimmer): which networks have one. A group of its own on
+	// both sides. The shimmering itself is vanilla's (BookNearbyServer.Shimmer), not MS's ShimmerMetrics, which checks
+	// Item.CanShimmer on a one-item sample and so never decrafts what a recipe makes several of (arrows, bullets).
+	internal static bool Shimmers { get; private set; }
+
+	private static MethodInfo ManagerOf;
+
+	private static MethodInfo DecraftingOf;
+
+	// The Decrafting Interface item: the reasons and the card name it, a link to its card (0 when MS has none by that name).
+	internal static int DecraftingItem { get; private set; }
 
 	// Reading.
 	private static Type HeartType;
@@ -202,6 +216,7 @@ public sealed class BookMagicStorage : ModSystem
 		Countable = !Main.dedServ && Readable && TryBind("cells", BindCells);
 		Portable = Readable && TryBind("portable", BindPortable);
 		CoinsFirst = !Main.dedServ && Readable && TryBind("coins", BindCoins);
+		Shimmers = Readable && TryBind("shimmer", BindShimmer);
 		if (CanHide)
 		{
 			On_UserInterface.Update += UpdateNativeInterface;
@@ -212,7 +227,7 @@ public sealed class BookMagicStorage : ModSystem
 		if (Readable)
 		{
 			string checkedVersion = (mod.Version == new Version(0, 7, 0, 11)) ? "" : " (unverified; checked against 0.7.0.11)";
-			Mod.Logger.Info($"Magic Storage {mod.Version}{checkedVersion}: read={Readable}, write={Writable}, hide={CanHide}.");
+			Mod.Logger.Info($"Magic Storage {mod.Version}{checkedVersion}: read={Readable}, write={Writable}, hide={CanHide}, shimmer={Shimmers}.");
 		}
 	}
 
@@ -341,6 +356,33 @@ public sealed class BookMagicStorage : ModSystem
 		return orig(quickStack) | banked;
 	}
 
+	private static void BindShimmer()
+	{
+		PropertyInfo manager = Property(Get("Components.TEStorageCenter"), "ComponentManager");
+		ManagerOf = manager.GetMethod ?? throw new MissingMethodException(manager.DeclaringType?.FullName, "get_ComponentManager");
+		DecraftingOf = Method(manager.PropertyType, "GetDecraftingAccesses");
+		DecraftingItem = Owner.TryFind<ModItem>("DecraftingAccess", out var item) ? item.Type : 0;
+	}
+
+	// Whether the heart's network has a Decrafting Interface (TEStorageCenter.ComponentManager.GetDecraftingAccesses): the
+	// book shimmers only through one, as MS's own window does. Both sides: the components come with the heart's data.
+	internal static bool HasDecrafting(object heart)
+	{
+		if (!Shimmers || heart == null)
+		{
+			return false;
+		}
+		try
+		{
+			return ((IEnumerable)DecraftingOf.Invoke(ManagerOf.Invoke(heart, null), null)).GetEnumerator().MoveNext();
+		}
+		catch (Exception error)
+		{
+			Fail("shimmer", error);
+			return false;
+		}
+	}
+
 	private static void BindHiding()
 	{
 		Type ui = Get("Common.Systems.MagicUI");
@@ -384,6 +426,10 @@ public sealed class BookMagicStorage : ModSystem
 		else if (group == "coins")
 		{
 			CoinsFirst = false;
+		}
+		else if (group == "shimmer")
+		{
+			Shimmers = false;
 		}
 		else
 		{

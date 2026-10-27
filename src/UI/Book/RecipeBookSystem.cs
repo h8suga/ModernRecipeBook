@@ -291,10 +291,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 	private static bool Catalogue = true;
 
 	// What the item card lists: its recipe, the recipes that take it (Used in, optionally only the craftable ones), or
-	// what a container holds. Contents stays chosen for the next container; an item without loot shows its recipe.
+	// what a container holds, or what it turns into in Shimmer. Contents and Shimmer stay chosen for the next item that
+	// has them; one without shows its recipe.
 	private static BookCardMode CardMode;
 
-	private static BookCardMode ShownCardMode => (CardMode != BookCardMode.Contents || HasContents(SelectedItem?.type ?? 0)) ? CardMode : BookCardMode.Recipe;
+	private static BookCardMode ShownCardMode => CardMode switch
+	{
+		BookCardMode.Contents when !HasContents(SelectedItem?.type ?? 0) => BookCardMode.Recipe,
+		BookCardMode.Shimmer when BookShimmer.For(SelectedItem?.type ?? 0) == null => BookCardMode.Recipe,
+		_ => CardMode
+	};
 
 	private static bool UsedInCraftableOnly;
 
@@ -724,6 +730,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		AcquisitionPage = (AcquisitionReadErrors = 0);
 		AcquisitionGroup = -1;
 		AcquisitionRulePage = 0;
+		AcquisitionShimmered = false;
 		List<BookAcquisitionEntry> reports = new List<BookAcquisitionEntry>();
 		if (RecipesByItem.TryGetValue(type, out var recipes))
 		{
@@ -1217,7 +1224,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 				continue;
 			}
 			BookAcquisitionGroup source = AcquisitionSources[index];
-			if (source.Source.RecipeIndex >= 0)
+			if (ShimmerRowItem(source) is int shimmered and > 0 && AcquisitionShimmerRect(row).Contains(Mouse.X, Mouse.Y))
+			{
+				// One unit of it, or with Shift as many as there are (as a Shift-click moves a whole stack).
+				ShimmerFromBook(shimmered, (keys.IsKeyDown(Keys.LeftShift) || keys.IsKeyDown(Keys.RightShift)) ? BookShimmer.Max(shimmered) : BookShimmer.For(shimmered).Unit);
+				AcquisitionShimmered = true;
+			}
+			else if (source.Source.RecipeIndex >= 0)
 			{
 				OpenAcquisitionRecipe(source.Source.RecipeIndex);
 			}
@@ -1401,15 +1414,31 @@ public sealed partial class RecipeBookSystem : ModSystem
 			string title = (expanded ? ((source.ConditionLabel.Length > 0) ? source.ConditionLabel : L("Common.NoConditions")) : source.Name);
 			BookRect name = BookGeometry.AcquisitionName(row);
 			BookRect detail = BookGeometry.AcquisitionDetail(row);
+			// A "shimmer from X" row's Shimmer button for X, in the chance column it leaves empty; its text ends before it.
+			int shimmer = expanded ? 0 : ShimmerRowItem(group);
+			BookRect shimmerRect = AcquisitionShimmerRect(row);
+			if (shimmer > 0)
+			{
+				name = name with { Width = Math.Min(name.Width, shimmerRect.X - 12f - name.X) };
+				detail = detail with { Width = name.Width };
+			}
 			// What the row names is a link of its own (RecipeBookSystem.Links): on one, the row shows no hover.
 			List<LinkPiece> titleLinks = LinkPieces(AcquisitionTitleSpans(group, source, title, expanded), name, 1f);
 			List<LinkPiece> detailLinks = LinkPieces(expanded ? Plain(AcquisitionKindName(source.Kind)) : LinkedMentions(AcquisitionDetailText(group), LinkNames.Bosses | LinkNames.Places | LinkNames.Bags, GroupMentions(group)), detail, 0.85f);
-			bool hover = bounds.Contains(Mouse.X, Mouse.Y) && !OnLink(titleLinks) && !OnLink(detailLinks);
+			bool onShimmer = shimmer > 0 && shimmerRect.Contains(Mouse.X, Mouse.Y);
+			bool hover = bounds.Contains(Mouse.X, Mouse.Y) && !OnLink(titleLinks) && !OnLink(detailLinks) && !onShimmer;
 			Box(sb, bounds, (opens && hover) ? HoverFill : Raised, border: true, 8f);
 			DrawAcquisitionIcon(sb, source, BookGeometry.AcquisitionSourceIcon(row));
 			DrawLinkPieces(sb, titleLinks, name, 1f, TextColor, Muted);
 			DrawLinkPieces(sb, detailLinks, detail, 0.85f, Muted);
-			AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), varies ? "" : (expanded ? source.Chance : group.Chance));
+			if (shimmer > 0)
+			{
+				DrawShimmerRowButton(sb, shimmer, shimmerRect);
+			}
+			else
+			{
+				AcquisitionBadge(sb, BookGeometry.AcquisitionChance(row), varies ? "" : (expanded ? source.Chance : group.Chance));
+			}
 			AcquisitionBadge(sb, BookGeometry.AcquisitionAmount(row), varies ? "" : (expanded ? source.Amount : group.Amount));
 			if (opens)
 			{
@@ -1450,7 +1479,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 				MouseTip(source.Body);
 			}
 		}
-		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (AcquisitionReadErrors > 0) ? L("Common.SomeSourcesCouldNotBeRead") : "");
+		// After a row's Shimmer, its result line where the status goes (the book's own footer is under this card).
+		string shimmered = AcquisitionShimmered ? (BookCrafting.LastMessage ?? "") : "";
+		DrawCardFooter(sb, page, BookAcquisitionRules.PageCount(count), (shimmered.Length > 0) ? "" : ((AcquisitionReadErrors > 0) ? L("Common.SomeSourcesCouldNotBeRead") : ""));
+		if (shimmered.Length > 0)
+		{
+			DrawLinkLine(sb, MessageSpans(shimmered), BookGeometry.AcquisitionStatus, 0.85f, Accent);
+		}
 	}
 
 	// A row's title as links: the places a natural row names, the bosses and the NPC of a row that does not open them
@@ -5584,6 +5619,13 @@ public sealed partial class RecipeBookSystem : ModSystem
 				return;
 			}
 		}
+		else if (mode == BookCardMode.Shimmer)
+		{
+			if (HandleShimmerClick(chosen.type, top))
+			{
+				return;
+			}
+		}
 		else if (materialRecipe == null)
 		{
 			if (chosen != null && !chosen.IsAir && BookGeometry.SelectedItemObtain(top).Contains(Mouse.X, Mouse.Y))
@@ -5916,8 +5958,9 @@ public sealed partial class RecipeBookSystem : ModSystem
 		case BookHotkeys.Action.ToggleUsedIn:
 			if (CardShown)
 			{
-				// Steps through the switch the card shows: Recipe → Used in (→ Contents) → Recipe.
-				CardMode = (BookCardMode)(((int)ShownCardMode + 1) % CardModeLabels().Length);
+				// Steps through the switch the card shows: Recipe → Used in (→ Contents) (→ Shimmer) → Recipe.
+				BookCardMode[] modes = CardModes();
+				CardMode = modes[(Array.IndexOf(modes, ShownCardMode) + 1) % modes.Length];
 				DetailsPage = 0;
 				if (CardMode == BookCardMode.UsedIn && UsedInCraftableOnly)
 				{
@@ -5989,6 +6032,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			return MobMaxDetailsPage();
 		}
 		BookCardMode mode = ShownCardMode;
+		if (mode == BookCardMode.Shimmer && SelectedItem != null)
+		{
+			return ShimmerPages(SelectedItem.type, RecipeBlockTop(SelectedItem)) - 1;
+		}
 		if (mode != BookCardMode.Recipe && SelectedItem != null)
 		{
 			float top = RecipeBlockTop(SelectedItem);
@@ -7645,6 +7692,10 @@ public sealed partial class RecipeBookSystem : ModSystem
 			DrawContentsKey(sb, chosen.type, top);
 			DrawContents(sb, chosen, ContentsListTop(chosen.type, top));
 		}
+		else if (mode == BookCardMode.Shimmer)
+		{
+			DrawShimmer(sb, chosen.type, top);
+		}
 		else if (r != null)
 		{
 			DrawRecipeBlock(sb, chosen, r, top);
@@ -7668,7 +7719,11 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			MouseTip(favorite ? L("Common.RemoveFromFavoritesAltF") : L("Common.AddToFavoritesAltF"));
 		}
-		if (r != null)
+		if (ShimmerActionShown)
+		{
+			DrawShimmerButton(sb, chosen.type);
+		}
+		else if (r != null)
 		{
 			ActionButton(sb, CraftRect, L("Common.CraftTimes", PreviewBatches(r)), primary: true, BookCrafting.CanCraft(r));
 			if (!MenuOpen && CraftRect.Contains(Mouse.X, Mouse.Y))
@@ -7805,18 +7860,35 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 	}
 
-	// Recipe | Used in, and Contents for an item with loot of its own (BookCardMode's order).
-	private static string[] CardModeLabels()
+	// Recipe | Used in, Contents for an item with loot of its own, Shimmer for one that changes there (BookCardMode's
+	// order).
+	private static BookCardMode[] CardModes()
 	{
-		string[] modes = new string[2]
+		int type = SelectedItem?.type ?? 0;
+		List<BookCardMode> modes = new List<BookCardMode> { BookCardMode.Recipe, BookCardMode.UsedIn };
+		if (HasContents(type))
 		{
-			L("Common.Recipe2"),
-			L("Common.UsedIn")
-		};
-		return HasContents(SelectedItem?.type ?? 0) ? modes.Append(L("Contents.Contents")).ToArray() : modes;
+			modes.Add(BookCardMode.Contents);
+		}
+		if (BookShimmer.For(type) != null)
+		{
+			modes.Add(BookCardMode.Shimmer);
+		}
+		return modes.ToArray();
 	}
 
-	// Two modes split the switch evenly. Three share it by the length of their labels (Применение and Содержимое do
+	private static string[] CardModeLabels()
+	{
+		return CardModes().Select((BookCardMode mode) => mode switch
+		{
+			BookCardMode.Recipe => L("Common.Recipe2"),
+			BookCardMode.UsedIn => L("Common.UsedIn"),
+			BookCardMode.Contents => L("Contents.Contents"),
+			_ => L("ShimmerCard.Mode")
+		}).ToArray();
+	}
+
+	// Two modes split the switch evenly. More share it by the length of their labels (Применение and Содержимое do
 	// not fit a third each), so at the usual text size every one fits.
 	private static BookRect[] CardModeRects()
 	{
@@ -7824,7 +7896,8 @@ public sealed partial class RecipeBookSystem : ModSystem
 		BookRect[] rects = SegmentRects(BookGeometry.CardMode, labels, 0.8f, natural: false);
 		if (labels.Length > 2)
 		{
-			float[] needs = labels.Select((string label) => TextWidth(label, 0.8f) + 12f).ToArray();
+			float size = CardModeSize(labels);
+			float[] needs = labels.Select((string label) => TextWidth(label, size) + 12f).ToArray();
 			float x = BookGeometry.CardMode.X;
 			for (int i = 0; i < rects.Length; i++)
 			{
@@ -7835,7 +7908,18 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return rects;
 	}
 
-	// Card navigation: back through the steps taken in the card, and Recipe / Used in (/ Contents) for the shown item.
+	// Four modes (a bag that also shimmers: the Herb Bag, the Can of Worms) do not fit at the usual size in Russian
+	// (Рецепт, Применение, Содержимое, Мерцание): their text shrinks until they do (a pixel to spare on each side of a
+	// label's padding), down to 0.55. Fewer keep 0.8.
+	private static float CardModeSize(string[] labels)
+	{
+		float room = BookGeometry.CardMode.Width - 14f * labels.Length;
+		float need = labels.Sum((string label) => TextWidth(label, 0.8f));
+		return (labels.Length < 4 || need <= room) ? 0.8f : Math.Max(0.55f, 0.8f * room / need);
+	}
+
+	// Card navigation: back through the steps taken in the card, and Recipe / Used in (/ Contents) (/ Shimmer) for the
+	// shown item.
 	private static void DrawCardNav(SpriteBatch sb)
 	{
 		BookRect back = BookGeometry.CardBack;
@@ -7848,18 +7932,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 		}
 		string[] labels = CardModeLabels();
 		BookRect[] modes = CardModeRects();
-		Segmented(sb, modes, labels, (int)ShownCardMode, 0.8f);
+		BookCardMode[] shown = CardModes();
+		float size = CardModeSize(labels);
+		Segmented(sb, modes, labels, Array.IndexOf(shown, ShownCardMode), size);
 		int hover = MenuOpen ? (-1) : SegmentAt(modes);
 		if (hover >= 0)
 		{
-			string tip = hover switch
+			string tip = shown[hover] switch
 			{
-				0 => L("Common.WhatTheItemIsMadeOf"),
-				1 => L("Common.WhatYouCanMakeFromIt"),
-				_ => L("Contents.WhatSInside")
+				BookCardMode.Recipe => L("Common.WhatTheItemIsMadeOf"),
+				BookCardMode.UsedIn => L("Common.WhatYouCanMakeFromIt"),
+				BookCardMode.Contents => L("Contents.WhatSInside"),
+				_ => L("ShimmerCard.ModeTip")
 			};
 			// The hint replaces the tip of a label cut short, so that label leads it.
-			MouseTip((TextWidth(labels[hover], 0.8f) > modes[hover].Width - 12f) ? (labels[hover] + "\n" + tip) : tip);
+			MouseTip((TextWidth(labels[hover], size) > modes[hover].Width - 12f) ? (labels[hover] + "\n" + tip) : tip);
 		}
 	}
 
@@ -7875,7 +7962,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			return false;
 		}
-		CardMode = (BookCardMode)mode;
+		CardMode = CardModes()[mode];
 		DetailsPage = 0;
 		if (CardMode == BookCardMode.UsedIn && UsedInCraftableOnly)
 		{
@@ -7941,16 +8028,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		return new BookRect(812f, top + 32f + slot * UsedInRowStep, 284f, 40f);
 	}
 
-	// Rows of a card list (Used in, Contents) that fit above the actions; when the list needs pages, the pager takes the
-	// last row's place.
-	private static int CardListPageSize(float top, int count, float step)
+	// Rows of a card list (Used in, Contents, Shimmer) that fit above the actions; when the list needs pages, the pager
+	// takes the last row's place.
+	private static int CardListPageSize(float top, int count, float step, float bottom = BookGeometry.DetailListBottom, float pagedBottom = BookGeometry.DetailListPagedBottom)
 	{
-		int unpaged = Math.Max(1, (int)((BookGeometry.DetailListBottom - top - 32f + 4f) / step));
+		int unpaged = Math.Max(1, (int)((bottom - top - 32f + 4f) / step));
 		if (count <= unpaged)
 		{
 			return unpaged;
 		}
-		return Math.Max(1, (int)((BookGeometry.DetailListPagedBottom - top - 32f + 4f) / step));
+		return Math.Max(1, (int)((pagedBottom - top - 32f + 4f) / step));
 	}
 
 	private static void DrawUsedIn(SpriteBatch sb, Item chosen, float top)
@@ -8179,17 +8266,40 @@ public sealed partial class RecipeBookSystem : ModSystem
 			ActiveStationPanel = false;
 		}
 		string message = BookCrafting.LastMessage ?? "";
-		// "Crafted: Hallowed Helmet": the item's name is a link to its card (RecipeBookSystem.Links).
-		IEnumerable<(string, BookLink)> crafted = (message.Length > 0 && LastCraftType > 0) ? new[] { (ItemName(LastCraftType), ItemLink(LastCraftType)) } : null;
-		DrawLinkLine(sb, (message.Length > 0) ? Linked(message, LinkNames.None, crafted) : Plain(FooterHint()), new BookRect(140f, 660f, hintRight - 140f, 24f), 0.8f, (message.Length > 0) ? Accent : Muted);
+		DrawLinkLine(sb, (message.Length > 0) ? MessageSpans(message) : Plain(FooterHint()), new BookRect(140f, 660f, hintRight - 140f, 24f), 0.8f, (message.Length > 0) ? Accent : Muted);
 	}
 
-	// The item of the last craft the book started: the footer's message names it.
+	// The item of the last craft or shimmer the book started: the footer's message names it.
 	private static int LastCraftType;
+
+	// The plan of the last shimmer: its message names what came out too.
+	private static BookShimmer.Plan LastShimmer;
+
+	// "Crafted: Hallowed Helmet", "Shimmered 5 Iron Bar: 15 Iron Ore": the items (and the critter or slime let out) are
+	// links to their cards (RecipeBookSystem.Links).
+	private static List<LinkSpan> MessageSpans(string message)
+	{
+		List<(string, BookLink)> named = new List<(string, BookLink)>();
+		if (LastCraftType > 0)
+		{
+			named.Add((ItemName(LastCraftType), ItemLink(LastCraftType)));
+		}
+		if (LastShimmer != null)
+		{
+			named.AddRange(LastShimmer.Results.Select(((int Type, int Stack) r) => (ItemName(r.Type), ItemLink(r.Type))));
+			if (LastShimmer.Npc != 0)
+			{
+				// As BookShimmer's result line names it.
+				named.Add((Lang.GetNPCNameValue(LastShimmer.Npc), MobLink(LastShimmer.Npc)));
+			}
+		}
+		return Linked(message, LinkNames.None, named);
+	}
 
 	private static void Craft(Recipe recipe, int batches)
 	{
 		LastCraftType = recipe?.createItem.type ?? 0;
+		LastShimmer = null;
 		BookCrafting.TryCraft(recipe, batches);
 	}
 

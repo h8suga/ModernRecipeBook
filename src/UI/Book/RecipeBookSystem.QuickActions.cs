@@ -15,7 +15,8 @@ namespace ModernRecipeBook.UI.Book;
 // feedback, which the field's footer shows. Each row offers its most useful action as a button (QuickPrimary), the other
 // row actions on hover, all of them in the preview. Keys are the card's: Ctrl+Enter the row's action (craft, as in the
 // card; take, as on Storage), Ctrl+Shift+Enter craft the most, Alt+T track, Alt+F favorite, Alt+G How to Get, Alt+U Used
-// in (a mob's stats), Shift+Enter Used in. A ">" first lists the book's commands (docs/quick-search.md).
+// in (a mob's stats), Shift+Enter Used in. Shimmer (BookShimmer) has no key: a click shimmers one step, Shift+click all.
+// A ">" first lists the book's commands (docs/quick-search.md).
 public sealed partial class RecipeBookSystem
 {
 	private enum QuickAction
@@ -24,6 +25,8 @@ public sealed partial class RecipeBookSystem
 		Open,
 		Craft,
 		CraftMax,
+		Shimmer,
+		ShimmerAll,
 		Take,
 		TakeOne,
 		Deposit,
@@ -221,6 +224,13 @@ public sealed partial class RecipeBookSystem
 		return false;
 	}
 
+	// It can be shimmered from the book now (a Decrafting Interface in reach, the item in its network, its boss down). Only
+	// then is Shimmer offered, as Craft is only for an item that can be crafted now; the card says why it cannot.
+	private static bool QuickShimmers(int type)
+	{
+		return type > 0 && BookShimmer.InReach && BookShimmer.Reason(type).Length == 0;
+	}
+
 	// A boss's summon item as Boss Checklist (or Calamity's registration) names it, 0 when none is known.
 	private static int QuickSummonItem(int mob)
 	{
@@ -302,6 +312,10 @@ public sealed partial class RecipeBookSystem
 			yield return QuickAction.Favorite;
 			yield return QuickAction.HowToGet;
 			yield return QuickAction.UsedIn;
+			if (QuickShimmers(row.Id))
+			{
+				yield return QuickAction.Shimmer;
+			}
 		}
 		else if (row.Kind == QuickKind.Mob)
 		{
@@ -337,6 +351,12 @@ public sealed partial class RecipeBookSystem
 			if (QuickDepositable(type))
 			{
 				actions.Add(QuickAction.Deposit);
+			}
+			if (QuickShimmers(type))
+			{
+				// One button: Shift+click shimmers all (QuickSearch), as on the row and in How to Get; a second one would push
+				// Link in Chat out of the preview's 11 places for an item that can also be crafted.
+				actions.Add(QuickAction.Shimmer);
 			}
 			if (QuickRecipe(type) != null || row.Kind == QuickKind.Goal)
 			{
@@ -419,6 +439,10 @@ public sealed partial class RecipeBookSystem
 				Recipe recipe = QuickCraftable(type);
 				return L("Common.CraftTimes", (recipe == null) ? 1 : Math.Max(1, CachedAvailableBatches(recipe)));
 			}
+			case QuickAction.Shimmer:
+				return L("ShimmerQuick.Shimmer");
+			case QuickAction.ShimmerAll:
+				return L("ShimmerQuick.ShimmerAll");
 			case QuickAction.Take:
 				return L("QuickSearchDesign.ActionTake");
 			case QuickAction.Deposit:
@@ -480,12 +504,47 @@ public sealed partial class RecipeBookSystem
 		return action switch
 		{
 			QuickAction.Craft => tip + "\n" + L("QuickSearchDesign.TipCraft", L("Help.KeyCtrlShiftEnter")) + "\n" + BookCrafting.Sources(QuickCraftable(type), 1),
+			QuickAction.Shimmer => tip + "\n" + QuickShimmerInto(type, BookShimmer.For(type)?.Unit ?? 1) + "\n" + L("ShimmerQuick.TipShift") + "\n" + QuickShimmerFrom(type),
+			QuickAction.ShimmerAll => tip + "\n" + QuickShimmerInto(type, BookShimmer.Max(type)) + "\n" + QuickShimmerFrom(type),
 			QuickAction.Take => tip + "\n" + L("QuickSearchDesign.TipTake") + "\n" + BookSources.Breakdown(type),
 			QuickAction.Deposit => tip + "\n" + L("QuickSearchDesign.TipDeposit"),
 			QuickAction.ChatLink => tip + "\n" + L("QuickSearchDesign.TipChat"),
 			QuickAction.BeforeBoss => tip + "\n" + L("QuickSearchDesign.TipBeforeBoss"),
 			_ => tip
 		};
+	}
+
+	// What `items` of it become, in the result line's words (BookShimmer.Finish): "Iron Bar ×10 → Iron Ore ×30", "Gold Coin
+	// ×3 → coin luck", "Bunny ×1 → Bunny released". The names are plain, as the Craft tip's sources are: a tooltip is never
+	// clicked.
+	private static string QuickShimmerInto(int type, int items)
+	{
+		BookShimmer.Plan plan = BookShimmer.For(type);
+		if (plan == null)
+		{
+			return "";
+		}
+		int units = items / plan.Unit;
+		string into = plan.What switch
+		{
+			BookShimmer.Kind.CoinLuck => L("Shimmer.CoinLuck"),
+			BookShimmer.Kind.Critter => L("Shimmer.Released", Lang.GetNPCNameValue(plan.Npc)),
+			BookShimmer.Kind.TownSlime => L("Shimmer.Arrived", Lang.GetNPCNameValue(plan.Npc)),
+			_ => string.Join(", ", plan.Results.Take(3).Select(((int Type, int Stack) r) => Lang.GetItemNameValue(r.Type) + " ×" + Count((long)r.Stack * units))) + ((plan.Results.Count > 3) ? (" " + L("Shimmer.More", plan.Results.Count - 3)) : "")
+		};
+		return Lang.GetItemNameValue(type) + " ×" + Count(items) + " → " + into;
+	}
+
+	// The network it is taken from (the one that holds most, BookShimmer.Best) and how many it holds: "From Base: 12".
+	private static string QuickShimmerFrom(int type)
+	{
+		(BookMagicStorage.Network network, long count) = BookShimmer.Best(type);
+		if (network == null)
+		{
+			return "";
+		}
+		string name = (network.Name.Length > 0) ? network.Name : "Magic Storage";
+		return L("ShimmerQuick.From", network.Remote ? L("Storage.RemoteNetwork", name) : name, (count == long.MaxValue) ? "∞" : Count(count));
 	}
 
 	private static bool QuickFavorite(QuickRow row)
@@ -583,6 +642,15 @@ public sealed partial class RecipeBookSystem
 				QuickActed();
 				break;
 			}
+			case QuickAction.Shimmer:
+				// One step (a decraft takes a whole recipe's worth); BookShimmer says why when it cannot.
+				BookShimmer.TryShimmer(type, BookShimmer.For(type)?.Unit ?? 1);
+				QuickActed();
+				break;
+			case QuickAction.ShimmerAll:
+				BookShimmer.TryShimmer(type, BookShimmer.Max(type));
+				QuickActed();
+				break;
 			case QuickAction.Take:
 			case QuickAction.TakeOne:
 			{

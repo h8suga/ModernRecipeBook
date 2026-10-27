@@ -7,7 +7,7 @@ A recipe book, bestiary and storage browser for every item and mob in Terraria a
 </p>
 
 <p align="center">
-<img src="https://img.shields.io/badge/version-1.20.1-4c8f5a" alt="Version 1.20.1">
+<img src="https://img.shields.io/badge/version-1.21.0-4c8f5a" alt="Version 1.21.0">
 <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3827052107"><img src="https://img.shields.io/badge/Steam%20Workshop-subscribe-1b2838" alt="Steam Workshop"></a>
 <img src="https://img.shields.io/badge/tModLoader-2026.08.3.0-1f6feb" alt="tModLoader 2026.08.3.0">
 <img src="https://img.shields.io/badge/Terraria-1.4.4.9-2ea44f" alt="Terraria 1.4.4.9">
@@ -304,6 +304,10 @@ Magic Storage is fully integrated: the book uses Magic Storage's own members and
 - The **Changed** sort puts what was just stored, taken or crafted with first, whoever moved it, you or another
   player. The times are kept per character and world.
 - On a server the server checks the same rules itself and moves the items.
+- **Shimmer** through the **Storage Aether Interface** (Magic Storage's decrafting interface): every item that changes in
+  Shimmer has a Shimmer tab on its card with what it turns into, by the game's own rules (and Calamity's). With that
+  interface in a network in reach, the card, How to Get and the quick search shimmer it straight from the network, and
+  the results go back into it.
 
 <p align="center">
 <img src="docs/screenshots/storage-remote.png" width="60%" alt="A remote network through Portable Access">

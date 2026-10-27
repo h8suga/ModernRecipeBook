@@ -130,12 +130,21 @@ How to Get). The ones that show something open the book there, through its histo
   crafted now → **Craft ×1** (Shift+click: the most), one nearby storage holds → **Take** (a stack; right click: one), one
   with a recipe → **Track** / **Untrack**, everything else → **Open** (shown only on the row in hand: a click on the row
   opens it already). The row's other actions appear as small buttons while it is hovered (Track, Favorite, How to Get,
-  Used in; a mob's Stats and Favorite; a goal's Untrack and How to Get). A click on the row's body opens it.
+  Used in, Shimmer with the Decrafting Interface's icon; a mob's Stats and Favorite; a goal's Untrack and How to Get). A
+  click on the row's body opens it.
 - **The preview** lists them all: Open, Craft ×1, Craft ×Max, Take, Deposit (its stacks from slots 10-49, as Deposit All
-  takes them), Track / Track Set (armor), Favorite, How to Get, Used in, Contents (containers), "Before: <boss>" (the
-  stage that first lists it), Link in chat (`ItemTagHandler.GenerateTag`); for a mob Open card, Stats, Favorite,
-  "Before: <this boss>", and the boss's summon item's Craft / How to Get / Track (`BookBossInfo`: Boss Checklist, else
-  Calamity's registrations).
+  takes them), Shimmer / Shimmer All, Track / Track Set (armor), Favorite, How to Get, Used in, Contents (containers),
+  "Before: <boss>" (the stage that first lists it), Link in chat (`ItemTagHandler.GenerateTag`); for a mob Open card,
+  Stats, Favorite, "Before: <this boss>", and the boss's summon item's Craft / How to Get / Track (`BookBossInfo`: Boss
+  Checklist, else Calamity's registrations). The grid holds 11; what is past that (Link in chat first) is left out.
+- **Shimmer / Shimmer All** (`BookShimmer`, through a Magic Storage Decrafting Interface in reach): offered only
+  when the item can be shimmered from the book now (`BookShimmer.Reason` is ""), as Craft is offered only for an item that
+  can be crafted now; without an interface in reach, with none in its network, before the boss that unlocks it or with
+  fewer than one step's worth (a decraft of a recipe that makes 10 takes 10) the row and the preview look as before, and
+  the card says why. Shimmer takes one step, Shimmer All `BookShimmer.Max` (Shift+click on Shimmer does the same). The
+  tooltip says what it becomes ("Iron Bar ×50 → Iron Ore ×150", "→ coin luck", "→ Faeling released", the first three
+  ingredients) and the network it takes from with its count; names there are plain, as the Craft tooltip's sources are.
+  The result line (`BookCrafting.LastMessage`) is the footer's, as a craft's. No key: the card's chords have none for it.
 - **Keys are the card's:** Ctrl+Enter the row's action (craft as in the card; take as on Storage for an item that cannot
   be crafted now), Ctrl+Shift+Enter craft the most, Alt+T track, Alt+F favorite, Alt+G How to Get, Alt+U Used in (a mob's
   stats), Shift+Enter Used in (as Shift+click in the grid). Ctrl+Enter used to open How to Get here; that is Alt+G now,

@@ -1,0 +1,23 @@
+// The item card's Shimmer mode and the Shimmer buttons of the card and of How to Get (RecipeBookSystem.Shimmer, over
+// BookShimmer). Counts come formatted; {0} of AfterBoss is the boss, of NeedsInterface and HowItWorks the Decrafting
+// Interface's own name.
+Mode: Shimmer
+ModeTip: What it turns into in Shimmer · Alt+U
+TurnsInto: In Shimmer it turns into:
+TurnsBackInto: In Shimmer it turns back into:
+TurnBackIntoEvery: In Shimmer every {0} turn back into:
+CoinLuck: Coin luck
+CoinLuckBody: It raises your luck for a while
+EachCoinGives: In Shimmer each coin gives:
+SetsFree: In Shimmer it sets free:
+BringsToTown: In Shimmer it brings to town:
+AfterBoss: Shimmers after {0}
+NeedsInterface: Needs a {0}
+NoneStored: None in Magic Storage
+HowItWorks: Shimmer from the book takes the item out of a Magic Storage network with a {0} in reach and puts what comes out back in
+ShimmerThisManyTimes: Shimmer this many times per click
+AsManyAsThereAre: As many as the network holds · Shift+click
+Shimmer: Shimmer
+ShimmerTimes: Shimmer ×{0}
+TakesFrom: Takes {0} from {1}, {2} there
+ShiftClickAll: Shift+click: all {0}

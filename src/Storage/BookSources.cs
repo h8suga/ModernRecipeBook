@@ -191,6 +191,9 @@ public sealed class BookSources : ModSystem
 
 	private static readonly List<bool> NetworkCreative = new List<bool>();
 
+	// Per counted network: it has a Decrafting Interface (BookShimmer shimmers only in such a network).
+	private static readonly List<bool> NetworkDecrafting = new List<bool>();
+
 	private static readonly List<(int Total, int Used, int Inactive)> NetworkCells = new List<(int, int, int)>();
 
 	// Cells of the other counted containers, set by Rebuild: [0] the open world chest, [1..4] Piggy Bank, Safe,
@@ -315,6 +318,39 @@ public sealed class BookSources : ModSystem
 	internal static List<List<Item>> CraftStations => (Enabled && Stations.Count > 0) ? Stations : null;
 
 	internal static bool HasStorage => Enabled && BookMagicStorage.Writable && ServerWritable && Networks.Count > 0;
+
+	// The counted networks with a Decrafting Interface (BookShimmer) and how many of `type` each holds, any prefix; a
+	// counted Creative Storage Unit holds it without end.
+	internal static IEnumerable<(BookMagicStorage.Network Network, long Count)> ShimmerNetworks(int type)
+	{
+		if (!HasStorage || !BookMagicStorage.Shimmers)
+		{
+			yield break;
+		}
+		for (int n = 0; n < Networks.Count && n < NetworkDecrafting.Count; n++)
+		{
+			if (!NetworkDecrafting[n])
+			{
+				continue;
+			}
+			long count = 0;
+			if (n < NetworkCreative.Count && NetworkCreative[n])
+			{
+				count = long.MaxValue;
+			}
+			else
+			{
+				foreach (Item item in NetworkItems[n])
+				{
+					if (item.type == type)
+					{
+						count += item.stack;
+					}
+				}
+			}
+			yield return (Networks[n], count);
+		}
+	}
 
 	// The server's Magic Storage writes work (its mirror flags; always so in single player, where they are this game's).
 	private static bool ServerWritable = true;
@@ -528,6 +564,7 @@ public sealed class BookSources : ModSystem
 		}
 		NetworkCreative.Clear();
 		NetworkCells.Clear();
+		NetworkDecrafting.Clear();
 		int signature = HashCode.Combine(Networks.Count, Stations.Count);
 		foreach (int bank in Banks)
 		{
@@ -546,7 +583,9 @@ public sealed class BookSources : ModSystem
 			// A unit added, upgraded or switched off changes the cells without changing the items.
 			(int Total, int Used, int Inactive) cells = BookMagicStorage.Cells(Networks[n].Heart);
 			NetworkCells.Add(cells);
-			signature = HashCode.Combine(signature, Networks[n].Position, Networks[n].Name, creative, items.Count, cells);
+			bool decrafting = BookMagicStorage.HasDecrafting(Networks[n].Heart);
+			NetworkDecrafting.Add(decrafting);
+			signature = HashCode.Combine(signature, Networks[n].Position, Networks[n].Name, creative, items.Count, cells, decrafting);
 			signature = HashCode.Combine(signature, Networks[n].Nearby, Networks[n].ViaWindow, Networks[n].Carrier);
 			foreach (Item item in items)
 			{
@@ -2708,6 +2747,9 @@ public sealed class BookSources : ModSystem
 			OnStacked(status, moved, remote);
 			break;
 		}
+		case BookMessage.NearbyShimmered:
+			BookShimmer.Receive(reader);
+			break;
 		case BookMessage.NearbyGive:
 		{
 			int id = reader.ReadInt32();
