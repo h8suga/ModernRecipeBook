@@ -1,90 +1,57 @@
 [h1]Modern Recipe Book[/h1]
 [b]Version 1.18.0[/b] · tModLoader 2026.08 · Calamity 2.2.4 · Magic Storage 0.7.0.11 · [url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]what changed[/url]
 
-A recipe book, bestiary and storage browser for every item and mob in Terraria and its mods. Press [b]Mouse3[/b] (middle click) and the book opens over the game. Everything in it is read from the game and its mods, not from a wiki: recipes, drops, bags, shops, crates, chests, fishing, world generation and spawn rules.
+A recipe book, bestiary and storage browser for every item and mob in Terraria and its mods. Press [b]Mouse3[/b] and the book opens over the game. Everything is read from the game and its mods, not from a wiki.
 
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/items.png[/img]
 
 [h2]New in 1.18[/h2]
-[h3]Ctrl+F searches everything[/h3]
-From anywhere in the game, with the book open or not: items, storage, recipes, the Bestiary, bosses, tracked goals, categories and mods in one window.
 [list]
-[*]By name in any language, by what a thing is ("buff", "wings", the buff it gives, a class) and by item descriptions.
-[*]Every row has its action one click away: [b]Craft[/b], [b]Take[/b] from storage, [b]Track[/b] or [b]Open[/b], with the card's keys (Ctrl+Enter, Alt+T, Alt+G...).
-[*]Under a match: who drops it, which bag holds it, what a boss drops. ">" lists the book's commands.
+[*][b]Ctrl+F searches everything[/b] from anywhere in the game: items, storage, recipes, the Bestiary, bosses, goals, categories and mods, by name, by what a thing is ("buff", "wings") and by descriptions. Every row has Craft, Take, Track or Open one click away.
+[*][b]Everything is a link[/b]: every boss, mob, biome, item, mod and stage the book names opens where it lives; Back returns.
+[*][b]Contents[/b] of Treasure Bags, crates, presents and geodes; [b]chests[/b] in How to Get (299 items); drop conditions in plain words.
+[*]Coins go to the Piggy Bank first, right stages for crafted items, multiplayer storage fixes, Recent counts what you crafted.
 [/list]
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/quick-search.png[/img]
-
-[h3]Everything is a link[/h3]
-Every boss, mob, biome, event, item, mod, stage and goal the book names opens where it lives, and Back returns: the bosses in loot conditions, a mob's stage and biome, How to Get's sellers, rods and pickaxes, recipe conditions, the tracker, the Storage tab's banks and networks.
-[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/links.png[/img]
-
-[h3]What a bag holds, where the world hides it[/h3]
-[list]
-[*][b]Contents[/b]: Treasure Bags, crates, presents and geodes list what they hold, with your world's chances.
-[*]How to Get knows the chests world generation fills, vanilla's and Calamity's: 299 items show the chest, chance and stack.
-[*]Drop conditions in plain words: "After Astrum Aureus · not met yet", "Only the first kill · already past". No more "Special condition" or "Varies by condition".
-[/list]
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/contents.png[/img]
-[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/chest-sources.png[/img]
 
-[h3]And more[/h3]
-[list]
-[*]Coins go to the Piggy Bank first when you deposit.
-[*]Stages are right for crafted items: nothing shows before its own recipe.
-[*]Multiplayer storage: no items lost during Quick Stack, password-protected Magic Storage works for every player.
-[*]Recent shows how many you crafted and when.
-[/list]
+[h2]Everything it does[/h2]
+[b]Six tabs[/b]: Items (every item with its card), Recipes, Bestiary, Storage, Recent and Tracking.
 
-[h2]Highlights[/h2]
-[list]
-[*][b]Six tabs in one window[/b]: Items, Recipes, Bestiary, Storage, Recent crafts and Tracking.
-[*][b]How to Get[/b] for any item: recipes, drops, bags, crates, chests, shops, fishing, shimmer and the world itself, with the drop chances of your world's difficulty and seed.
-[*][b]It knows where you are in the game[/b]: every item, recipe and mob has the boss it waits for, and "Before: <boss>" shows exactly what you can get right now. "Next boss" follows your world by itself.
-[*][b]Craft from everything around you[/b]: inventory, chests, banks and Magic Storage, even a network far away.
-[*][b]Bestiary[/b] with animated portraits, drops, where and after which boss a mob spawns, and the stats you have earned.
-[*]Sorts by damage, defense, healing, tool power and more, class buttons and weapon traits (homing, piercing, through walls...), a crafting station filter and "Craftable now".
-[*]Tracking cards or compact lines under the minimap, map teleport and shared map markers.
-[*]Every action has a shortcut; F1 lists them all. Back and Forward walk through everything you opened.
-[/list]
+[b]Search and filters[/b]: by name, ID, mod or the item's own text; a mod filter; categories with icons; favorites; sorts by damage, defense, healing, tool power, flight time, rarity, price and crafting station; class buttons (melee, ranged, magic, summoner, rogue); weapon traits (homing, piercing, through walls, auto attack); "Craftable now"; untick the stations you lack. Every filter stays until you change it.
 
-[h2]Built-in Magic Storage and Calamity support[/h2]
-[b]Magic Storage[/b]: every network in reach is part of the Storage tab, with its cells and its Crafting Interface stations. Craft straight from it, bring a far network in with a Portable Access, and Quick Stack, Deposit All and Restock into it, the remote one included.
+[b]Progression[/b]: every item, recipe and mob has the boss it waits for. "Before: <boss>" shows what you can get right now, "Next boss" follows your world, and the hint says why ("Spectre Bar ← Ectoplasm ← Dungeon Spirit"). Difficulty (Classic, Expert, Master, Revengeance, Death) and seed decide which drops exist.
 
-[b]Calamity[/b]: every Calamity boss is a progression step (no Boss Checklist needed), Calamity's biomes and the Acid Rain tiers sort the Bestiary, spawn rules and chest loot are read from Calamity's own code, drop chances follow Revengeance and Death, and the Rogue class has its own button.
+[b]Item card[/b]: the recipe with have/need counted from everything nearby, x1/x5/x10/Max, Craft pulls the materials by itself, Track and Favorite; Used in; Contents; recipes that differ in one ingredient as "A or B"; the armor set bonus; its category, clickable.
 
+[b]How to Get[/b]: recipes, drops with your world's chances and conditions, bags, crates, chests, shops, fishing, shimmer, mining, trees, plants, world generation and the bug net.
+
+[b]Storage[/b]: chests, banks and Magic Storage networks within 10–50 tiles are one sorted list. Take like from a chest, Deposit All, Quick Stack and Restock, craft straight from it; a Portable Access brings a far network in.
+
+[b]Bestiary[/b]: every mob by kind, event and biome, with an animated portrait, its own drops, where and after which boss it spawns, its stats once met and "Recently seen". Mouse3 on a mob in the world opens it.
+
+[b]Tracking[/b]: up to five goals or armor sets on screen, as cards or compact lines under the minimap.
+
+[b]Map[/b]: Mouse3 on the full map teleports to an explored spot; shared markers everyone sees.
+
+[b]Keys[/b]: every action has a shortcut (F1 lists them), Back and Forward (Mouse4/5) walk through everything you opened, and hovering any item row shows its own tooltip.
+
+[b]Magic Storage and Calamity built in[/b]: every network is part of Storage with its Crafting Interface stations; every Calamity boss is a step (no Boss Checklist needed), Calamity's biomes, Acid Rain, spawn rules and chest loot come from its own code, and Rogue has its button.
+
+[b]Multiplayer[/b]: Host & Play and servers; the server moves the items, so nothing is duplicated or lost.
+
+[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/links.png[/img]
 [img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/storage.png[/img]
+[img]https://raw.githubusercontent.com/h8suga/ModernRecipeBook/main/docs/screenshots/bestiary-spawns.png[/img]
 
-[h2]Compatibility[/h2]
-[table]
-[tr][th]Tested with[/th][th]Version[/th][/tr]
-[tr][td]Terraria[/td][td]1.4.4.9[/td][/tr]
-[tr][td]tModLoader[/td][td]2026.08.3.0 (stable)[/td][/tr]
-[tr][td]Calamity Mod[/td][td]2.2.4, optional, fully supported[/td][/tr]
-[tr][td]Magic Storage[/td][td]0.7.0.11, optional, fully supported[/td][/tr]
-[/table]
-The mod is needed on the server and on every client; players joining a server download it. Without Calamity or Magic Storage it works with whatever the game has.
+[h2]Compatibility and languages[/h2]
+Terraria 1.4.4.9, tModLoader 2026.08.3.0. Calamity 2.2.4 and Magic Storage 0.7.0.11 are optional and fully supported. Needed on the server and every client; joining players download it. English and Russian; translatable like Calamity ([url=https://github.com/h8suga/ModernRecipeBook/blob/main/TRANSLATING.md]TRANSLATING.md[/url]).
 
-[h2]Languages[/h2]
-English and Russian, including everything the book writes about items, sources and mobs. Every text is a whole phrase in localization files, so the book can be translated into any language the way Calamity is: see [url=https://github.com/h8suga/ModernRecipeBook/blob/main/TRANSLATING.md]TRANSLATING.md[/url].
-
-[h2]Links[/h2]
-[list]
-[*][url=https://github.com/h8suga/ModernRecipeBook]Source code, every feature and all screenshots on GitHub[/url]
-[*][url=https://github.com/h8suga/ModernRecipeBook/blob/main/CHANGELOG.md]Changelog[/url]
-[*]Bugs and ideas: [url=https://github.com/h8suga/ModernRecipeBook/issues]GitHub Issues[/url] or the comments below
-[/list]
+[url=https://github.com/h8suga/ModernRecipeBook]GitHub: source, every feature, screenshots[/url] · [url=https://github.com/h8suga/ModernRecipeBook/issues]bugs and ideas[/url]
 
 [h2]На русском[/h2]
-[b]Версия 1.18.0.[/b] Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском. Открывается на колёсико мыши (Mouse3). Показывает, где взять любой предмет и после какого босса он доступен, крафтит из сундуков и Magic Storage рядом (даже из удалённой сети), полностью поддерживает Calamity и Magic Storage и работает в мультиплеере.
-[b]Новое в 1.18:[/b]
-[list]
-[*]Ctrl+F из любого места игры ищет по всему сразу: по названию, по смыслу («баф», «крылья») и по описаниям, с кнопками «Создать» и «Взять» прямо в строке.
-[*]Каждое имя в книге — ссылка: боссы, мобы, биомы, предметы, моды, этапы; «Назад» возвращает.
-[*]Содержимое мешков, ящиков и жеод; сундуки мира в «Где взять» (299 предметов); условия добычи понятными словами.
-[*]Монеты сначала в копилку, верные этапы для крафта, исправления хранилища в мультиплеере.
-[/list]
-Подробности и скриншоты — на [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]GitHub[/url].
+[b]Версия 1.18.0.[/b] Книга рецептов, бестиарий и обзор хранилищ для каждого предмета и моба Terraria и её модов, полностью на русском, открывается на Mouse3. Где взять любой предмет и после какого босса он доступен, крафт из сундуков, копилок и Magic Storage рядом (даже из удалённой сети), бестиарий с добычей и появлением, отслеживание целей, телепорт по карте и метки, полная поддержка Calamity и Magic Storage, мультиплеер.
+[b]Новое в 1.18:[/b] Ctrl+F ищет по всему сразу (по названию, по смыслу «баф», «крылья» и по описаниям) с кнопками «Создать» и «Взять»; каждое имя в книге — ссылка; содержимое мешков и ящиков; сундуки мира в «Где взять»; условия добычи понятными словами; монеты сначала в копилку. Подробности — [url=https://github.com/h8suga/ModernRecipeBook/blob/main/README.ru.md]на GitHub[/url].
 
 [hr][/hr]
 Free software under the [url=https://github.com/h8suga/ModernRecipeBook/blob/main/LICENSE]GNU GPL v3.0[/url]. Made by h8suga; psychological1nstability laid the foundation of the mod.
