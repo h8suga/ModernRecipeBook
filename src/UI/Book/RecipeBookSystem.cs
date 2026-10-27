@@ -4938,7 +4938,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			HandleMobCardClick();
 			return;
 		}
-		if (StorageView || SelectedItem == null || HandleCardNavClick() || HandleArmorSetClick() || HandleTrackButton())
+		if (StorageView || SelectedItem == null || HandleCardNavClick() || HandleArmorSetClick() || HandleCardCategoryClick() || HandleTrackButton())
 		{
 			return;
 		}
@@ -6846,20 +6846,21 @@ public sealed partial class RecipeBookSystem : ModSystem
 		DrawTrackButton(sb, r);
 	}
 
-	// Header: icon, name and "<item's own mod> · stage". An armor set shows its three pieces instead.
+	// Header: icon, name, "<item's own mod> · <category path>" and the stage (CardCategoryLine); a mod and stage that
+	// fit one line share it when the item has no category. An armor set shows its three pieces instead.
 	private static void DrawDetailHeader(SpriteBatch sb, Item chosen, Recipe r)
 	{
 		string name = chosen.Name + ((r != null && r.createItem.stack > 1) ? (" ×" + r.createItem.stack) : "");
 		string mod = ModName(chosen.ModItem?.Mod.Name ?? "Terraria");
 		string stage = StageName(chosen, (CardItemType > 0) ? null : r);
 		Recipe stageRecipe = (CardItemType > 0) ? null : r;
+		(BookRect line, string lead, string tail) = CardCategoryLine(chosen, r);
 		if (DrawArmorSet(sb, chosen))
 		{
 			BookRect title = BookGeometry.ArmorTitle;
 			BookRect subtitle = BookGeometry.ArmorSubtitle;
 			FixedLabel(sb, name, title.X, title.Y, TextColor, 1.05f, title.Width, title.Height);
-			FixedLabel(sb, mod + " · " + stage, subtitle.X, subtitle.Y, Muted, 0.8f, subtitle.Width, subtitle.Height);
-			if (!MenuOpen && subtitle.Contains(Mouse.X, Mouse.Y))
+			if (!DrawCardCategoryLine(sb, chosen, lead, tail, line) && !MenuOpen && subtitle.Contains(Mouse.X, Mouse.Y))
 			{
 				MouseTip(StageExplanation(chosen, stageRecipe));
 			}
@@ -6871,16 +6872,15 @@ public sealed partial class RecipeBookSystem : ModSystem
 		Box(sb, tile, Raised, border: true, 10f);
 		Icon(sb, chosen, tile.X + 8f, tile.Y + 8f, 40f);
 		bool armor = HasArmorDefense(chosen);
-		bool wrap = TextWidth(mod + " · " + stage, 0.8f) > BookGeometry.DetailHeaderSub.Width;
 		string traits = TraitLine(chosen);
-		int lines = 1 + ((armor || wrap) ? 1 : 0) + ((armor && wrap) ? 1 : 0) + ((traits.Length > 0) ? 1 : 0);
-		float y = tile.Y + (tile.Height - (26f + lines * 20f)) / 2f;
+		(float y, bool wrap) = DetailHeaderText(chosen, mod, stage);
 		FixedLabel(sb, name, 880f, y, TextColor, 1.05f, 216f, 26f);
 		y += 26f;
 		BookRect sub = new BookRect(880f, y, 216f, wrap ? 40f : 20f);
+		bool linkHover = false;
 		if (wrap)
 		{
-			FixedLabel(sb, mod, 880f, y, Muted, 0.8f, 216f, 20f);
+			linkHover = DrawCardCategoryLine(sb, chosen, lead, tail, line);
 			FixedLabel(sb, stage, 880f, y + 20f, Muted, 0.8f, 216f, 20f);
 			y += 40f;
 		}
@@ -6889,7 +6889,7 @@ public sealed partial class RecipeBookSystem : ModSystem
 			FixedLabel(sb, mod + " · " + stage, 880f, y, Muted, 0.8f, 216f, 20f);
 			y += 20f;
 		}
-		if (!MenuOpen && sub.Contains(Mouse.X, Mouse.Y))
+		if (!MenuOpen && !linkHover && sub.Contains(Mouse.X, Mouse.Y))
 		{
 			MouseTip(StageExplanation(chosen, stageRecipe));
 		}
@@ -6902,6 +6902,16 @@ public sealed partial class RecipeBookSystem : ModSystem
 		{
 			DrawTraitLine(sb, chosen, traits, new BookRect(880f, y, 216f, 20f));
 		}
+	}
+
+	// The header's text centered on the icon: the name, the mod and stage (two lines with a category path, or when
+	// they do not fit one), the defense and the traits.
+	private static (float Top, bool Wrap) DetailHeaderText(Item chosen, string mod, string stage)
+	{
+		bool wrap = BookCategoryPath.Of(chosen.type).Count > 0 || TextWidth(mod + " · " + stage, 0.8f) > BookGeometry.DetailHeaderSub.Width;
+		int lines = (wrap ? 2 : 1) + (HasArmorDefense(chosen) ? 1 : 0) + ((TraitLine(chosen).Length > 0) ? 1 : 0);
+		BookRect tile = BookGeometry.DetailHeaderIcon;
+		return (tile.Y + (tile.Height - (26f + lines * 20f)) / 2f, wrap);
 	}
 
 	private static void DrawRecipeBlock(SpriteBatch sb, Item chosen, Recipe r, float top)
