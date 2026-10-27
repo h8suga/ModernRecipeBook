@@ -249,6 +249,13 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 		return new BookRect(amount.X - 84f, amount.Y, 76f, 32f);
 	}
 
+	// A "shimmer from X" row's Shimmer button, in the chance column such a row leaves empty, as wide as its label.
+	internal static BookRect AcquisitionShimmer(int index, float width)
+	{
+		BookRect chance = AcquisitionChance(index);
+		return new BookRect(chance.X + chance.Width - width, chance.Y + 2f, width, 28f);
+	}
+
 	internal static BookRect AcquisitionName(int index)
 	{
 		BookRect row = AcquisitionRow(index);
@@ -488,6 +495,20 @@ internal readonly record struct BookGeometry(float Left, float Top, float Scale)
 	internal static BookRect DetailListPager => new BookRect(848f, 524f, 212f, 28f);
 
 	internal static BookRect DetailListNext => new BookRect(1068f, 524f, 28f, 28f);
+
+	// The card's Shimmer mode: the batch bar (or why it cannot shimmer now) right above the Shimmer button, which takes
+	// the Craft button's place; the list ends above them, its pager taking the last row's place.
+	internal static BookRect ShimmerBatchBar => new BookRect(812f, 524f, 284f, 28f);
+
+	internal const float ShimmerListBottom = 516f;
+
+	internal const float ShimmerPagedBottom = 480f;
+
+	internal static BookRect ShimmerPrevious => new BookRect(812f, 488f, 28f, 28f);
+
+	internal static BookRect ShimmerPager => new BookRect(848f, 488f, 212f, 28f);
+
+	internal static BookRect ShimmerNext => new BookRect(1068f, 488f, 28f, 28f);
 
 	// A merged recipe's "A or B" ingredient row: two lines.
 	internal const float DetailRowTallHeight = 38f;

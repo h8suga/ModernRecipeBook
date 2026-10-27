@@ -7,5 +7,7 @@ internal enum BookCardMode
 	// The recipes that take the item.
 	UsedIn,
 	// What the item holds: offered only for an item with loot rules of its own (a Treasure Bag, a crate, a geode).
-	Contents
+	Contents,
+	// What the item turns into in Shimmer (BookShimmer.For): offered only for an item that changes there.
+	Shimmer
 }
